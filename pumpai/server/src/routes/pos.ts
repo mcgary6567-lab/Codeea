@@ -1,6 +1,6 @@
 /** Endpoints for the big-button POS used by salesmen. */
 import { Router } from "express";
-import { all, get, type Row } from "../db.js";
+import { all, get, pkDate, type Row } from "../db.js";
 import { h, tid, requirePerm, scopedStation } from "../auth.js";
 import { AppError, currentPrices, UNDO_SECONDS } from "../services.js";
 import { shiftSummary } from "../shifts.js";
@@ -54,6 +54,8 @@ pos.get("/pos/today", h((req) => {
     : get("SELECT * FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", stationId);
   return {
     server_time: new Date().toISOString(), undo_seconds: UNDO_SECONDS,
+    // salesman must mark attendance before the shift can be started
+    attendance: u.role === "salesman" ? (get("SELECT id, check_in FROM attendance WHERE user_id=? AND day=?", u.id, pkDate()) ?? null) : null,
     station: get("SELECT id, name FROM stations WHERE id=?", stationId),
     prices: Object.fromEntries(Object.entries(currentPrices(tid(req))).map(([k, v]) => [k, v.price])),
     products: [...new Set(all("SELECT product FROM tanks WHERE station_id=?", stationId).map((t) => t.product))],

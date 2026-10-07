@@ -307,6 +307,9 @@ operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
   const attendant = isSalesman ? req.user!.name : b.attendant;
   if (!stationId || !attendant) throw new AppError(400, "Station and attendant are required");
   const st = ownStation(tid(req), stationId);
+  // a salesman must mark attendance (check-in) first, then the meter reading / shift
+  if (isSalesman && !get("SELECT id FROM attendance WHERE user_id=? AND day=?", req.user!.id, pkDate()))
+    throw new AppError(400, "Mark your attendance first · پہلے حاضری لگائیں");
   if (get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=?", stationId, attendant)) throw new AppError(400, "This attendant already has an open shift");
   const busy = busyNozzles(stationId);
   const stationNozzles = all("SELECT n.*, t.product, t.id tank_id FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.meter_no", stationId)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet } from "lucide-react";
+import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera } from "lucide-react";
 import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
 import { Loading, useAction, useToast } from "../components/ui";
@@ -9,6 +9,7 @@ import { num, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
 import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
+import { LiveSelfie } from "../components/LiveSelfie";
 import { PhotoButton, VoiceButton, photoUrl } from "../components/Capture";
 import { speak } from "../components/VoiceShell";
 import { CardScanner } from "../components/CardScanner";
@@ -154,6 +155,8 @@ export default function Pos() {
   if (!isSalesman && !stations.data) return <Loading />;
   if (!d) return <Loading />;
   const shiftOpen = Boolean(d.shift);
+  // a salesman marks attendance first, then the meter reading (shift), then can sell
+  const checkedIn = !isSalesman || Boolean(d.attendance);
 
   return (
     <div className="-m-4 min-h-[calc(100vh-56px)] bg-slate-100 p-3 lg:-m-6 lg:min-h-screen lg:p-4">
@@ -345,7 +348,9 @@ export default function Pos() {
       </div>
 
       {/* blocking states */}
-      {isSalesman && !shiftOpen && !training && <Blocker><StartShift onStarted={() => today.reload()} />
+      {isSalesman && !checkedIn && !training && <Blocker><AttendanceStep onDone={() => today.reload()} />
+        <button onClick={toggleTraining} className="mt-3 w-full rounded-xl bg-amber-100 py-3 text-lg font-semibold text-amber-900">🎓 Practice first (training, nothing saved) · <Ur>پہلے مشق</Ur></button></Blocker>}
+      {isSalesman && checkedIn && !shiftOpen && !training && <Blocker><StartShift onStarted={() => today.reload()} />
         <button onClick={toggleTraining} className="mt-3 w-full rounded-xl bg-amber-100 py-3 text-lg font-semibold text-amber-900">🎓 Practice first (training, nothing saved) · <Ur>پہلے مشق</Ur></button></Blocker>}
       {priceLock && shiftOpen && !training && (
         <Blocker>
@@ -413,6 +418,27 @@ const Blocker = ({ children }: { children: ReactNode }) => (
   // my-auto centres a short box but lets a tall one scroll from its top (items-center would cut the top off)
   <div className="fixed inset-0 z-40 flex justify-center overflow-y-auto bg-slate-900/60 p-3 sm:p-6 lg:left-60"><div className="my-auto w-full max-w-3xl rounded-2xl bg-white p-4 text-center shadow-xl sm:p-6">{children}</div></div>
 );
+
+/** Step 1 for a salesman: mark attendance with a live selfie + location, before the meter reading. */
+function AttendanceStep({ onDone }: { onDone: () => void }) {
+  const [cam, setCam] = useState(false);
+  const toast = useToast();
+  const mark = async (p: { photo_id: number; lat: number; lng: number; accuracy: number }) => {
+    // throws on failure so the camera stays open with the message
+    await api("/attendance/check-in", { body: p });
+    setCam(false); toast("ok", "Attendance marked · حاضری لگ گئی"); onDone();
+  };
+  return (
+    <>
+      <div className="text-6xl">🪪</div>
+      <h2 className="mt-2 text-xl font-bold sm:text-2xl">First mark your attendance <span className="block text-lg sm:inline sm:text-2xl"><span className="hidden sm:inline">· </span><Ur>پہلے حاضری لگائیں</Ur></span></h2>
+      <p className="mb-3 mt-1 text-sm text-slate-600">A live selfie and your location. Then you will enter the meter reading. <span className="block sm:inline"><Ur>سیلفی اور لوکیشن، پھر میٹر ریڈنگ</Ur></span></p>
+      <button onClick={() => setCam(true)} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-3 py-4 text-xl font-bold text-white active:scale-95">
+        <Camera size={26} className="shrink-0" /> Check in with selfie · <Ur>حاضری لگائیں</Ur></button>
+      <LiveSelfie open={cam} title="Check in · selfie + location" onClose={() => setCam(false)} onDone={mark} />
+    </>
+  );
+}
 
 function StartShift({ onStarted }: { onStarted: () => void }) {
   return (
