@@ -23,7 +23,8 @@ type TableDef = { title: string; rows: any[]; cols: Col[] };
 
 function Table({ title, rows, cols }: TableDef) {
   return (
-    <div className="card overflow-hidden break-inside-avoid">
+    // a short table stays on one page; a long one runs on (else it jumps whole to the next page and leaves half a page blank)
+    <div className={`card overflow-hidden ${rows.length <= 12 ? "break-inside-avoid" : ""}`}>
       <h3 className="px-4 pb-2 pt-3 text-sm font-semibold">{title} <span className="font-normal text-slate-400">({rows.length})</span></h3>
       {rows.length ? (<>
         {/* phone: one card per row — names on top, every number with its label */}
@@ -41,7 +42,7 @@ function Table({ title, rows, cols }: TableDef) {
         <div className="hidden max-h-[480px] overflow-auto sm:block print:block print:max-h-none">
           <table className="w-full">
             <thead className="sticky top-0"><tr>{cols.map((c) => <th key={c.h} className={`th ${c.right ? "text-right" : ""}`}>{c.h}</th>)}</tr></thead>
-            <tbody>{rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c.h} className={`td text-sm ${c.right ? "text-right tabular-nums" : ""}`}>{c.v(r)}</td>)}</tr>)}</tbody>
+            <tbody>{rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c.h} className={`td text-sm ${c.right || c.h === "Date" ? "whitespace-nowrap" : ""} ${c.right ? "text-right tabular-nums" : ""}`}>{c.v(r)}</td>)}</tr>)}</tbody>
           </table>
         </div>
       </>) : <Empty>Nothing in this period</Empty>}
@@ -99,7 +100,7 @@ export default function Reports() {
 
       <div className="flex flex-wrap items-end gap-2 print:hidden">
         {PRESETS.map((p) => (
-          <button key={p.key} onClick={() => setPreset(p.key)} className={`rounded-full px-4 py-1.5 text-sm ${preset === p.key ? "bg-brand-600 text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>{p.label}</button>
+          <button key={p.key} onClick={() => setPreset(p.key)} className={`min-h-10 rounded-full px-4 py-1.5 text-sm ${preset === p.key ? "bg-brand-600 text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>{p.label}</button>
         ))}
         {preset === "custom" && (
           <div className="flex flex-wrap items-end gap-2">
