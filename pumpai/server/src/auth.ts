@@ -14,7 +14,7 @@ import { AppError } from "./services.js";
  *  - wholesale : wholesale officer — only the wholesale supply module (supplies, returns, payments, statements)
  *  - cashier   : the cash counter — money received and paid, cheques, banks, cash from the salesmen, day book
  */
-export const ROLES = ["admin", "manager", "salesman", "wholesale", "cashier"] as const;
+export const ROLES = ["admin", "manager", "salesman", "wholesale", "cashier", "staff"] as const;
 export type Role = (typeof ROLES)[number];
 export interface AuthUser { id: number; tenant_id: number; name: string; email: string; role: Role; station_id: number | null }
 

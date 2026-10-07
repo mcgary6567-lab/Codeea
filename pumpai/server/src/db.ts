@@ -75,7 +75,7 @@ export function migrate() {
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
     name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman','wholesale','cashier')),
+    role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman','wholesale','cashier','staff')),
     station_id INTEGER, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
   );
   CREATE TABLE IF NOT EXISTS stations (
@@ -315,6 +315,7 @@ export function migrate() {
     ok INTEGER NOT NULL, value REAL, note TEXT, photo_id INTEGER, done_by TEXT, created_at TEXT NOT NULL)`);
   // attendance and leave
   addColumn("users", "duty_start", "TEXT"); // "08:00"
+  addColumn("users", "job_title", "TEXT"); // e.g. "Chowkidar (night)", "Cleaner" — shown in payroll
   addColumn("users", "weekly_off", "INTEGER"); // 0 = Sunday … 6 = Saturday
   db.exec(`CREATE TABLE IF NOT EXISTS attendance (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, station_id INTEGER, day TEXT NOT NULL,
@@ -542,9 +543,9 @@ export function migrate() {
 /** Allow the cashier role on databases made before it (the users table keeps every column it has today). */
 function addCashierRole() {
   const ddl = get<{ sql: string }>("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")?.sql ?? "";
-  if (ddl.includes("'cashier'")) return;
+  if (ddl.includes("'cashier'") && ddl.includes("'staff'")) return;
   const indexes = all<{ sql: string }>("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='users' AND sql IS NOT NULL").map((i) => i.sql);
-  const fresh = ddl.replace("'wholesale')", "'wholesale','cashier')").replace(/CREATE TABLE\s+"?users"?/i, "CREATE TABLE users_new");
+  const fresh = ddl.replace("'wholesale')", "'wholesale','cashier','staff')").replace("'wholesale','cashier')", "'wholesale','cashier','staff')").replace(/CREATE TABLE\s+"?users"?/i, "CREATE TABLE users_new");
   db.exec(`PRAGMA foreign_keys = OFF; BEGIN; ${fresh}; INSERT INTO users_new SELECT * FROM users; DROP TABLE users; ALTER TABLE users_new RENAME TO users; ${indexes.map((x) => x + ";").join(" ")} COMMIT; PRAGMA foreign_keys = ON;`);
 }
 

@@ -4,6 +4,7 @@
  * repayments − salary deductions).
  */
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { commissionForMonth } from "./feedback.js";
 import { loanDue, loansOf, takeInstalments, saveSlip, slipUrl } from "./people.js";
@@ -11,7 +12,7 @@ import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
 import { h, parse, tid, can } from "../auth.js";
 import { bankAccountFor } from "./banks.js";
-import { AppError, round2, pkr } from "../services.js";
+import { AppError, round2, pkr, normalizePhone } from "../services.js";
 import { notify } from "../notifications.js";
 import { attendanceMonth } from "./compliance.js";
 
@@ -40,7 +41,7 @@ function ownUser(tenantId: number, id: number) {
 
 staffRouter.get("/staff", h((req) => {
   const month = pkDate().slice(0, 7);
-  return all(`SELECT u.id, u.name, u.role, u.phone, u.salary, u.active, s.name station_name FROM users u LEFT JOIN stations s ON s.id=u.station_id
+  return all(`SELECT u.id, u.name, u.role, u.job_title, u.phone, u.salary, u.duty_start, u.weekly_off, u.active, s.name station_name FROM users u LEFT JOIN stations s ON s.id=u.station_id
     WHERE u.tenant_id=? ORDER BY u.active DESC, CASE u.role WHEN 'salesman' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, u.name`, tid(req)).map((u) => ({
     ...u, balance: staffBalance(u.id),
     shortages_this_month: round2(get("SELECT COALESCE(SUM(amount),0) s FROM staff_ledger WHERE user_id=? AND type='shortage' AND created_at >= ?", u.id, new Date(`${month}-01T00:00:00+05:00`).toISOString())!.s),
@@ -57,9 +58,38 @@ staffRouter.get("/staff/:id", h((req) => {
 
 staffRouter.patch("/staff/:id", h((req) => {
   const u = ownUser(tid(req), Number(req.params.id));
-  const b = parse(z.object({ salary: z.number().min(0).max(10_000_000).nullable() }), req.body);
-  run("UPDATE users SET salary=? WHERE id=?", b.salary, u.id);
+  const b = parse(z.object({
+    salary: z.number().min(0).max(10_000_000).nullable().optional(),
+    job_title: z.string().max(60).nullable().optional(), duty_start: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+    weekly_off: z.number().int().min(0).max(6).nullable().optional(), phone: z.string().max(30).nullable().optional(),
+    station_id: z.number().nullable().optional(), active: z.boolean().optional(), name: z.string().min(2).max(60).optional(),
+  }), req.body);
+  const m = { ...u, ...b };
+  const pick = (v: any, cur: any) => (v === undefined ? (cur ?? null) : (v ?? null));
+  run("UPDATE users SET name=?, salary=?, job_title=?, duty_start=?, weekly_off=?, station_id=?, active=? WHERE id=?",
+    b.name ?? u.name, pick(b.salary, u.salary), pick(b.job_title, u.job_title),
+    pick(b.duty_start, u.duty_start), pick(b.weekly_off, u.weekly_off),
+    pick(b.station_id, u.station_id), b.active === undefined ? (u.active ?? 1) : b.active ? 1 : 0, u.id);
+  if (b.phone !== undefined) run("UPDATE users SET phone=? WHERE id=?", b.phone ? normalizePhone(b.phone) : null, u.id);
   return ownUser(tid(req), u.id);
+}));
+
+/** Add an employee who does NOT log in to the app (chowkidar / guard, cleaner, electrician…). They flow into payroll, attendance and advances like anyone else. */
+staffRouter.post("/staff/members", h((req) => {
+  if (!can(req.user, "staff.manage")) throw new AppError(403, "Only a manager can add staff");
+  const b = parse(z.object({
+    name: z.string().min(2).max(60), job_title: z.string().max(60).optional().nullable(),
+    salary: z.number().min(0).max(10_000_000).optional().nullable(), phone: z.string().max(30).optional().nullable(),
+    duty_start: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(), weekly_off: z.number().int().min(0).max(6).optional().nullable(),
+    station_id: z.number().optional().nullable(),
+  }), req.body);
+  const t = tid(req);
+  // a synthetic e-mail + random password so the row is valid; this person never logs in (role 'staff' has no access)
+  const email = `staff.${t}.${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}@no-login.pumpai`;
+  const { id } = run(`INSERT INTO users (tenant_id,name,email,password_hash,role,job_title,salary,phone,duty_start,weekly_off,station_id,active,created_at)
+    VALUES (?,?,?,?, 'staff', ?,?,?,?,?,?,1,?)`, t, b.name, email, bcrypt.hashSync(Math.random().toString(36), 10),
+    b.job_title ?? null, b.salary ?? null, b.phone ? normalizePhone(b.phone) : null, b.duty_start ?? null, b.weekly_off ?? null, b.station_id ?? null, now());
+  return ownUser(t, id);
 }));
 
 staffRouter.post("/staff/:id/entry", h(async (req) => {

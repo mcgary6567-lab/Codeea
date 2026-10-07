@@ -97,12 +97,16 @@ const WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function Accounts() {
   const { data, reload } = useApi<any[]>("/staff");
+  const stations = useApi<any[]>("/stations");
+  const { can } = useAuth();
   const [open, setOpen] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
   if (!data) return <Loading />;
   const owed = data.reduce((a, u) => a + Math.max(0, u.balance), 0);
   return (
     <div className="space-y-5">
-      <PageHeader title="Staff accounts" subtitle="Advances, cash shortages from shifts and salary — every entry kept automatically" />
+      <PageHeader title="Staff accounts" subtitle="Advances, cash shortages from shifts and salary — every entry kept automatically"
+        actions={can("staff.manage") && <button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add staff member</button>} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Staff owe (advances + short)" value={pkr(owed)} tone="amber" icon={<Wallet size={16} />} />
         <Stat label="Short this month" value={pkr(data.reduce((a, u) => a + u.shortages_this_month, 0))} tone="red" />
@@ -113,7 +117,7 @@ function Accounts() {
         {data.map((u) => (
           <li key={u.id} className={`cursor-pointer px-4 py-3 active:bg-slate-50 ${u.active ? "" : "opacity-50"}`} onClick={() => setOpen(u.id)}>
             <div className="flex items-start justify-between gap-2">
-              <span className="min-w-0"><span className="block font-semibold">{u.name}</span><span className="text-xs capitalize text-slate-500">{u.role}{u.station_name ? ` · ${u.station_name}` : ""}</span></span>
+              <span className="min-w-0"><span className="block font-semibold">{u.name}</span><span className="text-xs capitalize text-slate-500">{u.job_title || u.role}{u.station_name ? ` · ${u.station_name}` : ""}</span></span>
               <span className="shrink-0 text-right"><span className={`block font-semibold tabular-nums ${u.balance > 0 ? "text-amber-700" : ""}`}>{pkr(u.balance)}</span><span className="text-[11px] text-slate-500">Owes · <Ur>بقایا</Ur></span></span>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
@@ -130,7 +134,7 @@ function Accounts() {
           <tbody>{data.map((u) => (
             <tr key={u.id} className={`cursor-pointer hover:bg-slate-50 ${u.active ? "" : "opacity-50"}`} onClick={() => setOpen(u.id)}>
               <td className="td font-medium">{u.name}<div className="text-xs text-slate-500">{u.station_name ?? ""}</div></td>
-              <td className="td text-sm capitalize">{u.role}</td>
+              <td className="td text-sm capitalize">{u.job_title || u.role}</td>
               <td className="td text-right tabular-nums">{u.salary ? pkr(u.salary) : <span className="text-slate-400">not set</span>}</td>
               <td className={`td text-right font-semibold tabular-nums ${u.balance > 0 ? "text-amber-700" : ""}`}>{pkr(u.balance)}</td>
               <td className={`td text-right tabular-nums ${u.shortages_this_month ? "text-red-600" : "text-slate-400"}`}>{pkr(u.shortages_this_month)}</td>
@@ -140,7 +144,38 @@ function Accounts() {
         </table>
       </div>
       {open && <StaffDetail id={open} onClose={() => { setOpen(null); reload(); }} />}
+      {adding && <AddStaffMember stations={stations.data ?? []} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); reload(); }} />}
     </div>
+  );
+}
+
+const JOB_TITLES = ["Chowkidar (day)", "Chowkidar (night)", "Cleaner / sweeper", "Gardener (mali)", "Electrician", "Helper", "Pump operator", "Manager", "Cashier", "Accountant", "Driver", "Cook", "Other"];
+/** Add an employee who does not log in to the app (guard, cleaner, electrician…) — they flow into payroll like anyone else. */
+function AddStaffMember({ stations, onClose, onSaved }: { stations: any[]; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState({ name: "", job_title: "Chowkidar (night)", custom: "", salary: "", phone: "", duty_start: "", weekly_off: "", station_id: "" });
+  const { busy, run } = useAction();
+  const title = f.job_title === "Other" ? f.custom : f.job_title;
+  return (
+    <Modal open onClose={onClose} title="Add staff member (no app login)">
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        const body = { name: f.name, job_title: title || null, salary: Number(f.salary) || null, phone: f.phone || null, duty_start: f.duty_start || null, weekly_off: f.weekly_off === "" ? null : Number(f.weekly_off), station_id: f.station_id ? Number(f.station_id) : null };
+        if (await run(() => api("/staff/members", { body }), "Staff member added")) onSaved();
+      }}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+          <Field label="Job / designation"><select className="input" value={f.job_title} onChange={(e) => setF({ ...f, job_title: e.target.value })}>{JOB_TITLES.map((j) => <option key={j}>{j}</option>)}</select></Field>
+          {f.job_title === "Other" && <Field label="Write the job"><input className="input" value={f.custom} onChange={(e) => setF({ ...f, custom: e.target.value })} /></Field>}
+          <Field label="Monthly salary (Rs)"><input className="input" type="number" min={0} value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} /></Field>
+          <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="Duty time (optional)"><input className="input" type="time" value={f.duty_start} onChange={(e) => setF({ ...f, duty_start: e.target.value })} /></Field>
+          <Field label="Weekly off (optional)"><select className="input" value={f.weekly_off} onChange={(e) => setF({ ...f, weekly_off: e.target.value })}><option value="">None</option>{WEEK.map((d, i) => <option key={i} value={i}>{d}</option>)}</select></Field>
+          {stations.length > 1 && <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}><option value="">All</option>{stations.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}</select></Field>}
+        </div>
+        <p className="text-xs text-slate-500">This person does not log in — they are only for payroll, attendance and advances. Set a duty time only if you want their attendance counted; otherwise they get full salary.</p>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>Add</button></div>
+      </form>
+    </Modal>
   );
 }
 
@@ -169,6 +204,7 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
           <button className="btn-secondary" onClick={() => setForm("advance")}><Plus size={15} /> Advance</button>
           <button className="btn-secondary" disabled={data.balance <= 0} onClick={() => setForm("repayment")}><Minus size={15} /> Paid back</button>
           {can("users.manage") && <button className="btn-secondary" onClick={() => { setF({ ...f, salary: String(u.salary ?? "") }); setForm("set-salary"); }}>Set salary</button>}
+          {can("staff.manage") && <button className="btn-secondary" onClick={() => run(() => api("/attendance/mark", { body: { user_id: id, present: true } }), "Marked present today").then(() => reload())}>✅ Present today</button>}
           <button className="btn-primary" disabled={!u.salary} onClick={() => { setF({ ...f, deduct: String(Math.max(0, Math.min(data.balance - (data.loans_left ?? 0), u.salary ?? 0)) || "") }); setForm("salary"); }}><Banknote size={15} /> Pay salary</button>
         </div>
       </div>

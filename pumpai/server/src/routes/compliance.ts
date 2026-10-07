@@ -245,6 +245,20 @@ compliance.get("/attendance/me", h((req) => ({
   month: attendanceMonth(tid(req), req.user!.id),
   leaves: all("SELECT * FROM leaves WHERE user_id=? ORDER BY id DESC LIMIT 10", req.user!.id),
 })));
+/** A manager marks a staff member's attendance by hand (for staff who do not carry a phone — night guard, cleaner…). */
+compliance.post("/attendance/mark", requirePerm("staff.manage"), h((req) => {
+  const b = parse(z.object({ user_id: z.number(), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), present: z.boolean().default(true) }), req.body);
+  const t = tid(req);
+  const u = get("SELECT id, station_id, duty_start FROM users WHERE id=? AND tenant_id=?", b.user_id, t);
+  if (!u) throw new AppError(404, "Staff not found");
+  const day = b.day ?? pkDate();
+  const existing = get("SELECT id FROM attendance WHERE user_id=? AND day=?", u.id, day);
+  if (!b.present) { if (existing) run("DELETE FROM attendance WHERE id=?", existing.id); return { day, present: false }; }
+  if (!existing) run("INSERT INTO attendance (tenant_id,user_id,station_id,day,check_in,late_minutes,source) VALUES (?,?,?,?,?,0,'manual')",
+    t, u.id, u.station_id ?? null, day, now());
+  return { day, present: true };
+}));
+
 compliance.get("/attendance", requirePerm("staff.manage"), h((req) => {
   const month = String(req.query.month ?? pkDate().slice(0, 7));
   return {
