@@ -398,11 +398,21 @@ export function statement(tenantId: number, clientId: number, from?: string, to?
     ...[c.id, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])],
   );
   let bal = opening;
-  const lines = rows.map((r) => {
+  const real = rows.map((r) => {
     const effect = r.voided ? 0 : r.type === "payment" || r.type === "return" ? -r.amount : r.amount;
     bal = round2(bal + effect);
     return { ...r, debit: effect > 0 ? effect : 0, credit: effect < 0 ? -effect : 0, balance: bal };
   });
+  // bypass fuel-money records (direct to depot, or routed through us) — shown for the record only; no effect on the due
+  const fuels = all(
+    `SELECT f.*, s.name depot_name, ${proofCol("'bfp:'||f.id")} FROM bypass_fuel_payments f LEFT JOIN suppliers s ON s.id=f.supplier_id
+     WHERE f.client_id=? ${from ? "AND f.txn_date >= ?" : ""} ${to ? "AND f.txn_date < ?" : ""}`,
+    ...[c.id, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])],
+  ).map((f) => ({ id: `bfp${f.id}`, type: "fuel_note", txn_date: f.txn_date, amount: f.amount, fuel_mode: f.mode, fuel_status: f.status, depot_name: f.depot_name, ref: f.invoice_ref, note: f.note, proof_ids: f.proof_ids, debit: 0, credit: 0, balance: 0 }));
+  // merge by date; a fuel note carries the prevailing balance (it does not move it)
+  const lines = [...real, ...fuels].sort((a, b) => (a.txn_date < b.txn_date ? -1 : a.txn_date > b.txn_date ? 1 : 0));
+  let rb = opening;
+  for (const l of lines) { if (l.type !== "fuel_note") rb = l.balance; else l.balance = rb; }
   return { client: c, from: from ?? null, to: to ?? null, opening_balance: opening, closing_balance: bal, lines, summary: summary(c.id, from, to) };
 }
 

@@ -13,7 +13,7 @@ import { h, parse, tid, requirePerm, requireAny, requireRole } from "../auth.js"
 import { AppError, createAlert, round2, pkr } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
-import { bankAccountFor } from "./banks.js";
+import { bankAccountFor, accountIdField } from "./banks.js";
 import { sendDirect } from "../whatsapp/cloud.js";
 import { notify, staff } from "../notifications.js";
 import { clientDue } from "./wholesale.js";
@@ -106,6 +106,77 @@ wholesaleDesk.post("/wholesale/clients/:id/carriage", requirePerm("wholesale.man
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     t, c.id, "carriage", single, litres, null, kiraya, b.vehicle_no ?? null, b.invoice_ref ?? null, note, req.user!.name, ts, now());
   return { txn: get("SELECT * FROM wholesale_txns WHERE id=?", id), kiraya, litres, due: clientDue(c.id) };
+}));
+
+/* ----- fuel money for a bypass supply (separate from kiraya; never touches the client's due or our profit) ----- */
+const bankMove = (t: number, account: number, dir: "in" | "out", amount: number, party: string, ref: string, note: string, at: string, by: string) =>
+  run("INSERT INTO bank_txns (tenant_id,account_id,kind,amount,party,ref,note,txn_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+    t, account, dir === "in" ? "other_in" : "other_out", dir === "in" ? amount : -amount, party, ref, note, at, by, now());
+
+/** Fuel payments a bypass client made — direct to the depot, or routed through us — for the statement. */
+export function bypassFuelPayments(t: number, clientId: number, fromIso?: string, toIso?: string) {
+  return all(`SELECT f.*, s.name depot_name, ${proofCol("'bfp:'||f.id")} FROM bypass_fuel_payments f LEFT JOIN suppliers s ON s.id=f.supplier_id
+    WHERE f.tenant_id=? AND f.client_id=? ${fromIso ? "AND f.txn_date >= ?" : ""} ${toIso ? "AND f.txn_date < ?" : ""} ORDER BY f.txn_date, f.id`,
+    t, clientId, ...(fromIso ? [fromIso] : []), ...(toIso ? [toIso] : []));
+}
+/** Held fuel money (received from a client, not yet sent to the depot). */
+wholesaleDesk.get("/wholesale/fuel-held", requirePerm("wholesale.view"), h((req) =>
+  all(`SELECT f.*, c.name client_name, s.name depot_name FROM bypass_fuel_payments f JOIN wholesale_clients c ON c.id=f.client_id
+    LEFT JOIN suppliers s ON s.id=f.supplier_id WHERE f.tenant_id=? AND f.status='held' ORDER BY f.txn_date, f.id`, tid(req))));
+
+wholesaleDesk.post("/wholesale/clients/:id/fuel-payment", requirePerm("wholesale.manage"), h((req) => {
+  const t = tid(req);
+  const c = own(t, Number(req.params.id));
+  const b = parse(z.object({
+    supplier_id: z.number().int(), amount: z.number().positive().max(1_000_000_000),
+    mode: z.enum(["direct", "through_us"]), invoice_ref: z.string().max(60).optional().nullable(), note: z.string().max(200).optional().nullable(),
+    in_method: z.string().max(30).optional().nullable(), in_account_id: accountIdField, in_ref: z.string().max(60).optional().nullable(),
+    forward_now: z.boolean().optional(), fwd_method: z.string().max(30).optional().nullable(), fwd_account_id: accountIdField, fwd_ref: z.string().max(60).optional().nullable(),
+    photo_ids: proofPhotos, txn_date: day.optional(),
+  }), req.body);
+  const depot = get("SELECT name FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id, t);
+  if (!depot) throw new AppError(400, "Choose the depot the fuel was lifted on");
+  const amount = round2(b.amount);
+  const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
+  const by = req.user!.name;
+  const id = tx(() => {
+    if (b.mode === "direct") {
+      // client paid the depot direct — we only keep the proof; no money through us
+      const { id } = run(`INSERT INTO bypass_fuel_payments (tenant_id,client_id,supplier_id,amount,mode,status,invoice_ref,note,created_by,txn_date,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)`, t, c.id, b.supplier_id, amount, "direct", "direct", b.invoice_ref ?? null, b.note ?? null, by, ts, now());
+      return id;
+    }
+    // through us: client sent it to our bank; forward to the depot now or later
+    const inAcc = bankAccountFor(t, b.in_account_id, b.in_method ?? "bank");
+    if (!inAcc) throw new AppError(400, "Choose which of our bank accounts the client sent the fuel money to");
+    const forwarded = Boolean(b.forward_now);
+    const fwdAcc = forwarded ? (bankAccountFor(t, b.fwd_account_id ?? b.in_account_id, b.fwd_method ?? b.in_method ?? "bank") || inAcc) : null;
+    const { id } = run(`INSERT INTO bypass_fuel_payments (tenant_id,client_id,supplier_id,amount,mode,status,in_account_id,in_ref,fwd_account_id,fwd_ref,forwarded_at,forwarded_by,invoice_ref,note,created_by,txn_date,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      t, c.id, b.supplier_id, amount, "through_us", forwarded ? "forwarded" : "held", inAcc, b.in_ref ?? null,
+      fwdAcc, forwarded ? (b.fwd_ref ?? null) : null, forwarded ? ts : null, forwarded ? by : null, b.invoice_ref ?? null, b.note ?? null, by, ts, now());
+    bankMove(t, inAcc, "in", amount, c.name, `bypassfuel:in:${id}`, `Fuel money from ${c.name} for ${depot.name}`, ts, by);
+    if (forwarded && fwdAcc) bankMove(t, fwdAcc, "out", amount, depot.name, `bypassfuel:out:${id}`, `Fuel money forwarded to ${depot.name}`, ts, by);
+    return id;
+  });
+  if (b.photo_ids?.length) linkPhotos(t, b.photo_ids, `bfp:${id}`);
+  return get("SELECT * FROM bypass_fuel_payments WHERE id=?", id);
+}));
+
+/** Forward held fuel money on to the depot. */
+wholesaleDesk.post("/wholesale/fuel-payments/:id/forward", requirePerm("wholesale.manage"), h((req) => {
+  const t = tid(req);
+  const f = get("SELECT * FROM bypass_fuel_payments WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!f) throw new AppError(404, "Fuel payment not found");
+  if (f.status !== "held") throw new AppError(400, "Only money still held with us can be forwarded");
+  const b = parse(z.object({ fwd_method: z.string().max(30).optional().nullable(), fwd_account_id: accountIdField, fwd_ref: z.string().max(60).optional().nullable() }), req.body);
+  const depot = get("SELECT name FROM suppliers WHERE id=?", f.supplier_id);
+  const fwdAcc = bankAccountFor(t, b.fwd_account_id ?? f.in_account_id, b.fwd_method ?? "bank") || f.in_account_id;
+  tx(() => {
+    run("UPDATE bypass_fuel_payments SET status='forwarded', fwd_account_id=?, fwd_ref=?, forwarded_at=?, forwarded_by=? WHERE id=?", fwdAcc, b.fwd_ref ?? null, now(), req.user!.name, f.id);
+    bankMove(t, fwdAcc, "out", f.amount, depot?.name ?? "Depot", `bypassfuel:out:${f.id}`, `Fuel money forwarded to ${depot?.name ?? "depot"}`, now(), req.user!.name);
+  });
+  return get("SELECT * FROM bypass_fuel_payments WHERE id=?", f.id);
 }));
 
 /* ================= Client supply requests (from the portal) ================= */

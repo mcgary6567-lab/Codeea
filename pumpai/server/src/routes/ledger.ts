@@ -32,7 +32,7 @@ const payAccount = (m: string | null | undefined) => {
 
 /** Money tagged by where it came from: tax paid to FBR clears the tax payable, a recovered claim, a coupon refund. */
 const specialSide = (ref: string | null | undefined) =>
-  !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : null;
+  !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held" : null;
 
 export function journal(t: number, fromDay: string, toDay: string) {
   const from = pkStart(fromDay), to = pkEnd(toDay);

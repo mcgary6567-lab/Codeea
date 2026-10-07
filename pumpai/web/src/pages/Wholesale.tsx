@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send } from "lucide-react";
+import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send, Banknote } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
@@ -17,7 +17,11 @@ const Ur = ({ children, className = "" }: { children: React.ReactNode; className
 const TYPE: Record<string, { label: string; tone: string }> = {
   supply: { label: "Supply", tone: "blue" }, return: { label: "Return", tone: "amber" },
   payment: { label: "Payment", tone: "green" }, adjustment: { label: "Adjustment", tone: "violet" }, carriage: { label: "Carriage / kiraya", tone: "violet" },
-};
+  fuel_note: { label: "Fuel payment", tone: "slate" },
+} as const;
+const fuelLabel = (r: any) => r.fuel_mode === "direct"
+  ? `Paid depot direct — ${r.depot_name ?? "depot"}`
+  : `Through us → ${r.depot_name ?? "depot"}${r.fuel_status === "held" ? " (forwarding pending)" : ""}`;
 
 export default function Wholesale() {
   const { id } = useParams();
@@ -198,7 +202,7 @@ function ClientDetail({ id }: { id: string }) {
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const stmt = useApi<any>(`/wholesale/clients/${id}/statement${qs ? `?${qs}` : ""}`);
   const [params, setParams] = useSearchParams();
-  const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit" | "order" | "promise" | "cheque" | "carriage">(() => (params.get("do") as any) || null);
+  const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit" | "order" | "promise" | "cheque" | "carriage" | "fuelpay">(() => (params.get("do") as any) || null);
   // supplying a booked order (from the order book) fills the form and closes the order
   const [orderId, setOrderId] = useState<number | null>(() => Number(params.get("order")) || null);
   const [deskKey, setDeskKey] = useState(0);
@@ -224,6 +228,7 @@ function ClientDetail({ id }: { id: string }) {
             <button className="btn-secondary" onClick={() => setAction("payment")}><Wallet size={15} /> Receive payment · <Ur>رقم وصول</Ur></button>
             <button className="btn-secondary" onClick={() => setAction("return")}><Undo2 size={15} /> Fuel return · <Ur>واپسی</Ur></button>
             {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("carriage")} disabled={!c.active}><Truck size={15} /> Bypass (our ID) · <Ur>کرایہ</Ur></button>}
+            {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("fuelpay")}><Banknote size={15} /> Fuel payment · <Ur>فیول</Ur></button>}
           </>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setAction("adjustment")}><SlidersHorizontal size={15} /> Adjustment · <Ur>ایڈجسٹمنٹ</Ur></button>}
           {can("wholesale.manage") && c.phone && <button className="btn-secondary" disabled={sending} onClick={async () => {
@@ -287,6 +292,8 @@ function ClientDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      {can("wholesale.manage") && <HeldFuel clientId={c.id} refreshKey={deskKey} onChanged={refresh} />}
+
       <ClientDeskCard client={c} refreshKey={deskKey} onChanged={refresh} onAction={(a, oid) => { if (a === "supply-order") { setOrderId(oid ?? null); setAction("supply"); } else setAction(a); }} />
 
       <div className="print:hidden"><PortalCard base={`/wholesale/clients/${c.id}/portal`} name={c.name} phone={c.phone} canManage={can("wholesale.manage")} /></div>
@@ -319,6 +326,7 @@ function ClientDetail({ id }: { id: string }) {
       {action === "payment" && <PaymentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "adjustment" && <AdjustmentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "carriage" && <CarriageEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
+      {action === "fuelpay" && <FuelPaymentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "rates" && <RatesEditor client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "edit" && <ClientForm initial={c} onClose={() => setAction(null)} onSaved={() => { setAction(null); refresh(); }} />}
     </div>
@@ -328,6 +336,7 @@ function ClientDetail({ id }: { id: string }) {
 function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; running?: boolean; showClient?: boolean; onVoid?: (row: any) => void }) {
   if (!rows.length) return <Empty>No entries</Empty>;
   const amounts = (r: any) => {
+    if (r.type === "fuel_note") return { debit: 0, credit: 0 }; // informational — never in the debit/credit columns
     const debit = running ? r.debit : r.type === "supply" || r.type === "carriage" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
     return { debit, credit: running ? r.credit : debit ? 0 : Math.abs(r.amount) };
   };
@@ -343,7 +352,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500"><Badge tone={TYPE[r.type].tone}>{TYPE[r.type].label}</Badge>{r.voided ? <Badge tone="red">VOID</Badge> : null}{dt(r.txn_date)}</div>
               {showClient && <Link to={`/wholesale/${r.client_id}`} className="flex min-h-9 items-center font-medium hover:underline">{r.client_name}</Link>}
-              <div className="text-sm">{r.type === "carriage" ? `Kiraya${r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}` : r.product ? `${num(r.litres, 2)} L ${PRODUCTS[r.product]} @ Rs ${r.rate}` : r.method ?? ""}</div>
+              <div className="text-sm">{r.type === "fuel_note" ? <>Fuel <b>{pkr(r.amount)}</b> · {fuelLabel(r)}</> : r.type === "carriage" ? `Kiraya${r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}` : r.product ? `${num(r.litres, 2)} L ${PRODUCTS[r.product]} @ Rs ${r.rate}` : r.method ?? ""}</div>
               {extra(r) && <div className="break-words text-xs text-slate-500">{extra(r)}</div>}
               <ProofThumbs ids={r.proof_ids} />
             </div>
@@ -365,15 +374,16 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
         </tr></thead>
         <tbody>
           {rows.map((r) => {
-            const debit = running ? r.debit : r.type === "supply" || r.type === "carriage" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
-            const credit = running ? r.credit : debit ? 0 : Math.abs(r.amount);
+            const debit = r.type === "fuel_note" ? 0 : running ? r.debit : r.type === "supply" || r.type === "carriage" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
+            const credit = r.type === "fuel_note" ? 0 : running ? r.credit : debit ? 0 : Math.abs(r.amount);
             return (
               <tr key={r.id} className={r.voided ? "text-slate-400 line-through" : ""}>
                 <td className="td text-xs"><span className="print:hidden">{dt(r.txn_date)}</span><span className="hidden whitespace-nowrap print:inline">{d(r.txn_date)}</span></td>
                 {showClient && <td className="td text-sm"><Link to={`/wholesale/${r.client_id}`} className="hover:underline">{r.client_name}</Link></td>}
                 <td className="td"><Badge tone={TYPE[r.type].tone}>{TYPE[r.type].label}</Badge> {r.voided ? <Badge tone="red">VOID</Badge> : null}</td>
                 <td className="td text-xs">
-                  {r.type === "carriage" ? <div>Kiraya{r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}</div>
+                  {r.type === "fuel_note" ? <div>Fuel <b>{pkr(r.amount)}</b> · {fuelLabel(r)}</div>
+                    : r.type === "carriage" ? <div>Kiraya{r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}</div>
                     : r.product && <div>{num(r.litres, 2)} L {PRODUCTS[r.product]} @ Rs {r.rate}{r.station_name ? ` · ${r.station_name}` : ""}</div>}
                   {r.method && <div>{r.method}</div>}
                   <ProofThumbs ids={r.proof_ids} />
@@ -537,6 +547,79 @@ function CarriageEntry({ client, onClose, onDone }: { client: any; onClose: () =
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Bill kiraya</button></div>
       </form>
     </Modal>
+  );
+}
+
+/** Fuel money for a bypass supply — separate from kiraya. Client paid the depot direct (record only), or sent it to us to forward. */
+function FuelPaymentEntry({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
+  const depots = useApi<any[]>("/wholesale/depots");
+  const [f, setF] = useState({ supplier_id: "", amount: "", mode: "direct", invoice_ref: "", note: "", in_method: "Bank transfer", in_ref: "", forward_now: true, fwd_method: "Bank transfer", fwd_ref: "" });
+  const [inAcc, setInAcc] = useState<number | null>(null);
+  const [fwdAcc, setFwdAcc] = useState<number | null>(null);
+  const [photos, setPhotos] = useState<number[]>([]);
+  const { busy, run } = useAction();
+  const through = f.mode === "through_us";
+  const valid = f.supplier_id && Number(f.amount) > 0 && (!through || inAcc);
+  return (
+    <Modal open onClose={onClose} title={`Fuel payment (bypass) — ${client.name}`}>
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        const body = {
+          supplier_id: Number(f.supplier_id), amount: Number(f.amount), mode: f.mode, invoice_ref: f.invoice_ref || null, note: f.note || null, photo_ids: photos,
+          ...(through ? { in_method: f.in_method, in_account_id: inAcc, in_ref: f.in_ref || null, forward_now: f.forward_now, fwd_method: f.fwd_method, fwd_account_id: fwdAcc ?? inAcc, fwd_ref: f.fwd_ref || null } : {}),
+        };
+        if (await run(() => api(`/wholesale/clients/${client.id}/fuel-payment`, { body }), "Fuel payment saved")) onDone();
+      }}>
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Yeh depot ke fuel ka paisa hai — <b>humara kiraya nahi</b>. Client ki due par asar nahi; sirf record (aur through-us mein humare bank se guzarta hai, net zero).</p>
+        <Field label="Depot *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
+          <option value="">— choose depot —</option>{(depots.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Fuel amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Depot invoice no."><input className="input" value={f.invoice_ref} onChange={(e) => setF({ ...f, invoice_ref: e.target.value })} /></Field>
+        </div>
+        <fieldset>
+          <legend className="label">How was it paid? · <Ur>کیسے</Ur></legend>
+          <div className="grid grid-cols-1 gap-2">
+            <button type="button" onClick={() => setF({ ...f, mode: "direct" })} aria-pressed={f.mode === "direct"} className={`rounded-xl px-3 py-2.5 text-left text-sm ${f.mode === "direct" ? "bg-slate-800 font-semibold text-white" : "bg-slate-100"}`}>Client paid the depot <b>direct</b> — we keep the screenshot · <Ur>کلائنٹ نے سیدھا ڈپو کو</Ur></button>
+            <button type="button" onClick={() => setF({ ...f, mode: "through_us" })} aria-pressed={through} className={`rounded-xl px-3 py-2.5 text-left text-sm ${through ? "bg-slate-800 font-semibold text-white" : "bg-slate-100"}`}>Client sent it to <b>us</b> → we forward to the depot · <Ur>ہمیں بھیجا، ہم ڈپو کو</Ur></button>
+          </div>
+        </fieldset>
+        {through && <div className="space-y-3 rounded-xl bg-sky-50 p-3">
+          <AccountPicker method={f.in_method} value={inAcc} onChange={setInAcc} label="Client sent to which of our accounts? · کس اکاؤنٹ میں آیا" required />
+          <Field label="Ref (client's transfer)"><input className="input" value={f.in_ref} onChange={(e) => setF({ ...f, in_ref: e.target.value })} /></Field>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={f.forward_now} onChange={(e) => setF({ ...f, forward_now: e.target.checked })} /> Forward to the depot now · <Ur>ابھی ڈپو کو بھیج دیا</Ur></label>
+          {f.forward_now && <>
+            <AccountPicker method={f.fwd_method} value={fwdAcc} onChange={setFwdAcc} label="Forwarded from which account? · کس اکاؤنٹ سے" />
+            <Field label="Ref (to depot)"><input className="input" value={f.fwd_ref} onChange={(e) => setF({ ...f, fwd_ref: e.target.value })} /></Field>
+          </>}
+          {!f.forward_now && <p className="text-xs text-amber-800">Abhi "held" dikhega — baad mein Forward kar dena. · <Ur>بعد میں فارورڈ کریں</Ur></p>}
+        </div>}
+        <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+        <ProofPhotos value={photos} onChange={setPhotos} hint={f.mode === "direct" ? "client's payment screenshot" : "bank receipt(s)"} />
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Save</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Fuel money we received from this client but have not yet forwarded to the depot. */
+function HeldFuel({ clientId, refreshKey, onChanged }: { clientId: number; refreshKey: number; onChanged: () => void }) {
+  const { data, reload } = useApi<any[]>(`/wholesale/fuel-held?k=${refreshKey}`);
+  const { busy, run } = useAction();
+  const mine = (data ?? []).filter((f) => f.client_id === clientId);
+  if (!mine.length) return null;
+  return (
+    <div className="card border-l-4 border-l-amber-500 p-4 print:hidden">
+      <h2 className="mb-2 font-semibold">⏳ Fuel money held for the depot · <Ur>ڈپو کو دینا باقی</Ur></h2>
+      <ul className="divide-y divide-slate-100">
+        {mine.map((f) => (
+          <li key={f.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
+            <span className="min-w-0 flex-1"><b className="tabular-nums">{pkr(f.amount)}</b> → {f.depot_name ?? "depot"}{f.invoice_ref ? ` · inv ${f.invoice_ref}` : ""}<span className="block text-xs text-slate-500">{dt(f.txn_date)}{f.note ? ` · ${f.note}` : ""}</span></span>
+            <button className="btn-primary !py-1.5 text-sm" disabled={busy} onClick={() => run(() => api(`/wholesale/fuel-payments/${f.id}/forward`, { body: {} }), "Forwarded to the depot").then(() => { reload(); onChanged(); })}><Send size={14} /> Forward to depot</button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

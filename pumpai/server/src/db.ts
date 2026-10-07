@@ -536,6 +536,14 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, product TEXT NOT NULL, litres REAL NOT NULL, want_date TEXT NOT NULL,
     note TEXT, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','cancelled')),
     reply TEXT, decided_by TEXT, decided_at TEXT, created_at TEXT NOT NULL)`);
+  // Fuel money for a bypass-on-our-ID supply (separate from our kiraya): either the client paid the depot DIRECT
+  // (we just keep the proof), or the client sent it to US and we FORWARD it to the depot (a net-zero pass-through
+  // through our bank — "Depot money held" until forwarded). Never touches the client's kiraya due or our profit.
+  db.exec(`CREATE TABLE IF NOT EXISTS bypass_fuel_payments (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, supplier_id INTEGER NOT NULL, amount REAL NOT NULL,
+    mode TEXT NOT NULL CHECK (mode IN ('direct','through_us')), status TEXT NOT NULL CHECK (status IN ('direct','held','forwarded')),
+    in_account_id INTEGER, in_ref TEXT, fwd_account_id INTEGER, fwd_ref TEXT, forwarded_at TEXT, forwarded_by TEXT,
+    invoice_ref TEXT, note TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
   addCashierRole();
   // cashier: cheques received from khata customers / others and cheques we issue (wholesale cheques have their own register)
   db.exec(`CREATE TABLE IF NOT EXISTS cheques (

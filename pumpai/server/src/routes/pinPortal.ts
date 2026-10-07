@@ -212,6 +212,9 @@ function wholesaleBody(c: any, month: string | null, code: string, flash: string
     if (l.type === "carriage") return `<div class="e sup"><div class=ic>🚚</div><div class=l>${d}<div class=et>Carriage / kiraya · <span class=ur>کرایہ</span></div>
       <div class=m>${esc([l.litres ? `${n2(l.litres)} L ${PRODUCTS[l.product] ?? "fuel"}` : "", l.note].filter(Boolean).join(" · "))}</div></div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
+    if (l.type === "fuel_note") return `<div class="e pay"><div class=ic>⛽</div><div class=l>${d}<div class=et>Fuel payment · <span class=ur>فیول کی ادائیگی</span></div>
+      <div class=m>${esc([l.fuel_mode === "direct" ? `Paid depot direct — ${l.depot_name ?? "depot"}` : `Through us → ${l.depot_name ?? "depot"}${l.fuel_status === "held" ? " (forwarding)" : ""}`, l.ref && `inv ${l.ref}`, l.note].filter(Boolean).join(" · "))}</div>${photoThumbs(code, l.proof_ids, "Proof", "ثبوت")}</div>
+      <div class=r><b class=m>${n2(l.amount)}</b><div class=m>fuel · <span class=ur>تیل</span></div></div></div>`;
     return `<div class="e adj"><div class=ic>✏️</div><div class=l>${d}<div class=et>Adjustment · <span class=ur>ایڈجسٹمنٹ</span></div><div class=m>${esc(l.note ?? "")}</div></div>
       <div class=r><b class="${l.amount < 0 ? "g" : ""}">${l.amount < 0 ? "−" : "+"}${n2(Math.abs(l.amount))}</b>${bal}</div></div>`;
   }).join("");

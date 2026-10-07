@@ -309,6 +309,47 @@ test("bypass on our depot ID (kiraya only): client billed carriage as income, no
   near(C.l.totals.debit, C.l.totals.credit, "journal still balances after payment");
 });
 
+test("bypass fuel money (separate from kiraya): direct to depot = record only; through us = net-zero pass-through", async () => {
+  // A) client paid the depot DIRECT — we only keep the record; nothing in our books, due unchanged
+  const B = await books();
+  ok(await call("wholesale", "POST", `/api/wholesale/clients/${W1.id}/fuel-payment`,
+    { supplier_id: S.id, amount: 400000, mode: "direct", invoice_ref: "DEP-7", note: "client screenshot" }), "direct");
+  const A = await books();
+  near(A.due1 - B.due1, 0, "direct: client due unchanged");
+  near(A.bank - B.bank, 0, "direct: no bank movement");
+  near(A.l.totals.debit, A.l.totals.credit, "journal balances");
+  // it shows on the statement as an informational fuel note (no debit/credit)
+  const stmt = ok(await call("wholesale", "GET", `/api/wholesale/clients/${W1.id}/statement?from=${today()}&to=${today()}`), "stmt");
+  const note = stmt.lines.find((l: any) => l.type === "fuel_note" && l.amount === 400000);
+  assert.ok(note && note.debit === 0 && note.credit === 0, "fuel note shown, no balance effect");
+
+  // B) client sent it to US and we forward to the depot the same time — bank in then out, net zero
+  const B2 = await books();
+  ok(await call("wholesale", "POST", `/api/wholesale/clients/${W1.id}/fuel-payment`,
+    { supplier_id: S.id, amount: 500000, mode: "through_us", in_method: "Bank transfer", in_account_id: acc, forward_now: true, fwd_method: "Bank transfer", fwd_account_id: acc }), "through us");
+  const A2 = await books();
+  near(A2.bank - B2.bank, 0, "through-us forwarded same time: bank net zero");
+  near(A2.due1 - B2.due1, 0, "through-us: client kiraya due unchanged");
+  near(A2.tb("Depot money held"), 0, "pass-through nets to zero once forwarded");
+  near(A2.l.totals.debit, A2.l.totals.credit, "journal balances");
+
+  // C) received but NOT yet forwarded — bank up, 'Depot money held' is a liability until we forward
+  const B3 = await books();
+  const held = ok(await call("wholesale", "POST", `/api/wholesale/clients/${W1.id}/fuel-payment`,
+    { supplier_id: S.id, amount: 300000, mode: "through_us", in_method: "Bank transfer", in_account_id: acc, forward_now: false }), "held");
+  const A3 = await books();
+  near(A3.bank - B3.bank, 300000, "held: client's fuel money sits in our bank");
+  near(A3.tb("Depot money held") - B3.tb("Depot money held"), -300000, "held as a liability (credit)");
+  near(A3.due1 - B3.due1, 0, "held: client due unchanged");
+  near(A3.l.totals.debit, A3.l.totals.credit, "journal balances");
+  // forward it → bank back down, liability clears
+  ok(await call("wholesale", "POST", `/api/wholesale/fuel-payments/${held.id}/forward`, { fwd_method: "Bank transfer", fwd_account_id: acc }), "forward");
+  const A4 = await books();
+  near(A4.bank - B3.bank, 0, "after forward: bank back to before");
+  near(A4.tb("Depot money held") - B3.tb("Depot money held"), 0, "liability cleared");
+  near(A4.l.totals.debit, A4.l.totals.credit, "journal balances");
+});
+
 test("after all of the above: every book still tallies with the ledger", async () => {
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("stock_ledger");
