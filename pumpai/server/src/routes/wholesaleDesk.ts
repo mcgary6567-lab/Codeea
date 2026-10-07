@@ -15,6 +15,7 @@ import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
 import { bankAccountFor } from "./banks.js";
 import { sendDirect } from "../whatsapp/cloud.js";
+import { notify, staff } from "../notifications.js";
 import { clientDue } from "./wholesale.js";
 
 export const wholesaleDesk = Router();
@@ -77,6 +78,51 @@ wholesaleDesk.patch("/wholesale/orders/:id", requirePerm("wholesale.manage"), h(
   else run("UPDATE wholesale_orders SET litres=?, needed_on=?, location=?, note=? WHERE id=?", b.litres ?? o.litres, b.needed_on ?? o.needed_on, b.location === undefined ? o.location : b.location, b.note === undefined ? o.note : b.note, o.id);
   return get("SELECT * FROM wholesale_orders WHERE id=?", o.id);
 }));
+
+/* ================= Client supply requests (from the portal) ================= */
+/** Supply requests a client placed from their own link — pure communication, not tied to the ledger or the order book. */
+export function clientRequests(t: number, clientId?: number, includePast = false) {
+  return all(`SELECT r.*, c.name client_name, c.phone, c.city FROM wholesale_requests r JOIN wholesale_clients c ON c.id=r.client_id
+    WHERE r.tenant_id=? ${clientId ? "AND r.client_id=?" : ""} ${includePast ? "" : "AND (r.status='pending' OR r.decided_at >= ?)"}
+    ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END, r.want_date, r.id DESC`,
+    t, ...(clientId ? [clientId] : []), ...(includePast ? [] : [new Date(Date.now() - 30 * DAY).toISOString()]));
+}
+wholesaleDesk.get("/wholesale/requests", h((req) => {
+  const t = tid(req);
+  const list = clientRequests(t);
+  return { pending: list.filter((r) => r.status === "pending"), recent: list.filter((r) => r.status !== "pending") };
+}));
+/** Approve or reject a client's supply request. Approval pings the client on WhatsApp. */
+wholesaleDesk.post("/wholesale/requests/:id/:decision(approve|reject)", requirePerm("wholesale.manage"), h(async (req) => {
+  const t = tid(req);
+  const r = get("SELECT * FROM wholesale_requests WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!r) throw new AppError(404, "Request not found");
+  if (r.status !== "pending") throw new AppError(400, "That request is already decided");
+  const b = parse(z.object({ reply: z.string().max(200).optional().nullable() }), req.body ?? {});
+  const c = get("SELECT * FROM wholesale_clients WHERE id=?", r.client_id);
+  const approved = req.params.decision === "approve";
+  run("UPDATE wholesale_requests SET status=?, reply=?, decided_by=?, decided_at=? WHERE id=?",
+    approved ? "approved" : "rejected", b.reply ?? null, req.user!.name, now(), r.id);
+  const when = new Date(`${r.want_date}T00:00:00+05:00`).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
+  const line = `${Math.round(r.litres).toLocaleString("en-PK")} L ${PRODUCTS[r.product] ?? r.product} · ${when}`;
+  if (c?.phone) {
+    const text = approved
+      ? `${c.name}\n✅ Aap ka order approve ho gaya hai:\n${line}${b.reply ? `\n${b.reply}` : ""}\n— ${get("SELECT name FROM tenants WHERE id=?", t)!.name}`
+      : `${c.name}\n❌ Maazrat, abhi aap ka order poora nahi ho saka:\n${line}${b.reply ? `\nWajah: ${b.reply}` : ""}\n— ${get("SELECT name FROM tenants WHERE id=?", t)!.name}`;
+    await sendDirect(t, { phone: c.phone, name: c.name }, approved ? "order_approved" : "order_rejected", `wreq:${r.id}`, text);
+  }
+  return get("SELECT * FROM wholesale_requests WHERE id=?", r.id);
+}));
+/** Place a supply request on a client's behalf, and the notification helper the portal uses when the client places one. */
+export async function placeClientRequest(t: number, clientId: number, b: { product: string; litres: number; want_date: string; note?: string | null }) {
+  const { id } = run("INSERT INTO wholesale_requests (tenant_id,client_id,product,litres,want_date,note,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
+    t, clientId, b.product, b.litres, b.want_date, b.note ?? null, "pending", now());
+  const c = get("SELECT name FROM wholesale_clients WHERE id=?", clientId);
+  const when = new Date(`${b.want_date}T00:00:00+05:00`).toLocaleDateString("en-PK", { day: "numeric", month: "short" });
+  createAlert(t, { type: "wholesale_request", severity: "info", title: `Order request: ${c?.name} — ${Math.round(b.litres).toLocaleString("en-PK")} L ${PRODUCTS[b.product] ?? b.product} for ${when}`, dedupe_key: `wreq:${id}` });
+  await notify(t, staff(t, ["wholesale", "manager", "admin"]), { type: "wholesale_request", title: `New order request — ${c?.name}`, body: `${Math.round(b.litres).toLocaleString("en-PK")} L ${PRODUCTS[b.product] ?? b.product} wanted on ${when}. Approve in Wholesale → Requests.` });
+  return get("SELECT * FROM wholesale_requests WHERE id=?", id);
+}
 
 /* ================= Payment promises ================= */
 /** open → due today → kept (payments since the promise reach it) or broken (date passed, not paid). */

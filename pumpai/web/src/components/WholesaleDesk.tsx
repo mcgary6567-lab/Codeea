@@ -119,6 +119,8 @@ export function OrdersTab({ onTrip }: { onTrip: () => void }) {
         {manage && <button className="btn-primary" onClick={() => setForm(true)}><Plus size={15} /> New order · آرڈر</button>}
         {manage && <button className="btn-secondary" onClick={onTrip}><Truck size={15} /> Tanker trip from orders</button>}
       </div>
+      <ClientRequests />
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {Object.entries(PRODUCTS).map(([p, name]) => {
           const need = data.need_3_days[p] ?? 0, stock = data.stock[p] ?? 0;
@@ -161,6 +163,45 @@ export function OrdersTab({ onTrip }: { onTrip: () => void }) {
           <li key={o.id} className="flex justify-between py-1.5"><span>{o.client_name} · {num(o.litres)} L {PRODUCTS[o.product]} · {o.needed_on}</span>
             <Badge tone={o.status === "done" ? "green" : "slate"}>{o.status === "done" ? "Delivered" : "Cancelled"}</Badge></li>))}</ul></details>}
       {form && <OrderForm onClose={() => setForm(false)} onDone={() => { setForm(false); reload(); }} />}
+    </div>
+  );
+}
+
+/** Supply requests clients placed from their own portal link — approve (pings them on WhatsApp) or decline. */
+function ClientRequests() {
+  const { can } = useAuth();
+  const { data, reload } = useApi<any>("/wholesale/requests");
+  const { busy, run } = useAction();
+  const manage = can("wholesale.manage");
+  if (!data || (!data.pending.length && !data.recent.length)) return null;
+  const decide = async (id: number, decision: "approve" | "reject") => {
+    const reply = decision === "reject" ? (prompt("Message to the client (optional — reason):") ?? "") : (prompt("Message to the client (optional):") ?? "");
+    if (await run(() => api(`/wholesale/requests/${id}/${decision}`, { body: { reply: reply || null } }), decision === "approve" ? "Approved — client told on WhatsApp" : "Declined — client told")) reload();
+  };
+  return (
+    <div className="card overflow-hidden ring-1 ring-brand-200">
+      <h2 className="flex items-center gap-2 border-b border-slate-100 bg-brand-50 px-4 py-2.5 font-semibold">📥 Order requests from clients · <Ur>کلائنٹ کے آرڈر</Ur>
+        {data.pending.length > 0 && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">{data.pending.length} new</span>}</h2>
+      {data.pending.length === 0 ? <Empty>No pending requests. Clients can send orders from their khata link.</Empty>
+        : <ul className="divide-y divide-slate-100">
+          {data.pending.map((r: any) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-3 border-l-4 border-l-amber-500 px-4 py-3">
+              <div className="min-w-0 flex-1 basis-60">
+                <div className="font-semibold">{r.client_name} <span className="font-normal text-slate-500">· wants {nice(r.want_date)}</span></div>
+                <div className="text-sm text-slate-600"><b>{num(r.litres)} L</b> {PRODUCTS[r.product]}{r.city ? ` · ${r.city}` : ""}{r.note ? ` · ${r.note}` : ""}</div>
+              </div>
+              {manage ? <div className="flex gap-2">
+                <button className="btn-primary !py-1.5 text-sm" disabled={busy} onClick={() => decide(r.id, "approve")}><CheckCircle2 size={14} /> Approve</button>
+                <button className="btn-secondary !py-1.5 text-sm text-red-600" disabled={busy} onClick={() => decide(r.id, "reject")}><XCircle size={14} /> Decline</button>
+                {r.phone && <a className="btn-secondary !px-2.5 !py-1.5" href={tel(r.phone)!} aria-label="Call"><Phone size={14} /></a>}
+              </div> : <Badge tone="amber">Pending</Badge>}
+            </li>
+          ))}
+        </ul>}
+      {data.recent.length > 0 && <details className="p-4 text-sm"><summary className="cursor-pointer font-semibold">Recently decided ({data.recent.length})</summary>
+        <ul className="mt-2 divide-y divide-slate-100">{data.recent.map((r: any) => (
+          <li key={r.id} className="flex flex-wrap justify-between gap-2 py-1.5"><span>{r.client_name} · {num(r.litres)} L {PRODUCTS[r.product]} · {nice(r.want_date)}{r.reply ? ` · 💬 ${r.reply}` : ""}</span>
+            <Badge tone={r.status === "approved" ? "green" : r.status === "rejected" ? "red" : "slate"}>{r.status === "approved" ? "Approved" : r.status === "rejected" ? "Declined" : r.status}</Badge></li>))}</ul></details>}
     </div>
   );
 }

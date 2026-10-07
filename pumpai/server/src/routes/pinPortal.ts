@@ -16,6 +16,7 @@ import { h, tid, requirePerm } from "../auth.js";
 import { AppError, normalizePhone, currentPrices, paymentLink } from "../services.js";
 import { config, PRODUCTS } from "../config.js";
 import { statement, rateCard, clientDue } from "./wholesale.js";
+import { clientRequests, placeClientRequest } from "./wholesaleDesk.js";
 import { khataStatement } from "./crm.js";
 import { billLink } from "../billing.js";
 import { sendDirect, sendWhatsApp } from "../whatsapp/cloud.js";
@@ -111,6 +112,7 @@ h1{font-size:22px;margin:0}.m{color:#64748b;font-size:13px}.g{color:#047857}.red
 a.b,button.b{display:block;width:100%;text-align:center;background:#064e3b;color:#fff;border:0;padding:14px;border-radius:12px;font-size:17px;font-weight:600;text-decoration:none;margin-top:10px;cursor:pointer}
 input[name=pin]{font-size:30px;letter-spacing:10px;text-align:center;width:100%;padding:12px;border:2px solid #cbd5e1;border-radius:12px}
 .err{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px;margin-top:10px}ul{padding-left:18px;margin:6px 0}.po{display:none}.ent{display:flex;flex-direction:column}
+.f{display:block;width:100%;padding:11px;border:2px solid #cbd5e1;border-radius:10px;font-size:16px;margin-top:4px;background:#fff;font-family:inherit}
 @media print{body{background:#fff;font-size:12px}.np,.top{display:none!important}.po{display:block}.c{box-shadow:none;border:1px solid #cbd5e1;break-inside:avoid;padding:10px;margin-bottom:8px}
 .e{break-inside:avoid;padding:6px 0}.ent{flex-direction:column-reverse}.rate{background:#fff!important;color:#000;border:1px solid #94a3b8}.tile{border:1px solid #e2e8f0}.e .ic{width:28px;height:28px;font-size:15px}.hero .amt{font-size:26px}.w{max-width:none;padding:0}a{color:inherit;text-decoration:none}}`;
 
@@ -146,7 +148,35 @@ const monthsBack = (n: number) => Array.from({ length: n }, (_, i) => { const d 
 const monthName = (m: string) => new Date(`${m}-15T00:00:00Z`).toLocaleDateString("en-PK", { month: "short", year: "numeric" });
 const dateStr = (iso: string) => new Date(iso).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", year: "numeric" });
 
-function wholesaleBody(c: any, month: string | null, code: string): string {
+/** The "order fuel" card: a form the client fills (date + product + litres) and the status of their recent requests. */
+function orderCard(c: any, code: string, flash: string | null): string {
+  const t = c.tenant_id;
+  const card = rateCard(c.id);
+  const prods = Object.keys(card).length ? Object.keys(card) : Object.keys(PRODUCTS);
+  const today = pkDate();
+  const reqs = clientRequests(t, c.id, true).slice(0, 8);
+  const BADGE: Record<string, string> = { pending: "background:#fef9c3;color:#854d0e", approved: "background:#dcfce7;color:#166534", rejected: "background:#fee2e2;color:#991b1b", cancelled: "background:#f1f5f9;color:#475569" };
+  const LABEL: Record<string, string> = { pending: "Pending · انتظار", approved: "Approved · منظور", rejected: "Not done · نہیں ہو سکا", cancelled: "Cancelled · منسوخ" };
+  const list = reqs.map((r: any) => `<div class=row><div class=l><div class=et>${n2(r.litres)} L ${esc(PRODUCTS[r.product] ?? r.product)}</div>
+    <div class=m>📅 ${esc(dateStr(r.want_date + "T00:00:00+05:00"))}${r.note ? ` · ${esc(r.note)}` : ""}</div>${r.reply ? `<div class=m>💬 ${esc(r.reply)}</div>` : ""}</div>
+    <div class=rr><span style="display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;${BADGE[r.status] ?? ""}">${esc(LABEL[r.status] ?? r.status)}</span></div></div>`).join("");
+  return `<div class="c np"><b>🛒 Order fuel · <span class=ur>آرڈر بھیجیں</span></b>
+<div class=m style="margin:2px 0 10px">Tell us how much you need and when — we'll confirm on WhatsApp · <span class=ur>کتنا اور کب چاہیے، ہم واٹس ایپ پر تصدیق کریں گے</span></div>
+${flash === "ok" ? `<div style="background:#dcfce7;color:#166534;padding:10px;border-radius:10px;margin-bottom:10px">✅ Order sent. We'll confirm soon. · <span class=ur>آرڈر بھیج دیا گیا، جلد تصدیق ہوگی</span></div>` : ""}
+${flash === "err" ? `<div class=err>Please choose a product, litres and a date (today or later).</div>` : ""}
+<form method=post action="${esc(code)}/order">
+<div class=grid style="margin-top:0">
+<label>Product · <span class=ur>مصنوعات</span><select name=product class=f required>${prods.map((p) => `<option value="${esc(p)}">${esc(PRODUCTS[p] ?? p)}</option>`).join("")}</select></label>
+<label>Litres · <span class=ur>لیٹر</span><input name=litres class=f type=number min=1 max=200000 step=1 required placeholder="e.g. 5000"></label>
+<label>Date needed · <span class=ur>کس تاریخ</span><input name=want_date class=f type=date min="${today}" value="${today}" required></label>
+</div>
+<label style="display:block;margin-top:8px">Note (optional) · <span class=ur>نوٹ</span><input name=note class=f type=text maxlength=200 placeholder="vehicle, time, location…"></label>
+<button class=b>Send order · <span class=ur>آرڈر بھیجیں</span></button>
+</form>
+${list ? `<div style="margin-top:14px"><b>Your recent orders · <span class=ur>آپ کے آرڈر</span></b>${list}</div>` : ""}</div>`;
+}
+
+function wholesaleBody(c: any, month: string | null, code: string, flash: string | null = null): string {
   const t = c.tenant_id;
   const from = month ? `${month}-01` : pkDate(Date.now() - 60 * DAYMS);
   const to = month ? new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10) : undefined;
@@ -186,6 +216,7 @@ ${c.credit_limit > 0 ? `<div class=m style="margin-top:6px">Credit limit · <spa
 <div class=tile><div class=i>💵</div><b class=g>${rs(paid)}</b><div class=m>Paid · <span class=ur>ادا کیا</span></div></div></div>
 <div class=m style="text-align:center;margin-top:6px">${esc(periodLabel)}</div></div>
 <div class=c><b>Your rate today · <span class=ur>آج آپ کا ریٹ</span></b><div class=rates style="margin-top:10px">${Object.entries(card).map(([p, r]) => `<div class=rate style="background:${COLORS[p] ?? "#475569"}">${esc(PRODUCTS[p] ?? p)} · <span class=ur>${FUEL_UR[p] ?? ""}</span><b>Rs ${r.rate != null ? r.rate.toFixed(2) : "—"}</b><span style="font-size:12px">per litre · <span class=ur>فی لیٹر</span></span></div>`).join("") || "<p class=m>No rate set</p>"}</div></div>
+${orderCard(c, code, flash)}
 <div class=c><div class=np style="margin-bottom:8px"><div class=chips>${chips}</div></div>
 <b>Entries · <span class=ur>تفصیل</span> — ${esc(periodLabel)}</b>
 <div class=m>⛽ fuel taken (+) · 💵 payment (−) · <span class=ur>باقی</span> = balance after each entry</div>
@@ -255,9 +286,9 @@ function photoThumbs(code: string, ids: unknown, en: string, ur: string) {
   return `<div class="slips np">${list.map((id) => `<a href="${esc(code)}/slip/${id}" target="_blank" rel="noopener"><img src="${esc(code)}/slip/${id}" alt="${esc(en)} photo" loading="lazy">${esc(en)} · <span class=ur>${ur}</span></a>`).join("")}</div>`;
 }
 
-function khataPage(kind: Kind, c: any, code: string, month: string | null) {
+function khataPage(kind: Kind, c: any, code: string, month: string | null, flash: string | null = null) {
   const bill = billLink(c.tenant_id, kind, c.id, month ?? pkDate().slice(0, 7));
-  return page(`${c.name} — khata`, (kind === "w" ? wholesaleBody(c, month, code) : khataBody(c, month, code)) +
+  return page(`${c.name} — khata`, (kind === "w" ? wholesaleBody(c, month, code, flash) : khataBody(c, month, code)) +
     `<div class=m style="text-align:center;margin:8px 0 20px">Updated · <span class=ur>تازہ ترین</span> ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>`, c.tenant_id, topBar(c, code, bill));
 }
 
@@ -276,7 +307,7 @@ for (const kind of ["w", "k"] as const) {
     const r = fromCode(kind, req.params.code);
     if (!r) return gone(res);
     res.setHeader("cache-control", "no-store");
-    if (remembered(req, kind, r.c, r.v)) { seen(kind, r.c.id); return res.type("html").send(khataPage(kind, r.c, req.params.code, monthQ(req))); }
+    if (remembered(req, kind, r.c, r.v)) { seen(kind, r.c.id); return res.type("html").send(khataPage(kind, r.c, req.params.code, monthQ(req), String(req.query.ordered ?? "") === "1" ? "ok" : String(req.query.ordererr ?? "") === "1" ? "err" : null)); }
     res.type("html").send(pinForm(r.c));
   });
   pinPortalPublic.post(`/${kind}/:code`, express.urlencoded({ extended: false, limit: "2kb" }), (req, res) => {
@@ -323,4 +354,21 @@ for (const kind of ["w", "k"] as const) {
     res.redirect(303, `/${kind}/${req.params.code}`);
   });
 }
+// a wholesale client places a supply request from their own link (behind the PIN) — pure communication, no ledger entry
+pinPortalPublic.post("/w/:code/order", express.urlencoded({ extended: false, limit: "2kb" }), async (req, res) => {
+  const r = fromCode("w", req.params.code);
+  if (!r || !remembered(req, "w", r.c, r.v)) return gone(res);
+  const back = (q: string) => res.redirect(303, `/w/${req.params.code}${q}`);
+  const product = String(req.body?.product ?? "");
+  const litres = Number(req.body?.litres);
+  const want_date = String(req.body?.want_date ?? "");
+  const note = String(req.body?.note ?? "").trim().slice(0, 200) || null;
+  if (!PRODUCTS[product] || !(litres > 0) || litres > 200_000 || !/^\d{4}-\d{2}-\d{2}$/.test(want_date) || want_date < pkDate()) return back("?ordererr=1");
+  // don't let one link pile up pending requests
+  const pending = get("SELECT COUNT(*) n FROM wholesale_requests WHERE client_id=? AND status='pending'", r.c.id)!.n as number;
+  if (pending >= 10) return back("?ordererr=1");
+  seen("w", r.c.id);
+  try { await placeClientRequest(r.c.tenant_id, r.c.id, { product, litres, want_date, note }); } catch { return back("?ordererr=1"); }
+  back("?ordered=1");
+});
 void pkDate;

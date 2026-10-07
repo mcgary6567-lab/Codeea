@@ -501,6 +501,13 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, amount REAL NOT NULL, bank TEXT NOT NULL, cheque_no TEXT NOT NULL,
     cheque_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'in_hand', account_id INTEGER, payment_txn_id INTEGER, bounce_reason TEXT, note TEXT,
     created_by TEXT, created_at TEXT NOT NULL, deposited_at TEXT, cleared_at TEXT, updated_at TEXT NOT NULL)`);
+  // Supply requests a wholesale client places from their own portal link. Pure communication:
+  // the client asks for X litres on a date, staff approve/reject, an approval pings the client on WhatsApp.
+  // NOT linked to the ledger / khata or to the staff order book — it only carries the ask and its reply.
+  db.exec(`CREATE TABLE IF NOT EXISTS wholesale_requests (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, product TEXT NOT NULL, litres REAL NOT NULL, want_date TEXT NOT NULL,
+    note TEXT, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','cancelled')),
+    reply TEXT, decided_by TEXT, decided_at TEXT, created_at TEXT NOT NULL)`);
   addCashierRole();
   // cashier: cheques received from khata customers / others and cheques we issue (wholesale cheques have their own register)
   db.exec(`CREATE TABLE IF NOT EXISTS cheques (

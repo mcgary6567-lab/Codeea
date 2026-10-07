@@ -152,6 +152,43 @@ test("own khata page with link + PIN for wholesale clients and khata customers; 
   assert.equal((await call("manager", "GET", `/api/wholesale/clients/${c.id}/portal`)).status, 403);
 });
 
+test("wholesale client places a supply request from the portal; staff approve and the client is told on WhatsApp", async () => {
+  const db = await import("../src/db.js");
+  const B = (globalThis as any).base as string;
+  const client = (await call("wholesale", "GET", "/api/wholesale/clients")).data[0];
+  db.run("UPDATE wholesale_clients SET phone=? WHERE id=?", "03001234567", client.id);
+  const p = (await call("wholesale", "GET", `/api/wholesale/clients/${client.id}/portal`)).data;
+  const path = new URL(p.url).pathname;
+  // open with the PIN
+  const good = await fetch(B + path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${p.pin}&remember=1` });
+  const cookie = good.headers.get("set-cookie")!.split(";")[0];
+  assert.match(await good.text(), /Order fuel/, "the order form is on the wholesale portal");
+  // place a request
+  const want = db.pkDate(Date.now() + 2 * 86_400_000);
+  const r1 = await fetch(B + `${path}/order`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", cookie }, body: `product=HSD&litres=5000&want_date=${want}&note=morning` });
+  assert.equal(r1.status, 303); assert.match(r1.headers.get("location")!, /\?ordered=1$/);
+  // a request with no cookie (not behind the PIN) is refused
+  assert.equal((await fetch(B + `${path}/order`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `product=HSD&litres=100&want_date=${want}` })).status, 404);
+  // it shows up for staff as pending
+  const pend = (await call("wholesale", "GET", "/api/wholesale/requests")).data;
+  const mine = pend.pending.find((x: any) => x.client_id === client.id && x.litres === 5000);
+  assert.ok(mine, "request is pending for the desk");
+  // the client sees it as pending on their own link
+  assert.match(await (await fetch(B + path, { headers: { cookie } })).text(), /Pending/);
+  // approve → WhatsApp to the client
+  const outBefore = db.get("SELECT COUNT(*) n FROM outbox").n;
+  const appr = (await call("wholesale", "POST", `/api/wholesale/requests/${mine.id}/approve`, { reply: "Tanker 9am" })).data;
+  assert.equal(appr.status, "approved");
+  assert.ok(db.get("SELECT id FROM outbox WHERE kind='order_approved' AND text LIKE '%approve%'"), "client told on WhatsApp");
+  assert.ok(db.get("SELECT COUNT(*) n FROM outbox").n > outBefore);
+  // the client now sees it approved; a second approve is rejected
+  assert.match(await (await fetch(B + path, { headers: { cookie } })).text(), /Approved/);
+  assert.equal((await call("wholesale", "POST", `/api/wholesale/requests/${mine.id}/approve`, {})).status, 400);
+  // a bad request (past date) bounces back to the error flash, nothing saved
+  const r2 = await fetch(B + `${path}/order`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", cookie }, body: `product=HSD&litres=5000&want_date=2000-01-01` });
+  assert.match(r2.headers.get("location")!, /\?ordererr=1$/);
+});
+
 test("admin ticks / unticks what a role can do; it takes effect at once; owner cannot be locked out", async () => {
   const before = (await call("admin", "GET", "/api/users")).data;
   assert.ok(before.permissions["expenses.view"].includes("manager"));
