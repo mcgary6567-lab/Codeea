@@ -49,7 +49,7 @@ export function SlipsList({ slips }: { slips: { id: number; month: string; net: 
   if (!slips?.length) return null;
   return (
     <div className="mt-3 flex flex-wrap gap-2">
-      {slips.map((s) => <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200"><FileText size={13} /> Slip {s.month} · {pkr(s.net)}</a>)}
+      {slips.map((s) => <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm hover:bg-slate-200"><FileText size={13} /> Slip {s.month} · {pkr(s.net)}</a>)}
     </div>
   );
 }

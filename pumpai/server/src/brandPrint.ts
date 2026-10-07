@@ -56,3 +56,15 @@ export function brandFoot(t: number) {
   const line = [p.place, p.biz_email, p.website].filter(Boolean).map(esc).join(" · ");
   return `<div class="lf" style="--brand:${esc(getSetting(t, "brand_color") || "#059669")}">${line ? `<div>${line}</div>` : ""}${soc ? `<div class="soc">${soc}</div>` : ""}${p.receipt_footer ? `<div><b>${esc(p.receipt_footer)}</b></div>` : ""}</div>`;
 }
+
+/** The same letterhead as plain text lines, for PDFs drawn by hand (salary slip). */
+export function brandLines(t: number) {
+  const p = profile(t);
+  const phone = fmtPhone(p.biz_phone || p.owner_phone);
+  return {
+    contact: [phone ? `Ph ${phone}` : "", p.place ?? "", [p.ntn ? `NTN ${p.ntn}` : "", p.strn ? `STRN ${p.strn}` : ""].filter(Boolean).join(" · ")].filter(Boolean).join("  |  "),
+    foot: [p.place, p.biz_email, p.website].filter(Boolean).join(" · "),
+    social: SOCIALS.filter((x) => p[x.key]).map((x) => `${x.label} ${handle(p[x.key]!)}`).join(" · "),
+    note: p.receipt_footer ?? "",
+  };
+}
