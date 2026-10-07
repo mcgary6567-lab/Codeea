@@ -373,6 +373,14 @@ export function migrate() {
   addColumn("wholesale_trips", "freight", "REAL");
   addColumn("wholesale_trips", "freight_by", "TEXT"); // rate (in the purchase rate) | supplier (on their bill) | cash (paid, booked as an expense)
   addColumn("supplier_txns", "trip_id", "INTEGER"); // a depot-direct purchase: not stock, its cost goes straight against that trip's sales
+  // A depot is the place we lift fuel from (name + address). Inside it several company men work
+  // (Shell/PSO/Total …, each a person). The depot is only a grouping header; the khata lives on the
+  // supplier row (the company + person), so orders and payments reach the right man.
+  db.exec(`CREATE TABLE IF NOT EXISTS depots (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, name TEXT NOT NULL, address TEXT, city TEXT, phone TEXT,
+    notes TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL)`);
+  addColumn("suppliers", "depot_id", "INTEGER");       // which depot this contact belongs to (null = standalone)
+  addColumn("suppliers", "company", "TEXT");           // oil company he represents: Shell / PSO / Total …
   // what each role may do, changed per pump from Users & Roles (laid over the built-in defaults)
   db.exec(`CREATE TABLE IF NOT EXISTS role_permissions (
     tenant_id INTEGER NOT NULL, perm TEXT NOT NULL, role TEXT NOT NULL, allowed INTEGER NOT NULL,

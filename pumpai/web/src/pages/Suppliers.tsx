@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Printer, Wallet } from "lucide-react";
+import { Plus, Printer, Wallet, Building2, Pencil } from "lucide-react";
 import { VoucherSlip } from "./Cashier";
 import { api, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
@@ -8,94 +8,180 @@ import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from
 import { Ur } from "../components/VoiceShell";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 
+const OIL_COMPANIES = ["PSO", "Shell", "Total PARCO", "Attock (APL)", "GO", "Hascol", "Byco / Puma", "Be Energy", "Askar", "Other"];
+/** "Shell — Kamran", or just the name when no company is set. */
+const label = (s: any) => [s.company, s.name].filter(Boolean).join(" — ");
+
 export default function Suppliers() {
   const { data, reload } = useApi<any[]>("/suppliers");
+  const depots = useApi<any[]>("/depots");
   const [open, setOpen] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
+  const [addDepot, setAddDepot] = useState(false);
+  const [editDepot, setEditDepot] = useState<any>(null);
   if (!data) return <Loading />;
   const total = data.reduce((a, s) => a + Math.max(0, s.owed), 0);
+  // group the contacts under their depot; standalone ones go last under "No depot"
+  const byDepot = new Map<string, { depot: any; rows: any[] }>();
+  for (const s of data) {
+    const key = s.depot_id ? `d${s.depot_id}` : "none";
+    if (!byDepot.has(key)) byDepot.set(key, { depot: s.depot_id ? { id: s.depot_id, name: s.depot_name, address: s.depot_address, city: s.depot_city } : null, rows: [] });
+    byDepot.get(key)!.rows.push(s);
+  }
+  const groups = [...byDepot.values()].sort((a, b) => (a.depot ? 0 : 1) - (b.depot ? 0 : 1) || (a.depot?.name ?? "").localeCompare(b.depot?.name ?? ""));
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Suppliers" subtitle="Fuel bought on credit and payments to depots. Tanker deliveries with a supplier and purchase rate are added here automatically."
-        actions={<button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add supplier</button>} />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <PageHeader title="Suppliers & depots" subtitle="Har depot ke andar company aur banda — order aur payment sahi aadmi ko. Tanker deliveries bhi yahan khud-ba-khud aati hain."
+        actions={<div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setAddDepot(true)}><Building2 size={16} /> Add depot</button>
+          <button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add contact</button>
+        </div>} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="We owe suppliers" value={pkrShort(total)} tone="red" />
-        <Stat label="Suppliers" value={data.length} />
+        <Stat label="Depots" value={depots.data?.length ?? "—"} />
+        <Stat label="Contacts" value={data.length} />
         <Stat label="Bought this month" value={`${num(data.reduce((a, s) => a + s.month_l, 0))} L`} />
       </div>
-      {/* phone: one card per supplier */}
-      <ul className="card divide-y divide-slate-100 sm:hidden">
-        {data.map((s) => (
-          <li key={s.id} className="cursor-pointer px-4 py-3 active:bg-slate-50" onClick={() => setOpen(s.id)}>
-            <div className="flex items-start justify-between gap-2">
-              <span className="min-w-0"><span className="block font-semibold">{s.name}</span>{s.phone && <span className="text-xs text-slate-500">{phone(s.phone)}</span>}</span>
-              <span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{pkr(s.owed)}</span><span className="text-[11px] text-slate-500">We owe · <Ur>ادائیگی باقی</Ur></span></span>
+
+      {groups.map(({ depot, rows }) => (
+        <div key={depot?.id ?? "none"} className="card overflow-hidden">
+          <div className="flex items-start justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5">
+            <div className="min-w-0">
+              <h2 className="flex items-center gap-1.5 font-semibold">{depot ? <Building2 size={15} className="shrink-0 text-slate-500" /> : null}{depot?.name ?? "No depot (standalone)"}</h2>
+              {depot && <div className="text-xs text-slate-500">{[depot.address, depot.city].filter(Boolean).join(" · ") || "No address"}</div>}
             </div>
-            <div className="mt-0.5 text-xs text-slate-500">{num(s.month_l)} L this month · bought {ago(s.last_purchase)} · paid {ago(s.last_payment)}</div>
-          </li>
-        ))}
-        {!data.length && <li><Empty>No suppliers yet</Empty></li>}
-      </ul>
-      <div className="card hidden overflow-x-auto sm:block">
-        <table className="w-full">
-          <thead><tr><th className="th">Supplier</th><th className="th text-right">We owe</th><th className="th text-right">This month</th><th className="th">Last purchase</th><th className="th">Last payment</th></tr></thead>
-          <tbody>{data.map((s) => (
-            <tr key={s.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setOpen(s.id)}>
-              <td className="td"><div className="font-medium">{s.name}</div><div className="text-xs text-slate-500">{s.phone ? phone(s.phone) : ""}</div></td>
-              <td className="td text-right font-semibold tabular-nums">{pkr(s.owed)}</td>
-              <td className="td text-right tabular-nums">{num(s.month_l)} L</td>
-              <td className="td text-xs text-slate-500">{ago(s.last_purchase)}</td>
-              <td className="td text-xs text-slate-500">{ago(s.last_payment)}</td>
-            </tr>
-          ))}</tbody>
-        </table>
-        {!data.length && <Empty>No suppliers yet</Empty>}
-      </div>
-      {open && <SupplierDetail id={open} onClose={() => setOpen(null)} onChanged={reload} />}
-      {adding && <AddSupplier onClose={() => setAdding(false)} onSaved={() => { setAdding(false); reload(); }} />}
+            <div className="shrink-0 text-right">
+              <div className="text-sm font-semibold tabular-nums">{pkr(rows.reduce((a, s) => a + Math.max(0, s.owed), 0))}</div>
+              <div className="text-[11px] text-slate-500">we owe</div>
+              {depot && <button className="btn-secondary mt-1 !px-2 !py-0.5 text-xs" onClick={() => setEditDepot(depot)}><Pencil size={11} /> Edit</button>}
+            </div>
+          </div>
+          <ul className="divide-y divide-slate-100">
+            {rows.map((s) => (
+              <li key={s.id} className={`flex cursor-pointer items-start justify-between gap-2 px-4 py-3 active:bg-slate-50 hover:bg-slate-50 ${s.active ? "" : "opacity-50"}`} onClick={() => setOpen(s.id)}>
+                <span className="min-w-0">
+                  <span className="block font-medium">{s.company ? <><span className="text-slate-900">{s.company}</span> <span className="text-slate-400">—</span> {s.name}</> : s.name}</span>
+                  <span className="text-xs text-slate-500">{[s.phone ? phone(s.phone) : "", s.month_l ? `${num(s.month_l)} L this month` : "", s.last_purchase ? `bought ${ago(s.last_purchase)}` : ""].filter(Boolean).join(" · ")}</span>
+                </span>
+                <span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{pkr(s.owed)}</span><span className="text-[11px] text-slate-500">we owe · <Ur>باقی</Ur></span></span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {!data.length && <div className="card"><Empty>No suppliers yet. Add a depot, then add the company men inside it.</Empty></div>}
+
+      {open && <SupplierDetail id={open} onClose={() => setOpen(null)} onChanged={reload} depots={depots.data ?? []} onDepots={depots.reload} />}
+      {adding && <SupplierForm depots={depots.data ?? []} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); reload(); }} onDepots={depots.reload} />}
+      {addDepot && <DepotForm onClose={() => setAddDepot(false)} onSaved={() => { setAddDepot(false); depots.reload(); }} />}
+      {editDepot && <DepotForm initial={editDepot} onClose={() => setEditDepot(null)} onSaved={() => { setEditDepot(null); depots.reload(); reload(); }} />}
     </div>
   );
 }
 
-function AddSupplier({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ name: "", phone: "", opening_balance: "0" });
+function DepotForm({ initial, onClose, onSaved }: { initial?: any; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState({ name: initial?.name ?? "", address: initial?.address ?? "", city: initial?.city ?? "", phone: initial?.phone ?? "", notes: initial?.notes ?? "" });
   const { busy, run } = useAction();
+  const save = async (e: any) => {
+    e.preventDefault();
+    const body = { name: f.name, address: f.address || null, city: f.city || null, phone: f.phone || null, notes: f.notes || null };
+    const ok = initial ? await run(() => api(`/depots/${initial.id}`, { method: "PATCH", body }), "Depot saved") : await run(() => api("/depots", { body }), "Depot added");
+    if (ok) onSaved();
+  };
   return (
-    <Modal open onClose={onClose} title="Add supplier">
-      <form className="space-y-3" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/suppliers", { body: { name: f.name, phone: f.phone || null, opening_balance: Number(f.opening_balance) || 0 } }), "Supplier added")) onSaved(); }}>
-        <Field label="Name (e.g. PSO depot)"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-        <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
-        <Field label="Opening balance we owe (Rs)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+    <Modal open onClose={onClose} title={initial ? "Edit depot" : "Add depot"}>
+      <form className="space-y-3" onSubmit={save}>
+        <Field label="Depot name (e.g. Kotadu Depot)"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Address"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
+          <Field label="City"><input className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
+        </div>
+        <Field label="Depot phone (optional)"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+        <Field label="Notes (optional)"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
+        <p className="text-xs text-slate-500">Depot sirf header hai — andar company aur banda (jaise Shell — Kamran) alag add karein, khata unhi par chalega.</p>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>Save</button></div>
       </form>
     </Modal>
   );
 }
 
-function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () => void; onChanged: () => void }) {
+/** Add or edit a supplier contact (company + person) inside a depot. */
+function SupplierForm({ initial, depots, onClose, onSaved, onDepots }: { initial?: any; depots: any[]; onClose: () => void; onSaved: () => void; onDepots: () => void }) {
+  const [f, setF] = useState({
+    name: initial?.name ?? "", company: initial?.company ?? "", companyOther: "", depot_id: initial?.depot_id ? String(initial.depot_id) : "",
+    phone: initial?.phone ?? "", opening_balance: String(initial?.opening_balance ?? "0"), notes: initial?.notes ?? "",
+  });
+  const [newDepot, setNewDepot] = useState(false);
+  const { busy, run } = useAction();
+  const knownCompany = OIL_COMPANIES.includes(f.company);
+  const save = async (e: any) => {
+    e.preventDefault();
+    const company = f.company === "Other" ? (f.companyOther || null) : (f.company || null);
+    const base = { name: f.name, company, depot_id: f.depot_id ? Number(f.depot_id) : null, phone: f.phone || null, notes: f.notes || null };
+    const ok = initial
+      ? await run(() => api(`/suppliers/${initial.id}`, { method: "PATCH", body: base }), "Saved")
+      : await run(() => api("/suppliers", { body: { ...base, opening_balance: Number(f.opening_balance) || 0 } }), "Contact added");
+    if (ok) onSaved();
+  };
+  return (
+    <Modal open onClose={onClose} title={initial ? "Edit contact" : "Add supplier contact"}>
+      {newDepot && <DepotForm onClose={() => setNewDepot(false)} onSaved={() => { setNewDepot(false); onDepots(); }} />}
+      <form className="space-y-3" onSubmit={save}>
+        <Field label="Depot">
+          <div className="flex gap-2">
+            <select className="input" value={f.depot_id} onChange={(e) => setF({ ...f, depot_id: e.target.value })}>
+              <option value="">— No depot —</option>
+              {depots.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            <button type="button" className="btn-secondary whitespace-nowrap !px-3" onClick={() => setNewDepot(true)}><Plus size={14} /> New</button>
+          </div>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Company">
+            <select className="input" value={knownCompany || f.company === "" ? f.company : "Other"} onChange={(e) => setF({ ...f, company: e.target.value })}>
+              <option value="">— none —</option>
+              {OIL_COMPANIES.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Person's name (e.g. Kamran)"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        </div>
+        {(f.company === "Other" || (!knownCompany && f.company !== "")) && <Field label="Write the company"><input className="input" value={f.company === "Other" ? f.companyOther : f.company} onChange={(e) => setF({ ...f, company: "Other", companyOther: e.target.value })} /></Field>}
+        <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+        {!initial && <Field label="Opening balance we owe (Rs)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>}
+        <Field label="Notes (optional)"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>Save</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+function SupplierDetail({ id, onClose, onChanged, depots, onDepots }: { id: number; onClose: () => void; onChanged: () => void; depots: any[]; onDepots: () => void }) {
   const { data: s, reload } = useApi<any>(`/suppliers/${id}`);
   const [pay, setPay] = useState({ amount: "", method: "Bank transfer", ref: "", wht: "" });
   const [photos, setPhotos] = useState<number[]>([]);
   const [account, setAccount] = useState<number | null>(null);
   const [slip, setSlip] = useState<any>(null);
+  const [edit, setEdit] = useState(false);
   const { busy, run } = useAction();
+  const title = s ? label(s) : "Supplier";
   // the cashier's two-copy payment voucher, for a payment made from this page
   const voucherOf = (t: any, owedAfter: number | null) => ({
     prepared: true, party_type: "supplier", balance_after: owedAfter, account: t.account_name,
-    voucher: { no: `SP-${String(t.id).padStart(5, "0")}`, direction: "out", amount: t.amount, party_name: s.name, method: t.method, ref: t.ref,
-      note: [t.note, t.withholding ? `Income tax withheld ${pkr(t.withholding)} (paid to FBR)` : ""].filter(Boolean).join(" · ") || null, created_by: t.created_by, created_at: t.created_at },
+    voucher: { no: `SP-${String(t.id).padStart(5, "0")}`, direction: "out", amount: t.amount, party_name: label(s), method: t.method, ref: t.ref,
+      note: [s.depot_name ? `Depot: ${s.depot_name}` : "", t.note, t.withholding ? `Income tax withheld ${pkr(t.withholding)} (paid to FBR)` : ""].filter(Boolean).join(" · ") || null, created_by: t.created_by, created_at: t.created_at },
   });
   const printable = (t: any) => t.type === "payment" && t.method !== "WHT";
   return (
-    <Modal open onClose={onClose} title={s?.name ?? "Supplier"} wide>
+    <Modal open onClose={onClose} title={title} wide>
       {slip && <VoucherSlip r={slip} onClose={() => setSlip(null)} />}
+      {edit && s && <SupplierForm initial={s} depots={depots} onClose={() => setEdit(false)} onSaved={() => { setEdit(false); reload(); onChanged(); }} onDepots={onDepots} />}
       {!s ? <Loading /> : (
         <div className="space-y-4">
           {/* on paper: the supplier's account, oldest entry first, like a bank statement */}
           <div className="own-title hidden print:block">
             <div className="flex items-end justify-between border-b border-slate-300 pb-2">
-              <div><div className="text-lg font-bold">{s.name}</div><div className="text-xs text-slate-600">{[s.phone ? phone(s.phone) : "", "Supplier account statement"].filter(Boolean).join(" · ")}</div></div>
+              <div><div className="text-lg font-bold">{label(s)}</div><div className="text-xs text-slate-600">{[s.depot_name ? `Depot: ${s.depot_name}${s.depot_address ? `, ${s.depot_address}` : ""}` : "", s.phone ? phone(s.phone) : "", "Supplier account statement"].filter(Boolean).join(" · ")}</div></div>
               <div className="text-right text-sm">We owe: <b className="tabular-nums">{pkr(s.owed)}</b><div className="text-xs text-slate-500">as on {dt(new Date().toISOString())}</div></div>
             </div>
             <table className="mt-2 w-full">
@@ -110,7 +196,6 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
                     <td className="td whitespace-nowrap text-right tabular-nums">{t.credit ? pkr(t.credit) : ""}</td>
                     <td className="td whitespace-nowrap text-right tabular-nums">{pkr(t.balance)}</td>
                   </tr>))}
-                {/* last row of the body, not a tfoot: a tfoot repeats on every printed page */}
                 <tr className="font-bold"><td className="td border-t-2 border-slate-800" colSpan={3}>Closing balance (we owe)</td>
                 <td className="td whitespace-nowrap text-right tabular-nums">{pkr(s.lines.reduce((a: number, t: any) => a + t.debit, 0))}</td>
                 <td className="td whitespace-nowrap text-right tabular-nums">{pkr(s.lines.reduce((a: number, t: any) => a + t.credit, 0))}</td>
@@ -118,6 +203,12 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
               </tbody>
             </table>
             <div className="mt-8 grid break-inside-avoid grid-cols-2 gap-10 text-center text-xs text-slate-600"><div className="border-t border-slate-500 pt-1">Prepared by</div><div className="border-t border-slate-500 pt-1">Supplier (confirmed) · <Ur>سپلائر</Ur></div></div>
+          </div>
+          {/* depot / company header on screen */}
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
+            {s.depot_name && <span className="badge gap-1 bg-slate-100 text-slate-700"><Building2 size={12} /> {s.depot_name}{s.depot_address ? ` · ${s.depot_address}` : ""}</span>}
+            {s.company && <Badge tone="blue">{s.company}</Badge>}
+            <button type="button" className="btn-secondary ml-auto min-h-9 !py-1" onClick={() => setEdit(true)}><Pencil size={14} /> Edit contact</button>
           </div>
           <div className="flex flex-wrap items-end gap-3 print:hidden">
             <Stat label="We owe" value={pkr(s.owed)} tone="red" />

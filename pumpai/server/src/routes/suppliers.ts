@@ -5,7 +5,7 @@ import { recordWithholding, taxSettings } from "./tax.js";
 import { all, get, run, now, tx } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField, chequeToRegister, accountName } from "./banks.js";
-import { h, parse, tid, can } from "../auth.js";
+import { h, parse, tid, can, requirePerm } from "../auth.js";
 import { AppError, normalizePhone, round2 } from "../services.js";
 import { announce } from "../notifications.js";
 
@@ -14,6 +14,38 @@ export const suppliers = Router();
 suppliers.use("/suppliers", (req, _res, next) =>
   can(req.user, "suppliers.manage") || (req.method === "POST" && /^\/\d+\/payment$/.test(req.path) && can(req.user, "cash.pay"))
     ? next() : next(new AppError(403, "You don't have permission for this")));
+
+/** The oil companies a depot man can represent (free text "Other" is also allowed). */
+export const OIL_COMPANIES = ["PSO", "Shell", "Total PARCO", "Attock (APL)", "GO", "Hascol", "Byco / Puma", "Be Energy", "Askar", "Other"];
+/** One depot: name + address; the men inside it are supplier rows pointing here. */
+const depotOut = (t: number, d: any) => {
+  const r = get(`SELECT COUNT(*) n, COALESCE(SUM(s.opening_balance),0) ob FROM suppliers s WHERE s.depot_id=? AND s.tenant_id=?`, d.id, t)!;
+  const owed = all("SELECT id FROM suppliers WHERE depot_id=? AND tenant_id=?", d.id, t).reduce((a, s) => a + supplierOwed(s.id), 0);
+  return { ...d, contacts: r.n as number, owed: round2(owed) };
+};
+
+suppliers.get("/depots", requirePerm("suppliers.manage"), h((req) =>
+  all("SELECT * FROM depots WHERE tenant_id=? ORDER BY active DESC, name", tid(req)).map((d) => depotOut(tid(req), d))));
+
+suppliers.post("/depots", requirePerm("suppliers.manage"), h((req) => {
+  const b = parse(z.object({ name: z.string().min(2).max(80), address: z.string().max(200).optional().nullable(), city: z.string().max(60).optional().nullable(),
+    phone: z.string().max(30).optional().nullable(), notes: z.string().max(300).optional().nullable() }), req.body);
+  const { id } = run("INSERT INTO depots (tenant_id,name,address,city,phone,notes,created_at) VALUES (?,?,?,?,?,?,?)",
+    tid(req), b.name, b.address ?? null, b.city ?? null, b.phone ? normalizePhone(b.phone) : null, b.notes ?? null, now());
+  return depotOut(tid(req), get("SELECT * FROM depots WHERE id=?", id));
+}));
+
+suppliers.patch("/depots/:id", requirePerm("suppliers.manage"), h((req) => {
+  const d = get("SELECT * FROM depots WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
+  if (!d) throw new AppError(404, "Depot not found");
+  const b = parse(z.object({ name: z.string().min(2).max(80).optional(), address: z.string().max(200).nullable().optional(), city: z.string().max(60).nullable().optional(),
+    phone: z.string().max(30).nullable().optional(), notes: z.string().max(300).nullable().optional(), active: z.boolean().optional() }), req.body);
+  const pick = (v: any, cur: any) => (v === undefined ? cur : v);
+  run("UPDATE depots SET name=?, address=?, city=?, phone=?, notes=?, active=? WHERE id=?",
+    b.name ?? d.name, pick(b.address, d.address), pick(b.city, d.city), b.phone !== undefined ? (b.phone ? normalizePhone(b.phone) : null) : d.phone,
+    pick(b.notes, d.notes), b.active === undefined ? d.active : b.active ? 1 : 0, d.id);
+  return depotOut(tid(req), get("SELECT * FROM depots WHERE id=?", d.id));
+}));
 
 const OWED_SQL = `CASE type WHEN 'purchase' THEN amount WHEN 'payment' THEN -amount ELSE amount END`;
 
@@ -39,24 +71,51 @@ function own(tenantId: number, id: number) {
   return s;
 }
 
-suppliers.get("/suppliers", h((req) => all("SELECT * FROM suppliers WHERE tenant_id=? ORDER BY active DESC, name", tid(req)).map((s) => ({
+suppliers.get("/suppliers", h((req) => all(`SELECT s.*, d.name depot_name, d.address depot_address, d.city depot_city
+    FROM suppliers s LEFT JOIN depots d ON d.id=s.depot_id WHERE s.tenant_id=? ORDER BY s.active DESC, COALESCE(d.name,''), s.company, s.name`, tid(req)).map((s) => ({
   ...s, owed: supplierOwed(s.id),
   ...get(`SELECT MAX(CASE WHEN type='purchase' THEN txn_date END) last_purchase, MAX(CASE WHEN type='payment' THEN txn_date END) last_payment,
       COALESCE(SUM(CASE WHEN type='purchase' AND txn_date >= ? THEN litres END),0) month_l FROM supplier_txns WHERE supplier_id=?`,
     new Date().toISOString().slice(0, 7) + "-01", s.id)!,
 }))));
 
+const supplierBody = z.object({
+  name: z.string().min(2).max(80), phone: z.string().optional().nullable(), opening_balance: z.number().optional(),
+  notes: z.string().optional().nullable(), depot_id: z.number().int().nullable().optional(), company: z.string().max(60).nullable().optional(),
+});
+/** Check a chosen depot belongs to this pump. */
+const checkDepot = (t: number, depotId: number | null | undefined) => {
+  if (depotId && !get("SELECT id FROM depots WHERE id=? AND tenant_id=?", depotId, t)) throw new AppError(400, "Depot not found");
+};
+
 suppliers.post("/suppliers", h(async (req) => {
-  const b = parse(z.object({ name: z.string().min(2), phone: z.string().optional().nullable(), opening_balance: z.number().optional(), notes: z.string().optional().nullable() }), req.body);
-  const { id } = run("INSERT INTO suppliers (tenant_id,name,phone,opening_balance,notes,created_at) VALUES (?,?,?,?,?,?)",
-    tid(req), b.name, b.phone ? normalizePhone(b.phone) : null, b.opening_balance ?? 0, b.notes ?? null, now());
+  const b = parse(supplierBody, req.body);
+  checkDepot(tid(req), b.depot_id);
+  const { id } = run("INSERT INTO suppliers (tenant_id,name,phone,opening_balance,notes,depot_id,company,created_at) VALUES (?,?,?,?,?,?,?,?)",
+    tid(req), b.name, b.phone ? normalizePhone(b.phone) : null, b.opening_balance ?? 0, b.notes ?? null, b.depot_id ?? null, b.company ?? null, now());
   await announce(tid(req), req.user!.id, ["manager", "admin"], { type: "new_supplier", data: { supplier_id: id },
-    title: `🏭 New supplier: ${b.name}`, body: `Tanker delivery par ab ye supplier chuna ja sakta hai.` });
+    title: `🏭 New supplier: ${[b.company, b.name].filter(Boolean).join(" — ")}`, body: `Tanker delivery par ab ye supplier chuna ja sakta hai.` });
   return { ...get("SELECT * FROM suppliers WHERE id=?", id)!, owed: supplierOwed(id) };
 }));
 
-suppliers.get("/suppliers/:id", h((req) => {
+/** Edit a supplier contact: name, phone, which depot, which company, notes, active. */
+suppliers.patch("/suppliers/:id", h((req) => {
   const s = own(tid(req), Number(req.params.id));
+  const b = parse(supplierBody.partial().extend({ active: z.boolean().optional() }), req.body);
+  checkDepot(tid(req), b.depot_id);
+  const pick = (v: any, cur: any) => (v === undefined ? cur : v);
+  run("UPDATE suppliers SET name=?, phone=?, notes=?, depot_id=?, company=?, active=? WHERE id=?",
+    b.name ?? s.name, b.phone !== undefined ? (b.phone ? normalizePhone(b.phone) : null) : s.phone, pick(b.notes, s.notes),
+    pick(b.depot_id, s.depot_id), pick(b.company, s.company), b.active === undefined ? s.active : b.active ? 1 : 0, s.id);
+  return { ...get("SELECT * FROM suppliers WHERE id=?", s.id)!, owed: supplierOwed(s.id) };
+}));
+
+suppliers.get("/suppliers/meta/companies", requirePerm("suppliers.manage"), h(() => ({ companies: OIL_COMPANIES })));
+
+suppliers.get("/suppliers/:id", h((req) => {
+  const s0 = own(tid(req), Number(req.params.id));
+  const dep = s0.depot_id ? get("SELECT name, address, city FROM depots WHERE id=?", s0.depot_id) : null;
+  const s = { ...s0, depot_name: dep?.name ?? null, depot_address: dep?.address ?? null, depot_city: dep?.city ?? null };
   let bal = s.opening_balance;
   const lines = all(`SELECT x.*, ${proofCol("'stx:'||x.id")} FROM supplier_txns x WHERE x.supplier_id=? ORDER BY x.txn_date, x.id`, s.id).map((t) => {
     const effect = t.type === "payment" ? -t.amount : t.amount;

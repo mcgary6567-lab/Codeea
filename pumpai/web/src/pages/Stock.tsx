@@ -7,6 +7,18 @@ import { SupplierForm } from "../components/QuickAdd";
 import { useAuth } from "../App";
 import { PRODUCT_COLORS, dt, num } from "../lib/format";
 
+/** Supplier <option>s grouped by depot, each labelled "Company — Person" so the right man is picked. */
+function supplierOpts(list: any[], flagNoWa = false) {
+  const groups = new Map<string, { name: string; rows: any[] }>();
+  for (const s of list) {
+    const key = s.depot_id ? `d${s.depot_id}` : "none";
+    if (!groups.has(key)) groups.set(key, { name: s.depot_id ? (s.depot_name ?? "Depot") : "No depot", rows: [] });
+    groups.get(key)!.rows.push(s);
+  }
+  const opt = (s: any) => <option key={s.id} value={s.id}>{[s.company, s.name].filter(Boolean).join(" — ")}{flagNoWa && !s.phone ? " (no WhatsApp)" : ""}</option>;
+  return [...groups.values()].map((g, i) => <optgroup key={i} label={g.name}>{g.rows.map(opt)}</optgroup>);
+}
+
 export default function Stock() {
   const dash = useApi<any>("/dashboard");
   const stock = useApi<any>("/stock");
@@ -115,8 +127,8 @@ export default function Stock() {
             <Field label="Invoice litres"><input className="input" type="number" min={1} required value={del.invoice_l} onChange={(e) => setDel({ ...del, invoice_l: e.target.value })} /></Field>
             <Field label="Received (dip difference)"><input className="input" type="number" min={1} required value={del.received_l} onChange={(e) => setDel({ ...del, received_l: e.target.value })} /></Field>
             <Field label="Tanker no."><input className="input" value={del.tanker_no} onChange={(e) => setDel({ ...del, tanker_no: e.target.value })} /></Field>
-            <div className="col-span-2"><Field label="Supplier (depot) · سپلائر"><select className="input" required value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
-              <option value="">— choose supplier —</option>{(suppliers.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            <div className="col-span-2"><Field label="Supplier (depot → company → banda) · سپلائر"><select className="input" required value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
+              <option value="">— choose supplier —</option>{supplierOpts(suppliers.data ?? [])}</select>
               {can("suppliers.manage") && <button type="button" className="mt-1 min-h-9 text-xs font-medium text-brand-700 hover:underline" onClick={() => setAddSup(true)}>+ New supplier · نیا سپلائر</button>}</Field></div>
             <Field label="Purchase rate (Rs/L, from invoice) · ریٹ"><input className="input" type="number" step="0.01" min={1} required value={del.purchase_rate} onChange={(e) => setDel({ ...del, purchase_rate: e.target.value })} /></Field>
             <Field label="Freight paid (Rs, optional)"><input className="input" type="number" min={0} value={del.freight} onChange={(e) => setDel({ ...del, freight: e.target.value })} />
@@ -155,7 +167,7 @@ function OrderModal({ s, suppliers, onClose, onDone }: { s: any; suppliers: any[
         if (await run(() => api("/stock/orders", { body: { tank_id: s.tank.id, supplier_id: Number(f.supplier_id), litres: Number(f.litres), note: f.note || null } }), (x: any) => x.whatsapp === "sent" ? "Order sent to the supplier on WhatsApp" : "Order saved (supplier has no WhatsApp number)")) onDone();
       }}>
         <p className="text-sm text-slate-600">{PRODUCTS[s.tank.product]} · space in tank: <b>{num(s.room)} L</b></p>
-        <Field label="Supplier"><select className="input" value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>{suppliers.map((x) => <option key={x.id} value={x.id}>{x.name}{x.phone ? "" : " (no WhatsApp)"}</option>)}</select></Field>
+        <Field label="Supplier"><select className="input" value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>{supplierOpts(suppliers, true)}</select></Field>
         <Field label="Litres"><input className="input py-3 text-2xl" type="number" min={1000} step={1000} max={s.room} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
         <div className="flex flex-wrap gap-2">{[10000, 20000, 30000, 40000].filter((x) => x <= s.room).map((x) => <button type="button" key={x} className="min-h-9 rounded-lg bg-slate-100 px-3 py-1.5 text-sm" onClick={() => setF({ ...f, litres: String(x) })}>{num(x)} L</button>)}</div>
         <Field label="Note for supplier (optional)"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. deliver before 6pm" /></Field>

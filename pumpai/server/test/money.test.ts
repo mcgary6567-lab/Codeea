@@ -61,6 +61,37 @@ test("a short tanker opens a claim; claim goes to the depot on WhatsApp; credit 
   assert.equal(d2.claim_id, null);
 });
 
+test("depots group supplier contacts: a depot holds company men, each with their own khata", async () => {
+  // make a depot and two company men inside it
+  const depot = ok(await call("manager", "POST", "/api/depots", { name: "Kotadu Depot", address: "Multan Road", city: "Multan" }), "depot");
+  assert.ok(depot.id && depot.contacts === 0);
+  const kamran = ok(await call("manager", "POST", "/api/suppliers", { name: "Kamran", company: "Shell", depot_id: depot.id, opening_balance: 5000 }), "kamran");
+  const imran = ok(await call("manager", "POST", "/api/suppliers", { name: "Imran", company: "PSO", depot_id: depot.id }), "imran");
+  assert.equal(kamran.company, "Shell"); assert.equal(kamran.depot_id, depot.id);
+  // the list carries the depot name so the UI can group and show company — person
+  const list = ok(await call("manager", "GET", "/api/suppliers"), "list");
+  const k = list.find((s: any) => s.id === kamran.id);
+  assert.equal(k.depot_name, "Kotadu Depot"); assert.equal(k.company, "Shell");
+  // the depot shows how many men are inside and the combined owed (each khata is still separate)
+  const depots = ok(await call("manager", "GET", "/api/depots"), "depots");
+  const kd = depots.find((d: any) => d.id === depot.id);
+  assert.equal(kd.contacts, 2); assert.equal(kd.owed, 5000);
+  // a payment is against the man, not the depot
+  ok(await call("manager", "POST", `/api/suppliers/${kamran.id}/payment`, { amount: 2000, method: "Cash" }), "pay kamran");
+  assert.equal(ok(await call("manager", "GET", `/api/suppliers/${kamran.id}`), "k detail").owed, 3000);
+  assert.equal(ok(await call("manager", "GET", `/api/suppliers/${imran.id}`), "i detail").owed, 0);
+  assert.equal(ok(await call("manager", "GET", "/api/depots"), "depots2").find((d: any) => d.id === depot.id).owed, 3000);
+  // edit: move Imran to another company and off the depot
+  ok(await call("manager", "PATCH", `/api/suppliers/${imran.id}`, { company: "Total PARCO", depot_id: null }), "edit imran");
+  const i2 = ok(await call("manager", "GET", `/api/suppliers/${imran.id}`), "i2");
+  assert.equal(i2.company, "Total PARCO"); assert.equal(i2.depot_id, null); assert.equal(i2.depot_name, null);
+  assert.equal(ok(await call("manager", "GET", "/api/depots"), "depots3").find((d: any) => d.id === depot.id).contacts, 1);
+  // a bad depot id is rejected
+  assert.equal((await call("manager", "POST", "/api/suppliers", { name: "Ghost", depot_id: 999999 })).status, 400);
+  // a salesman cannot manage depots
+  assert.equal((await call("salesman", "GET", "/api/depots")).status, 403);
+});
+
 test("depot comparison: landed cost per litre includes freight and shortage", async () => {
   const r = ok(await call("manager", "GET", "/api/suppliers-compare?days=120"), "compare");
   const hsd = r.rows.filter((x: any) => x.product === "HSD");
