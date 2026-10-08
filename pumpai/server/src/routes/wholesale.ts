@@ -437,6 +437,15 @@ wholesale.post("/wholesale/rates/bulk", requirePerm("wholesale.rates"), h(async 
   return { ok: true, changed: result, notified };
 }));
 
+/** All wholesale rate changes across every client — newest first (for the rate-change log). */
+wholesale.get("/wholesale/rate-history", requirePerm("wholesale.rates"), h((req) => {
+  const t = tid(req);
+  const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 150));
+  return all(`SELECT h.id, h.client_id, c.name client_name, h.product, h.old_rate, h.new_rate, h.changed_by, h.note, h.created_at
+    FROM wholesale_rate_history h JOIN wholesale_clients c ON c.id=h.client_id
+    WHERE c.tenant_id=? ORDER BY h.id DESC LIMIT ?`, t, limit);
+}));
+
 wholesale.get("/wholesale/clients/:id", h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
   return {

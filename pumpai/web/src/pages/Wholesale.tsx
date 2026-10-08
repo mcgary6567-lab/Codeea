@@ -103,23 +103,54 @@ function BulkRateModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
   );
 }
 
+/** Consolidated rate-change log across every wholesale client, newest first. */
+function RateHistoryModal({ onClose }: { onClose: () => void }) {
+  const { data } = useApi<any[]>("/wholesale/rate-history?limit=200");
+  return (
+    <Modal open onClose={onClose} title="Rate change history · ریٹ کی تاریخ" wide>
+      {!data ? <Loading /> : !data.length ? <Empty>Abhi tak koi rate change nahi</Empty> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b text-left text-xs text-slate-500"><th className="py-2">Date</th><th>Client</th><th>Fuel</th><th className="text-right">Purana → Naya</th><th>Note</th><th>By</th></tr></thead>
+            <tbody>
+              {data.map((h) => (
+                <tr key={h.id} className="border-b">
+                  <td className="py-2 whitespace-nowrap">{dt(h.created_at)}</td>
+                  <td className="whitespace-nowrap font-medium">{h.client_name}</td>
+                  <td>{PRODUCTS[h.product] ?? h.product}</td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{h.old_rate != null ? `Rs ${h.old_rate} → ` : ""}<b>Rs {h.new_rate}</b>{h.old_rate != null && <span className={`ml-1 text-xs ${h.new_rate - h.old_rate >= 0 ? "text-emerald-600" : "text-rose-600"}`}>({h.new_rate - h.old_rate >= 0 ? "+" : ""}{Math.round((h.new_rate - h.old_rate) * 100) / 100})</span>}</td>
+                  <td className="text-xs text-slate-500">{h.note ?? ""}</td>
+                  <td className="text-xs text-slate-500">{h.changed_by}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 /** All clients with their rates, due and limit — the plain list. */
 function ClientsTable({ onAdd }: { onAdd: () => void }) {
   const nav = useNavigate();
   const { can } = useAuth();
   const [q, setQ] = useState("");
   const [bulk, setBulk] = useState(false);
+  const [history, setHistory] = useState(false);
   const list = useApi<any[]>(`/wholesale/clients?q=${encodeURIComponent(q)}`);
   return (
     <div className="card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
         <div className="relative w-full max-w-sm"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <div className="flex gap-2">
+          {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setHistory(true)}><SlidersHorizontal size={15} /> Rate history</button>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setBulk(true)}><SlidersHorizontal size={15} /> Sab ka rate badlo</button>}
           {can("wholesale.manage") && <button className="btn-primary" onClick={onAdd}><Plus size={16} /> Add client</button>}
         </div>
       </div>
       {bulk && <BulkRateModal onClose={() => setBulk(false)} onDone={() => { setBulk(false); list.reload(); }} />}
+      {history && <RateHistoryModal onClose={() => setHistory(false)} />}
       {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
       <ul className="divide-y divide-slate-100 sm:hidden">
         {(list.data ?? []).map((c) => {

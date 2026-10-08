@@ -185,4 +185,9 @@ test("bulk rate change: +Rs applies to every client's fixed rate at once (admin 
   // a drop of Rs 1.5 works too
   assert.equal((await call("admin", "POST", "/api/wholesale/rates/bulk", { deltas: { HSD: -1.5 } })).status, 200);
   assert.equal((await call("admin", "GET", `/api/wholesale/clients/${a.id}`)).data.rates.HSD, 250.5);
+  // the consolidated rate-change log lists these changes across clients (admin only)
+  assert.equal((await call("wholesale", "GET", "/api/wholesale/rate-history")).status, 403);
+  const hist = (await call("admin", "GET", "/api/wholesale/rate-history?limit=50")).data;
+  assert.ok(hist.some((h: any) => h.client_name === "Bulk A" && h.product === "HSD" && h.new_rate === 250.5), "log has A's latest HSD change");
+  assert.ok(hist.some((h: any) => h.client_name === "Bulk B"), "log includes other clients' changes too");
 });
