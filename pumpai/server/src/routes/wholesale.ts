@@ -446,6 +446,25 @@ wholesale.get("/wholesale/rate-history", requirePerm("wholesale.rates"), h((req)
     WHERE c.tenant_id=? ORDER BY h.id DESC LIMIT ?`, t, limit);
 }));
 
+/** The wholesale rate-change log as a CSV (Excel) download — newest first. */
+wholesale.get("/wholesale/rate-history.csv", (req, res, next) => {
+  try {
+    if (!can(req.user, "wholesale.rates")) throw new AppError(403, "You don't have permission for this");
+    const rows = all(`SELECT h.id, c.name client_name, h.product, h.old_rate, h.new_rate, h.changed_by, h.note, h.created_at
+      FROM wholesale_rate_history h JOIN wholesale_clients c ON c.id=h.client_id WHERE c.tenant_id=? ORDER BY h.id DESC LIMIT 5000`, tid(req));
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const out = [
+      ["Wholesale rate change history"].map(esc).join(","),
+      ["Date", "Client", "Fuel", "Old rate", "New rate", "Change", "Note", "By"].map(esc).join(","),
+      ...rows.map((h) => [String(h.created_at).slice(0, 16).replace("T", " "), h.client_name, PRODUCTS[h.product] ?? h.product,
+        h.old_rate ?? "", h.new_rate, h.old_rate != null ? round2(h.new_rate - h.old_rate) : "", h.note ?? "", h.changed_by ?? ""].map(esc).join(",")),
+    ].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="wholesale-rate-history-${pkDate()}.csv"`);
+    res.send("﻿" + out);
+  } catch (e) { next(e); }
+});
+
 wholesale.get("/wholesale/clients/:id", h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
   return {

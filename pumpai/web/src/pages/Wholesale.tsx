@@ -108,6 +108,9 @@ function RateHistoryModal({ onClose }: { onClose: () => void }) {
   const { data } = useApi<any[]>("/wholesale/rate-history?limit=200");
   return (
     <Modal open onClose={onClose} title="Rate change history · ریٹ کی تاریخ" wide>
+      <div className="mb-2 flex justify-end">
+        <a className="btn-secondary min-h-9" href={`/api/wholesale/rate-history.csv?token=${linkToken()}`}><Download size={15} /> Excel / CSV</a>
+      </div>
       {!data ? <Loading /> : !data.length ? <Empty>Abhi tak koi rate change nahi</Empty> : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

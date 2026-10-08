@@ -190,4 +190,8 @@ test("bulk rate change: +Rs applies to every client's fixed rate at once (admin 
   const hist = (await call("admin", "GET", "/api/wholesale/rate-history?limit=50")).data;
   assert.ok(hist.some((h: any) => h.client_name === "Bulk A" && h.product === "HSD" && h.new_rate === 250.5), "log has A's latest HSD change");
   assert.ok(hist.some((h: any) => h.client_name === "Bulk B"), "log includes other clients' changes too");
+  // CSV download (admin only)
+  assert.equal((await call("wholesale", "GET", "/api/wholesale/rate-history.csv")).status, 403);
+  const csv = await call("admin", "GET", "/api/wholesale/rate-history.csv");
+  assert.equal(csv.status, 200);
 });
