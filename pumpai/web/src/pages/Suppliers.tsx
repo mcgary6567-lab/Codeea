@@ -150,7 +150,10 @@ function SupplierForm({ initial, depots, onClose, onSaved, onDepots }: { initial
         <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
         {!initial && <Field label="Opening balance we owe (Rs)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>}
         <Field label="Notes (optional)"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>Save</button></div>
+        <div className="flex items-center justify-end gap-2">
+          {initial && <button type="button" className="btn-secondary mr-auto !text-amber-700" disabled={busy} onClick={() => run(() => api(`/suppliers/${initial.id}`, { method: "PATCH", body: { active: !initial.active } }), initial.active ? "Deactivated" : "Reactivated").then(onSaved)}>{initial.active ? "Deactivate" : "Reactivate"}</button>}
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>Save</button>
+        </div>
       </form>
     </Modal>
   );

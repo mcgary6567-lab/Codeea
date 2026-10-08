@@ -659,6 +659,7 @@ export function migrate() {
   addColumn("tanks", "active", "INTEGER NOT NULL DEFAULT 1");
   addColumn("nozzles", "active", "INTEGER NOT NULL DEFAULT 1");
   addColumn("expense_categories", "active", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("customers", "active", "INTEGER NOT NULL DEFAULT 1"); // archive a dead / duplicate customer — history stays
 }
 
 /** Allow the cashier role on databases made before it (the users table keeps every column it has today). */

@@ -67,6 +67,7 @@ function Licences() {
 }
 
 function LicenceForm({ l, stations, onClose, onDone }: { l: any; stations: any[]; onClose: () => void; onDone: () => void }) {
+  const { can } = useAuth();
   const [f, setF] = useState({ name: l.name ?? "", number: l.number ?? "", authority: l.authority ?? "", station_id: l.station_id ? String(l.station_id) : "", issued_on: l.issued_on ?? "", expires_on: l.expires_on ?? "", note: l.note ?? "", photo_id: null as number | null });
   const { busy, run } = useAction();
   return (
@@ -85,7 +86,10 @@ function LicenceForm({ l, stations, onClose, onDone }: { l: any; stations: any[]
           <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}><option value="">All / head office</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
         </div>
         <div className="flex items-center gap-2 text-sm"><PhotoButton kind="proof" label="Photo of certificate" onRead={(_, id) => setF((x) => ({ ...x, photo_id: id }))} />{f.photo_id ? <PhotoThumb id={f.photo_id} size={10} /> : null}</div>
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+        <div className="flex items-center justify-end gap-2">
+          {l.id && can("settings.manage") && <button type="button" className="btn-secondary mr-auto !text-rose-700" disabled={busy} onClick={() => confirm(`Delete "${l.name}"? Its reminders stop.`) && run(() => api(`/licences/${l.id}`, { method: "DELETE" }), "Deleted").then(onDone)}>Delete</button>}
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button>
+        </div>
       </form>
     </Modal>
   );

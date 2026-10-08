@@ -129,6 +129,24 @@ test("admin edits, closes and deletes stations; edits, retires and deletes tanks
   assert.equal((await call("admin", "DELETE", `/api/stations/1`)).status, 400, "station 1 has history");
 });
 
+test("a customer can be archived only when settled, then restored", async () => {
+  const c = (await call("admin", "POST", "/api/customers", { name: "Dup Customer", phone: "03005550001", type: "retail" })).data;
+  // archive a plain customer → gone from the list, back with ?all=1
+  assert.equal((await call("admin", "POST", `/api/customers/${c.id}/archive`, { archived: true })).status, 200);
+  assert.ok(!(await call("manager", "GET", "/api/customers?q=Dup")).data.some((x: any) => x.id === c.id));
+  assert.ok((await call("manager", "GET", "/api/customers?q=Dup&all=1")).data.some((x: any) => x.id === c.id && !x.active));
+  assert.equal((await call("admin", "POST", `/api/customers/${c.id}/archive`, { archived: false })).status, 200);
+  assert.ok((await call("manager", "GET", "/api/customers?q=Dup")).data.some((x: any) => x.id === c.id));
+  // a khata account with a balance cannot be archived until it is settled
+  const k = (await call("admin", "POST", "/api/customers", { name: "Owing Khata", phone: "03005550002", type: "business", credit_limit: 50000 })).data;
+  assert.equal((await call("admin", "POST", `/api/customers/${k.id}/khata`, { type: "debit", amount: 3000, note: "manual charge", notify: false })).status, 200);
+  assert.equal((await call("admin", "POST", `/api/customers/${k.id}/archive`, { archived: true })).status, 400, "owes money → refused");
+  // settle it, then archiving works and it leaves the POS khata list
+  assert.equal((await call("admin", "POST", `/api/customers/${k.id}/khata`, { type: "credit", amount: 3000, note: "paid", notify: false })).status, 200);
+  assert.equal((await call("admin", "POST", `/api/customers/${k.id}/archive`, { archived: true })).status, 200);
+  assert.ok(!(await call("salesman", "GET", "/api/pos/khata-accounts")).data.some((a: any) => a.id === k.id), "archived khata leaves the POS");
+});
+
 test("admin renames, switches off and deletes expense categories; limits are settings", async () => {
   const c = (await call("admin", "POST", "/api/expense-categories", { name: "Chai & biskut" })).data;
   const exp = (await call("manager", "POST", "/api/expenses", { category: "Chai & biskut", amount: 150 })).data;

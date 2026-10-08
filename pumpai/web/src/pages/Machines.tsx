@@ -76,6 +76,7 @@ export default function Machines() {
 }
 
 function MachineForm({ m, stations, types, onClose, onSaved }: { m: any; stations: any[]; types: string[]; onClose: () => void; onSaved: () => void }) {
+  const { can } = useAuth();
   const [f, setF] = useState<any>({ name: "", type: "dispenser", station_id: stations[0]?.id ?? "", make: "", model: "", serial_no: "", location: "", installed_on: "", cost: "", vendor: "", vendor_phone: "",
     warranty_until: "", service_every_days: "", service_every_hours: "", last_service_on: "", hours: "", notes: "", status: "working", ...Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v ?? ""])) });
   const { busy, run } = useAction();
@@ -111,7 +112,10 @@ function MachineForm({ m, stations, types, onClose, onSaved }: { m: any; station
           {m.id && <Field label="Status"><select className="input" value={f.status} onChange={set("status")}>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field>}
         </div>
         <Field label="Notes"><input className="input" value={f.notes} onChange={set("notes")} /></Field>
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+        <div className="flex items-center justify-end gap-2">
+          {m.id && can("settings.manage") && <button type="button" className="btn-secondary mr-auto !text-rose-700" disabled={busy} onClick={() => confirm(`Delete "${m.name}" and all its service/fault history? To just stop it, set status to Retired instead.`) && run(() => api(`/machines/${m.id}`, { method: "DELETE" }), "Deleted").then(onSaved)}>Delete</button>}
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button>
+        </div>
       </form>
     </Modal>
   );

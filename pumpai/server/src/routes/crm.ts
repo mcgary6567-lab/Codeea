@@ -5,7 +5,7 @@ import { all, get, run, tx, now, pkStart, pkEnd, pkDate } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
-import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale } from "../services.js";
+import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale, audit } from "../services.js";
 import { assertLookup } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { billLink, sendKhataBill, prevMonth } from "../billing.js";
@@ -28,13 +28,25 @@ function ownCustomer(tenantId: number, id: number) {
 crm.get("/customers", requirePerm("customers.view"), h((req) => {
   const q = `%${String(req.query.q ?? "").trim()}%`;
   const seg = String(req.query.segment ?? "");
+  const act = req.query.all === "1" ? "" : "AND c.active=1"; // archived customers hidden unless asked for
   return all(
     `SELECT c.*, (SELECT COUNT(*) FROM vehicles v WHERE v.customer_id=c.id) vehicles,
        (SELECT ROUND(SUM(amount)) FROM sales s WHERE s.customer_id=c.id AND s.created_at >= date('now','-30 day')) spend_30d
-     FROM customers c WHERE c.tenant_id=? AND (c.name LIKE ? OR c.phone LIKE ?) ${seg ? "AND c.segment=?" : ""}
+     FROM customers c WHERE c.tenant_id=? AND (c.name LIKE ? OR c.phone LIKE ?) ${seg ? "AND c.segment=?" : ""} ${act}
      ORDER BY c.last_visit_at DESC NULLS LAST, c.id DESC LIMIT 500`,
     ...(seg ? [tid(req), q, q, seg] : [tid(req), q, q]),
   );
+}));
+
+/** Archive a customer (hidden from the POS, lists and campaigns) or bring one back. History stays. */
+crm.post("/customers/:id/archive", requirePerm("customers.edit"), h((req) => {
+  const b = parse(z.object({ archived: z.boolean() }), req.body);
+  const c = ownCustomer(tid(req), Number(req.params.id));
+  if (b.archived && Math.abs(c.balance ?? 0) > 0.5) throw new AppError(400, `Settle the khata first — ${c.name} ${c.balance > 0 ? "owes" : "has advance"} Rs ${Math.abs(Math.round(c.balance)).toLocaleString()}`);
+  if (b.archived && (c.wallet_balance ?? 0) > 0.5) throw new AppError(400, `Refund the wallet first — Rs ${Math.round(c.wallet_balance).toLocaleString()} left`);
+  run("UPDATE customers SET active=? WHERE id=? AND tenant_id=?", b.archived ? 0 : 1, c.id, tid(req));
+  audit(tid(req), req.user!, b.archived ? "customer_archive" : "customer_restore", `customer:${c.id}`, { name: c.name });
+  return { ok: true };
 }));
 
 const customerBody = z.object({
@@ -297,7 +309,7 @@ const SEGMENTS: Record<string, string> = {
 
 crm.get("/campaigns", requirePerm("campaigns.manage"), h((req) => ({
   campaigns: all("SELECT * FROM campaigns WHERE tenant_id=? ORDER BY id DESC", tid(req)),
-  segments: Object.keys(SEGMENTS).map((s) => ({ key: s, count: get(`SELECT COUNT(*) n FROM customers WHERE tenant_id=? AND opt_in=1 AND ${SEGMENTS[s]}`, tid(req))!.n })),
+  segments: Object.keys(SEGMENTS).map((s) => ({ key: s, count: get(`SELECT COUNT(*) n FROM customers WHERE tenant_id=? AND active=1 AND opt_in=1 AND ${SEGMENTS[s]}`, tid(req))!.n })),
 })));
 
 crm.post("/campaigns/ai-write", requirePerm("campaigns.manage"), h((req) => {
@@ -322,7 +334,7 @@ async function sendCampaign(tenantId: number, id: number) {
   const camp = get("SELECT * FROM campaigns WHERE id=? AND tenant_id=?", id, tenantId);
   if (!camp) throw new AppError(404, "Campaign not found");
   if (camp.status === "sent") throw new AppError(400, "Campaign already sent");
-  const audience = all(`SELECT * FROM customers WHERE tenant_id=? AND opt_in=1 AND ${SEGMENTS[camp.segment] ?? "0"}`, tenantId);
+  const audience = all(`SELECT * FROM customers WHERE tenant_id=? AND active=1 AND opt_in=1 AND ${SEGMENTS[camp.segment] ?? "0"}`, tenantId);
   run("UPDATE campaigns SET status='sending' WHERE id=?", id);
   let sent = 0;
   for (const c of audience) {

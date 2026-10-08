@@ -24,7 +24,8 @@ export default function Customers() {
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [seg, setSeg] = useState("");
-  const list = useApi<any[]>(`/customers?q=${encodeURIComponent(q)}&segment=${encodeURIComponent(seg)}`);
+  const [showArchived, setShowArchived] = useState(false);
+  const list = useApi<any[]>(`/customers?q=${encodeURIComponent(q)}&segment=${encodeURIComponent(seg)}${showArchived ? "&all=1" : ""}`);
   const [adding, setAdding] = useState(false);
 
   return (
@@ -37,6 +38,7 @@ export default function Customers() {
           <select className="input w-auto" value={seg} onChange={(e) => setSeg(e.target.value)}>
             {SEGMENTS.map((s) => <option key={s} value={s}>{s || "All segments"}</option>)}
           </select>
+          <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-slate-600"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived</label>
         </div>
         {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
         {/* phone: one card per customer */}
@@ -158,8 +160,9 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
       {!c ? <Loading /> : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-            {phone(c.phone)} · {c.type} · {c.city ?? "—"} {c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>} {!c.opt_in && <Badge tone="slate">Opted out</Badge>}
+            {phone(c.phone)} · {c.type} · {c.city ?? "—"} {c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>} {!c.opt_in && <Badge tone="slate">Opted out</Badge>} {!c.active && <Badge tone="slate">Archived</Badge>}
             {can("customers.edit") && <button className="ml-auto min-h-9 px-1 text-xs text-brand-600 hover:underline" onClick={() => setEdit(true)}><Pencil size={12} className="inline" /> Edit</button>}
+            {can("customers.edit") && <button className="min-h-9 px-1 text-xs text-slate-500 hover:underline" disabled={busy} onClick={() => confirm(c.active ? `Archive ${c.name}? They leave the POS, lists and campaigns; their history stays. Khata must be settled first.` : `Bring ${c.name} back?`) && run(() => api(`/customers/${c.id}/archive`, { body: { archived: c.active } }), c.active ? "Archived" : "Restored").then(() => { refresh(); onChanged(); })}>{c.active ? "Archive" : "Restore"}</button>}
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Khata balance" value={pkr(c.balance)} hint={c.credit_limit ? `Limit ${pkr(c.credit_limit)}` : "No credit"} />

@@ -294,7 +294,10 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
           </div>
         ) : <p className="text-xs text-slate-500">Rates, credit limit and opening balance are set by the admin.</p>}
         <Field label="Notes"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+        <div className="flex items-center justify-end gap-2">
+          {initial && <button type="button" className="btn-secondary mr-auto !text-amber-700" disabled={busy} onClick={() => run(() => api(`/wholesale/clients/${initial.id}`, { method: "PATCH", body: { active: !initial.active } }), initial.active ? "Client deactivated" : "Client reactivated").then((r) => r && onSaved(r))}>{initial.active ? "Deactivate" : "Reactivate"}</button>}
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button>
+        </div>
       </form>
     </Modal>
   );

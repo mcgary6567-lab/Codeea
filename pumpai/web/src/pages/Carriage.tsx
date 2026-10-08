@@ -189,7 +189,10 @@ function ThekedarForm({ initial, onClose, onSaved }: { initial?: any; onClose: (
         </div>
         <Field label="Address"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
         <Field label="Notes"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>{initial ? "Save" : "Add"}</button></div>
+        <div className="flex items-center justify-end gap-2">
+          {initial && <button type="button" className="btn-secondary mr-auto !text-amber-700" disabled={busy} onClick={() => run(() => api(`/carriage/thekedars/${initial.id}`, { method: "PATCH", body: { active: !initial.active } }), initial.active ? "Closed" : "Reopened").then(onSaved)}>{initial.active ? "Close account" : "Reopen"}</button>}
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>{initial ? "Save" : "Add"}</button>
+        </div>
       </form>
     </Modal>
   );

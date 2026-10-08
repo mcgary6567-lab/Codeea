@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wallet, Plus, Minus, Banknote } from "lucide-react";
+import { Wallet, Plus, Minus, Banknote, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
@@ -252,6 +252,7 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const { can } = useAuth();
   const { busy, run } = useAction();
   const [form, setForm] = useState<null | "advance" | "repayment" | "salary" | "set-salary">(null);
+  const [editing, setEditing] = useState(false);
   const [f, setF] = useState({ amount: "", note: "", deduct: "", bonus: "", salary: "", cut: "" });
   const [photos, setPhotos] = useState<number[]>([]);
   if (!data) return <Modal open onClose={onClose} title="Staff account"><Loading /></Modal>;
@@ -270,6 +271,7 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
           <button className="btn-secondary" onClick={() => setForm("advance")}><Plus size={15} /> Advance</button>
           <button className="btn-secondary" disabled={data.balance <= 0} onClick={() => setForm("repayment")}><Minus size={15} /> Paid back</button>
           {can("users.manage") && <button className="btn-secondary" onClick={() => { setF({ ...f, salary: String(u.salary ?? "") }); setForm("set-salary"); }}>Set salary</button>}
+          {can("staff.manage") && u.role === "staff" && <button className="btn-secondary" onClick={() => setEditing(true)}><Pencil size={14} /> Edit details</button>}
           {can("staff.manage") && <button className="btn-secondary" onClick={() => run(() => api("/attendance/mark", { body: { user_id: id, present: true } }), "Marked present today").then(() => reload())}>✅ Present today</button>}
           <button className="btn-primary" disabled={!u.salary} onClick={() => { setF({ ...f, deduct: String(Math.max(0, Math.min(data.balance - (data.loans_left ?? 0), u.salary ?? 0)) || "") }); setForm("salary"); }}><Banknote size={15} /> Pay salary</button>
         </div>
@@ -309,6 +311,36 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
       <LoansBox userId={u.id} loans={data.loans ?? []} onChanged={reload} />
       <DutyForm u={u} att={data.attendance} onSaved={reload} />
       <LedgerList lines={data.lines} />
+      {editing && <EditStaffMember u={u} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); reload(); }} />}
+    </Modal>
+  );
+}
+
+/** Edit a non-login staff member: name, job title, phone, station — or deactivate them (they leave payroll; history stays). */
+function EditStaffMember({ u, onClose, onSaved }: { u: any; onClose: () => void; onSaved: () => void }) {
+  const jobs = useLookups("job_title");
+  const stations = useApi<any[]>("/stations");
+  const known = jobs.list.some((j) => j.label === u.job_title);
+  const [f, setF] = useState({ name: u.name ?? "", job_title: u.job_title && !known ? "Other" : (u.job_title ?? ""), custom: u.job_title && !known ? u.job_title : "", phone: u.phone ?? "", station_id: u.station_id ? String(u.station_id) : "", active: u.active !== 0 });
+  const { busy, run } = useAction();
+  const title = f.job_title === "Other" ? f.custom : f.job_title;
+  return (
+    <Modal open onClose={onClose} title={`Edit — ${u.name}`}>
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        const body = { name: f.name, job_title: title || null, phone: f.phone || null, station_id: f.station_id ? Number(f.station_id) : null, active: f.active };
+        if (await run(() => api(`/staff/${u.id}`, { method: "PATCH", body }), "Saved")) onSaved();
+      }}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+          <Field label="Job / designation"><select className="input" value={f.job_title} onChange={(e) => setF({ ...f, job_title: e.target.value })}>{jobs.list.map((j) => <option key={j.key}>{j.label}</option>)}<option>Other</option></select></Field>
+          {f.job_title === "Other" && <Field label="Write the job"><input className="input" value={f.custom} onChange={(e) => setF({ ...f, custom: e.target.value })} /></Field>}
+          <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          {(stations.data?.length ?? 0) > 1 && <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}><option value="">All</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>}
+        </div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Active (uncheck to remove from payroll / attendance)</label>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>Save</button></div>
+      </form>
     </Modal>
   );
 }

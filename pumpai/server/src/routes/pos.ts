@@ -44,7 +44,7 @@ pos.get("/pos/card/:code", h((req) => {
 }));
 
 pos.get("/pos/khata-accounts", h((req) => {
-  const rows = all("SELECT id, name, type, city, balance, credit_limit, khata_blocked, created_at FROM customers WHERE tenant_id=? AND credit_limit > 0 ORDER BY name", tid(req));
+  const rows = all("SELECT id, name, type, city, balance, credit_limit, khata_blocked, created_at FROM customers WHERE tenant_id=? AND credit_limit > 0 AND active=1 ORDER BY name", tid(req));
   const inst = new Set(institutionTypes(tid(req))); // institutions first (Settings → Lists → Customer types)
   const order = (t: string) => (inst.has(t) ? 0 : t === "fleet" ? 1 : t === "farmer" ? 2 : 3);
   const showBalance = req.user!.role !== "salesman";
