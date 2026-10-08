@@ -126,6 +126,31 @@ suppliers.get("/suppliers/:id", h((req) => {
   return { ...s, owed: supplierOwed(s.id), lines: lines.reverse() };
 }));
 
+/** The supplier's account statement as a CSV (Excel) download — oldest entry first. */
+suppliers.get("/suppliers/:id/statement.csv", (req, res, next) => {
+  try {
+    const s = own(tid(req), Number(req.params.id));
+    let bal = s.opening_balance as number;
+    const lines = all(`SELECT * FROM supplier_txns WHERE supplier_id=? ORDER BY txn_date, id`, s.id).map((t) => {
+      const effect = t.type === "payment" ? -t.amount : t.amount;
+      bal = round2(bal + effect);
+      return { ...t, debit: effect > 0 ? effect : 0, credit: effect < 0 ? -effect : 0, balance: bal };
+    });
+    const name = [s.company, s.name].filter(Boolean).join(" — ");
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const out = [
+      ["Supplier statement", name].map(esc).join(","),
+      ["Opening balance", s.opening_balance].map(esc).join(","),
+      ["Date", "Type", "Product", "Litres", "Rate", "Purchased (debit)", "Paid (credit)", "We owe", "Method", "Ref", "Note"].map(esc).join(","),
+      ...lines.map((t) => [String(t.txn_date).slice(0, 10), t.type, t.product ?? "", t.litres ?? "", t.rate ?? "", t.debit || "", t.credit || "", t.balance, t.method ?? "", t.ref ?? "", t.note ?? ""].map(esc).join(",")),
+      ["Closing balance (we owe)", supplierOwed(s.id)].map(esc).join(","),
+    ].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="supplier-${String(name).replace(/[^\w-]+/g, "_")}.csv"`);
+    res.send("﻿" + out);
+  } catch (e) { next(e); }
+});
+
 suppliers.post("/suppliers/:id/payment", h((req) => {
   const s = own(tid(req), Number(req.params.id));
   const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(),

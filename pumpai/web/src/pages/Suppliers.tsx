@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Plus, Printer, Wallet, Building2, Pencil } from "lucide-react";
+import { Plus, Printer, Wallet, Building2, Pencil, Download } from "lucide-react";
 import { VoucherSlip } from "./Cashier";
-import { api, useApi } from "../lib/api";
+import { api, linkToken, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
@@ -212,6 +212,7 @@ function SupplierDetail({ id, onClose, onChanged, depots, onDepots }: { id: numb
           </div>
           <div className="flex flex-wrap items-end gap-3 print:hidden">
             <Stat label="We owe" value={pkr(s.owed)} tone="red" />
+            <a className="btn-secondary min-h-10" href={`/api/suppliers/${id}/statement.csv?token=${linkToken()}`}><Download size={15} /> Excel / CSV</a>
             <button type="button" className="btn-secondary min-h-10" onClick={() => window.print()}><Printer size={15} /> Print statement · <Ur>پرنٹ</Ur></button>
             <form className="grid w-full basis-full grid-cols-2 items-end gap-2 sm:flex sm:min-w-0 sm:flex-1 sm:basis-auto sm:flex-wrap" onSubmit={async (e) => {
               e.preventDefault();
