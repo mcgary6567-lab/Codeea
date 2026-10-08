@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Plus, Search, Truck, Banknote, Send, ArrowLeft, Ban, HandCoins } from "lucide-react";
-import { api, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Plus, Search, Truck, Send, ArrowLeft, Ban, HandCoins, Download, Printer } from "lucide-react";
+import { api, linkToken, useApi } from "../lib/api";
+import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { ProofPhotos } from "../components/Capture";
@@ -82,10 +82,13 @@ function CarriageSummary() {
 function ThekedarDetail({ id }: { id: number }) {
   const { can } = useAuth();
   const nav = useNavigate();
-  const { data, loading, error, reload } = useApi<any>(`/carriage/thekedars/${id}`);
-  const [action, setAction] = useState<null | "carriage" | "payment" | "fuelpay" | "edit">(null);
+  const [range, setRange] = useState({ from: "", to: "" });
+  const qs = [range.from && `from=${range.from}`, range.to && `to=${range.to}`].filter(Boolean).join("&");
+  const { data, loading, error, reload } = useApi<any>(`/carriage/thekedars/${id}${qs ? `?${qs}` : ""}`);
+  const [action, setAction] = useState<null | "carriage" | "payment" | "edit">(null);
   const [heldKey, setHeldKey] = useState(0);
   const refresh = () => { reload(); setHeldKey((k) => k + 1); };
+  const csvUrl = `/api/carriage/thekedars/${id}/statement.csv?${qs ? qs + "&" : ""}token=${linkToken()}`;
   if (loading) return <Loading />;
   if (error || !data) return <ErrorBox error={error ?? "Not found"} />;
   const k = data.thekedar;
@@ -103,24 +106,29 @@ function ThekedarDetail({ id }: { id: number }) {
             <div className="text-xs text-slate-400">{k.due > 0 ? "baqaya kiraya" : k.due < 0 ? "advance" : "clear"}</div>
           </div>
         </div>
-        {can("carriage.manage") && <div className="mt-3 flex flex-wrap gap-2">
+        {can("carriage.manage") && <div className="mt-3 flex flex-wrap gap-2 print:hidden">
           <button className="btn-primary" onClick={() => setAction("carriage")}><Truck size={15} /> Bill kiraya · <Ur>کرایہ</Ur></button>
           <button className="btn-secondary" onClick={() => setAction("payment")}><HandCoins size={15} /> Payment · <Ur>وصولی</Ur></button>
-          <button className="btn-secondary" onClick={() => setAction("fuelpay")}><Banknote size={15} /> Fuel payment · <Ur>فیول</Ur></button>
-          {can("carriage.manage") && <button className="btn-secondary" onClick={() => setAction("edit")}>Edit</button>}
+          <button className="btn-secondary" onClick={() => setAction("edit")}>Edit</button>
         </div>}
       </div>
 
-      <HeldFuel thekedarId={k.id} refreshKey={heldKey} onChanged={refresh} />
+      <div className="print:hidden"><HeldFuel thekedarId={k.id} refreshKey={heldKey} onChanged={refresh} /></div>
 
       <div className="card overflow-hidden">
-        <h2 className="border-b p-4 font-semibold">Statement · <Ur>کھاتہ</Ur></h2>
+        <div className="grid grid-cols-2 items-end gap-3 p-4 sm:flex sm:flex-wrap print:hidden">
+          <h2 className="col-span-2 mr-auto font-semibold">Statement · <Ur>کھاتہ</Ur></h2>
+          <Field label="From"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
+          <Field label="To"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
+          <a className="btn-secondary" href={csvUrl}><Download size={15} /> Excel / CSV</a>
+          <button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print</button>
+        </div>
+        <h2 className="hidden px-4 pt-4 text-lg font-semibold print:block">Carriage statement — {k.name}{range.from && ` from ${range.from}`}{range.to && ` to ${range.to}`}</h2>
         <Statement data={data} canVoid={can("carriage.void")} onChanged={refresh} />
       </div>
 
       {action === "carriage" && <CarriageEntry thekedar={k} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "payment" && <PaymentEntry thekedar={k} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
-      {action === "fuelpay" && <FuelPaymentEntry thekedar={k} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "edit" && <ThekedarForm initial={k} onClose={() => setAction(null)} onSaved={() => { setAction(null); refresh(); }} />}
     </div>
   );
@@ -286,58 +294,6 @@ function PaymentEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: (
         <AccountPicker method={f.method} value={acc} onChange={setAcc} />
         <ProofPhotos value={photos} onChange={setPhotos} hint="payment screenshot / slip" />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !(Number(f.amount) > 0)}>Save payment</button></div>
-      </form>
-    </Modal>
-  );
-}
-
-/** Fuel money for a bypass — separate from kiraya. Paid to the depot direct (record only), or sent to us to forward. */
-function FuelPaymentEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: () => void; onDone: () => void }) {
-  const depots = useApi<any[]>("/carriage/depots");
-  const [f, setF] = useState({ supplier_id: "", amount: "", mode: "direct", invoice_ref: "", note: "", in_method: "Bank transfer", in_ref: "", forward_now: true, fwd_method: "Bank transfer", fwd_ref: "" });
-  const [inAcc, setInAcc] = useState<number | null>(null);
-  const [fwdAcc, setFwdAcc] = useState<number | null>(null);
-  const [photos, setPhotos] = useState<number[]>([]);
-  const { busy, run } = useAction();
-  const through = f.mode === "through_us";
-  const valid = f.supplier_id && Number(f.amount) > 0 && (!through || inAcc);
-  return (
-    <Modal open onClose={onClose} title={`Fuel payment — ${thekedar.name}`}>
-      <form className="space-y-3" onSubmit={async (e) => {
-        e.preventDefault();
-        const body = {
-          supplier_id: Number(f.supplier_id), amount: Number(f.amount), mode: f.mode, invoice_ref: f.invoice_ref || null, note: f.note || null, photo_ids: photos,
-          ...(through ? { in_method: f.in_method, in_account_id: inAcc, in_ref: f.in_ref || null, forward_now: f.forward_now, fwd_method: f.fwd_method, fwd_account_id: fwdAcc ?? inAcc, fwd_ref: f.fwd_ref || null } : {}),
-        };
-        if (await run(() => api(`/carriage/thekedars/${thekedar.id}/fuel-payment`, { body }), "Fuel payment saved")) onDone();
-      }}>
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Yeh depot ke fuel ka paisa hai — <b>humara kiraya nahi</b>. Thekedar ki due par asar nahi; sirf record (aur through-us mein humare bank se guzarta hai, net zero).</p>
-        <Field label="Depot · depot → company → banda *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
-          <option value="">— choose depot —</option>{supplierOpts(depots.data ?? [])}</select></Field>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Fuel amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
-          <Field label="Depot invoice no."><input className="input" value={f.invoice_ref} onChange={(e) => setF({ ...f, invoice_ref: e.target.value })} /></Field>
-        </div>
-        <fieldset>
-          <legend className="label">How was it paid? · <Ur>کیسے</Ur></legend>
-          <div className="grid grid-cols-1 gap-2">
-            <button type="button" onClick={() => setF({ ...f, mode: "direct" })} aria-pressed={f.mode === "direct"} className={`rounded-xl px-3 py-2.5 text-left text-sm ${f.mode === "direct" ? "bg-slate-800 font-semibold text-white" : "bg-slate-100"}`}>Thekedar paid the depot <b>direct</b> — screenshot · <Ur>سیدھا ڈپو کو</Ur></button>
-            <button type="button" onClick={() => setF({ ...f, mode: "through_us" })} aria-pressed={through} className={`rounded-xl px-3 py-2.5 text-left text-sm ${through ? "bg-slate-800 font-semibold text-white" : "bg-slate-100"}`}>Thekedar sent it to <b>us</b> → we forward · <Ur>ہمیں بھیجا، ہم ڈپو کو</Ur></button>
-          </div>
-        </fieldset>
-        {through && <div className="space-y-3 rounded-xl bg-sky-50 p-3">
-          <AccountPicker method={f.in_method} value={inAcc} onChange={setInAcc} label="Sent to which of our accounts? · کس اکاؤنٹ میں" required />
-          <Field label="Ref (transfer)"><input className="input" value={f.in_ref} onChange={(e) => setF({ ...f, in_ref: e.target.value })} /></Field>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={f.forward_now} onChange={(e) => setF({ ...f, forward_now: e.target.checked })} /> Forward to the depot now · <Ur>ابھی ڈپو کو</Ur></label>
-          {f.forward_now && <>
-            <AccountPicker method={f.fwd_method} value={fwdAcc} onChange={setFwdAcc} label="Forwarded from which account? · کس اکاؤنٹ سے" />
-            <Field label="Ref (to depot)"><input className="input" value={f.fwd_ref} onChange={(e) => setF({ ...f, fwd_ref: e.target.value })} /></Field>
-          </>}
-          {!f.forward_now && <p className="text-xs text-amber-800">Abhi "held" dikhega — baad mein Forward kar dena. · <Ur>بعد میں فارورڈ</Ur></p>}
-        </div>}
-        <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
-        <ProofPhotos value={photos} onChange={setPhotos} hint={f.mode === "direct" ? "payment screenshot" : "bank receipt(s)"} />
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Save</button></div>
       </form>
     </Modal>
   );

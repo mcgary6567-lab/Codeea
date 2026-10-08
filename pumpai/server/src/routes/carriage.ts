@@ -97,6 +97,27 @@ carriage.get("/carriage/thekedars/:id", h((req) => {
   return statement(t, k.id, req.query.from as string | undefined, req.query.to as string | undefined);
 }));
 
+/** The thekedar's carriage statement as a CSV (Excel) download. */
+carriage.get("/carriage/thekedars/:id/statement.csv", (req, res, next) => {
+  try {
+    const t = tid(req);
+    const s = statement(t, Number(req.params.id), req.query.from as string | undefined, req.query.to as string | undefined);
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const out = [
+      ["Carriage statement", s.thekedar.name].map(esc).join(","),
+      ["Period", s.from ?? "start", s.to ?? "today"].map(esc).join(","),
+      ["Opening balance", s.opening_balance].map(esc).join(","),
+      ["Date", "Type", "Depot", "Product", "Litres", "Kiraya (gross)", "Govt %", "Debit (billed)", "Credit (paid)", "Balance", "Fuel mode", "Ref", "Note", "Status"].map(esc).join(","),
+      ...s.lines.map((l: any) => [l.txn_date.slice(0, 10), l.type, l.depot_name ?? "", l.product ?? "", l.litres ?? "", l.gross_amount ?? "", l.govt_pct ?? "",
+        l.debit || "", l.credit || "", l.type === "fuel_note" ? "" : l.balance, l.fuel_mode ?? "", l.ref ?? "", l.note ?? "", l.voided ? "VOID" : ""].map(esc).join(",")),
+      ["Closing balance (due)", s.closing_balance].map(esc).join(","),
+    ].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="carriage-${String(s.thekedar.name).replace(/[^\w-]+/g, "_")}.csv"`);
+    res.send("﻿" + out);
+  } catch (e) { next(e); }
+});
+
 /* ================= The fuel-money leg (direct to the depot, or routed through us) ================= */
 const fuelSchema = z.object({
   mode: z.enum(["direct", "through_us"]), amount: z.number().positive().max(1_000_000_000),
