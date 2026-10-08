@@ -141,12 +141,21 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
   return { id: out.id, billed, bought: purCost, sold_cost: soldCost, cost: soldCost, margin: round2(billed - soldCost), drops: out.drops, stock: bypassStock(t), delivery: get("SELECT * FROM bypass_deliveries WHERE id=?", out.id) };
 }));
 
+/** This month's bypass munafa so far: client revenue − delivered cost for drops dated this month. */
+export function bypassMonthProfit(tenantId: number) {
+  const monthStart = new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString();
+  const billed = get(`SELECT COALESCE(SUM(w.amount),0) v FROM bypass_drops bd JOIN wholesale_txns w ON w.id=bd.wtx_id
+    WHERE bd.tenant_id=? AND bd.voided=0 AND w.voided=0 AND bd.txn_date >= ?`, tenantId, monthStart)!.v as number;
+  const cost = bypassCost(tenantId, monthStart);
+  return { billed: round2(billed), cost, profit: round2(billed - cost) };
+}
+
 /** Bypass stock on hand (bought but not yet delivered), per fuel, with its value and average cost. */
 bypass.get("/bypass/stock", h((req) => {
   const t = tid(req);
   const prods = all("SELECT DISTINCT product FROM bypass_purchases WHERE tenant_id=? AND voided=0", t).map((r) => r.product as string);
   const byProduct = prods.map((p) => ({ product: p, ...bypassStock(t, p) })).filter((x) => x.litres > 0.01 || x.value > 0.5);
-  return { total: bypassStock(t), by_product: byProduct };
+  return { total: bypassStock(t), by_product: byProduct, month: bypassMonthProfit(t) };
 }));
 
 bypass.get("/bypass/deliveries", h((req) => {

@@ -193,6 +193,10 @@ test("direct amounts: enter full supplier cost + full client amount, profit is t
   const list = ok(await call("wholesale", "GET", "/api/bypass/deliveries"), "deliveries");
   const row = list.find((x: any) => x.id === r.id);
   near(row.billed, 280000, "list billed"); near(row.margin, 20000, "list munafa");
+  // this month's bypass profit total is exposed on the stock endpoint
+  const stk = ok(await call("wholesale", "GET", "/api/bypass/stock"), "stock");
+  assert.ok(typeof stk.month?.profit === "number", "month profit present");
+  assert.ok(stk.month.profit >= 20000 - 0.5, `month profit includes this sale: ${stk.month.profit}`);
 });
 
 test("after all of the above: every book still tallies with the ledger", async () => {

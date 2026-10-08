@@ -32,6 +32,8 @@ export function BypassPanel() {
       <div className="flex flex-wrap gap-3">
         <Stat label="We owe bypass suppliers" value={pkrShort(owedTotal)} tone="red" />
         <Stat label="Bypass stock on hand" value={pkrShort(stock.data?.total?.value ?? 0)} hint={stockLines.length ? stockLines.map((p) => `${num(p.litres)} L ${PRODUCTS[p.product]}`).join(" · ") : "koi stock nahi"} />
+        <Stat label="Is mahine ka munafa" value={pkrShort(stock.data?.month?.profit ?? 0)} tone={(stock.data?.month?.profit ?? 0) >= 0 ? "green" : "red"}
+          hint={stock.data?.month ? `bika ${pkrShort(stock.data.month.billed)} − cost ${pkrShort(stock.data.month.cost)}` : "—"} />
       </div>
 
       <div className="card overflow-hidden">
