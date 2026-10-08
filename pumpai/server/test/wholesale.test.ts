@@ -194,4 +194,17 @@ test("bulk rate change: +Rs applies to every client's fixed rate at once (admin 
   assert.equal((await call("wholesale", "GET", "/api/wholesale/rate-history.csv")).status, 403);
   const csv = await call("admin", "GET", "/api/wholesale/rate-history.csv");
   assert.equal(csv.status, 200);
+  // this-month-vs-last comparison: current rate is reported; with only this-month history there is no prior month, so diff is 0
+  const cmp = (await call("admin", "GET", "/api/wholesale/rate-compare")).data;
+  const rowA = cmp.find((x: any) => x.client_name === "Bulk A" && x.product === "HSD");
+  assert.equal(rowA.this_month, 250.5);
+  assert.equal(rowA.last_month, 250.5);
+  assert.equal(rowA.diff, 0);
+  // backdate a change to last month and confirm the comparison then shows the difference
+  const lastMonthIso = new Date(Date.now() - 40 * 86400_000).toISOString();
+  const db = await import("../src/db.js");
+  db.run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
+    rowA.client_id, "HSD", 248, 249, "test", "last month", lastMonthIso);
+  const cmp2 = (await call("admin", "GET", "/api/wholesale/rate-compare")).data.find((x: any) => x.client_name === "Bulk A" && x.product === "HSD");
+  assert.equal(cmp2.last_month, 249); assert.equal(cmp2.this_month, 250.5); assert.equal(cmp2.diff, 1.5);
 });

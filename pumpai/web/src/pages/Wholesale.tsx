@@ -134,6 +134,39 @@ function RateHistoryModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** This month's rate vs the rate entering this month (last month's), per client and fuel. */
+function RateCompareModal({ onClose }: { onClose: () => void }) {
+  const { data } = useApi<any[]>("/wholesale/rate-compare");
+  const [changedOnly, setChangedOnly] = useState(false);
+  const rows = (data ?? []).filter((r) => !changedOnly || r.diff !== 0);
+  return (
+    <Modal open onClose={onClose} title="Rate: is mahine vs pichla · ریٹ موازنہ" wide>
+      {!data ? <Loading /> : !data.length ? <Empty>Kisi client ka rate set nahi</Empty> : (
+        <>
+          <label className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4" checked={changedOnly} onChange={(e) => setChangedOnly(e.target.checked)} /> Sirf wo jinka rate badla</label>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b text-left text-xs text-slate-500"><th className="py-2">Client</th><th>Fuel</th><th className="text-right">Pichla mahina</th><th className="text-right">Is mahina</th><th className="text-right">Farq</th></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={`${r.client_id}-${r.product}`} className="border-b">
+                    <td className="py-2 whitespace-nowrap font-medium">{r.client_name}</td>
+                    <td>{PRODUCTS[r.product] ?? r.product}</td>
+                    <td className="text-right tabular-nums text-slate-500">Rs {r.last_month}</td>
+                    <td className="text-right font-medium tabular-nums">Rs {r.this_month}</td>
+                    <td className={`text-right font-semibold tabular-nums ${r.diff > 0 ? "text-emerald-600" : r.diff < 0 ? "text-rose-600" : "text-slate-400"}`}>{r.diff > 0 ? "+" : ""}{r.diff || "—"}</td>
+                  </tr>
+                ))}
+                {!rows.length && <tr><td colSpan={5} className="py-4 text-center text-slate-500">Is mahine kisi ka rate nahi badla</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
 /** All clients with their rates, due and limit — the plain list. */
 function ClientsTable({ onAdd }: { onAdd: () => void }) {
   const nav = useNavigate();
@@ -141,12 +174,14 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
   const [q, setQ] = useState("");
   const [bulk, setBulk] = useState(false);
   const [history, setHistory] = useState(false);
+  const [compare, setCompare] = useState(false);
   const list = useApi<any[]>(`/wholesale/clients?q=${encodeURIComponent(q)}`);
   return (
     <div className="card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
         <div className="relative w-full max-w-sm"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <div className="flex gap-2">
+          {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setCompare(true)}><SlidersHorizontal size={15} /> Is mahine vs pichla</button>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setHistory(true)}><SlidersHorizontal size={15} /> Rate history</button>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setBulk(true)}><SlidersHorizontal size={15} /> Sab ka rate badlo</button>}
           {can("wholesale.manage") && <button className="btn-primary" onClick={onAdd}><Plus size={16} /> Add client</button>}
@@ -154,6 +189,7 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
       </div>
       {bulk && <BulkRateModal onClose={() => setBulk(false)} onDone={() => { setBulk(false); list.reload(); }} />}
       {history && <RateHistoryModal onClose={() => setHistory(false)} />}
+      {compare && <RateCompareModal onClose={() => setCompare(false)} />}
       {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
       <ul className="divide-y divide-slate-100 sm:hidden">
         {(list.data ?? []).map((c) => {

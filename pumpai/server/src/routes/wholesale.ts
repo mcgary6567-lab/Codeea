@@ -446,6 +446,18 @@ wholesale.get("/wholesale/rate-history", requirePerm("wholesale.rates"), h((req)
     WHERE c.tenant_id=? ORDER BY h.id DESC LIMIT ?`, t, limit);
 }));
 
+/** Per-client rate comparison: the rate entering this month (i.e. last month's) vs the current rate, per fuel. */
+export function rateCompare(tenantId: number) {
+  const monthStart = new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString();
+  return all(`SELECT r.client_id, c.name client_name, r.product, r.rate FROM wholesale_rates r JOIN wholesale_clients c ON c.id=r.client_id
+    WHERE c.tenant_id=? AND c.active=1 ORDER BY c.name, r.product`, tenantId).map((r) => {
+    const prev = get("SELECT new_rate FROM wholesale_rate_history WHERE client_id=? AND product=? AND created_at < ? ORDER BY id DESC LIMIT 1", r.client_id, r.product, monthStart);
+    const last = prev ? (prev.new_rate as number) : (r.rate as number); // no change this month → same as now
+    return { client_id: r.client_id, client_name: r.client_name, product: r.product, last_month: last, this_month: r.rate as number, diff: round2((r.rate as number) - last) };
+  });
+}
+wholesale.get("/wholesale/rate-compare", requirePerm("wholesale.rates"), h((req) => rateCompare(tid(req))));
+
 /** The wholesale rate-change log as a CSV (Excel) download — newest first. */
 wholesale.get("/wholesale/rate-history.csv", (req, res, next) => {
   try {
