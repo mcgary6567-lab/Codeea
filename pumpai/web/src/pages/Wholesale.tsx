@@ -422,7 +422,7 @@ function ClientDetail({ id }: { id: string }) {
             <div className="flex justify-between bg-slate-50 px-4 py-2 text-sm"><span>Opening balance</span><span className="font-medium tabular-nums">{pkr(stmt.data.opening_balance)}</span></div>
             <LedgerTable rows={stmt.data.lines} running onVoid={(can("wholesale.void") || can("wholesale.manage")) ? async (row) => {
               if (row.type === "fuel_note") {
-                if (confirm(`Void this fuel payment of ${pkr(row.amount)}? Any bank movement will be reversed.`)) { await api(`/wholesale/fuel-payments/${String(row.id).replace("bfp", "")}/void`, { body: {} }).catch((e) => alert(e.message)); refresh(); }
+                if (confirm(`Void this fuel payment of ${pkr(row.amount)}? Any bank movement will be reversed.`)) { await api(`/carriage/fuel-payments/${String(row.id).replace("bfp", "")}/void`, { body: {} }).catch((e) => alert(e.message)); refresh(); }
                 return;
               }
               const reason = prompt(`Void ${row.type} #${row.id} of ${pkr(row.amount)}? Enter a reason:`);
