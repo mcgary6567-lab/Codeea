@@ -239,7 +239,3 @@ export function paymentLink(customer: Row, amount: number): string {
   const ref = `KH${customer.id}-${Date.now().toString(36).toUpperCase()}`;
   return `${config.paymentLinkBase}?ref=${ref}&amt=${Math.round(amount)}`;
 }
-
-export function getStations(tenantId: number) {
-  return all("SELECT * FROM stations WHERE tenant_id=? ORDER BY id", tenantId);
-}

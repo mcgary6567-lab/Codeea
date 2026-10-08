@@ -318,5 +318,3 @@ banks.delete("/bank/txns/:id", requirePerm("bank.manage"), h((req) => {
   else run("DELETE FROM bank_txns WHERE id=?", e.id);
   return bankAccounts(t);
 }));
-
-export const bankKindLabel = KIND_LABEL;
