@@ -16,7 +16,6 @@ export function BypassPanel() {
   const sups = useApi<any[]>("/bypass/suppliers");
   const dels = useApi<any[]>("/bypass/deliveries");
   const stock = useApi<any>("/bypass/stock");
-  const [add, setAdd] = useState(false);
   const [openSup, setOpenSup] = useState<number | null>(null);
   const refresh = () => { sups.reload(); dels.reload(); stock.reload(); };
   const owedTotal = (sups.data ?? []).reduce((a, s) => a + (s.bypass_owed > 0 ? s.bypass_owed : 0), 0);
@@ -24,9 +23,8 @@ export function BypassPanel() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div><h2 className="flex items-center gap-2 text-lg font-semibold"><Truck size={18} className="text-slate-500" /> Bypass delivery · <Ur>بائی پاس</Ur></h2>
-          <p className="text-sm text-slate-500">Depot se maal, seedha client ko — supplier ka alag khata</p></div>
-        {can("wholesale.manage") && <button className="btn-primary" onClick={() => setAdd(true)}><Plus size={16} /> New bypass delivery</button>}
+        <div><h2 className="flex items-center gap-2 text-lg font-semibold"><Truck size={18} className="text-slate-500" /> Bypass supplier accounts · <Ur>بائی پاس</Ur></h2>
+          <p className="text-sm text-slate-500">Depot se seedha client ko — naya bypass "New trip" button se banayein (Depot bypass mode)</p></div>
       </div>
       <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Hum supplier se cost par maal lete hain aur client ko unke rate par dete hain — farq (margin) humara munafa. Supplier ka bypass khata pump-stock se bilkul alag hai, aur jitna maal liya usse zyada deliver nahi ho sakta. <Ur className="block">سپلائر کا بائی پاس کھاتہ پمپ اسٹاک سے الگ</Ur></p>
 
@@ -63,13 +61,13 @@ export function BypassPanel() {
         )}
       </div>
 
-      {add && <NewDelivery onClose={() => setAdd(false)} onDone={() => { setAdd(false); refresh(); }} />}
       {openSup && <SupplierStatement id={openSup} onClose={() => setOpenSup(null)} onChanged={refresh} />}
     </div>
   );
 }
 
-function NewDelivery({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+/** The bypass delivery form body (no Modal wrapper) — shown inside the "New trip" form's Depot-bypass mode. */
+export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const suppliers = useApi<any[]>("/bypass/suppliers");
   const clients = useApi<any[]>("/wholesale/clients");
   const stations = useApi<any[]>("/stations");
@@ -94,7 +92,6 @@ function NewDelivery({ onClose, onDone }: { onClose: () => void; onDone: () => v
   const valid = !!station && (validBuys.length > 0 || validDrops.length > 0) && overBy.length === 0;
 
   return (
-    <Modal open onClose={onClose} title="New bypass delivery" wide>
       <form className="space-y-4" onSubmit={async (e) => {
         e.preventDefault();
         const body = {
@@ -102,7 +99,7 @@ function NewDelivery({ onClose, onDone }: { onClose: () => void; onDone: () => v
           purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), cost_rate: Number(b.cost_rate) })),
           drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres) })),
         };
-        if (await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Cost ${pkr(r.cost)}, billed ${pkr(r.billed)}, margin ${pkr(r.margin)}`)) onDone();
+        if (await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Cost ${pkr(r.sold_cost ?? r.cost)}, billed ${pkr(r.billed)}, margin ${pkr(r.margin)}`)) onDone();
       }}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Station (books under) *"><select className="input" required value={station} onChange={(e) => setStation(e.target.value)}>
@@ -156,7 +153,6 @@ function NewDelivery({ onClose, onDone }: { onClose: () => void; onDone: () => v
         <ProofPhotos value={photos} onChange={setPhotos} hint="depot invoice / bilty" />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}><Truck size={15} /> Save delivery</button></div>
       </form>
-    </Modal>
   );
 }
 

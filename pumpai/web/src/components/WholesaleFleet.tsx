@@ -5,6 +5,7 @@ import { ProofPhotos, ProofThumbs } from "./Capture";
 import { challanPages, printPages, tripSheetPage } from "./TripPrint";
 import { Badge, Empty, Field, Loading, Modal, useAction } from "./ui";
 import { supplierOpts } from "./SupplierSelect";
+import { BypassDeliveryForm } from "../pages/Bypass";
 import { PRODUCTS, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
 
@@ -70,6 +71,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
   const fleet = useApi<any>("/wholesale/fleet");
   const orders = useApi<any>("/wholesale/orders");
   const depots = useApi<any[]>("/wholesale/depots");
+  const [mode, setMode] = useState<"pump" | "bypass">("pump");
   const [f, setF] = useState<any>({ station_id: "", product: "HSD", tanker_id: "", driver_id: "", vehicle_no: "", txn_date: today(), note: "", override_limit: false,
     source: "pump", supplier_id: "", depot_ref: "", freight_by: "rate", freight: "" });
   // depot-direct: purchase rate and billed litres per fuel (blank = the supplier's last rate / the litres dropped)
@@ -120,9 +122,16 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
     if (r) onDone(r);
   };
   return (
-    <Modal open onClose={onClose} title="Tanker trip — one tanker, several drops" wide>
+    <Modal open onClose={onClose} title={mode === "bypass" ? "Depot bypass — maal depot se, seedha client ko" : "Tanker trip — one tanker, several drops"} wide>
+      <div className="mb-4">
+        <div className="mb-1 text-sm font-medium text-slate-700">Maal kahan se · <span lang="ur" className="font-urdu">تیل کہاں سے</span></div>
+        <div className="grid grid-cols-2 gap-2">{([["pump", "⛽ Our pump", "ہمارے پمپ سے"], ["bypass", "🏭 Depot direct (bypass)", "ڈپو سے سیدھا"]] as const).map(([k, l, u]) => (
+          <button type="button" key={k} onClick={() => setMode(k)} aria-pressed={mode === k}
+            className={`rounded-lg px-3 py-2 text-left text-sm ring-1 ${mode === k ? "bg-brand-50 font-semibold text-brand-800 ring-brand-500" : "bg-white text-slate-600 ring-slate-200"}`}>
+            {l}<span lang="ur" className="block font-urdu text-xs font-normal">{u}</span></button>))}</div>
+      </div>
+      {mode === "bypass" ? <BypassDeliveryForm onClose={onClose} onDone={() => onDone(null)} /> : (
       <form onSubmit={submit} className="space-y-4">
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">⛽ Yeh trip humare pump se maal uthata hai. Depot se seedha client ko (bypass) ke liye neeche <b>Bypass delivery</b> use karein. <span lang="ur" className="font-urdu">ڈپو سے سیدھا کے لیے نیچے بائی پاس</span></p>
         {depot && (
           <div className="space-y-3 rounded-lg bg-sky-50 p-3 ring-1 ring-sky-200">
             <p className="text-xs text-sky-900">The tanker loads at the supplier's depot and goes straight to the clients — our tanks do not change. The supplier's bill is added to their account; each client is billed as usual.</p>
@@ -249,7 +258,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
         {admin && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={f.override_limit} onChange={(e) => setF({ ...f, override_limit: e.target.checked })} /> Allow even if a client crosses the credit limit (admin)</label>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn-primary" disabled={busy || !filled.length || Boolean(over) || !depotReady}><Truck size={15} /> Save trip ({filled.length} drops)</button></div>
-      </form>
+      </form>)}
     </Modal>
   );
 }

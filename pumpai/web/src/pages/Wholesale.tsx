@@ -51,7 +51,7 @@ function ClientList() {
           <button key={k} onClick={() => setTab(k)} className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-center text-sm leading-tight ${tab === k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>{l}<Ur className="block text-xs">{u}</Ur></button>
         ))}
       </div>
-      {tab === "trips" && <><TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setParams({ tab: "trips", do: "trip" }) : undefined} /><div className="mt-6 border-t pt-6"><BypassPanel /></div></>}
+      {tab === "trips" && <><TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setParams({ tab: "trips", do: "trip" }) : undefined} /><div className="mt-6 border-t pt-6"><BypassPanel key={tripsKey} /></div></>}
       {tab === "fleet" && <FleetTab key={action ?? "fleet"} start={action === "tanker" || action === "driver" ? action : null} />}
       {tab === "orders" && <OrdersTab onTrip={() => setParams({ tab: "orders", do: "trip" })} />}
       {tab === "collect" && <CollectTab />}
