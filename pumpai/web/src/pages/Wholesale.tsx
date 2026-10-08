@@ -180,7 +180,7 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
     <div className="card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
         <div className="relative w-full max-w-sm"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setCompare(true)}><SlidersHorizontal size={15} /> Is mahine vs pichla</button>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setHistory(true)}><SlidersHorizontal size={15} /> Rate history</button>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setBulk(true)}><SlidersHorizontal size={15} /> Sab ka rate badlo</button>}
