@@ -377,6 +377,53 @@ wholesale.put("/wholesale/clients/:id/rates", requirePerm("wholesale.rates"), h(
   return { rates: after, rate_card: rateCard(c.id) };
 }));
 
+/**
+ * Bulk rate change for ALL wholesale clients: add (or subtract) Rs per litre on a fuel across every
+ * active client at once — e.g. diesel went up Rs 2, enter +2. This is the wholesale rate only; it is
+ * separate from the pump/meter (retail) price. Fixed-rate clients get rate+delta; discount ("pump − X")
+ * clients keep following the pump, their effective rate moving by the same delta (their discount shrinks).
+ */
+wholesale.post("/wholesale/rates/bulk", requirePerm("wholesale.rates"), h(async (req) => {
+  const t = tid(req);
+  const b = parse(z.object({
+    deltas: z.record(product, z.number().refine((n) => n !== 0, "zero change")),
+    note: z.string().max(120).optional().nullable(),
+  }), req.body);
+  if (!Object.keys(b.deltas).length) throw new AppError(400, "Kam se kam ek fuel ka change daalein");
+  const pump = currentPrices(t);
+  const by = req.user!.name;
+  const result: Record<string, { updated: number; skipped: number }> = {};
+  const note = b.note || "Bulk rate change";
+  tx(() => {
+    for (const [p, deltaRaw] of Object.entries(b.deltas)) {
+      const delta = round2(deltaRaw!);
+      let updated = 0, skipped = 0;
+      for (const r of all(`SELECT r.* FROM wholesale_rates r JOIN wholesale_clients c ON c.id=r.client_id
+          WHERE c.tenant_id=? AND c.active=1 AND r.product=?`, t, p)) {
+        if (r.mode === "discount") {
+          // keep tracking the pump, but shift the effective rate by delta → discount shrinks by delta
+          const newDiscount = round2(r.discount - delta);
+          const newRate = pump[p] ? round2(pump[p].price - newDiscount) : round2(r.rate + delta);
+          if (newRate <= 0) { skipped++; continue; }
+          run("UPDATE wholesale_rates SET rate=?, discount=?, updated_at=?, updated_by=? WHERE client_id=? AND product=?", newRate, newDiscount, now(), by, r.client_id, p);
+          run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
+            r.client_id, p, r.rate, newRate, by, `${note} (${delta >= 0 ? "+" : ""}${delta})`, now());
+          updated++;
+        } else {
+          const newRate = round2(r.rate + delta);
+          if (newRate <= 0) { skipped++; continue; }
+          run("UPDATE wholesale_rates SET rate=?, updated_at=?, updated_by=? WHERE client_id=? AND product=?", newRate, now(), by, r.client_id, p);
+          run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
+            r.client_id, p, r.rate, newRate, by, `${note} (${delta >= 0 ? "+" : ""}${delta})`, now());
+          updated++;
+        }
+      }
+      result[p] = { updated, skipped };
+    }
+  });
+  return { ok: true, changed: result };
+}));
+
 wholesale.get("/wholesale/clients/:id", h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
   return {

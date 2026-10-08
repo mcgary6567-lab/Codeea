@@ -166,3 +166,22 @@ test("after all of the above: every book still tallies with the ledger", async (
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("wholesale");
 });
+
+// runs last: a bulk change touches every client's rate, so keep it after the order-dependent tests
+test("bulk rate change: +Rs applies to every client's fixed rate at once (admin only)", async () => {
+  const a = (await call("admin", "POST", "/api/wholesale/clients", { name: "Bulk A", rates: { HSD: 250, PMG: 245 } })).data;
+  const b = (await call("admin", "POST", "/api/wholesale/clients", { name: "Bulk B", rates: { HSD: 252 } })).data;
+  // a wholesale officer cannot bulk-change rates
+  assert.equal((await call("wholesale", "POST", "/api/wholesale/rates/bulk", { deltas: { HSD: 2 } })).status, 403);
+  // diesel up Rs 2 across all clients
+  const r = await call("admin", "POST", "/api/wholesale/rates/bulk", { deltas: { HSD: 2 }, note: "price up" });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.ok(r.data.changed.HSD.updated >= 2, "at least both clients updated");
+  assert.equal((await call("admin", "GET", `/api/wholesale/clients/${a.id}`)).data.rates.HSD, 252);
+  assert.equal((await call("admin", "GET", `/api/wholesale/clients/${b.id}`)).data.rates.HSD, 254);
+  // A's petrol untouched, and the meter/retail price is not part of this
+  assert.equal((await call("admin", "GET", `/api/wholesale/clients/${a.id}`)).data.rates.PMG, 245);
+  // a drop of Rs 1.5 works too
+  assert.equal((await call("admin", "POST", "/api/wholesale/rates/bulk", { deltas: { HSD: -1.5 } })).status, 200);
+  assert.equal((await call("admin", "GET", `/api/wholesale/clients/${a.id}`)).data.rates.HSD, 250.5);
+});

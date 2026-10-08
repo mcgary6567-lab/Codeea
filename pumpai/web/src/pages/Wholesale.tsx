@@ -73,18 +73,51 @@ function ClientList() {
   );
 }
 
+/** Bulk rate change: add/subtract Rs per litre across ALL wholesale clients at once (not the pump/meter price). */
+function BulkRateModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [d, setD] = useState<Record<string, string>>({ PMG: "", HOBC: "", HSD: "" });
+  const [note, setNote] = useState("");
+  const { busy, run } = useAction();
+  const deltas = Object.fromEntries(Object.entries(d).filter(([, v]) => v !== "" && Number(v) !== 0).map(([k, v]) => [k, Number(v)]));
+  const any = Object.keys(deltas).length > 0;
+  return (
+    <Modal open onClose={onClose} title="Sab clients ka rate badlo · سب کا ریٹ">
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        const r = await run(() => api("/wholesale/rates/bulk", { body: { deltas, note: note || null } }),
+          (x: any) => "Ho gaya — " + Object.entries(x.changed).map(([p, c]: any) => `${PRODUCTS[p]}: ${c.updated} client${c.updated === 1 ? "" : "s"}${c.skipped ? ` (${c.skipped} chhoray)` : ""}`).join(" · "));
+        if (r) onDone();
+      }}>
+        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Rate barhé to <b>+2</b>, kam ho to <b>-1.5</b> likhein. Ye sirf wholesale clients ke rate par lagega — pump/meter (retail) rate se iska koi taalluq nahi. Fixed-rate client ka rate utna barh/kam jayega; "pump − X" wale client pump ke sath chalte rahenge aur unka effective rate bhi utna hi move karega.</p>
+        {Object.entries(PRODUCTS).map(([k, v]) => (
+          <Field key={k} label={`${v} · Rs/L change`}>
+            <input className="input" type="number" step="0.01" placeholder="e.g. +2 ya -1.5" value={d[k] ?? ""} onChange={(e) => setD({ ...d, [k]: e.target.value })} />
+          </Field>
+        ))}
+        <Field label="Note (optional)"><input className="input" placeholder="jaise: 8-Oct price increase" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !any}>Sab par lagao</button></div>
+      </form>
+    </Modal>
+  );
+}
+
 /** All clients with their rates, due and limit — the plain list. */
 function ClientsTable({ onAdd }: { onAdd: () => void }) {
   const nav = useNavigate();
   const { can } = useAuth();
   const [q, setQ] = useState("");
+  const [bulk, setBulk] = useState(false);
   const list = useApi<any[]>(`/wholesale/clients?q=${encodeURIComponent(q)}`);
   return (
     <div className="card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
         <div className="relative w-full max-w-sm"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        {can("wholesale.manage") && <button className="btn-primary" onClick={onAdd}><Plus size={16} /> Add client</button>}
+        <div className="flex gap-2">
+          {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setBulk(true)}><SlidersHorizontal size={15} /> Sab ka rate badlo</button>}
+          {can("wholesale.manage") && <button className="btn-primary" onClick={onAdd}><Plus size={16} /> Add client</button>}
+        </div>
       </div>
+      {bulk && <BulkRateModal onClose={() => setBulk(false)} onDone={() => { setBulk(false); list.reload(); }} />}
       {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
       <ul className="divide-y divide-slate-100 sm:hidden">
         {(list.data ?? []).map((c) => {
