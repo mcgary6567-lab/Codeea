@@ -125,6 +125,13 @@ test("wholesale summary totals", async () => {
   assert.ok(s.recent.length > 0);
 });
 
+test("dashboard reports this-month vs last-month profit", async () => {
+  const k = (await call("wholesale", "GET", "/api/wholesale/dashboard")).data.kpi;
+  assert.ok("last_month_profit" in k, "has last_month_profit");
+  assert.ok("month_profit_change" in k, "has month_profit_change");
+  assert.equal(typeof k.last_month_profit, "number");
+});
+
 test("expenses: manager entries over the limit need admin approval", async () => {
   assert.equal((await call("salesman", "GET", "/api/expenses")).status, 403);
   const cats = (await call("manager", "GET", "/api/expense-categories")).data;

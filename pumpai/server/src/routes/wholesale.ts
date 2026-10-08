@@ -166,6 +166,14 @@ wholesale.get("/wholesale/dashboard", h((req) => {
   const withCost = monthSupplies.filter((x) => cost[x.product] != null);
   const profit = withCost.reduce((a, x) => a + x.litres * (x.rate - cost[x.product]!), 0);
   const costedL = withCost.reduce((a, x) => a + x.litres, 0);
+  // profit for any window (supply rate − our last purchase cost), for the month-on-month comparison
+  const profitFor = (from: Date, to: Date) => {
+    let p = 0;
+    for (const x of all("SELECT product, litres, rate FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='supply' AND txn_date >= ? AND txn_date < ?", t, from.toISOString(), to.toISOString()))
+      if (cost[x.product] != null) p += x.litres * (x.rate - cost[x.product]!);
+    return round2(p);
+  };
+  const lastMtdProfit = profitFor(lastMonthStart, lastMonthSameDay);
 
   // clients: due, limit, ageing, ordering rhythm, margin
   const clients = all("SELECT * FROM wholesale_clients WHERE tenant_id=? AND active=1 ORDER BY name", t).map((c) => {
@@ -253,6 +261,7 @@ wholesale.get("/wholesale/dashboard", h((req) => {
       month_billed: Math.round(mtd.billed), month_received: Math.round(mtd.received), month_received_change: pct(mtd.received, lastMtd.received),
       collection_pct: mtd.billed > 0 ? Math.round((mtd.received / mtd.billed) * 100) : null,
       profit_estimate: costedL ? Math.round(profit) : null, margin_per_l: costedL ? round2(profit / costedL) : null,
+      last_month_profit: Math.round(lastMtdProfit), month_profit_change: pct(profit, lastMtdProfit),
       today: get(`SELECT COALESCE(SUM(CASE WHEN type='supply' THEN litres END),0) litres, COALESCE(SUM(CASE WHEN type='payment' THEN amount END),0) received FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ?`, t, pkDayStart()),
       trips_month: get("SELECT COUNT(*) n FROM wholesale_trips WHERE tenant_id=? AND trip_date >= ?", t, monthStart.toISOString())!.n,
       ...(() => {

@@ -94,7 +94,9 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
         <Kpi label="Litres this month" ur="اس مہینے لیٹر" value={`${num(k.month_litres)} L`} sub={<Change v={k.month_litres_change} />} />
         <Kpi label="Billed this month" ur="اس مہینے بل" value={pkrShort(k.month_billed)} sub={`${k.trips_month} tanker trips`} />
         <Kpi label="Received this month" ur="اس مہینے وصولی" value={pkrShort(k.month_received)} accent="text-emerald-700" sub={k.collection_pct == null ? undefined : k.collection_pct > 100 ? "More than billed — old dues are coming down" : `${k.collection_pct}% of this month's billing`} />
-        <Kpi label="Profit (est.)" ur="منافع" value={k.profit_estimate != null ? pkrShort(k.profit_estimate) : "—"} sub={k.margin_per_l != null ? `Rs ${k.margin_per_l.toFixed(2)} per litre over cost` : "Add purchase rates to see profit"} />
+        <Kpi label="Profit (est.)" ur="منافع" value={k.profit_estimate != null ? pkrShort(k.profit_estimate) : "—"} sub={k.profit_estimate != null
+          ? <>{k.margin_per_l != null ? `Rs ${k.margin_per_l.toFixed(2)}/L over cost` : ""} · <Change v={k.month_profit_change} /> {k.last_month_profit != null && <span className="text-slate-400">(pichle mahine {pkrShort(k.last_month_profit)})</span>}</>
+          : "Add purchase rates to see profit"} />
         <Kpi label="Today" ur="آج" value={`${num(k.today.litres)} L`} sub={`Received ${pkr(k.today.received)}`} />
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
