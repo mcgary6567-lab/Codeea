@@ -171,6 +171,26 @@ test("bypass supplier statement (separate from the pump-stock statement)", async
   assert.equal(csv.status, 200);
 });
 
+test("direct amounts: enter full supplier cost + full client amount, profit is the difference", async () => {
+  // a brand-new supplier + client so no other test's balances move; buy==sell so bypass stock nets to zero
+  const S3 = ok(await call("admin", "POST", "/api/suppliers", { name: "Bypass Depot Co" }), "new supplier");
+  const W3 = ok(await call("wholesale", "POST", "/api/wholesale/clients", { name: "Bypass Direct Client" }), "new client");
+  const r = ok(await call("wholesale", "POST", "/api/bypass/deliveries", { station_id: st,
+    purchases: [{ supplier_id: S3.id, product: "HSD", litres: 1000, amount: 260000 }],
+    drops: [{ client_id: W3.id, product: "HSD", litres: 1000, amount: 280000, override_limit: true }] }), "direct-amount delivery");
+  near(r.bought, 260000, "supplier amount");
+  near(r.billed, 280000, "client amount");
+  near(r.margin, 20000, "profit = client − supplier");
+  // the per-litre cost rate is derived from the amount (260000 / 1000 = 260)
+  const stmt = ok(await call("wholesale", "GET", `/api/bypass/suppliers/${S3.id}/statement`), "statement");
+  const pur = stmt.lines.find((l: any) => l.kind === "purchase");
+  near(pur.cost_rate, 260, "derived cost rate");
+  near(pur.amount, 260000, "purchase amount");
+  const bypassOwed3 = ok(await call("wholesale", "GET", "/api/bypass/suppliers"), "bypass sups").find((s: any) => s.id === S3.id).bypass_owed;
+  near(bypassOwed3, 260000, "we owe the new bypass supplier");
+  near(await clientDueOf(W3.id), 280000, "the new client owes the sale amount");
+});
+
 test("after all of the above: every book still tallies with the ledger", async () => {
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("bypass");

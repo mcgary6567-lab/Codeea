@@ -483,14 +483,15 @@ export function fleet(t: number, b: { tanker_id?: number | null; driver_id?: num
 }
 
 /** Rate and amount for one supply to one client, after the rate-permission and credit-limit checks. */
-export function priceSupply(req: Request, clientId: number, p: { product: string; litres: number; rate?: number; override_limit?: boolean }, alreadyAdded = 0) {
+export function priceSupply(req: Request, clientId: number, p: { product: string; litres: number; rate?: number; amount?: number; override_limit?: boolean; allowAnyRate?: boolean }, alreadyAdded = 0) {
   const c = ownClient(tid(req), clientId);
   if (!c.active) throw new AppError(400, `${c.name} is inactive`);
   const card = rates(c.id)[p.product];
-  if (p.rate !== undefined && p.rate !== card && !can(req.user, "wholesale.rates")) throw new AppError(403, "Only the admin can change the rate on a supply");
+  // allowAnyRate: bypass trades are negotiated deal-by-deal, so the officer may set the sale amount directly
+  if (p.rate !== undefined && p.rate !== card && !p.allowAnyRate && !can(req.user, "wholesale.rates")) throw new AppError(403, "Only the admin can change the rate on a supply");
   const rate = p.rate ?? card;
   if (!rate) throw new AppError(400, `No ${PRODUCTS[p.product]} rate set for ${c.name}. Ask the admin to set the rate first.`);
-  const amount = round2(p.litres * rate);
+  const amount = p.amount != null ? round2(p.amount) : round2(p.litres * rate);
   const due = clientDue(c.id) + alreadyAdded;
   if (c.credit_limit > 0 && due + amount > c.credit_limit && !(p.override_limit && can(req.user, "wholesale.rates")))
     throw new AppError(400, `Credit limit exceeded for ${c.name}: due ${pkr(due)} + this supply ${pkr(amount)} > limit ${pkr(c.credit_limit)}`);

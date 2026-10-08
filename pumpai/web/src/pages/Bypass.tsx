@@ -7,6 +7,7 @@ import { useAuth } from "../App";
 import { ProofPhotos } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { supplierOpts } from "../components/SupplierSelect";
+import { FleetPicker, fleetBody } from "../components/WholesaleFleet";
 
 const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 
@@ -68,14 +69,15 @@ export function BypassPanel() {
 
 /** The bypass delivery form body (no Modal wrapper) — shown inside the "New trip" form's Depot-bypass mode. */
 export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { can } = useAuth();
   const suppliers = useApi<any[]>("/bypass/suppliers");
   const clients = useApi<any[]>("/wholesale/clients");
   const stations = useApi<any[]>("/stations");
   const [station, setStation] = useState("");
-  const [vehicle, setVehicle] = useState("");
+  const [fl, setFl] = useState<any>({ tanker_id: "", driver_id: "", vehicle_no: "" });
   const [note, setNote] = useState("");
-  const [buys, setBuys] = useState([{ supplier_id: "", product: "HSD", litres: "", cost_rate: "" }]);
-  const [drops, setDrops] = useState([{ client_id: "", product: "HSD", litres: "" }]);
+  const [buys, setBuys] = useState([{ supplier_id: "", product: "HSD", litres: "", amount: "" }]);
+  const [drops, setDrops] = useState([{ client_id: "", product: "HSD", litres: "", amount: "" }]);
   const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
   const stock = useApi<any>("/bypass/stock");
@@ -86,64 +88,80 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
   const dropped = useMemo(() => sumBy(drops), [drops]);
   // a drop can draw from the stock already held plus what is being bought right now
   const overBy = useMemo(() => Object.entries(dropped).filter(([p, l]) => l > held(p) + (bought[p] ?? 0) + 0.01).map(([p, l]) => ({ p, l, have: held(p) + (bought[p] ?? 0) })), [dropped, bought, stock.data]);
-  const cost = buys.reduce((a, b) => a + (Number(b.litres) || 0) * (Number(b.cost_rate) || 0), 0);
-  const validBuys = buys.filter((b) => b.supplier_id && Number(b.litres) > 0 && Number(b.cost_rate) > 0);
-  const validDrops = drops.filter((d) => d.client_id && Number(d.litres) > 0);
+  const buyAmt = buys.reduce((a, b) => a + (Number(b.amount) || 0), 0);
+  const dropAmt = drops.reduce((a, d) => a + (Number(d.amount) || 0), 0);
+  const profit = dropAmt - buyAmt;
+  const validBuys = buys.filter((b) => b.supplier_id && Number(b.litres) > 0 && Number(b.amount) > 0);
+  const validDrops = drops.filter((d) => d.client_id && Number(d.litres) > 0 && Number(d.amount) > 0);
   const valid = !!station && (validBuys.length > 0 || validDrops.length > 0) && overBy.length === 0;
 
   return (
       <form className="space-y-4" onSubmit={async (e) => {
         e.preventDefault();
         const body = {
-          station_id: Number(station), vehicle_no: vehicle || null, note: note || null, photo_ids: photos,
-          purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), cost_rate: Number(b.cost_rate) })),
-          drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres) })),
+          station_id: Number(station), ...fleetBody(fl), note: note || null, photo_ids: photos,
+          purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), amount: Number(b.amount) })),
+          drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), amount: Number(d.amount) })),
         };
-        if (await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Cost ${pkr(r.sold_cost ?? r.cost)}, billed ${pkr(r.billed)}, margin ${pkr(r.margin)}`)) onDone();
+        if (await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Bought ${pkr(r.bought)}, billed ${pkr(r.billed)}, munafa ${pkr(r.margin)}`)) onDone();
       }}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Station (books under) *"><select className="input" required value={station} onChange={(e) => setStation(e.target.value)}>
             <option value="">— choose —</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-          <Field label="Tanker / vehicle"><input className="input" value={vehicle} onChange={(e) => setVehicle(e.target.value)} /></Field>
+          <FleetPicker f={fl} setF={setFl} />
         </div>
 
-        {/* Supplier purchase lines */}
+        {/* Supplier purchase lines — supplier + litre + full amount */}
         <div className="rounded-xl bg-slate-50 p-3">
-          <div className="mb-2 text-sm font-semibold">Maal kahan se liya (supplier + litre + cost) <span className="font-normal text-slate-400">— optional, sirf stock se bechna hai to khaali</span> · <Ur>خریداری</Ur></div>
+          <div className="mb-2 text-sm font-semibold">Maal kahan se liya (supplier + litre + amount) <span className="font-normal text-slate-400">— optional, sirf stock se bechna hai to khaali</span> · <Ur>خریداری</Ur></div>
           <div className="space-y-2">
             {buys.map((b, i) => (
               <div key={i} className="grid grid-cols-12 gap-2">
-                <select className="input col-span-5" value={b.supplier_id} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, supplier_id: e.target.value } : x))}>
-                  <option value="">— supplier —</option>{supplierOpts(suppliers.data ?? [])}</select>
+                <div className="col-span-5">
+                  <select className="input w-full" value={b.supplier_id} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, supplier_id: e.target.value } : x))}>
+                    <option value="">— supplier —</option>{supplierOpts(suppliers.data ?? [])}{can("suppliers.manage") && <option value="__new__">+ Naya supplier add karein</option>}</select>
+                  {b.supplier_id === "__new__" && <QuickAdd placeholder="Supplier ka naam" onCancel={() => setBuys(buys.map((x, j) => j === i ? { ...x, supplier_id: "" } : x))}
+                    onAdd={async (name) => { const s = await api("/suppliers", { body: { name } }); await suppliers.reload(); setBuys(buys.map((x, j) => j === i ? { ...x, supplier_id: String(s.id) } : x)); }} />}
+                </div>
                 <select className="input col-span-3" value={b.product} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
                 <input className="input col-span-2" type="number" placeholder="litre" value={b.litres} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
-                <input className="input col-span-2" type="number" placeholder="Rs/L" value={b.cost_rate} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, cost_rate: e.target.value } : x))} />
+                <input className="input col-span-2" type="number" placeholder="Rs amount" value={b.amount} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
                 {buys.length > 1 && <button type="button" className="col-span-12 -mt-1 text-right text-xs text-red-600" onClick={() => setBuys(buys.filter((_, j) => j !== i))}>Remove line</button>}
               </div>
             ))}
           </div>
-          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setBuys([...buys, { supplier_id: "", product: "HSD", litres: "", cost_rate: "" }])}>+ Add supplier</button>
-          <div className="mt-1 text-xs text-slate-500">Purchased: {Object.entries(bought).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Cost {pkr(cost)}</div>
+          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setBuys([...buys, { supplier_id: "", product: "HSD", litres: "", amount: "" }])}>+ Add supplier</button>
+          <div className="mt-1 text-xs text-slate-500">Khareeda: {Object.entries(bought).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Supplier ko dene hain {pkr(buyAmt)}</div>
         </div>
 
-        {/* Client drops */}
+        {/* Client drops — client + litre + full amount client pays */}
         <div className="rounded-xl bg-slate-50 p-3">
-          <div className="mb-2 text-sm font-semibold">Kahan drop kiya (client + litre, unke rate par) · <Ur>ڈراپ</Ur></div>
+          <div className="mb-2 text-sm font-semibold">Kahan drop kiya (client + litre + amount) · <Ur>ڈراپ</Ur></div>
           <div className="space-y-2">
             {drops.map((d, i) => (
               <div key={i} className="grid grid-cols-12 gap-2">
-                <select className="input col-span-7" value={d.client_id} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, client_id: e.target.value } : x))}>
-                  <option value="">— client —</option>{(clients.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                <div className="col-span-5">
+                  <select className="input w-full" value={d.client_id} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, client_id: e.target.value } : x))}>
+                    <option value="">— client —</option>{(clients.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}{can("wholesale.manage") && <option value="__new__">+ Naya client add karein</option>}</select>
+                  {d.client_id === "__new__" && <QuickAdd placeholder="Client ka naam" onCancel={() => setDrops(drops.map((x, j) => j === i ? { ...x, client_id: "" } : x))}
+                    onAdd={async (name) => { const c = await api("/wholesale/clients", { body: { name } }); await clients.reload(); setDrops(drops.map((x, j) => j === i ? { ...x, client_id: String(c.id) } : x)); }} />}
+                </div>
                 <select className="input col-span-3" value={d.product} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
                 <input className="input col-span-2" type="number" placeholder="litre" value={d.litres} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
+                <input className="input col-span-2" type="number" placeholder="Rs amount" value={d.amount} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
                 {drops.length > 1 && <button type="button" className="col-span-12 -mt-1 text-right text-xs text-red-600" onClick={() => setDrops(drops.filter((_, j) => j !== i))}>Remove drop</button>}
               </div>
             ))}
           </div>
-          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "" }])}>+ Add drop</button>
-          <div className="mt-1 text-xs text-slate-500">Dropped: {Object.entries(dropped).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"}{Object.keys({ ...dropped }).map((p) => held(p) > 0 ? ` · ${PRODUCTS[p]} held stock ${num(held(p))} L` : "").join("")}</div>
+          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "", amount: "" }])}>+ Add drop</button>
+          <div className="mt-1 text-xs text-slate-500">Diya: {Object.entries(dropped).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Client se lene hain {pkr(dropAmt)}{Object.keys({ ...dropped }).map((p) => held(p) > 0 ? ` · ${PRODUCTS[p]} held stock ${num(held(p))} L` : "").join("")}</div>
           <p className="mt-1 text-xs text-slate-400">Jitna abhi khareeda + pehle se held stock, usse zyada drop nahi ho sakta. Sirf stock se bechna hai to upar "khareedari" khaali chhoro.</p>
         </div>
+
+        {/* Live profit = client amount − supplier amount */}
+        {(buyAmt > 0 || dropAmt > 0) && <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold ${profit >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"}`}>
+          <span>Munafa (client amount − supplier amount) · <Ur>منافع</Ur></span><span className="tabular-nums">{pkr(profit)}</span>
+        </div>}
 
         {overBy.length > 0 && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
           {overBy.map((o) => `${PRODUCTS[o.p]}: ${num(o.l)} L drop ho raha hai lekin sirf ${num(o.have)} L available (held + abhi khareeda) — itna stock nahi.`).join(" ")} <Ur className="block">دستیاب سے زیادہ ڈیلیور نہیں ہو سکتا</Ur>
@@ -153,6 +171,27 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
         <ProofPhotos value={photos} onChange={setPhotos} hint="depot invoice / bilty" />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}><Truck size={15} /> Save delivery</button></div>
       </form>
+  );
+}
+
+/** Inline "tap to add" a new party (supplier / client) without leaving the bypass form. */
+function QuickAdd({ placeholder, onAdd, onCancel }: { placeholder: string; onAdd: (name: string) => Promise<void>; onCancel: () => void }) {
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const save = async () => {
+    if (name.trim().length < 2) { setErr("Naam chhota hai"); return; }
+    setBusy(true); setErr("");
+    try { await onAdd(name.trim()); } catch (e: any) { setErr(e?.message ?? "Save nahi hua"); setBusy(false); }
+  };
+  return (
+    <div className="mt-1 flex gap-1">
+      <input autoFocus className="input flex-1" placeholder={placeholder} value={name} onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } }} />
+      <button type="button" className="btn-primary !px-2" disabled={busy} onClick={save}><Plus size={14} /></button>
+      <button type="button" className="btn-secondary !px-2" onClick={onCancel}>✕</button>
+      {err && <span className="self-center text-xs text-rose-600">{err}</span>}
+    </div>
   );
 }
 
