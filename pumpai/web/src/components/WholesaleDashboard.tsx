@@ -70,6 +70,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
   return (
     <div className="space-y-5">
       <WholesaleVoice onDone={reload} />
+      <BypassSummary />
       {manage && (
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-4 2xl:grid-cols-7">
           {[
@@ -223,6 +224,32 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/** Owner summary of the bypass business: kiraya earned (profit), fuel routed, money still held. */
+function BypassSummary() {
+  const { data } = useApi<any>("/wholesale/bypass-summary");
+  if (!data || (!data.kiraya_total && !data.held_total && !data.fuel_by_depot?.length)) return null;
+  return (
+    <div className="card p-4">
+      <h2 className="mb-3 flex items-center gap-2 font-semibold"><Truck size={16} className="text-slate-500" /> Bypass this month · <Ur>بائی پاس</Ur></h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl bg-emerald-50 p-3"><div className="text-xs text-emerald-800">Kiraya earned (profit)</div><div className="text-xl font-bold tabular-nums">{pkr(data.kiraya_total)}</div></div>
+        <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-600">Fuel routed (all depots)</div><div className="text-xl font-bold tabular-nums">{pkrShort(data.fuel_by_depot.reduce((a: number, d: any) => a + d.fuel, 0))}</div></div>
+        <div className={`rounded-xl p-3 ${data.held_total > 0 ? "bg-amber-50" : "bg-slate-50"}`}><div className="text-xs text-slate-600">Held — to forward</div><div className={`text-xl font-bold tabular-nums ${data.held_total > 0 ? "text-amber-700" : ""}`}>{pkr(data.held_total)}</div></div>
+      </div>
+      {data.kiraya_by_client?.length > 0 && <div className="mt-3">
+        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Kiraya by client</div>
+        <ul className="divide-y divide-slate-100 text-sm">{data.kiraya_by_client.slice(0, 5).map((c: any) => (
+          <li key={c.name} className="flex justify-between py-1.5"><span>{c.name} <span className="text-xs text-slate-400">({c.trips})</span></span><b className="tabular-nums">{pkr(c.kiraya)}</b></li>))}</ul>
+      </div>}
+      {data.fuel_by_depot?.length > 0 && <div className="mt-3">
+        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Fuel money by depot</div>
+        <ul className="divide-y divide-slate-100 text-sm">{data.fuel_by_depot.slice(0, 5).map((d: any) => (
+          <li key={d.depot} className="flex justify-between py-1.5"><span>{d.depot ?? "—"} <span className="text-xs text-slate-400">{d.through_us ? `through us ${pkrShort(d.through_us)}` : ""}{d.direct ? ` · direct ${pkrShort(d.direct)}` : ""}</span></span><b className="tabular-nums">{pkr(d.fuel)}</b></li>))}</ul>
+      </div>}
     </div>
   );
 }

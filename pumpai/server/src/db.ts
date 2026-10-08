@@ -544,6 +544,8 @@ export function migrate() {
     mode TEXT NOT NULL CHECK (mode IN ('direct','through_us')), status TEXT NOT NULL CHECK (status IN ('direct','held','forwarded')),
     in_account_id INTEGER, in_ref TEXT, fwd_account_id INTEGER, fwd_ref TEXT, forwarded_at TEXT, forwarded_by TEXT,
     invoice_ref TEXT, note TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  addColumn("bypass_fuel_payments", "voided", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("bypass_fuel_payments", "carriage_txn_id", "INTEGER"); // links the fuel money to the kiraya supply it belongs to
   addCashierRole();
   // cashier: cheques received from khata customers / others and cheques we issue (wholesale cheques have their own register)
   db.exec(`CREATE TABLE IF NOT EXISTS cheques (

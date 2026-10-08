@@ -16,6 +16,7 @@ import { bookRecurring } from "../routes/recurring.js";
 import { weeklyLeaderboard } from "../routes/feedback.js";
 import { trainingWatch, dailyCoaching } from "../routes/people.js";
 import { machineWatch } from "../routes/machines.js";
+import { bypassFuelHeldWatch } from "../routes/wholesaleDesk.js";
 
 export interface Job {
   key: string;
@@ -219,6 +220,13 @@ export const JOBS: Job[] = [
     description: "On the 1st, if a late-charge percent is set in Settings, adds it to khata balances unpaid for 30+ days (never to institutions). Off by default.",
     cron: "0 8 1 * *",
     run: async (t) => `${await khataLateFees(t)} charges added`,
+  },
+  {
+    key: "bypass_fuel_held",
+    name: "Fuel money to forward",
+    description: "Every morning: if a bypass client's fuel money is still with us (received but not sent to the depot) for over a day, the owner and managers are reminded to forward it.",
+    cron: "0 9 * * *",
+    run: async (t) => `${await bypassFuelHeldWatch(t)} fuel payments to forward`,
   },
   {
     key: "booking_reminders",

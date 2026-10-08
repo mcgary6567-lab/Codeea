@@ -350,6 +350,39 @@ test("bypass fuel money (separate from kiraya): direct to depot = record only; t
   near(A4.l.totals.debit, A4.l.totals.credit, "journal balances");
 });
 
+test("bypass improvements: combined entry (kiraya + fuel together), void a fuel payment, owner summary", async () => {
+  // combined: one call bills the kiraya AND records the fuel money (through us, forwarded now)
+  const B = await books();
+  const r = ok(await call("wholesale", "POST", `/api/wholesale/clients/${W1.id}/carriage`,
+    { supplier_id: S.id, invoice_ref: "DEP-C1", amount: 12000, lines: [{ product: "HSD", litres: 6000 }],
+      fuel: { mode: "through_us", amount: 480000, in_method: "Bank transfer", in_account_id: acc, forward_now: true, fwd_method: "Bank transfer", fwd_account_id: acc } }), "combined");
+  assert.equal(r.kiraya, 12000); assert.ok(r.fuel_id, "fuel recorded in the same entry");
+  const A = await books();
+  near(A.due1 - B.due1, 12000, "only the kiraya hits the due");
+  near(A.bank - B.bank, 0, "fuel forwarded same time: bank net zero");
+  near(A.l.totals.debit, A.l.totals.credit, "journal balances");
+
+  // void a fuel payment: a held one reverses the bank in-flow and drops off the statement
+  const B2 = await books();
+  const held = ok(await call("wholesale", "POST", `/api/wholesale/clients/${W1.id}/fuel-payment`,
+    { supplier_id: S.id, amount: 200000, mode: "through_us", in_method: "Bank transfer", in_account_id: acc, forward_now: false }), "held");
+  near((await books()).bank - B2.bank, 200000, "held: bank up");
+  ok(await call("wholesale", "POST", `/api/wholesale/fuel-payments/${held.id}/void`, {}), "void fuel");
+  const A2 = await books();
+  near(A2.bank - B2.bank, 0, "void reversed the bank in-flow");
+  near(A2.tb("Depot money held") - B2.tb("Depot money held"), 0, "liability cleared on void");
+  const stmt = ok(await call("wholesale", "GET", `/api/wholesale/clients/${W1.id}/statement?from=${today()}&to=${today()}`), "stmt");
+  assert.ok(!stmt.lines.some((l: any) => l.id === `bfp${held.id}`), "voided fuel note is gone from the statement");
+  near(A2.l.totals.debit, A2.l.totals.credit, "journal balances after void");
+
+  // owner summary: kiraya earned this month includes our entries; held/fuel surfaced
+  const month = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7);
+  const sum = ok(await call("admin", "GET", `/api/wholesale/bypass-summary?month=${month}`), "summary");
+  assert.ok(sum.kiraya_total >= 12000, "kiraya in the summary");
+  assert.ok(sum.kiraya_by_client.some((c: any) => c.kiraya >= 12000), "kiraya by client");
+  assert.ok(sum.fuel_by_depot.length >= 1, "fuel by depot");
+});
+
 test("after all of the above: every book still tallies with the ledger", async () => {
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("stock_ledger");

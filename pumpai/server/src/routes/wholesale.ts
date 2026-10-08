@@ -406,7 +406,7 @@ export function statement(tenantId: number, clientId: number, from?: string, to?
   // bypass fuel-money records (direct to depot, or routed through us) — shown for the record only; no effect on the due
   const fuels = all(
     `SELECT f.*, s.name depot_name, ${proofCol("'bfp:'||f.id")} FROM bypass_fuel_payments f LEFT JOIN suppliers s ON s.id=f.supplier_id
-     WHERE f.client_id=? ${from ? "AND f.txn_date >= ?" : ""} ${to ? "AND f.txn_date < ?" : ""}`,
+     WHERE f.client_id=? AND f.voided=0 ${from ? "AND f.txn_date >= ?" : ""} ${to ? "AND f.txn_date < ?" : ""}`,
     ...[c.id, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])],
   ).map((f) => ({ id: `bfp${f.id}`, type: "fuel_note", txn_date: f.txn_date, amount: f.amount, fuel_mode: f.mode, fuel_status: f.status, depot_name: f.depot_name, ref: f.invoice_ref, note: f.note, proof_ids: f.proof_ids, debit: 0, credit: 0, balance: 0 }));
   // merge by date; a fuel note carries the prevailing balance (it does not move it)

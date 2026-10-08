@@ -310,7 +310,11 @@ function ClientDetail({ id }: { id: string }) {
         {stmt.data ? (
           <>
             <div className="flex justify-between bg-slate-50 px-4 py-2 text-sm"><span>Opening balance</span><span className="font-medium tabular-nums">{pkr(stmt.data.opening_balance)}</span></div>
-            <LedgerTable rows={stmt.data.lines} running onVoid={can("wholesale.void") ? async (row) => {
+            <LedgerTable rows={stmt.data.lines} running onVoid={(can("wholesale.void") || can("wholesale.manage")) ? async (row) => {
+              if (row.type === "fuel_note") {
+                if (confirm(`Void this fuel payment of ${pkr(row.amount)}? Any bank movement will be reversed.`)) { await api(`/wholesale/fuel-payments/${String(row.id).replace("bfp", "")}/void`, { body: {} }).catch((e) => alert(e.message)); refresh(); }
+                return;
+              }
               const reason = prompt(`Void ${row.type} #${row.id} of ${pkr(row.amount)}? Enter a reason:`);
               if (reason) { await api(`/wholesale/txns/${row.id}/void`, { body: { reason } }).catch((e) => alert(e.message)); refresh(); }
             } : undefined} />
@@ -508,18 +512,24 @@ function CarriageEntry({ client, onClose, onDone }: { client: any; onClose: () =
   const depots = useApi<any[]>("/wholesale/depots");
   const [f, setF] = useState({ supplier_id: "", invoice_ref: "", vehicle_no: "", amount: "", note: "" });
   const [lines, setLines] = useState<{ product: string; litres: string }[]>([{ product: "HSD", litres: "" }]);
+  const [withFuel, setWithFuel] = useState(false);
+  const [fu, setFu] = useState({ amount: "", mode: "direct", in_method: "Bank transfer", forward_now: true, fwd_method: "Bank transfer" });
+  const [inAcc, setInAcc] = useState<number | null>(null);
+  const [fwdAcc, setFwdAcc] = useState<number | null>(null);
   const { busy, run } = useAction();
   const totalL = lines.reduce((a, l) => a + (Number(l.litres) || 0), 0);
   const kiraya = Number(f.amount) || 0; // fixed kiraya written on the depot invoice
-  const valid = f.supplier_id && totalL > 0 && kiraya > 0;
+  const fuelThrough = withFuel && fu.mode === "through_us";
+  const valid = f.supplier_id && totalL > 0 && kiraya > 0 && (!withFuel || (Number(fu.amount) > 0 && (!fuelThrough || inAcc)));
   return (
     <Modal open onClose={onClose} title={`Bypass supply (our ID) — ${client.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        const body = {
+        const body: any = {
           supplier_id: Number(f.supplier_id), invoice_ref: f.invoice_ref || null, vehicle_no: f.vehicle_no || null,
           lines: lines.filter((l) => Number(l.litres) > 0).map((l) => ({ product: l.product, litres: Number(l.litres) })),
           mode: "lump", amount: Number(f.amount), note: f.note || null,
+          fuel: withFuel ? { mode: fu.mode, amount: Number(fu.amount), ...(fuelThrough ? { in_method: fu.in_method, in_account_id: inAcc, forward_now: fu.forward_now, fwd_method: fu.fwd_method, fwd_account_id: fwdAcc ?? inAcc } : {}) } : null,
         };
         if (await run(() => api(`/wholesale/clients/${client.id}/carriage`, { body }), (r: any) => `Kiraya ${pkr(r.kiraya)} billed. Due now ${pkr(r.due)}`)) onDone();
       }}>
@@ -543,7 +553,23 @@ function CarriageEntry({ client, onClose, onDone }: { client: any; onClose: () =
         </div>
         <Field label="Kiraya (fixed — as written on the depot invoice) · کرایہ *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="e.g. 8000" /></Field>
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
-        <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">Total {num(totalL)} L · Kiraya billed: <b className="tabular-nums">{pkr(kiraya)}</b> <span className="text-slate-500">(client ke zimme, poora munafa)</span></div>
+
+        {/* optional: record the fuel money (depot bill) in the same entry */}
+        <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={withFuel} onChange={(e) => setWithFuel(e.target.checked)} /> Fuel money bhi abhi record karein? · <Ur>فیول کا پیسہ بھی</Ur></label>
+        {withFuel && <div className="space-y-3 rounded-xl bg-slate-50 p-3">
+          <Field label="Fuel amount (Rs) · depot invoice *"><input className="input" type="number" min={1} value={fu.amount} onChange={(e) => setFu({ ...fu, amount: e.target.value })} /></Field>
+          <div className="grid grid-cols-1 gap-2">
+            <button type="button" onClick={() => setFu({ ...fu, mode: "direct" })} aria-pressed={fu.mode === "direct"} className={`rounded-xl px-3 py-2 text-left text-sm ${fu.mode === "direct" ? "bg-slate-800 font-semibold text-white" : "bg-white ring-1 ring-slate-200"}`}>Client paid the depot <b>direct</b> (screenshot)</button>
+            <button type="button" onClick={() => setFu({ ...fu, mode: "through_us" })} aria-pressed={fu.mode === "through_us"} className={`rounded-xl px-3 py-2 text-left text-sm ${fu.mode === "through_us" ? "bg-slate-800 font-semibold text-white" : "bg-white ring-1 ring-slate-200"}`}>Client sent it to <b>us</b> → we forward</button>
+          </div>
+          {fuelThrough && <div className="space-y-2">
+            <AccountPicker method={fu.in_method} value={inAcc} onChange={setInAcc} label="Client sent to which account? · کس اکاؤنٹ میں" required />
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={fu.forward_now} onChange={(e) => setFu({ ...fu, forward_now: e.target.checked })} /> Forward to the depot now</label>
+            {fu.forward_now && <AccountPicker method={fu.fwd_method} value={fwdAcc} onChange={setFwdAcc} label="Forwarded from which account?" />}
+          </div>}
+        </div>}
+
+        <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">Total {num(totalL)} L · Kiraya billed: <b className="tabular-nums">{pkr(kiraya)}</b> <span className="text-slate-500">(client ke zimme, poora munafa)</span>{withFuel && Number(fu.amount) > 0 && <span className="block text-slate-500">Fuel Rs {num(Number(fu.amount))} — {fu.mode === "direct" ? "depot ko direct" : "humare through"}</span>}</div>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Bill kiraya</button></div>
       </form>
     </Modal>
