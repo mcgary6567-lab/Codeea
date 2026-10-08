@@ -54,6 +54,34 @@ test("invoice and receipt photos attach to the delivery and the expense", async 
   assert.equal(e.photo_id, rc.photo_id);
 });
 
+test("only the CEO can delete a photo, and every row pointing at it is unlinked", async () => {
+  const inv = ok(await call("manager", "POST", "/api/ai/read-photo", { kind: "invoice", image: PNG }), "invoice");
+  const d = ok(await call("manager", "POST", "/api/stock/delivery", { tank_id: 1, invoice_l: 40, received_l: 40, photo_id: inv.photo_id, supplier_id: 1, purchase_rate: 250 }), "delivery");
+  const rc = ok(await call("manager", "POST", "/api/ai/read-photo", { kind: "receipt", image: PNG }), "receipt");
+  const e = ok(await call("manager", "POST", "/api/expenses", { category: "Tea & food", amount: 300, photo_id: rc.photo_id }), "expense");
+  const slip = ok(await call("salesman", "POST", "/api/ai/read-photo", { kind: "slip", image: PNG }), "slip");
+  const accts = ok(await call("salesman", "GET", "/api/pos/khata-accounts"), "accounts");
+  const sale = ok(await call("salesman", "POST", "/api/sales", { station_id: 1, product: "PMG", litres: 5, payment_method: "khata", customer_id: accts[0].id, slip_no: "9001", photo_id: slip.photo_id }), "sale");
+  assert.equal(sale.photo_id, slip.photo_id);
+  // everyone else is view-only
+  assert.equal((await call("manager", "DELETE", `/api/photos/${inv.photo_id}`)).status, 403);
+  assert.equal((await call("salesman", "DELETE", `/api/photos/${slip.photo_id}`)).status, 403);
+  const media = (await call("admin", "GET", "/api/me")).data.media_token;
+  assert.equal((await fetch(`${base}/api/photos/${inv.photo_id}?token=${media}`)).status, 200);
+  // the CEO deletes: the picture is gone and no row keeps a dangling link
+  const r1 = ok(await call("admin", "DELETE", `/api/photos/${inv.photo_id}`), "delete invoice");
+  assert.deepEqual(r1.unlinked, ["deliveries.photo_id"]);
+  assert.deepEqual(ok(await call("admin", "DELETE", `/api/photos/${rc.photo_id}`), "delete receipt").unlinked, ["expenses.photo_id"]);
+  assert.deepEqual(ok(await call("admin", "DELETE", `/api/photos/${slip.photo_id}`), "delete slip").unlinked, ["sales.photo_id"]);
+  assert.equal((await fetch(`${base}/api/photos/${inv.photo_id}?token=${media}`)).status, 404);
+  assert.equal((await call("admin", "DELETE", `/api/photos/${inv.photo_id}`)).status, 404);
+  const stock = ok(await call("manager", "GET", "/api/stock"), "stock");
+  assert.equal(stock.deliveries.find((x: any) => x.id === d.id).photo_id, null);
+  assert.equal(ok(await call("manager", "GET", "/api/expenses"), "expenses").expenses.find((x: any) => x.id === e.id).photo_id, null);
+  const sales = ok(await call("manager", "GET", "/api/sales?limit=500"), "sales");
+  assert.equal(sales.find((x: any) => x.id === sale.id).photo_id, null);
+});
+
 test("voice: a spoken sentence becomes a POS sale ready to save", async () => {
   const accts = ok(await call("salesman", "GET", "/api/pos/khata-accounts"), "accounts");
   const police = accts.find((a: any) => a.type === "police");

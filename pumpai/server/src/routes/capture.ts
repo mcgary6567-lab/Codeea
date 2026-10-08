@@ -4,7 +4,7 @@
  */
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, run, now } from "../db.js";
+import { all, get, run, now, tx } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny } from "../auth.js";
 import { AppError, audit } from "../services.js";
 import { aiEnabled } from "../config.js";
@@ -56,14 +56,30 @@ capture.get("/photos/:id", h((req, res) => {
   return undefined;
 }));
 
+/** Every table that points at a photo by id — cleared when the photo is deleted, so no row keeps a dangling link. */
+const PHOTO_LINKS: [table: string, column: string][] = [
+  ["expenses", "photo_id"], ["sales", "photo_id"], ["deliveries", "photo_id"], ["bank_deposits", "photo_id"],
+  ["licences", "photo_id"], ["checklist_entries", "photo_id"], ["utility_bills", "photo_id"], ["trainings", "photo_id"],
+  ["machines", "photo_id"], ["machine_logs", "photo_id"], ["attendance", "in_photo_id"], ["attendance", "out_photo_id"],
+];
+
 /** Only the CEO/admin may delete an uploaded photo; everyone else can only view it. */
 capture.delete("/photos/:id", requirePerm("photos.delete"), h((req) => {
   const id = Number(req.params.id);
-  const p = get("SELECT id, kind, ref FROM photos WHERE id=? AND tenant_id=?", id, tid(req));
+  const t = tid(req);
+  const p = get("SELECT id, kind, ref FROM photos WHERE id=? AND tenant_id=?", id, t);
   if (!p) throw new AppError(404, "Photo not found");
-  run("DELETE FROM photos WHERE id=? AND tenant_id=?", id, tid(req));
-  audit(tid(req), req.user!, "photo_delete", `photo:${id}`, { kind: p.kind, ref: p.ref });
-  return { ok: true };
+  const unlinked: string[] = [];
+  tx(() => {
+    // photo ids are global and the photo above is already tenant-checked, so matching on the id alone is safe
+    // (some tables, e.g. sales/deliveries, carry a station rather than a tenant)
+    for (const [table, col] of PHOTO_LINKS) {
+      if (Number(run(`UPDATE ${table} SET ${col}=NULL WHERE ${col}=?`, id).changes ?? 0)) unlinked.push(`${table}.${col}`);
+    }
+    run("DELETE FROM photos WHERE id=? AND tenant_id=?", id, t);
+  });
+  audit(t, req.user!, "photo_delete", `photo:${id}`, { kind: p.kind, ref: p.ref, unlinked });
+  return { ok: true, unlinked };
 }));
 
 capture.post("/ai/parse-sale", requirePerm("sales.create"), h(async (req) => {
