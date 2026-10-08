@@ -189,6 +189,10 @@ test("direct amounts: enter full supplier cost + full client amount, profit is t
   const bypassOwed3 = ok(await call("wholesale", "GET", "/api/bypass/suppliers"), "bypass sups").find((s: any) => s.id === S3.id).bypass_owed;
   near(bypassOwed3, 260000, "we owe the new bypass supplier");
   near(await clientDueOf(W3.id), 280000, "the new client owes the sale amount");
+  // the recent-deliveries list carries this delivery's munafa
+  const list = ok(await call("wholesale", "GET", "/api/bypass/deliveries"), "deliveries");
+  const row = list.find((x: any) => x.id === r.id);
+  near(row.billed, 280000, "list billed"); near(row.margin, 20000, "list munafa");
 });
 
 test("after all of the above: every book still tallies with the ledger", async () => {

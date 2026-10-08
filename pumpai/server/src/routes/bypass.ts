@@ -152,8 +152,13 @@ bypass.get("/bypass/stock", h((req) => {
 bypass.get("/bypass/deliveries", h((req) => {
   const t = tid(req);
   return all(`SELECT d.*, (SELECT COALESCE(SUM(amount),0) FROM bypass_purchases WHERE delivery_id=d.id AND voided=0) cost,
-      (SELECT COALESCE(SUM(litres),0) FROM bypass_purchases WHERE delivery_id=d.id AND voided=0) litres
-     FROM bypass_deliveries d WHERE d.tenant_id=? AND d.voided=0 ORDER BY d.txn_date DESC, d.id DESC LIMIT 60`, t);
+      (SELECT COALESCE(SUM(litres),0) FROM bypass_purchases WHERE delivery_id=d.id AND voided=0) litres,
+      (SELECT COALESCE(SUM(litres),0) FROM bypass_drops WHERE delivery_id=d.id AND voided=0) drop_litres,
+      (SELECT COALESCE(SUM(cost_amount),0) FROM bypass_drops WHERE delivery_id=d.id AND voided=0) sold_cost,
+      (SELECT COALESCE(SUM(w.amount),0) FROM bypass_drops bd JOIN wholesale_txns w ON w.id=bd.wtx_id WHERE bd.delivery_id=d.id AND bd.voided=0 AND w.voided=0) billed
+     FROM bypass_deliveries d WHERE d.tenant_id=? AND d.voided=0 ORDER BY d.txn_date DESC, d.id DESC LIMIT 60`, t)
+    // munafa = client ne jo diya (billed) − us delivery me bike maal ki cost (COGS); stock hold ho to sirf delivered hissa counts
+    .map((d) => ({ ...d, margin: round2((d.billed as number) - (d.sold_cost as number)) }));
 }));
 
 /* ================= A supplier's bypass statement ================= */
