@@ -6,7 +6,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, now } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny } from "../auth.js";
-import { AppError } from "../services.js";
+import { AppError, audit } from "../services.js";
 import { aiEnabled } from "../config.js";
 import { readPhoto, parseSale, type PhotoKind } from "../ai/vision.js";
 import { expenseFromText } from "../ai/parseSale.js";
@@ -54,6 +54,16 @@ capture.get("/photos/:id", h((req, res) => {
   res.setHeader("cache-control", "private, max-age=86400");
   res.end(Buffer.from(p.data as Uint8Array));
   return undefined;
+}));
+
+/** Only the CEO/admin may delete an uploaded photo; everyone else can only view it. */
+capture.delete("/photos/:id", requirePerm("photos.delete"), h((req) => {
+  const id = Number(req.params.id);
+  const p = get("SELECT id, kind, ref FROM photos WHERE id=? AND tenant_id=?", id, tid(req));
+  if (!p) throw new AppError(404, "Photo not found");
+  run("DELETE FROM photos WHERE id=? AND tenant_id=?", id, tid(req));
+  audit(tid(req), req.user!, "photo_delete", `photo:${id}`, { kind: p.kind, ref: p.ref });
+  return { ok: true };
 }));
 
 capture.post("/ai/parse-sale", requirePerm("sales.create"), h(async (req) => {

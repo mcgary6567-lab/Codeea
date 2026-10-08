@@ -1,22 +1,109 @@
-import { useRef, useState } from "react";
-import { Camera, Loader2, Mic, MicOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Camera, Loader2, Mic, MicOff, X, ChevronLeft, ChevronRight, Trash2, ZoomIn, Download } from "lucide-react";
 import { api, linkToken } from "../lib/api";
+import { enhanceImage } from "../lib/enhance";
+import { useAuth } from "../App";
 import { Modal, useToast } from "./ui";
 
-/** Shrink a camera photo before upload (phones take 4–12 MB pictures). */
-export async function resizeImage(file: File, max = 1600): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const scale = Math.min(1, max / Math.max(img.width, img.height));
-    const c = document.createElement("canvas");
-    c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL("image/jpeg", 0.82);
-  } finally { URL.revokeObjectURL(url); }
+/** Document kinds get straightened + margin-trimmed; camera selfies / meters only get brightened. */
+const DOC_KINDS = new Set(["invoice", "receipt", "bill", "slip", "proof"]);
+
+/** Clean up + shrink a camera photo before upload (fix sideways/tilt, brighten, sharpen, crop). */
+export async function resizeImage(file: File, max = 1600, doc = true): Promise<string> {
+  return enhanceImage(file, { max, doc });
 }
 
 export const photoUrl = (id: number) => `/api/photos/${id}?token=${linkToken()}`;
+
+/* -------------------- Full-screen photo viewer (lightbox) -------------------- */
+
+type LbReq = { ids: number[]; index: number; onDeleted?: (id: number) => void };
+let lbEmit: ((r: LbReq | null) => void) | null = null;
+
+/**
+ * Open the full-screen photo viewer. Pass one id, a CSV ("12,13") or a list; everyone can view,
+ * only the CEO/admin sees a delete button. `onDeleted` lets the caller drop the id from its row.
+ */
+export function openPhoto(ids: number | string | Array<number | string | null | undefined> | null | undefined, index = 0, onDeleted?: (id: number) => void) {
+  const list = (Array.isArray(ids) ? ids : String(ids ?? "").split(",")).map(Number).filter(Boolean);
+  if (list.length && lbEmit) lbEmit({ ids: list, index: Math.max(0, Math.min(index, list.length - 1)), onDeleted });
+}
+
+/** Mounted once (in App): shows the enlarged picture with next/prev and an admin-only delete. */
+export function LightboxHost() {
+  const [req, setReq] = useState<LbReq | null>(null);
+  const [i, setI] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const { can } = useAuth();
+  const toast = useToast();
+  useEffect(() => {
+    lbEmit = (r) => { setReq(r); setI(r?.index ?? 0); };
+    return () => { lbEmit = null; };
+  }, []);
+  useEffect(() => {
+    if (!req) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setReq(null);
+      else if (e.key === "ArrowRight") setI((x) => Math.min(x + 1, req.ids.length - 1));
+      else if (e.key === "ArrowLeft") setI((x) => Math.max(x - 1, 0));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [req]);
+  if (!req) return null;
+  const id = req.ids[i];
+  const many = req.ids.length > 1;
+  const del = async () => {
+    if (busy || !confirm("Delete this photo for everyone? This cannot be undone. · تصویر مستقل طور پر حذف کریں؟")) return;
+    setBusy(true);
+    try {
+      await api(`/photos/${id}`, { method: "DELETE" });
+      req.onDeleted?.(id);
+      const left = req.ids.filter((x) => x !== id);
+      toast("ok", "Photo deleted");
+      if (!left.length) setReq(null);
+      else { setReq({ ...req, ids: left }); setI((x) => Math.min(x, left.length - 1)); }
+    } catch (e: any) { toast("err", e.message); }
+    finally { setBusy(false); }
+  };
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex flex-col bg-black/90 print:hidden" onClick={() => setReq(null)}>
+      <div className="flex items-center justify-end gap-2 p-3" onClick={(e) => e.stopPropagation()}>
+        {many && <span className="mr-auto rounded-full bg-white/15 px-3 py-1 text-sm font-medium text-white">{i + 1} / {req.ids.length}</span>}
+        <a href={photoUrl(id)} target="_blank" rel="noreferrer" title="Open / download" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white active:scale-95"><Download size={20} /></a>
+        {can("photos.delete") && (
+          <button type="button" onClick={del} disabled={busy} title="Delete photo (CEO only)" className="flex h-11 w-11 items-center justify-center rounded-full bg-red-600 text-white active:scale-95 disabled:opacity-50">
+            {busy ? <Loader2 size={20} className="animate-spin" /> : <Trash2 size={20} />}
+          </button>
+        )}
+        <button type="button" onClick={() => setReq(null)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white active:scale-95"><X size={22} /></button>
+      </div>
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden p-2" onClick={(e) => e.stopPropagation()}>
+        {many && i > 0 && <button type="button" onClick={() => setI(i - 1)} aria-label="Previous" className="absolute left-2 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white active:scale-95"><ChevronLeft size={26} /></button>}
+        <img src={photoUrl(id)} alt="Photo" className="max-h-full max-w-full rounded-lg object-contain" />
+        {many && i < req.ids.length - 1 && <button type="button" onClick={() => setI(i + 1)} aria-label="Next" className="absolute right-2 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white active:scale-95"><ChevronRight size={26} /></button>}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** A photo thumbnail: hover shows a zoom (+) badge; click opens the full-screen viewer. */
+export function PhotoThumb({ id, group, size = 10, onDeleted, className = "" }: {
+  id: number; group?: Array<number | string> | string; size?: number; onDeleted?: (id: number) => void; className?: string;
+}) {
+  const ids = group ?? [id];
+  const list = (Array.isArray(ids) ? ids : String(ids).split(",")).map(Number).filter(Boolean);
+  const idx = Math.max(0, list.indexOf(id));
+  return (
+    <button type="button" onClick={() => openPhoto(list, idx, onDeleted)} title="Tap to enlarge · بڑا کریں"
+      className={`group relative inline-flex overflow-hidden rounded-lg border border-slate-200 align-middle active:scale-95 ${className}`} style={{ height: `${size * 0.25}rem`, width: `${size * 0.25}rem` }}>
+      <img src={photoUrl(id)} alt="Photo" className="h-full w-full object-cover" />
+      <span className="absolute inset-0 hidden items-center justify-center bg-black/35 text-white group-hover:flex"><ZoomIn size={Math.max(14, size * 1.4)} /></span>
+    </button>
+  );
+}
 
 /**
  * Camera button: take a photo of a meter, tanker invoice or receipt. The photo is kept as proof
@@ -33,7 +120,7 @@ export function PhotoButton({ kind, hint, onRead, label = "Photo", big, classNam
     if (!f) return;
     setBusy(true);
     try {
-      const image = await resizeImage(f);
+      const image = await resizeImage(f, 1600, DOC_KINDS.has(kind));
       const r = await api("/ai/read-photo", { body: { kind, image, hint } });
       if (r.message) toast(r.ai ? "ok" : "err", r.message);
       onRead(r.result, r.photo_id);
@@ -126,7 +213,7 @@ export function ProofPhotos({ value, onChange, label = "Photo proof", hint = "ch
     try {
       const ids: number[] = [];
       for (const f of Array.from(files).slice(0, 10 - value.length)) {
-        const r = await api("/ai/read-photo", { body: { kind: "proof", image: await resizeImage(f) } });
+        const r = await api("/ai/read-photo", { body: { kind: "proof", image: await resizeImage(f, 1600, true) } });
         ids.push(r.photo_id);
       }
       onChange([...value, ...ids]);
@@ -139,7 +226,7 @@ export function ProofPhotos({ value, onChange, label = "Photo proof", hint = "ch
       <div className="flex flex-wrap items-center gap-2">
         {value.map((id) => (
           <span key={id} className="relative">
-            <a href={photoUrl(id)} target="_blank" rel="noreferrer"><img src={photoUrl(id)} alt="Proof" className="h-14 w-14 rounded-lg border border-slate-200 object-cover" /></a>
+            <PhotoThumb id={id} group={value} size={14} onDeleted={(d) => onChange(value.filter((x) => x !== d))} />
             <button type="button" onClick={() => onChange(value.filter((x) => x !== id))} aria-label="Remove photo"
               className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-xs text-white">×</button>
           </span>
@@ -157,13 +244,13 @@ export function ProofPhotos({ value, onChange, label = "Photo proof", hint = "ch
   );
 }
 
-/** Small photo links for a list row ("proof_ids" = "12,13" from the server). */
-export function ProofThumbs({ ids }: { ids?: string | number[] | null }) {
+/** Small photo thumbnails for a list row ("proof_ids" = "12,13" from the server). Tap to enlarge. */
+export function ProofThumbs({ ids, size = 8, onChanged }: { ids?: string | number[] | null; size?: number; onChanged?: () => void }) {
   const list = (Array.isArray(ids) ? ids : String(ids ?? "").split(",")).map(Number).filter(Boolean);
   if (!list.length) return null;
   return (
     <span className="inline-flex flex-wrap gap-1 align-middle">
-      {list.map((id) => <a key={id} href={photoUrl(id)} target="_blank" rel="noreferrer" title="Open photo proof"><img src={photoUrl(id)} alt="Proof" className="h-8 w-8 rounded border border-slate-200 object-cover" /></a>)}
+      {list.map((id) => <PhotoThumb key={id} id={id} group={list} size={size} onDeleted={onChanged} />)}
     </span>
   );
 }

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { api, getToken, setToken, setMediaToken } from "./lib/api";
 import { ToastProvider, Loading } from "./components/ui";
 import Layout from "./components/Layout";
+import { LightboxHost } from "./components/Capture";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inbox from "./pages/Inbox";
@@ -116,6 +117,7 @@ export default function App() {
   return (
     <ToastProvider>
       <AuthProvider>
+        <LightboxHost />
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
