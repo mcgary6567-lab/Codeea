@@ -1,6 +1,6 @@
 /** Fully automated background jobs. Each returns a short human-readable result for the Automations page. */
 import { all, get, getSetting, pkDate, pkDayStart, type Row } from "../db.js";
-import { scoreCustomers, detectAnomalies, tankOutlook, kpis, insights } from "../ai/analytics.js";
+import { scoreCustomers, detectAnomalies, tankOutlook, kpis, insights, sensitivity } from "../ai/analytics.js";
 import { createAlert, paymentLink, pkr } from "../services.js";
 import { sendWhatsApp, sendToPhone } from "../whatsapp/cloud.js";
 import { askBusiness, writeCampaign } from "../ai/agent.js";
@@ -75,7 +75,7 @@ export const JOBS: Job[] = [
     run: async (t) => {
       let n = 0;
       for (const tank of tankOutlook(t)) {
-        if (tank.days_to_reorder <= 1.5) {
+        if (tank.days_to_reorder <= sensitivity(t).low_stock_days) {
           const a = createAlert(t, {
             station_id: tank.station_id, type: "low_stock", severity: tank.days_to_empty < 1 ? "critical" : "warning",
             title: `${tank.station_name} ${tank.name}: order ${tank.suggested_order_l.toLocaleString()}L ${tank.product}`,

@@ -26,6 +26,7 @@ export default function SettingsPage() {
       <AutoSwitches values={data.automation ?? {}} review={data.google_review_url} onSaved={reload} />
       <KhataRules r={data.khata_rules} onSaved={reload} />
       <Limits l={data.limits} onSaved={reload} />
+      <AlertSensitivity s={data.sensitivity} onSaved={reload} />
       <Safety />
       <Backups />
       <Hardware />
@@ -247,19 +248,59 @@ function Backups() {
   );
 }
 
+const HW_STATUS: Record<string, { label: string; cls: string }> = {
+  pending: { label: "Pending", cls: "bg-amber-100 text-amber-800" }, planned: { label: "Planned", cls: "bg-sky-100 text-sky-800" },
+  installed: { label: "Installed", cls: "bg-indigo-100 text-indigo-800" }, live: { label: "Live ✓", cls: "bg-emerald-100 text-emerald-800" },
+};
 function Hardware() {
-  const { data } = useApi<any[]>("/hardware");
+  const { data, reload } = useApi<any[]>("/hardware");
+  const { run } = useAction();
   if (!data) return null;
   return (
     <div className="card p-4">
       <h2 className="mb-1 font-semibold">Hardware connections</h2>
-      <p className="mb-2 text-sm text-slate-600">These will be connected when the equipment is installed. Everything else already works without them.</p>
+      <p className="mb-2 text-sm text-slate-600">Mark where each piece stands. Everything in the app already works without them; marking one “Live” is just for your own record.</p>
       <ul className="space-y-2">{data.map((x) => (
-        <li key={x.key} className="flex items-start gap-3 rounded-lg bg-slate-50 p-2 text-sm">
-          <span className="mt-0.5 rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Pending</span>
-          <span><b>{x.name}</b><span className="block text-slate-600">{x.gives}</span></span>
+        <li key={x.key} className="flex flex-wrap items-start gap-3 rounded-lg bg-slate-50 p-2 text-sm">
+          <select className={`mt-0.5 rounded px-2 py-0.5 text-xs font-semibold ${HW_STATUS[x.status]?.cls ?? HW_STATUS.pending.cls}`} value={x.status}
+            onChange={(e) => run(() => api(`/hardware/${x.key}`, { method: "PUT", body: { status: e.target.value } }), "Saved").then(reload)}>
+            {Object.entries(HW_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+          <span className="min-w-0 flex-1"><b>{x.name}</b><span className="block text-slate-600">{x.gives}</span></span>
         </li>
       ))}</ul>
     </div>
+  );
+}
+
+const SENS: [string, string, string][] = [
+  ["dip_var_warn", "Dip vs book stock — warn at (%)", "A dip that differs from book stock by this much raises a warning (possible leak, miscalibration or theft)."],
+  ["dip_var_crit", "Dip vs book stock — serious at (%)", "A bigger difference is flagged as serious."],
+  ["delivery_short_warn", "Tanker short delivery — warn at (%)", "A tanker arriving short by this much of the invoice raises a warning."],
+  ["delivery_short_crit", "Tanker short delivery — serious at (%)", "A bigger shortage is flagged as serious."],
+  ["cash_short_warn", "Cash short — warn at (Rs)", "A shift closing short by this much raises a warning."],
+  ["cash_short_crit", "Cash short — serious at (Rs)", "A bigger shortage is flagged as serious."],
+  ["sales_drop_pct", "Sales drop — alert at (%)", "Yesterday's litres falling this far below the 4-week average raises an alert."],
+  ["low_stock_days", "Low stock — alert when days to reorder ≤", "A tank this many days from its reorder level raises a low-stock alert."],
+];
+/** How touchy the loss / fraud / low-stock alerts are. */
+function AlertSensitivity({ s, onSaved }: { s?: Record<string, number>; onSaved: () => void }) {
+  const [f, setF] = useState<Record<string, string>>({});
+  useEffect(() => { if (s) setF(Object.fromEntries(Object.entries(s).map(([k, v]) => [k, String(v)]))); }, [s]);
+  const { busy, run } = useAction();
+  if (!s) return null;
+  return (
+    <form className="card p-4" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { sensitivity: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, Number(v)])) } }), "Alert sensitivity saved").then(onSaved); }}>
+      <h2 className="font-semibold">Alert sensitivity</h2>
+      <p className="mb-3 text-sm text-slate-600">How soon the system warns about stock loss, short deliveries, cash shortages and low stock. Lower numbers = more sensitive.</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {SENS.map(([k, label, hint]) => (
+          <label key={k} className="block"><span className="label">{label}</span>
+            <input className="input" type="number" min={0} step="0.1" value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
+            <span className="mt-0.5 block text-xs text-slate-400">{hint}</span></label>
+        ))}
+      </div>
+      <div className="mt-3"><button className="btn-primary" disabled={busy}>Save</button></div>
+    </form>
   );
 }

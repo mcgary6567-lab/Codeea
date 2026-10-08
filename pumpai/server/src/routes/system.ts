@@ -103,6 +103,14 @@ export const HARDWARE = [
   { key: "meters", name: "Generator and electricity meters", gives: "Generator hours and fuel use, electricity units — expense checks and maintenance reminders." },
 ];
 system.get("/hardware", requirePerm("settings.manage"), h((req) => HARDWARE.map((x) => ({ ...x, status: getSetting(tid(req), `hw_${x.key}`, "pending") }))));
+/** The owner marks where each piece of forecourt hardware stands: pending → planned → installed → live. */
+const HW_STATUS = ["pending", "planned", "installed", "live"] as const;
+system.put("/hardware/:key", requirePerm("settings.manage"), h((req) => {
+  if (!HARDWARE.some((x) => x.key === req.params.key)) throw new AppError(404, "Unknown hardware");
+  const b = parse(z.object({ status: z.enum(HW_STATUS) }), req.body);
+  setSetting(tid(req), `hw_${req.params.key}`, b.status);
+  return { ok: true, status: b.status };
+}));
 system.get("/safety", requirePerm("settings.manage"), h((req) => ({ price_approval: getSetting(tid(req), "price_approval", "0") === "1" })));
 system.put("/safety", requirePerm("settings.manage"), h((req) => {
   const b = parse(z.object({ price_approval: z.boolean() }), req.body);

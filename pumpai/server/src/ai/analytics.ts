@@ -2,7 +2,7 @@
  * Predictive analytics: demand forecasting, stock-out prediction, churn and credit-risk scoring,
  * and anomaly detection. Pure TypeScript so it runs anywhere without a Python service.
  */
-import { all, get, run, now, pkDate, pkDayStart, type Row } from "../db.js";
+import { all, get, run, now, pkDate, pkDayStart, getSetting, type Row } from "../db.js";
 import { institutionTypes } from "../routes/lookups.js";
 import { PRODUCTS } from "../config.js";
 
@@ -137,9 +137,17 @@ export function scoreCustomers(tenantId: number) {
   return { updated };
 }
 
+/** How touchy the loss / fraud / low-stock alerts are — all set by the owner in Settings. */
+export const SENSITIVITY_DEFAULTS = { dip_var_warn: 0.5, dip_var_crit: 1, delivery_short_warn: 0.3, delivery_short_crit: 0.8, cash_short_warn: 2000, cash_short_crit: 5000, sales_drop_pct: 30, low_stock_days: 1.5 } as const;
+export type Sensitivity = typeof SENSITIVITY_DEFAULTS;
+export function sensitivity(tenantId: number): Sensitivity {
+  return Object.fromEntries((Object.keys(SENSITIVITY_DEFAULTS) as (keyof Sensitivity)[]).map((k) => [k, Number(getSetting(tenantId, `sens_${k}`, String(SENSITIVITY_DEFAULTS[k])))])) as Sensitivity;
+}
+
 /** Rule + statistics based anomaly detection; returns findings (caller decides on alerts). */
 export function detectAnomalies(tenantId: number) {
   const findings: { type: string; severity: "info" | "warning" | "critical"; title: string; body: string; station_id?: number; key: string }[] = [];
+  const S = sensitivity(tenantId); // how touchy the loss/fraud alerts are — set by the owner in Settings → Alert sensitivity
 
   // 1. Stock variance between physical dip and book stock
   for (const d of all(
@@ -147,9 +155,9 @@ export function detectAnomalies(tenantId: number) {
      WHERE s.tenant_id=? AND d.created_at >= ? ORDER BY d.id DESC`,
     tenantId, new Date(Date.now() - 2 * DAY).toISOString(),
   )) {
-    if (Math.abs(d.variance_pct) >= 0.5) {
+    if (Math.abs(d.variance_pct) >= S.dip_var_warn) {
       findings.push({
-        type: "stock_variance", severity: Math.abs(d.variance_pct) >= 1 ? "critical" : "warning", station_id: d.station_id,
+        type: "stock_variance", severity: Math.abs(d.variance_pct) >= S.dip_var_crit ? "critical" : "warning", station_id: d.station_id,
         title: `${d.tank}: stock variance ${d.variance_pct.toFixed(2)}%`,
         body: `Dip ${Math.round(d.measured_l)}L vs book ${Math.round(d.book_l)}L. Check for leakage, meter calibration or pilferage.`,
         key: `dip-${d.id}`,
@@ -162,9 +170,9 @@ export function detectAnomalies(tenantId: number) {
      WHERE s.tenant_id=? AND d.created_at >= ?`,
     tenantId, new Date(Date.now() - 3 * DAY).toISOString(),
   )) {
-    if (d.shortage_pct >= 0.3) {
+    if (d.shortage_pct >= S.delivery_short_warn) {
       findings.push({
-        type: "short_delivery", severity: d.shortage_pct >= 0.8 ? "critical" : "warning", station_id: d.station_id,
+        type: "short_delivery", severity: d.shortage_pct >= S.delivery_short_crit ? "critical" : "warning", station_id: d.station_id,
         title: `Tanker ${d.tanker_no ?? ""} short by ${d.shortage_pct.toFixed(2)}%`,
         body: `${d.tank}: invoice ${d.invoice_l}L, received ${d.received_l}L (${Math.round(d.invoice_l - d.received_l)}L short). Raise claim with ${d.supplier ?? "supplier"}.`,
         key: `delivery-${d.id}`,
@@ -184,9 +192,9 @@ export function detectAnomalies(tenantId: number) {
     const mean = v.reduce((a, b) => a + b, 0) / v.length;
     const sd = Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / v.length) || 1;
     for (const s of recent) {
-      if (s.variance < -2000 || (s.variance < -500 && (s.variance - mean) / sd < -2)) {
+      if (s.variance < -S.cash_short_warn || (s.variance < -500 && (s.variance - mean) / sd < -2)) {
         findings.push({
-          type: "cash_short", severity: s.variance < -5000 ? "critical" : "warning", station_id: s.station_id,
+          type: "cash_short", severity: s.variance < -S.cash_short_crit ? "critical" : "warning", station_id: s.station_id,
           title: `Cash short Rs ${Math.abs(Math.round(s.variance)).toLocaleString()} — ${att}`,
           body: `Shift #${s.id}: expected Rs ${Math.round(s.cash_expected).toLocaleString()}, counted Rs ${Math.round(s.cash_actual).toLocaleString()}.`,
           key: `shift-${s.id}`,
@@ -200,7 +208,7 @@ export function detectAnomalies(tenantId: number) {
     const yesterday = y[y.length - 2];
     const base = y.slice(0, -2);
     const avg = base.reduce((a, b) => a + b, 0) / Math.max(1, base.length);
-    if (avg > 100 && yesterday < avg * 0.7) {
+    if (avg > 100 && yesterday < avg * (1 - S.sales_drop_pct / 100)) {
       findings.push({
         type: "sales_drop", severity: "warning",
         title: `${PRODUCTS[p] ?? p} sales down ${Math.round((1 - yesterday / avg) * 100)}% yesterday`,

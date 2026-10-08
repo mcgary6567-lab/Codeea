@@ -166,3 +166,17 @@ test("admin renames, switches off and deletes expense categories; limits are set
   assert.deepEqual(l, { test_limit_l: 25, shortage_min: 250, utility_alert_pct: 20, shortage_tolerance_pct: 0.5, pin_admin: true });
   assert.equal((await call("admin", "GET", "/api/claims")).data.tolerance_pct, 0.5, "claims read the same setting");
 });
+
+test("admin sets hardware status and alert sensitivity", async () => {
+  // hardware status: no longer always 'pending'
+  assert.equal((await call("admin", "PUT", "/api/hardware/cctv", { status: "live" })).status, 200);
+  assert.equal((await call("admin", "GET", "/api/hardware")).data.find((x: any) => x.key === "cctv").status, "live");
+  assert.equal((await call("admin", "PUT", "/api/hardware/nope", { status: "live" })).status, 404);
+  assert.equal((await call("manager", "PUT", "/api/hardware/cctv", { status: "pending" })).status, 403);
+  // alert sensitivity round-trips and reaches the detector defaults
+  const d = (await call("admin", "GET", "/api/settings")).data.sensitivity;
+  assert.equal(d.dip_var_warn, 0.5); assert.equal(d.low_stock_days, 1.5);
+  assert.equal((await call("admin", "PUT", "/api/settings", { sensitivity: { dip_var_warn: 0.8, cash_short_warn: 3000, sales_drop_pct: 40, low_stock_days: 2 } })).status, 200);
+  const d2 = (await call("admin", "GET", "/api/settings")).data.sensitivity;
+  assert.equal(d2.dip_var_warn, 0.8); assert.equal(d2.cash_short_warn, 3000); assert.equal(d2.sales_drop_pct, 40); assert.equal(d2.low_stock_days, 2);
+});
