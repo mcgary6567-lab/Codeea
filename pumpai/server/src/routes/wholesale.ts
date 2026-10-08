@@ -67,6 +67,16 @@ function lastCost(tenantId: number, product: string): number | null {
   return get("SELECT rate FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? AND rate > 0 ORDER BY txn_date DESC, id DESC LIMIT 1", tenantId, product)?.rate ?? null;
 }
 
+/** Wholesale supply profit in a window: each supply's (rate − our last purchase cost) × litres. */
+export function wholesaleProfit(tenantId: number, fromIso: string, toIso?: string): number {
+  const cost: Record<string, number | null> = Object.fromEntries(Object.keys(PRODUCTS).map((p) => [p, lastCost(tenantId, p)]));
+  let p = 0;
+  for (const x of all(`SELECT product, litres, rate FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='supply' AND txn_date >= ?${toIso ? " AND txn_date < ?" : ""}`,
+    ...(toIso ? [tenantId, fromIso, toIso] : [tenantId, fromIso])))
+    if (cost[x.product] != null) p += x.litres * (x.rate - cost[x.product]!);
+  return round2(p);
+}
+
 /** Full rate card: each product's mode, discount, today's pump price and the effective rate the client pays now. */
 export function rateCard(clientId: number) {
   const tenant = get("SELECT tenant_id FROM wholesale_clients WHERE id=?", clientId)!.tenant_id;
@@ -166,13 +176,7 @@ wholesale.get("/wholesale/dashboard", h((req) => {
   const withCost = monthSupplies.filter((x) => cost[x.product] != null);
   const profit = withCost.reduce((a, x) => a + x.litres * (x.rate - cost[x.product]!), 0);
   const costedL = withCost.reduce((a, x) => a + x.litres, 0);
-  // profit for any window (supply rate − our last purchase cost), for the month-on-month comparison
-  const profitFor = (from: Date, to: Date) => {
-    let p = 0;
-    for (const x of all("SELECT product, litres, rate FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='supply' AND txn_date >= ? AND txn_date < ?", t, from.toISOString(), to.toISOString()))
-      if (cost[x.product] != null) p += x.litres * (x.rate - cost[x.product]!);
-    return round2(p);
-  };
+  const profitFor = (from: Date, to: Date) => wholesaleProfit(t, from.toISOString(), to.toISOString());
   const lastMtdProfit = profitFor(lastMonthStart, lastMonthSameDay);
 
   // clients: due, limit, ageing, ordering rhythm, margin

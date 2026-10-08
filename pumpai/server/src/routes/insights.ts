@@ -10,15 +10,32 @@ import { bus } from "../whatsapp/cloud.js";
 import { aiEnabled, waLive, config } from "../config.js";
 import { normalizePhone } from "../services.js";
 import { dayBook } from "./reports.js";
+import { pkDayStart, pkDate, pkStart } from "../db.js";
+import { wholesaleProfit } from "./wholesale.js";
+import { carriageIncomeThekedar } from "./carriage.js";
+import { bypassProfit } from "./bypass.js";
+
+/** Wholesale, bypass and carriage (kiraya) profit for a time window — for the owner's dashboard. */
+function otherProfit(t: number, fromIso: string, toIso?: string) {
+  const wholesale = wholesaleProfit(t, fromIso, toIso);
+  const bypass = bypassProfit(t, fromIso, toIso).profit;
+  const carriage = carriageIncomeThekedar(t, fromIso, toIso);
+  return { wholesale, bypass, carriage, total: Math.round((wholesale + bypass + carriage) * 100) / 100 };
+}
 
 export const insightsRouter = Router();
 
 insightsRouter.get("/dashboard", requirePerm("dashboard.view"), h((req) => {
   const t = tid(req);
   const series = dailySeries(t, 30);
+  const now = new Date().toISOString();
+  const monthStart = pkStart(pkDate().slice(0, 7) + "-01");
+  const weekStart = new Date(Date.now() - 6 * 86400_000).toISOString(); // last 7 days
   return {
     kpis: kpis(t),
     day: dayBook(t),
+    // wholesale + bypass + carriage (kiraya) profit for the owner, by day / week / month
+    biz_profit: { today: otherProfit(t, pkDayStart(), now), week: otherProfit(t, weekStart, now), month: otherProfit(t, monthStart, now) },
     series,
     forecast: forecast(t, 7),
     tanks: tankOutlook(t),

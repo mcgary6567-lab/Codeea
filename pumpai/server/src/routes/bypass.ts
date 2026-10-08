@@ -142,7 +142,7 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
 }));
 
 /** Bypass munafa for a date window: client revenue − delivered cost for drops in [fromIso, toIso). */
-function bypassProfit(tenantId: number, fromIso: string, toIso?: string) {
+export function bypassProfit(tenantId: number, fromIso: string, toIso?: string) {
   const billed = get(`SELECT COALESCE(SUM(w.amount),0) v FROM bypass_drops bd JOIN wholesale_txns w ON w.id=bd.wtx_id
     WHERE bd.tenant_id=? AND bd.voided=0 AND w.voided=0 AND bd.txn_date >= ?${toIso ? " AND bd.txn_date < ?" : ""}`,
     ...(toIso ? [tenantId, fromIso, toIso] : [tenantId, fromIso]))!.v as number;

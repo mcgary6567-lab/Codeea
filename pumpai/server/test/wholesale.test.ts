@@ -132,6 +132,15 @@ test("dashboard reports this-month vs last-month profit", async () => {
   assert.equal(typeof k.last_month_profit, "number");
 });
 
+test("owner dashboard shows wholesale + bypass + carriage profit by day/week/month", async () => {
+  const bp = (await call("admin", "GET", "/api/dashboard")).data.biz_profit;
+  assert.ok(bp && bp.today && bp.week && bp.month, "biz_profit windows present");
+  for (const w of [bp.today, bp.week, bp.month]) {
+    for (const k of ["wholesale", "bypass", "carriage", "total"]) assert.equal(typeof w[k], "number", `${k} is a number`);
+    assert.ok(Math.abs(w.total - (w.wholesale + w.bypass + w.carriage)) < 0.5, "total = wholesale + bypass + carriage");
+  }
+});
+
 test("expenses: manager entries over the limit need admin approval", async () => {
   assert.equal((await call("salesman", "GET", "/api/expenses")).status, 403);
   const cats = (await call("manager", "GET", "/api/expense-categories")).data;

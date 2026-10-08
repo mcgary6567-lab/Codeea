@@ -51,6 +51,7 @@ export default function Dashboard() {
 
       <Link to="/insights" className="block"><HealthCard compact /></Link>
       {data.day && <TodayBook b={data.day} />}
+      {can("reports.view") && data.biz_profit && <BizProfit p={data.biz_profit} />}
 
       <div className="grid items-start gap-5 lg:grid-cols-3">
         <div className="card p-4 lg:col-span-2">
@@ -161,6 +162,43 @@ export default function Dashboard() {
 }
 
 /** Today (Pakistan midnight → now): sold, spent, supplied, stock left and what it is worth. Same numbers as Reports → 24h. */
+/** Wholesale + bypass + carriage (kiraya) profit for the owner — today / this week / this month. */
+function BizProfit({ p }: { p: any }) {
+  const [win, setWin] = useState<"today" | "week" | "month">("month");
+  const w = p[win] ?? { wholesale: 0, bypass: 0, carriage: 0, total: 0 };
+  const rows = [
+    { k: "Wholesale clients", ur: "ہول سیل", v: w.wholesale, cls: "text-sky-700", icon: "🚚" },
+    { k: "Bypass (depot → client)", ur: "بائی پاس", v: w.bypass, cls: "text-indigo-700", icon: "🛢️" },
+    { k: "Carriage / kiraya", ur: "کرایہ", v: w.carriage, cls: "text-amber-700", icon: "🚛" },
+  ];
+  const max = Math.max(1, ...rows.map((r) => Math.abs(r.v)));
+  return (
+    <div className="card p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold">Wholesale aur kiraya ka munafa · <span lang="ur" dir="rtl" className="font-urdu">منافع</span></h2>
+        <div className="flex rounded-lg bg-slate-100 p-1 text-sm">
+          {([["today", "Aaj"], ["week", "Hafta"], ["month", "Mahina"]] as const).map(([key, lbl]) => (
+            <button key={key} onClick={() => setWin(key)} className={`min-h-8 rounded-md px-3 py-1 ${win === key ? "bg-white font-semibold shadow" : "text-slate-600"}`}>{lbl}</button>
+          ))}
+        </div>
+      </div>
+      <div className="mb-3 rounded-xl bg-emerald-50 p-3 text-center ring-1 ring-emerald-200">
+        <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Total munafa · {win === "today" ? "aaj" : win === "week" ? "is hafte" : "is mahine"}</div>
+        <div className="text-3xl font-extrabold tabular-nums text-emerald-800">{pkr(w.total)}</div>
+      </div>
+      <div className="space-y-2">
+        {rows.map((r) => (
+          <div key={r.k}>
+            <div className="flex items-baseline justify-between text-sm"><span>{r.icon} {r.k} · <span lang="ur" dir="rtl" className="font-urdu text-slate-500">{r.ur}</span></span><span className={`font-semibold tabular-nums ${r.cls}`}>{pkr(r.v)}</span></div>
+            <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${r.v >= 0 ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${(Math.abs(r.v) / max) * 100}%` }} /></div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-slate-400">Wholesale/bypass = rate − humari khareed cost; kiraya = poora kiraya (humari lagat nahi).</p>
+    </div>
+  );
+}
+
 function TodayBook({ b }: { b: any }) {
   const tile = (icon: any, label: string, urdu: string, value: string, lines: (string | false)[], tone: string) => (
     <div className="rounded-lg border border-slate-200 p-3">
