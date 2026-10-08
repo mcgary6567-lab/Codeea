@@ -154,7 +154,8 @@ export function buildReport(t: number, from: string, to: string) {
         // the dip line takes the rounding of the others, so the printed movement adds up to the closing litre for litre
         dip_adjust_l: L.closing - (L.opening + L.received + L.returns - L.retail - L.wholesale),
         closing_l: L.closing, net_sold_l: r0(soldL), direct_l: r0(directL[p]), avg_cost: avgCost[p] ? round2(avgCost[p]!) : null,
-        closing_value: avgCost[p] ? r0((closing[p] ?? 0) * avgCost[p]!) : null,
+        // value the reported (rounded) closing litres, so value_at_cost stays consistent with closing_l shown
+        closing_value: avgCost[p] ? r0(L.closing * avgCost[p]!) : null,
       };
     }),
     tanks: tankOutlook(t).map((x) => ({ station: x.station_name, tank: x.name, product: x.product, capacity_l: x.capacity_l, current_l: r0(x.current_l), fill_pct: x.fill_pct, days_to_empty: x.days_to_empty })),
