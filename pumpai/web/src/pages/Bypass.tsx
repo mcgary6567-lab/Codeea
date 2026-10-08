@@ -89,12 +89,18 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
   const dropped = useMemo(() => sumBy(drops), [drops]);
   // a drop can draw from the stock already held plus what is being bought right now
   const overBy = useMemo(() => Object.entries(dropped).filter(([p, l]) => l > held(p) + (bought[p] ?? 0) + 0.01).map(([p, l]) => ({ p, l, have: held(p) + (bought[p] ?? 0) })), [dropped, bought, stock.data]);
+  // the client's price comes from their own rate card (CRM): drop amount = litres × card rate
+  const clientById = (id: string) => (clients.data ?? []).find((c: any) => String(c.id) === String(id));
+  const clientRate = (d: any) => Number(clientById(d.client_id)?.rates?.[d.product] ?? 0);
+  const dropLineAmt = (d: any) => Math.round(Number(d.litres || 0) * clientRate(d) * 100) / 100;
   const buyAmt = buys.reduce((a, b) => a + (Number(b.amount) || 0), 0);
-  const dropAmt = drops.reduce((a, d) => a + (Number(d.amount) || 0), 0);
+  const dropAmt = drops.reduce((a, d) => a + dropLineAmt(d), 0);
   const profit = dropAmt - buyAmt;
   const validBuys = buys.filter((b) => b.supplier_id && Number(b.litres) > 0 && Number(b.amount) > 0);
-  const validDrops = drops.filter((d) => d.client_id && Number(d.litres) > 0 && Number(d.amount) > 0);
-  const valid = !!station && (validBuys.length > 0 || validDrops.length > 0) && overBy.length === 0;
+  const validDrops = drops.filter((d) => d.client_id && d.client_id !== "__new__" && Number(d.litres) > 0 && clientRate(d) > 0);
+  // a chosen client+product with litres but no rate card set yet
+  const noRate = drops.filter((d) => d.client_id && d.client_id !== "__new__" && Number(d.litres) > 0 && clientRate(d) <= 0);
+  const valid = !!station && (validBuys.length > 0 || validDrops.length > 0) && overBy.length === 0 && noRate.length === 0;
 
   return (
       <form className="space-y-4" onSubmit={async (e) => {
@@ -102,7 +108,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
         const body = {
           station_id: Number(station), ...fleetBody(fl), note: note || null, photo_ids: photos,
           purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), amount: Number(b.amount) })),
-          drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), amount: Number(d.amount), order_id: d.order_id ?? null, location: d.location || null })),
+          drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), order_id: d.order_id ?? null, location: d.location || null })),
         };
         if (await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Bought ${pkr(r.bought)}, billed ${pkr(r.billed)}, munafa ${pkr(r.margin)}`)) onDone();
       }}>
@@ -157,9 +163,12 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
 
         {/* Client drops — client + litre + full amount client pays */}
         <div className="rounded-xl bg-slate-50 p-3">
-          <div className="mb-2 text-sm font-semibold">Kahan drop kiya (client + litre + amount) <span className="font-normal text-slate-400">— ya upar booked order tap karein</span> · <Ur>ڈراپ</Ur></div>
+          <div className="mb-2 text-sm font-semibold">Kahan drop kiya (client + litre) <span className="font-normal text-slate-400">— rate client ke apne card se, amount khud ban jaega</span> · <Ur>ڈراپ</Ur></div>
           <div className="space-y-2">
-            {drops.map((d, i) => (
+            {drops.map((d, i) => {
+              const rate = clientRate(d);
+              const lineAmt = dropLineAmt(d);
+              return (
               <div key={i} className="grid grid-cols-12 gap-2">
                 <div className="col-span-5">
                   <select className="input w-full" value={d.client_id} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, client_id: e.target.value } : x))}>
@@ -169,16 +178,19 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
                 </div>
                 <select className="input col-span-3" value={d.product} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
                 <input className="input col-span-2" type="number" placeholder="litre" value={d.litres} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
-                <input className="input col-span-2" type="number" placeholder="Rs amount" value={d.amount} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
-                {(d.order_id || drops.length > 1) && <div className="col-span-12 -mt-1 flex items-center justify-between">
-                  <span className="text-xs text-amber-700">{d.order_id ? "📋 booked order" : ""}</span>
-                  {drops.length > 1 && <button type="button" className="text-xs text-red-600" onClick={() => setDrops(drops.filter((_, j) => j !== i))}>Remove drop</button>}</div>}
+                <div className="col-span-2 flex items-center justify-end rounded-lg bg-white px-2 text-right text-sm tabular-nums ring-1 ring-slate-200" title={rate > 0 ? `Rate Rs ${rate}/L (card)` : "Rate card nahi"}>
+                  {d.client_id && d.client_id !== "__new__" ? (rate > 0 ? pkr(lineAmt) : <span className="text-rose-600">rate?</span>) : <span className="text-slate-400">Rs</span>}
+                </div>
+                <div className="col-span-12 -mt-1 flex items-center justify-between">
+                  <span className="text-xs text-slate-500">{d.order_id ? "📋 booked order · " : ""}{rate > 0 ? `Rate Rs ${rate}/L (card)` : d.client_id && d.client_id !== "__new__" ? <span className="text-rose-600">Is client ka {PRODUCTS[d.product]} rate card nahi — pehle rate set karein</span> : ""}</span>
+                  {drops.length > 1 && <button type="button" className="text-xs text-red-600" onClick={() => setDrops(drops.filter((_, j) => j !== i))}>Remove drop</button>}
+                </div>
               </div>
-            ))}
+            );})}
           </div>
           <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "", amount: "", order_id: undefined, location: "" }])}>+ Add drop</button>
           <div className="mt-1 text-xs text-slate-500">Diya: {Object.entries(dropped).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Client se lene hain {pkr(dropAmt)}{Object.keys({ ...dropped }).map((p) => held(p) > 0 ? ` · ${PRODUCTS[p]} held stock ${num(held(p))} L` : "").join("")}</div>
-          <p className="mt-1 text-xs text-slate-400">Jitna abhi khareeda + pehle se held stock, usse zyada drop nahi ho sakta. Sirf stock se bechna hai to upar "khareedari" khaali chhoro.</p>
+          <p className="mt-1 text-xs text-slate-400">Client ka rate uske apne rate card (CRM) se uthta hai — litre × rate = amount. Rate badalna ho to client ke rate card me badlein. Jitna khareeda + held stock se zyada drop nahi ho sakta.</p>
         </div>
 
         {/* Live profit = client amount − supplier amount */}
