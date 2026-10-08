@@ -4,7 +4,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { pkr } from "../lib/format";
 import { useAuth } from "../App";
-import { PhotoButton } from "../components/Capture";
+import { PhotoButton, PhotoThumb } from "../components/Capture";
 
 export const TYPE_LABEL: Record<string, string> = {
   dispenser: "⛽ Dispenser", generator: "⚡ Generator", compressor: "🛞 Air compressor", submersible_pump: "🛢️ Submersible pump", fan: "🌀 Fan", light: "💡 Lights",
@@ -145,7 +145,7 @@ function MachineDetail({ id, manager, onEdit, onClose }: { id: number; manager: 
           {f.kind === "repair" && <input className="input" type="number" min={0} placeholder="Hours it was down" value={f.downtime_hours} onChange={(e) => setF({ ...f, downtime_hours: e.target.value })} />}
         </div>
         <div className="flex items-center gap-2">
-          <PhotoButton kind="proof" label="Photo" onRead={(_r, pid) => setF((x) => ({ ...x, photo_id: pid }))} />{f.photo_id && <span className="text-xs text-slate-600">📷 attached</span>}
+          <PhotoButton kind="proof" label="Photo" onRead={(_r, pid) => setF((x) => ({ ...x, photo_id: pid }))} />{f.photo_id ? <PhotoThumb id={f.photo_id} size={10} /> : null}
           <button className="btn-primary ml-auto" disabled={busy}>{f.kind === "fault" ? <><AlertTriangle size={15} /> Report</> : <><CheckCircle2 size={15} /> Save</>}</button>
         </div>
       </form>
@@ -155,6 +155,7 @@ function MachineDetail({ id, manager, onEdit, onClose }: { id: number; manager: 
             <span className="w-24 shrink-0 text-xs text-slate-500">{l.day}</span>
             <Badge tone={LOG[l.kind]?.tone}>{LOG[l.kind]?.label}</Badge>
             <span className="flex-1">{l.description}<span className="block text-xs text-slate-500">{[l.done_by, l.hours != null && `${l.hours} h`, l.downtime_hours && `down ${l.downtime_hours} h`, l.kind === "fault" && (l.resolved_at ? "fixed" : "open"), l.created_by && `by ${l.created_by}`].filter(Boolean).join(" · ")}</span></span>
+            {l.photo_id ? <PhotoThumb id={l.photo_id} size={8} /> : null}
             {l.cost ? <span className="tabular-nums">{pkr(l.cost)}</span> : null}
           </li>
         ))}

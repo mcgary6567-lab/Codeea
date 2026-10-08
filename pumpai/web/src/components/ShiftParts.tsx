@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Printer, Trash2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, useAction } from "./ui";
-import { PhotoButton, ProofThumbs, photoUrl } from "./Capture";
+import { PhotoButton, ProofThumbs, PhotoThumb } from "./Capture";
 import { PRODUCTS, ago, dt, num, pkr } from "../lib/format";
 
 const Ur = ({ children }: { children: ReactNode }) => <span lang="ur" dir="rtl" className="font-urdu">{children}</span>;
@@ -213,10 +213,10 @@ function ReportBody({ r }: { r: any }) {
         {r.photos?.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {r.photos.map((p: any) => (
-              <a key={p.id} href={photoUrl(p.id)} target="_blank" rel="noreferrer" className="block text-center text-xs text-slate-500">
-                <img src={photoUrl(p.id)} alt={`Meter photo at ${p.ref.startsWith("shift-open") ? "start" : "end"}`} className="h-20 w-28 rounded-lg border border-slate-200 object-cover" />
-                {p.ref.startsWith("shift-open") ? "At start" : "At end"}
-              </a>
+              <div key={p.id} className="text-center text-xs text-slate-500">
+                <PhotoThumb id={p.id} group={r.photos.map((q: any) => q.id)} size={28} />
+                <div>{p.ref.startsWith("shift-open") ? "At start" : "At end"}</div>
+              </div>
             ))}
           </div>
         )}

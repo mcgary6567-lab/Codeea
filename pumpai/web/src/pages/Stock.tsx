@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS } from "../lib/format";
-import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
+import { PhotoButton, PhotoThumb, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { SupplierForm } from "../components/QuickAdd";
 import { supplierOpts } from "../components/SupplierSelect";
 import { useAuth } from "../App";
@@ -110,7 +110,7 @@ export default function Stock() {
                 supplier_id: sup ? String(sup.id) : x.supplier_id, purchase_rate: r?.rate_per_litre ? String(r.rate_per_litre) : x.purchase_rate }));
             }} />
           </div>
-          {del.photo_id && <p className="text-xs text-slate-500">📷 Invoice photo attached{del.invoice_l ? " — check the filled numbers, then enter the litres received from the dip" : ""}.</p>}
+          {del.photo_id && <p className="flex items-center gap-2 text-xs text-slate-500"><PhotoThumb id={del.photo_id} size={10} /> Invoice photo attached{del.invoice_l ? " — check the filled numbers, then enter the litres received from the dip" : ""}.</p>}
           <Field label="Tank"><select className="input" value={del.tank_id} onChange={(e) => setDel({ ...del, tank_id: e.target.value })}>{tankOpts}</select></Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Invoice litres"><input className="input" type="number" min={1} required value={del.invoice_l} onChange={(e) => setDel({ ...del, invoice_l: e.target.value })} /></Field>
@@ -136,7 +136,7 @@ export default function Stock() {
       {(orders.data ?? []).length > 0 && <History title="Tanker orders" right={4} rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <History title="Dip readings" right={4} rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => (r.proof_ids?.length ? <ProofThumbs ids={r.proof_ids} /> : null)]]} />
-        <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Supplier", (r) => r.supplier ?? "—"], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
+        <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Tanker", (r) => <span className="flex items-center gap-1">{r.tanker_no}{r.photo_id ? <PhotoThumb id={r.photo_id} size={7} /> : null}</span>], ["Supplier", (r) => r.supplier ?? "—"], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
       </div>
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
       {chart && <ChartModal c={chart} onClose={() => setChart(null)} />}

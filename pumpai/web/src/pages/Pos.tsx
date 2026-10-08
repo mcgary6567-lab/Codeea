@@ -10,7 +10,7 @@ import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
 import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
 import { LiveSelfie } from "../components/LiveSelfie";
-import { PhotoButton, VoiceButton, photoUrl } from "../components/Capture";
+import { PhotoButton, VoiceButton, PhotoThumb } from "../components/Capture";
 import { speak } from "../components/VoiceShell";
 import { CardScanner } from "../components/CardScanner";
 
@@ -510,7 +510,7 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
               <span className="flex-1"><b>{num(r.litres, 2)} L</b> {FUEL[r.product]?.en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.bank_name ? `${r.payment_method} · ${r.bank_name}` : r.payment_method}</span></span>
               <span className="font-semibold tabular-nums">{pkr(r.amount)}</span>
               {r.payment_method === "khata" && (r.photo_id
-                ? <a href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" title="Slip photo"><img src={photoUrl(r.photo_id)} alt="Slip photo" className="h-8 w-8 rounded border border-slate-200 object-cover" /></a>
+                ? <PhotoThumb id={r.photo_id} size={8} />
                 : r.created_by === myId && <PhotoButton kind="slip" label="Slip" className="!px-2 !py-1.5 !text-xs" onRead={async (_r, id) => {
                     try { await api(`/sales/${r.id}/slip-photo`, { body: { photo_id: id } }); toast("ok", "Slip photo saved · پرچی کی تصویر محفوظ"); reload(); } catch (e: any) { toast("err", e.message); }
                   }} />)}
@@ -596,7 +596,7 @@ function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () =
               <div className="mb-2 text-lg font-semibold">Photo of the slip · <Ur>پرچی کی تصویر</Ur> <span className="text-sm font-normal text-slate-500">(kept for the record)</span></div>
               {photo ? (
                 <div className="flex items-center gap-3">
-                  <a href={photoUrl(photo)} target="_blank" rel="noreferrer"><img src={photoUrl(photo)} alt="Slip photo" className="h-24 w-24 rounded-xl border border-slate-200 object-cover" /></a>
+                  <PhotoThumb id={photo} size={24} className="rounded-xl" />
                   <div className="flex flex-col gap-2">
                     <span className="text-sm font-medium text-emerald-700"><Check className="inline" size={16} /> Photo saved · <Ur>تصویر محفوظ</Ur></span>
                     <button type="button" className="rounded-xl bg-slate-100 px-3 py-2 text-sm" onClick={() => setPhoto(null)}>Remove · <Ur>ہٹائیں</Ur></button>

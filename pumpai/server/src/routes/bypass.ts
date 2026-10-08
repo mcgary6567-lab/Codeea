@@ -174,7 +174,7 @@ bypass.get("/bypass/stock", h((req) => {
 
 bypass.get("/bypass/deliveries", h((req) => {
   const t = tid(req);
-  return all(`SELECT d.*, (SELECT COALESCE(SUM(amount),0) FROM bypass_purchases WHERE delivery_id=d.id AND voided=0) cost,
+  return all(`SELECT d.*, ${proofCol("'byp:'||d.id")}, (SELECT COALESCE(SUM(amount),0) FROM bypass_purchases WHERE delivery_id=d.id AND voided=0) cost,
       (SELECT COALESCE(SUM(litres),0) FROM bypass_purchases WHERE delivery_id=d.id AND voided=0) litres,
       (SELECT COALESCE(SUM(litres),0) FROM bypass_drops WHERE delivery_id=d.id AND voided=0) drop_litres,
       (SELECT COALESCE(SUM(cost_amount),0) FROM bypass_drops WHERE delivery_id=d.id AND voided=0) sold_cost,
@@ -215,7 +215,7 @@ export function bypassStatement(tenantId: number, supplierId: number, from?: str
   const purchases = all(`SELECT id, 'purchase' kind, txn_date, product, litres, cost_rate, amount, ref, note FROM bypass_purchases
     WHERE supplier_id=? AND voided=0 ${fromIso ? "AND txn_date >= ?" : ""} ${toIso ? "AND txn_date < ?" : ""}`,
     ...[s.id, ...(fromIso ? [fromIso] : []), ...(toIso ? [toIso] : [])]);
-  const payments = all(`SELECT p.id, 'payment' kind, p.txn_date, p.amount, p.mode, p.method, p.ref, p.note, c.name client_name FROM bypass_supplier_payments p
+  const payments = all(`SELECT p.id, 'payment' kind, p.txn_date, p.amount, p.mode, p.method, p.ref, p.note, c.name client_name, ${proofCol("'byp:pay:'||p.id")} FROM bypass_supplier_payments p
     LEFT JOIN wholesale_clients c ON c.id=p.client_id WHERE p.supplier_id=? AND p.voided=0 ${fromIso ? "AND p.txn_date >= ?" : ""} ${toIso ? "AND p.txn_date < ?" : ""}`,
     ...[s.id, ...(fromIso ? [fromIso] : []), ...(toIso ? [toIso] : [])]);
   const rows = [...purchases, ...payments].sort((a, b) => (a.txn_date < b.txn_date ? -1 : a.txn_date > b.txn_date ? 1 : a.id - b.id));

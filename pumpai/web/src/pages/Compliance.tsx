@@ -3,7 +3,7 @@ import { Plus, RefreshCw, Check, X } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { d } from "../lib/format";
-import { PhotoButton, photoUrl } from "../components/Capture";
+import { PhotoButton, PhotoThumb } from "../components/Capture";
 import { useAuth } from "../App";
 
 const Ur = ({ children }: { children: React.ReactNode }) => <span lang="ur" dir="rtl" className="font-urdu">{children}</span>;
@@ -36,7 +36,7 @@ function Licences() {
         {data.map((l) => (
           <li key={l.id} className="px-4 py-3">
             <div className="flex items-start justify-between gap-2">
-              <span className="min-w-0 font-semibold">{l.name}{l.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(l.photo_id)} target="_blank" rel="noreferrer" aria-label="Certificate photo">📷</a> : null}</span>
+              <span className="flex min-w-0 items-center gap-1 font-semibold">{l.name}{l.photo_id ? <PhotoThumb id={l.photo_id} size={7} /> : null}</span>
               <span className="shrink-0 text-right text-sm tabular-nums">{d(l.expires_on)}</span>
             </div>
             <div className="break-words text-xs text-slate-500">{[l.number, l.authority, l.station_name ?? "All stations"].filter(Boolean).join(" · ")}</div>
@@ -52,7 +52,7 @@ function Licences() {
         <thead><tr><th className="th">Licence</th><th className="th">Number / authority</th><th className="th">Station</th><th className="th">Expires</th><th className="th" /></tr></thead>
         <tbody>{data.map((l) => (
           <tr key={l.id}>
-            <td className="td font-medium">{l.name}{l.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(l.photo_id)} target="_blank" rel="noreferrer" aria-label="Certificate photo">📷</a> : null}</td>
+            <td className="td font-medium"><span className="flex items-center gap-1">{l.name}{l.photo_id ? <PhotoThumb id={l.photo_id} size={7} /> : null}</span></td>
             <td className="td text-sm text-slate-600">{[l.number, l.authority].filter(Boolean).join(" · ")}</td>
             <td className="td text-sm">{l.station_name ?? "All"}</td>
             <td className="td"><div className="text-sm">{d(l.expires_on)}</div><Badge tone={tone(l.days_left)}>{l.days_left < 0 ? `Expired ${-l.days_left} days ago` : l.days_left === 0 ? "Expires today" : `${l.days_left} days left`}</Badge></td>
@@ -84,7 +84,7 @@ function LicenceForm({ l, stations, onClose, onDone }: { l: any; stations: any[]
           <Field label="Expires on"><input className="input" type="date" required value={f.expires_on} onChange={(e) => setF({ ...f, expires_on: e.target.value })} /></Field>
           <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}><option value="">All / head office</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
         </div>
-        <div className="flex items-center gap-2 text-sm"><PhotoButton kind="proof" label="Photo of certificate" onRead={(_, id) => setF((x) => ({ ...x, photo_id: id }))} />{f.photo_id && "📷 attached"}</div>
+        <div className="flex items-center gap-2 text-sm"><PhotoButton kind="proof" label="Photo of certificate" onRead={(_, id) => setF((x) => ({ ...x, photo_id: id }))} />{f.photo_id ? <PhotoThumb id={f.photo_id} size={10} /> : null}</div>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
     </Modal>
@@ -181,7 +181,7 @@ function CheckRow({ i, stationId, onDone, canRedo }: { i: any; stationId: number
           </div>
         )}
       </div>
-      {e?.photo_id && <a href={photoUrl(e.photo_id)} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-sky-700">📷 View photo</a>}
+      {e?.photo_id && <div className="mt-2"><PhotoThumb id={e.photo_id} size={12} /></div>}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, statusTone, useAction } from "../components/ui";
 import { PRODUCTS, dt, num, pkr } from "../lib/format";
 import { useAuth } from "../App";
-import { PhotoButton, photoUrl } from "../components/Capture";
+import { PhotoButton, PhotoThumb } from "../components/Capture";
 import { ShiftExpenses, ShiftReport, StartShiftSheet } from "../components/ShiftParts";
 import { Ur } from "../components/VoiceShell";
 
@@ -260,7 +260,7 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
               <summary className="cursor-pointer px-3 py-2 text-sm"><b>{data.recorded.khata.length}</b> khata slip{data.recorded.khata.length === 1 ? "" : "s"} already on the POS · <Ur>پی او ایس پر کھاتہ</Ur> — {rs(data.recorded.khata.reduce((a: number, k: any) => a + k.amount, 0))} <span className="text-xs text-slate-500">(counted automatically)</span></summary>
               <ul className="divide-y divide-amber-100 border-t border-amber-200">{data.recorded.khata.map((k: any) => (
                 <li key={k.id} className="flex items-center gap-2 px-3 py-1.5 text-sm">
-                  {k.photo_id && <img src={photoUrl(k.photo_id)} alt="Slip photo" className="h-8 w-8 shrink-0 rounded border border-slate-200 object-cover" />}
+                  {k.photo_id && <PhotoThumb id={k.photo_id} size={8} className="shrink-0" />}
                   <span className="min-w-0 flex-1"><b>{k.customer_name}</b><span className="block text-xs text-slate-500">{PRODUCTS[k.product]} {num(k.litres, 2)} L{k.vehicle_no ? ` · ${k.vehicle_no}` : ""}{k.slip_no ? ` · slip ${k.slip_no}` : ""}</span></span>
                   <span className="shrink-0 tabular-nums">{rs(k.amount)}</span>
                 </li>
@@ -274,7 +274,7 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
             </div>
             {slips.length > 0 && <ul className="divide-y divide-slate-100 border-t border-slate-100">{slips.map((k, i) => (
               <li key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
-                {k.photo_id && <img src={photoUrl(k.photo_id)} alt="Slip photo" className="h-9 w-9 shrink-0 rounded border border-slate-200 object-cover" />}
+                {k.photo_id && <PhotoThumb id={k.photo_id} size={9} className="shrink-0" />}
                 <span className="min-w-0 flex-1"><b>{k.name}</b><span className="block text-xs text-slate-500">{PRODUCTS[k.product]} {num(k.litres, 2)} L · {k.vehicle_no} · slip {k.slip_no}</span></span>
                 <button type="button" className="min-h-9 px-2 text-red-600" onClick={() => setSlips(slips.filter((_, j) => j !== i))} aria-label="Remove slip">✕</button>
               </li>
@@ -282,7 +282,7 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
             {slipForm && (
               <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-3">
                 <div className="col-span-2 flex items-center gap-2">
-                  {slipForm.photo_id && <img src={photoUrl(slipForm.photo_id)} alt="Slip photo" className="h-12 w-12 shrink-0 rounded-lg border border-slate-200 object-cover" />}
+                  {slipForm.photo_id && <PhotoThumb id={slipForm.photo_id} size={12} className="shrink-0" />}
                   <PhotoButton kind="slip" className="flex-1" label={slipForm.photo_id ? "Retake photo · دوبارہ" : "Photo of slip · پرچی کی تصویر"} onRead={(r, id) => setSlipForm((f: any) => ({
                     ...f, photo_id: id,
                     // fill in what the photo shows, only where nothing is typed yet

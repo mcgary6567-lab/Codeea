@@ -5,7 +5,7 @@ import { api, linkToken, useApi } from "../lib/api";
 import { Empty, ErrorBox, Field, Loading, Modal, Stat, useAction } from "../components/ui";
 import { PRODUCTS, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
-import { ProofPhotos } from "../components/Capture";
+import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { supplierOpts } from "../components/SupplierSelect";
 import { FleetPicker, fleetBody } from "../components/WholesaleFleet";
@@ -64,7 +64,7 @@ export function BypassPanel() {
           <ul className="divide-y divide-slate-100 text-sm">
             {(dels.data ?? []).map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <div className="min-w-0"><div className="font-medium">#{d.id} · {num(d.drop_litres || d.litres)} L</div><div className="text-xs text-slate-400">{dt(d.txn_date)}{d.vehicle_no ? ` · ${d.vehicle_no}` : ""}{d.note ? ` · ${d.note}` : ""}</div></div>
+                <div className="min-w-0"><div className="font-medium">#{d.id} · {num(d.drop_litres || d.litres)} L</div><div className="flex flex-wrap items-center gap-1 text-xs text-slate-400">{dt(d.txn_date)}{d.vehicle_no ? ` · ${d.vehicle_no}` : ""}{d.note ? ` · ${d.note}` : ""}<ProofThumbs ids={d.proof_ids} onChanged={() => dels.reload()} /></div></div>
                 <div className="shrink-0 text-right tabular-nums">
                   <div className={`font-semibold ${d.margin > 0 ? "text-emerald-600" : d.margin < 0 ? "text-rose-600" : "text-slate-500"}`}>munafa {pkr(d.margin)}</div>
                   <div className="text-xs text-slate-400">{pkr(d.billed)} − cost {pkr(d.sold_cost)}</div>
@@ -302,7 +302,7 @@ function SupplierStatement({ id, onClose, onChanged }: { id: number; onClose: ()
                 {data.lines.map((l: any) => (
                   <tr key={`${l.kind}-${l.id}`} className="border-b">
                     <td className="py-2 whitespace-nowrap">{dt(l.txn_date)}</td>
-                    <td>{l.kind === "purchase" ? `Bypass fuel${l.litres ? ` · ${num(l.litres)} L ${PRODUCTS[l.product] ?? l.product} @ ${l.cost_rate}` : ""}` : `Payment${l.mode && l.mode !== "we_pay" ? ` · ${l.mode}` : ""}${l.method ? ` · ${l.method}` : ""}`}{l.ref ? <span className="text-xs text-slate-400"> · {l.ref}</span> : ""}</td>
+                    <td><span className="flex flex-wrap items-center gap-1">{l.kind === "purchase" ? `Bypass fuel${l.litres ? ` · ${num(l.litres)} L ${PRODUCTS[l.product] ?? l.product} @ ${l.cost_rate}` : ""}` : `Payment${l.mode && l.mode !== "we_pay" ? ` · ${l.mode}` : ""}${l.method ? ` · ${l.method}` : ""}`}{l.ref ? <span className="text-xs text-slate-400"> · {l.ref}</span> : ""}<ProofThumbs ids={l.proof_ids} onChanged={refresh} /></span></td>
                     <td className="text-right tabular-nums text-rose-600">{l.debit ? pkr(l.debit) : ""}</td>
                     <td className="text-right tabular-nums text-emerald-600">{l.credit ? pkr(l.credit) : ""}</td>
                     <td className="text-right font-medium tabular-nums">{pkr(l.balance)}</td>

@@ -93,13 +93,15 @@ export function LightboxHost() {
 export function PhotoThumb({ id, group, size = 10, onDeleted, className = "" }: {
   id: number; group?: Array<number | string> | string; size?: number; onDeleted?: (id: number) => void; className?: string;
 }) {
+  const [gone, setGone] = useState(false);
   const ids = group ?? [id];
   const list = (Array.isArray(ids) ? ids : String(ids).split(",")).map(Number).filter(Boolean);
   const idx = Math.max(0, list.indexOf(id));
+  if (gone) return null; // the photo was deleted or is missing — hide the thumbnail
   return (
     <button type="button" onClick={() => openPhoto(list, idx, onDeleted)} title="Tap to enlarge · بڑا کریں"
-      className={`group relative inline-flex overflow-hidden rounded-lg border border-slate-200 align-middle active:scale-95 ${className}`} style={{ height: `${size * 0.25}rem`, width: `${size * 0.25}rem` }}>
-      <img src={photoUrl(id)} alt="Photo" className="h-full w-full object-cover" />
+      className={`group relative inline-flex shrink-0 overflow-hidden rounded-lg border border-slate-200 align-middle active:scale-95 ${className}`} style={{ height: `${size * 0.25}rem`, width: `${size * 0.25}rem` }}>
+      <img src={photoUrl(id)} alt="Photo" className="h-full w-full object-cover" onError={() => setGone(true)} />
       <span className="absolute inset-0 hidden items-center justify-center bg-black/35 text-white group-hover:flex"><ZoomIn size={Math.max(14, size * 1.4)} /></span>
     </button>
   );

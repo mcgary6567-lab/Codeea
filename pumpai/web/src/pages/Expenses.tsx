@@ -5,7 +5,7 @@ import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, statusTone, useA
 import { FixedCosts } from "../components/FixedCosts";
 import { d, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
-import { PhotoButton, photoUrl } from "../components/Capture";
+import { PhotoButton, PhotoThumb } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { VoucherSlip } from "./Cashier";
 
@@ -99,7 +99,7 @@ export default function Expenses() {
                 <span className="min-w-0"><span className="block font-semibold">{e.paid_to ?? e.category}</span><span className="text-xs text-slate-500">{e.category} · {d(e.expense_date)} · {e.method}</span></span>
                 <span className="shrink-0 font-semibold tabular-nums">{pkr(e.amount)}</span>
               </div>
-              {(e.note || e.receipt_ref || e.photo_id) && <div className="break-words text-xs text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}{e.photo_id ? <a className="ml-1 text-sky-700 underline" href={photoUrl(e.photo_id)} target="_blank" rel="noreferrer">📷 bill</a> : null}</div>}
+              {(e.note || e.receipt_ref || e.photo_id) && <div className="flex flex-wrap items-center gap-1 break-words text-xs text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}{e.photo_id ? <PhotoThumb id={e.photo_id} size={7} /> : null}</div>}
               <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
                 <span className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400"><Badge tone={statusTone(e.status === "approved" ? "delivered" : e.status === "rejected" ? "cancelled" : "pending")}>{e.status}</Badge>{e.station_name ?? "All"} · {e.created_by}</span>
                 {actions(e)}
@@ -115,7 +115,7 @@ export default function Expenses() {
               <tr key={e.id}>
                 <td className="td text-xs">{d(e.expense_date)}</td>
                 <td className="td text-sm">{e.category}</td>
-                <td className="td text-xs"><div>{e.paid_to ?? "—"} <span className="text-slate-400">· {e.method}</span></div><div className="text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}{e.photo_id ? <a className="ml-1 text-sky-700 underline" href={photoUrl(e.photo_id)} target="_blank" rel="noreferrer">📷 bill</a> : null}</div></td>
+                <td className="td text-xs"><div>{e.paid_to ?? "—"} <span className="text-slate-400">· {e.method}</span></div><div className="flex flex-wrap items-center gap-1 text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}{e.photo_id ? <PhotoThumb id={e.photo_id} size={7} /> : null}</div></td>
                 <td className="td text-xs">{e.station_name ?? "All"}</td>
                 <td className="td text-right font-medium tabular-nums">{pkr(e.amount)}</td>
                 <td className="td"><Badge tone={statusTone(e.status === "approved" ? "delivered" : e.status === "rejected" ? "cancelled" : "pending")}>{e.status}</Badge><div className="text-[11px] text-slate-400">{e.created_by}</div></td>
@@ -154,7 +154,7 @@ function ExpenseForm({ categories, stations, limit, canApprove, onClose, onSaved
             note: r?.description ?? x.note, category: r?.category && categories.some((c) => c.name === r.category) ? r.category : x.category,
             expense_date: r?.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : x.expense_date,
           }))} />
-          <span className="text-slate-600">{f.photo_id ? "📷 Bill photo attached — check the filled details" : "Take a photo of the bill to fill this form"}</span>
+          <span className="flex items-center gap-2 text-slate-600">{f.photo_id ? <><PhotoThumb id={f.photo_id} size={10} /> Bill photo attached — check the filled details</> : "Take a photo of the bill to fill this form"}</span>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{categories.map((c) => <option key={c.id}>{c.name}</option>)}</select></Field>

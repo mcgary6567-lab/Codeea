@@ -4,7 +4,7 @@ import { Download } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
-import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
+import { PhotoButton, PhotoThumb, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker, BankAccounts, BankLogo, BankNamePicker } from "../components/BankParts";
 import { useAuth } from "../App";
 import { toWords } from "../lib/words";
@@ -50,7 +50,7 @@ export default function Cash() {
               <li key={d.id} className="flex items-center gap-2 py-2">
                 <BankLogo name={d.bank} size={32} />
                 <span className="min-w-0 flex-1"><b>{d.bank}</b>{d.slip_ref ? ` · slip ${d.slip_ref}` : ""}<span className="block text-xs text-slate-500">{dt(d.created_at)} · {d.deposited_by}</span></span>
-                {d.photo_id && <a href={photoUrl(d.photo_id)} target="_blank" rel="noreferrer" className="text-sky-700" aria-label="Deposit slip photo">📷</a>}
+                {d.photo_id && <PhotoThumb id={d.photo_id} size={7} />}
                 <span className="font-semibold tabular-nums">{pkr(d.amount)}</span>
                 <button className="btn-secondary min-h-9 !px-2 !py-1" aria-label="Print deposit slip" title="Print deposit slip" onClick={() => setSlip(d)}><Printer size={14} /></button>
               </li>
@@ -94,7 +94,7 @@ export function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "d
       }}>
         {kind === "deposit" && <div className="flex items-center gap-2 rounded-lg bg-sky-50 p-2 text-sm">
           <PhotoButton kind="receipt" label="Photo of deposit slip" onRead={(r, id) => setF((x) => ({ ...x, photo_id: id, amount: r?.amount ? String(r.amount) : x.amount }))} />
-          <span className="text-slate-600">{f.photo_id ? "📷 Slip attached" : "Keep the bank slip as proof"}</span>
+          <span className="flex items-center gap-2 text-slate-600">{f.photo_id ? <><PhotoThumb id={f.photo_id} size={10} /> Slip attached</> : "Keep the bank slip as proof"}</span>
         </div>}
         <Field label={kind === "count" ? "Cash counted (Rs)" : "Amount deposited (Rs)"}><input className="input py-3 text-2xl" type="number" min={0} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
         {kind === "count" && <p className="text-sm text-slate-600">The book says <b>{pkr(inHand)}</b> should be in hand.</p>}

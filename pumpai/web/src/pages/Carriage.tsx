@@ -5,7 +5,7 @@ import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
-import { ProofPhotos } from "../components/Capture";
+import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { supplierOpts } from "../components/SupplierSelect";
 
@@ -153,7 +153,7 @@ function Statement({ data, canVoid, onChanged }: { data: any; canVoid: boolean; 
         <li key={`${r.type}-${r.id}`} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm ${r.voided ? "opacity-40 line-through" : ""} ${r.type === "fuel_note" ? "bg-slate-50/60" : ""}`}>
           <div className="min-w-0 flex-1">
             <div className="font-medium">{label(r)}</div>
-            <div className="text-xs text-slate-400">{dt(r.txn_date)}{r.note && r.type !== "adjustment" ? ` · ${r.note}` : ""}</div>
+            <div className="flex flex-wrap items-center gap-1 text-xs text-slate-400">{dt(r.txn_date)}{r.note && r.type !== "adjustment" ? ` · ${r.note}` : ""}<ProofThumbs ids={r.proof_ids} onChanged={onChanged} /></div>
           </div>
           <div className="w-24 text-right tabular-nums text-rose-600">{r.debit ? pkr(r.debit) : ""}</div>
           <div className="w-24 text-right tabular-nums text-emerald-600">{r.credit ? pkr(r.credit) : ""}</div>
@@ -311,7 +311,7 @@ function HeldFuel({ thekedarId, refreshKey, onChanged }: { thekedarId: number; r
       <ul className="divide-y divide-slate-100">
         {mine.map((f) => (
           <li key={f.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
-            <span className="min-w-0 flex-1"><b className="tabular-nums">{pkr(f.amount)}</b> → {f.depot_name ?? "depot"}{f.invoice_ref ? ` · inv ${f.invoice_ref}` : ""}<span className="block text-xs text-slate-500">{dt(f.txn_date)}{f.note ? ` · ${f.note}` : ""}</span></span>
+            <span className="min-w-0 flex-1"><b className="tabular-nums">{pkr(f.amount)}</b> → {f.depot_name ?? "depot"}{f.invoice_ref ? ` · inv ${f.invoice_ref}` : ""}<span className="flex flex-wrap items-center gap-1 text-xs text-slate-500">{dt(f.txn_date)}{f.note ? ` · ${f.note}` : ""}<ProofThumbs ids={f.proof_ids} /></span></span>
             <button className="btn-primary !py-1.5 text-sm" disabled={busy} onClick={() => run(() => api(`/carriage/fuel-payments/${f.id}/forward`, { body: {} }), "Forwarded to the depot").then(() => { reload(); onChanged(); })}><Send size={14} /> Forward to depot</button>
           </li>
         ))}
