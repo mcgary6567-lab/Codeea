@@ -73,11 +73,12 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
   const suppliers = useApi<any[]>("/bypass/suppliers");
   const clients = useApi<any[]>("/wholesale/clients");
   const stations = useApi<any[]>("/stations");
+  const orders = useApi<any>("/wholesale/orders");
   const [station, setStation] = useState("");
   const [fl, setFl] = useState<any>({ tanker_id: "", driver_id: "", vehicle_no: "" });
   const [note, setNote] = useState("");
   const [buys, setBuys] = useState([{ supplier_id: "", product: "HSD", litres: "", amount: "" }]);
-  const [drops, setDrops] = useState([{ client_id: "", product: "HSD", litres: "", amount: "" }]);
+  const [drops, setDrops] = useState<any[]>([{ client_id: "", product: "HSD", litres: "", amount: "", order_id: undefined, location: "" }]);
   const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
   const stock = useApi<any>("/bypass/stock");
@@ -101,7 +102,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
         const body = {
           station_id: Number(station), ...fleetBody(fl), note: note || null, photo_ids: photos,
           purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), amount: Number(b.amount) })),
-          drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), amount: Number(d.amount) })),
+          drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), amount: Number(d.amount), order_id: d.order_id ?? null, location: d.location || null })),
         };
         if (await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Bought ${pkr(r.bought)}, billed ${pkr(r.billed)}, munafa ${pkr(r.margin)}`)) onDone();
       }}>
@@ -134,9 +135,29 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           <div className="mt-1 text-xs text-slate-500">Khareeda: {Object.entries(bought).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Supplier ko dene hain {pkr(buyAmt)}</div>
         </div>
 
+        {/* Booked orders — one tap adds the order as a drop (same as a pump trip) */}
+        {(() => {
+          const avail = (orders.data?.open ?? []).filter((o: any) => PRODUCTS[o.product] && !drops.some((x) => x.order_id === o.id));
+          if (!avail.length) return null;
+          return (
+            <div className="rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200">
+              <div className="mb-2 text-sm font-semibold text-amber-900">📋 Booked orders — tap to add as a drop</div>
+              <div className="flex flex-wrap gap-2">{avail.map((o: any) => (
+                <button type="button" key={o.id} className={`rounded-lg bg-white px-3 py-1.5 text-left text-sm ring-1 ${o.late ? "ring-red-300" : o.today ? "ring-amber-400" : "ring-slate-200"} hover:bg-amber-100`}
+                  onClick={() => {
+                    const d = { client_id: String(o.client_id), product: o.product, litres: String(o.litres), amount: "", order_id: o.id, location: o.location ?? "" };
+                    const free = drops.findIndex((x) => !x.client_id && !x.litres && !x.amount);
+                    setDrops(free >= 0 ? drops.map((x, j) => (j === free ? d : x)) : [...drops, d]);
+                  }}>
+                  <b>{o.client_name}</b> · {PRODUCTS[o.product]} {num(o.litres)} L<span className="block text-xs text-slate-500">{o.late ? "late · " : o.today ? "today · " : ""}{o.needed_on}{o.location ? ` · ${o.location}` : ""}</span>
+                </button>))}</div>
+            </div>
+          );
+        })()}
+
         {/* Client drops — client + litre + full amount client pays */}
         <div className="rounded-xl bg-slate-50 p-3">
-          <div className="mb-2 text-sm font-semibold">Kahan drop kiya (client + litre + amount) · <Ur>ڈراپ</Ur></div>
+          <div className="mb-2 text-sm font-semibold">Kahan drop kiya (client + litre + amount) <span className="font-normal text-slate-400">— ya upar booked order tap karein</span> · <Ur>ڈراپ</Ur></div>
           <div className="space-y-2">
             {drops.map((d, i) => (
               <div key={i} className="grid grid-cols-12 gap-2">
@@ -149,11 +170,13 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
                 <select className="input col-span-3" value={d.product} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
                 <input className="input col-span-2" type="number" placeholder="litre" value={d.litres} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
                 <input className="input col-span-2" type="number" placeholder="Rs amount" value={d.amount} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
-                {drops.length > 1 && <button type="button" className="col-span-12 -mt-1 text-right text-xs text-red-600" onClick={() => setDrops(drops.filter((_, j) => j !== i))}>Remove drop</button>}
+                {(d.order_id || drops.length > 1) && <div className="col-span-12 -mt-1 flex items-center justify-between">
+                  <span className="text-xs text-amber-700">{d.order_id ? "📋 booked order" : ""}</span>
+                  {drops.length > 1 && <button type="button" className="text-xs text-red-600" onClick={() => setDrops(drops.filter((_, j) => j !== i))}>Remove drop</button>}</div>}
               </div>
             ))}
           </div>
-          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "", amount: "" }])}>+ Add drop</button>
+          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "", amount: "", order_id: undefined, location: "" }])}>+ Add drop</button>
           <div className="mt-1 text-xs text-slate-500">Diya: {Object.entries(dropped).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Client se lene hain {pkr(dropAmt)}{Object.keys({ ...dropped }).map((p) => held(p) > 0 ? ` · ${PRODUCTS[p]} held stock ${num(held(p))} L` : "").join("")}</div>
           <p className="mt-1 text-xs text-slate-400">Jitna abhi khareeda + pehle se held stock, usse zyada drop nahi ho sakta. Sirf stock se bechna hai to upar "khareedari" khaali chhoro.</p>
         </div>
