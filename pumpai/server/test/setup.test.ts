@@ -27,7 +27,11 @@ const setup = (over: any = {}) => ({
   code: "ab12cd34",
   business: { name: "Bismillah Filling Station", owner_name: "Chaudhry Aslam", owner_phone: "0300 7654321", biz_city: "Multan", omc: "Shell", ntn: "1234567-8", brand_color: "#2563eb", receipt_footer: "Allah Hafiz!", logo: PNG },
   admin: { name: "Chaudhry Aslam", email: "aslam@bismillah.pk", password: "strongpass1", pin: "2468" },
-  stations: [{ name: "Bismillah Bosan Road", tanks: [{ name: "Tank-1 Petrol", product: "PMG", capacity_l: 25000, current_l: 12000, nozzles: 4 }, { name: "Tank-2 Diesel", product: "HSD", capacity_l: 30000, current_l: 18000, nozzles: 2 }] }],
+  stations: [{ name: "Bismillah Bosan Road", tanks: [
+    // meters given one by one, with the reading on each today
+    { name: "Tank-1 Petrol", product: "PMG", capacity_l: 25000, current_l: 12000, nozzles: [{ meter_no: 1, label: "Machine 1 left", totalizer: 1234567.5 }, { meter_no: 2, label: "Machine 1 right", totalizer: 98765 }, { label: "Machine 2 left" }, {}] },
+    // or just a count
+    { name: "Tank-2 Diesel", product: "HSD", capacity_l: 30000, current_l: 18000, nozzles: 2 }] }],
   prices: { PMG: 262.5, HSD: 268.9 },
   ...over,
 });
@@ -55,6 +59,15 @@ test("setup wizard: wrong code refused, missing price refused, then the pump is 
   assert.equal(me.user.role, "admin"); assert.equal(me.tenant.name, "Bismillah Filling Station");
   const st = ok(await call("GET", "/api/stations"), "stations");
   assert.equal(st.length, 1); assert.equal(st[0].tanks.length, 2); assert.equal(st[0].nozzles.length, 6);
+  // each meter keeps its number, name and today's reading; unnamed ones get a default name and the next number
+  const byNo = Object.fromEntries(st[0].nozzles.map((n: any) => [n.meter_no, n]));
+  assert.equal(byNo[1].label, "Machine 1 left"); assert.equal(byNo[1].totalizer, 1234567.5);
+  assert.equal(byNo[2].label, "Machine 1 right"); assert.equal(byNo[2].totalizer, 98765);
+  assert.equal(byNo[3].label, "Machine 2 left"); assert.equal(byNo[4].label, "PMG-4"); assert.equal(byNo[4].totalizer, 0);
+  assert.equal(byNo[5].label, "HSD-1"); assert.equal(byNo[6].label, "HSD-2");
+  assert.deepEqual(st[0].nozzles.map((n: any) => n.meter_no).sort((a: number, b: number) => a - b), [1, 2, 3, 4, 5, 6]);
+  // the first shift must open from today's reading, not from 0
+  assert.equal((await call("POST", "/api/shifts/open", { station_id: st[0].id, attendant: "x", readings: { [byNo[1].id]: 1000 } })).status, 400, "reading below the meter is refused");
   const prices = ok(await call("GET", "/api/prices"), "prices");
   assert.equal(prices.current.PMG.price, 262.5);
   assert.equal(prices.current.HOBC, undefined, "no hi-octane tank, no price");

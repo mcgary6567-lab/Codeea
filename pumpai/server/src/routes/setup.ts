@@ -70,6 +70,11 @@ setupPublic.get("/branding", h(() => {
 setupPublic.get("/setup/status", h(() => ({ needed: !firstTenant(), needs_code: Boolean(config.setupToken), version: APP_VERSION, vendor: config.vendor, products: PRODUCTS })));
 
 const product = z.enum(Object.keys(PRODUCTS) as [string, ...string[]]);
+/** One dispenser meter (nozzle) on a tank: its number on the forecourt, a name, and the reading on it right now. */
+const meter = z.object({
+  meter_no: z.number().int().min(1).max(99).optional(), label: z.string().trim().max(30).optional(),
+  totalizer: z.number().min(0).max(99_999_999).default(0), // the totalizer reading today — the first shift opens from here
+});
 const setupBody = z.object({
   code: z.string().optional(),
   business: z.object({
@@ -85,7 +90,11 @@ const setupBody = z.object({
   stations: z.array(z.object({
     name: z.string().min(2).max(80), city: z.string().max(60).optional(), address: z.string().max(200).optional(), omc: z.string().max(40).optional(),
     timings: z.string().max(60).optional(), services: z.string().max(200).optional(), lat: z.number().optional().nullable(), lng: z.number().optional().nullable(),
-    tanks: z.array(z.object({ name: z.string().min(1).max(60), product, capacity_l: z.number().positive().max(500_000), current_l: z.number().min(0), nozzles: z.number().int().min(0).max(12).default(2) })).min(1, "Add at least one tank"),
+    tanks: z.array(z.object({
+      name: z.string().min(1).max(60), product, capacity_l: z.number().positive().max(500_000), current_l: z.number().min(0),
+      // how many meters draw from this tank — a plain count, or one entry per meter with its number, name and today's reading
+      nozzles: z.union([z.number().int().min(0).max(12), z.array(meter).max(12)]).default(2),
+    })).min(1, "Add at least one tank"),
   })).min(1, "Add at least one station").max(20),
   prices: z.record(product, z.number().positive().max(2000)),
 });
@@ -115,7 +124,9 @@ setupPublic.post("/setup", h((req) => {
       s.tanks.forEach((tk) => {
         if (tk.current_l > tk.capacity_l) throw new AppError(400, `${s.name} ${tk.name}: stock is more than the capacity`);
         const tankId = run("INSERT INTO tanks (station_id,name,product,capacity_l,current_l,reorder_pct) VALUES (?,?,?,?,?,25)", sid, tk.name, tk.product, tk.capacity_l, tk.current_l).id;
-        for (let i = 1; i <= tk.nozzles; i++) run("INSERT INTO nozzles (station_id,tank_id,label,totalizer) VALUES (?,?,?,?)", sid, tankId, `${tk.product}-${i}`, 0);
+        const meters = typeof tk.nozzles === "number" ? Array.from({ length: tk.nozzles }, () => ({} as z.infer<typeof meter>)) : tk.nozzles;
+        meters.forEach((m, i) => run("INSERT INTO nozzles (station_id,tank_id,label,totalizer,meter_no) VALUES (?,?,?,?,?)",
+          sid, tankId, m.label || `${tk.product}-${i + 1}`, m.totalizer ?? 0, m.meter_no ?? null)); // meter_no left null → numbered in order by the trigger
       });
     }
     for (const [p, price] of Object.entries(b.prices)) if (used.has(p)) run("INSERT INTO prices (tenant_id,product,price,effective_from,created_by) VALUES (?,?,?,?,?)", tenantId, p, price, ts, b.admin.name);
