@@ -77,6 +77,7 @@ function ClientList() {
 function BulkRateModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [d, setD] = useState<Record<string, string>>({ PMG: "", HOBC: "", HSD: "" });
   const [note, setNote] = useState("");
+  const [notify, setNotify] = useState(true);
   const { busy, run } = useAction();
   const deltas = Object.fromEntries(Object.entries(d).filter(([, v]) => v !== "" && Number(v) !== 0).map(([k, v]) => [k, Number(v)]));
   const any = Object.keys(deltas).length > 0;
@@ -84,8 +85,8 @@ function BulkRateModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
     <Modal open onClose={onClose} title="Sab clients ka rate badlo · سب کا ریٹ">
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        const r = await run(() => api("/wholesale/rates/bulk", { body: { deltas, note: note || null } }),
-          (x: any) => "Ho gaya — " + Object.entries(x.changed).map(([p, c]: any) => `${PRODUCTS[p]}: ${c.updated} client${c.updated === 1 ? "" : "s"}${c.skipped ? ` (${c.skipped} chhoray)` : ""}`).join(" · "));
+        const r = await run(() => api("/wholesale/rates/bulk", { body: { deltas, note: note || null, notify } }),
+          (x: any) => "Ho gaya — " + Object.entries(x.changed).map(([p, c]: any) => `${PRODUCTS[p]}: ${c.updated} client${c.updated === 1 ? "" : "s"}${c.skipped ? ` (${c.skipped} chhoray)` : ""}`).join(" · ") + (notify ? ` · ${x.notified ?? 0} ko WhatsApp bheja` : ""));
         if (r) onDone();
       }}>
         <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Rate barhé to <b>+2</b>, kam ho to <b>-1.5</b> likhein. Ye sirf wholesale clients ke rate par lagega — pump/meter (retail) rate se iska koi taalluq nahi. Fixed-rate client ka rate utna barh/kam jayega; "pump − X" wale client pump ke sath chalte rahenge aur unka effective rate bhi utna hi move karega.</p>
@@ -95,6 +96,7 @@ function BulkRateModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
           </Field>
         ))}
         <Field label="Note (optional)"><input className="input" placeholder="jaise: 8-Oct price increase" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Har client ko naya rate WhatsApp par bhejein · <Ur>واٹس ایپ پر اطلاع</Ur></label>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !any}>Sab par lagao</button></div>
       </form>
     </Modal>

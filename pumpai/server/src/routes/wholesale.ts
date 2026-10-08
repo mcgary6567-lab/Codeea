@@ -388,12 +388,20 @@ wholesale.post("/wholesale/rates/bulk", requirePerm("wholesale.rates"), h(async 
   const b = parse(z.object({
     deltas: z.record(product, z.number().refine((n) => n !== 0, "zero change")),
     note: z.string().max(120).optional().nullable(),
+    notify: z.boolean().optional(),
   }), req.body);
   if (!Object.keys(b.deltas).length) throw new AppError(400, "Kam se kam ek fuel ka change daalein");
   const pump = currentPrices(t);
   const by = req.user!.name;
   const result: Record<string, { updated: number; skipped: number }> = {};
   const note = b.note || "Bulk rate change";
+  // per-client lines (new effective rate per fuel) so each client can be told on WhatsApp
+  const perClient: Record<number, string[]> = {};
+  const apply = (clientId: number, p: string, oldRate: number, newRate: number, delta: number) => {
+    run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
+      clientId, p, oldRate, newRate, by, `${note} (${delta >= 0 ? "+" : ""}${delta})`, now());
+    (perClient[clientId] ??= []).push(`${PRODUCTS[p]}: Rs ${newRate}/L (pehle Rs ${oldRate})`);
+  };
   tx(() => {
     for (const [p, deltaRaw] of Object.entries(b.deltas)) {
       const delta = round2(deltaRaw!);
@@ -406,22 +414,27 @@ wholesale.post("/wholesale/rates/bulk", requirePerm("wholesale.rates"), h(async 
           const newRate = pump[p] ? round2(pump[p].price - newDiscount) : round2(r.rate + delta);
           if (newRate <= 0) { skipped++; continue; }
           run("UPDATE wholesale_rates SET rate=?, discount=?, updated_at=?, updated_by=? WHERE client_id=? AND product=?", newRate, newDiscount, now(), by, r.client_id, p);
-          run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
-            r.client_id, p, r.rate, newRate, by, `${note} (${delta >= 0 ? "+" : ""}${delta})`, now());
+          apply(r.client_id, p, r.rate, newRate, delta);
           updated++;
         } else {
           const newRate = round2(r.rate + delta);
           if (newRate <= 0) { skipped++; continue; }
           run("UPDATE wholesale_rates SET rate=?, updated_at=?, updated_by=? WHERE client_id=? AND product=?", newRate, now(), by, r.client_id, p);
-          run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
-            r.client_id, p, r.rate, newRate, by, `${note} (${delta >= 0 ? "+" : ""}${delta})`, now());
+          apply(r.client_id, p, r.rate, newRate, delta);
           updated++;
         }
       }
       result[p] = { updated, skipped };
     }
   });
-  return { ok: true, changed: result };
+  // tell each affected client their new rate on WhatsApp (best-effort; respects the wholesale_messages setting + client phone)
+  let notified = 0;
+  if (b.notify !== false) {
+    for (const [clientId, lines] of Object.entries(perClient)) {
+      try { await wholesaleRateMessage(t, Number(clientId), lines); notified++; } catch { /* keep going */ }
+    }
+  }
+  return { ok: true, changed: result, notified };
 }));
 
 wholesale.get("/wholesale/clients/:id", h((req) => {
