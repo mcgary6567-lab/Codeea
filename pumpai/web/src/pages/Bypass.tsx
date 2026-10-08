@@ -34,6 +34,8 @@ export function BypassPanel() {
         <Stat label="Bypass stock on hand" value={pkrShort(stock.data?.total?.value ?? 0)} hint={stockLines.length ? stockLines.map((p) => `${num(p.litres)} L ${PRODUCTS[p.product]}`).join(" · ") : "koi stock nahi"} />
         <Stat label="Is mahine ka munafa" value={pkrShort(stock.data?.month?.profit ?? 0)} tone={(stock.data?.month?.profit ?? 0) >= 0 ? "green" : "red"}
           hint={stock.data?.month ? `bika ${pkrShort(stock.data.month.billed)} − cost ${pkrShort(stock.data.month.cost)}` : "—"} />
+        <Stat label="Pichle mahine ka munafa" value={pkrShort(stock.data?.month?.last?.profit ?? 0)} tone={(stock.data?.month?.last?.profit ?? 0) >= 0 ? "green" : "red"}
+          hint={stock.data?.month?.last ? `${stock.data.month.last.month} · bika ${pkrShort(stock.data.month.last.billed)} − cost ${pkrShort(stock.data.month.last.cost)}` : "—"} />
       </div>
 
       <div className="card overflow-hidden">

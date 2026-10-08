@@ -141,13 +141,22 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
   return { id: out.id, billed, bought: purCost, sold_cost: soldCost, cost: soldCost, margin: round2(billed - soldCost), drops: out.drops, stock: bypassStock(t), delivery: get("SELECT * FROM bypass_deliveries WHERE id=?", out.id) };
 }));
 
-/** This month's bypass munafa so far: client revenue − delivered cost for drops dated this month. */
-export function bypassMonthProfit(tenantId: number) {
-  const monthStart = new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString();
+/** Bypass munafa for a date window: client revenue − delivered cost for drops in [fromIso, toIso). */
+function bypassProfit(tenantId: number, fromIso: string, toIso?: string) {
   const billed = get(`SELECT COALESCE(SUM(w.amount),0) v FROM bypass_drops bd JOIN wholesale_txns w ON w.id=bd.wtx_id
-    WHERE bd.tenant_id=? AND bd.voided=0 AND w.voided=0 AND bd.txn_date >= ?`, tenantId, monthStart)!.v as number;
-  const cost = bypassCost(tenantId, monthStart);
+    WHERE bd.tenant_id=? AND bd.voided=0 AND w.voided=0 AND bd.txn_date >= ?${toIso ? " AND bd.txn_date < ?" : ""}`,
+    ...(toIso ? [tenantId, fromIso, toIso] : [tenantId, fromIso]))!.v as number;
+  const cost = bypassCost(tenantId, fromIso, toIso);
   return { billed: round2(billed), cost, profit: round2(billed - cost) };
+}
+/** This month's and last month's bypass munafa (client revenue − delivered cost). */
+export function bypassMonthProfit(tenantId: number) {
+  const ym = pkDate().slice(0, 7); // YYYY-MM in Pakistan time
+  const [y, m] = ym.split("-").map(Number);
+  const monthStart = new Date(`${ym}-01T00:00:00+05:00`).toISOString();
+  const lastYm = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+  const lastStart = new Date(`${lastYm}-01T00:00:00+05:00`).toISOString();
+  return { ...bypassProfit(tenantId, monthStart), last: { ...bypassProfit(tenantId, lastStart, monthStart), month: lastYm } };
 }
 
 /** Bypass stock on hand (bought but not yet delivered), per fuel, with its value and average cost. */
