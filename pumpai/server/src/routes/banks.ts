@@ -116,21 +116,32 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
     ...all(`SELECT x.account_id, MIN(x.sold_at) at, SUM(x.value) amount, 'receipt' kind, 'Fuel coupons sold — ' || COUNT(*) || ' (' || x.batch || ')' || COALESCE(' to ' || x.buyer, '') text,
         MIN(x.sold_by) who, 'coupons:' || x.batch ref FROM fuel_coupons x WHERE x.tenant_id=?${acc} GROUP BY x.batch, x.account_id`, t, ...A),
   ];
-  // card / Raast / Easypaisa / JazzCash sales: one line per day per method, from the day the account was opened
+  // card / Raast / Easypaisa / JazzCash sales: one line per day per account per method, from the day the account was opened.
+  // A fuel sale can name its own bank's POS machine (sales.account_id); untagged sales fall to the method's pos-map default.
   const map = posMap(t);
+  const posLabel = (m: string) => (m === "raast" ? "Raast" : m === "card" ? "card" : m === "easypaisa" ? "Easypaisa" : "JazzCash");
   for (const m of POS_DIGITAL) {
-    const id = map[m];
-    if (!id || (accountId && id !== accountId)) continue;
-    const a = get("SELECT opening_date FROM bank_accounts WHERE id=? AND tenant_id=?", id, t);
-    if (!a) continue;
-    const since = pkStart(a.opening_date);
-    for (const r of all(`SELECT day, SUM(v) v, SUM(n) n FROM (
-        SELECT date(s.created_at, '+5 hours') day, SUM(s.amount) v, COUNT(*) n FROM sales s JOIN stations st ON st.id=s.station_id
-          WHERE st.tenant_id=? AND s.payment_method=? AND s.created_at >= ? GROUP BY day
-        UNION ALL
-        SELECT date(created_at, '+5 hours') day, SUM(total) v, COUNT(*) n FROM shop_sales WHERE tenant_id=? AND payment_method=? AND created_at >= ? GROUP BY day)
-      GROUP BY day`, t, m, since, t, m, since))
-      rows.push({ account_id: id, at: dayEnd(r.day), amount: round2(r.v), kind: "pos", text: `POS ${m === "raast" ? "Raast" : m === "card" ? "card" : m === "easypaisa" ? "Easypaisa" : "JazzCash"} sales ${r.day} (${r.n})`, who: null, ref: `pos:${m}:${r.day}` });
+    const mapped = map[m] ?? null;
+    // every account that receives this method's money: the mapped default + any explicitly chosen on a sale
+    const explicit = all("SELECT DISTINCT s.account_id id FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.payment_method=? AND s.account_id IS NOT NULL", t, m).map((r) => r.id as number);
+    const accts = [...new Set([...(mapped ? [mapped] : []), ...explicit])];
+    for (const id of accts) {
+      if (accountId && id !== accountId) continue;
+      const a = get("SELECT opening_date FROM bank_accounts WHERE id=? AND tenant_id=?", id, t);
+      if (!a) continue;
+      const since = pkStart(a.opening_date);
+      const isDefault = id === mapped;
+      // fuel sales tagged to this account, plus (only for the default account) the untagged ones
+      const saleCond = isDefault ? "(s.account_id=? OR s.account_id IS NULL)" : "s.account_id=?";
+      const rowsFor = all(`SELECT date(s.created_at, '+5 hours') day, SUM(s.amount) v, COUNT(*) n FROM sales s JOIN stations st ON st.id=s.station_id
+        WHERE st.tenant_id=? AND s.payment_method=? AND ${saleCond} AND s.created_at >= ? GROUP BY day`, t, m, id, since);
+      // shop sales have no per-machine bank, so they only ever settle into the default account
+      const shopRows = isDefault ? all("SELECT date(created_at, '+5 hours') day, SUM(total) v, COUNT(*) n FROM shop_sales WHERE tenant_id=? AND payment_method=? AND created_at >= ? GROUP BY day", t, m, since) : [];
+      const byDay: Record<string, { v: number; n: number }> = {};
+      for (const r of [...rowsFor, ...shopRows]) { (byDay[r.day] ??= { v: 0, n: 0 }).v += r.v; byDay[r.day].n += r.n; }
+      for (const [day, agg] of Object.entries(byDay))
+        rows.push({ account_id: id, at: dayEnd(day), amount: round2(agg.v), kind: "pos", text: `POS ${posLabel(m)} sales ${day} (${agg.n})`, who: null, ref: `pos:${m}:${id}:${day}` });
+    }
   }
   return rows.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 }
@@ -161,8 +172,9 @@ export function unlinkedMoney(t: number) {
   const nonCash = (col: string) => `${col} IS NOT NULL AND LOWER(TRIM(${col})) NOT IN ('cash','wht','','paid to depot')`;
   const map = posMap(t);
   const unmapped = POS_DIGITAL.filter((m) => !map[m]);
+  // an unmapped-method sale that still names its own bank's POS machine IS linked, so exclude those
   const pos = unmapped.length ? one(`SELECT COALESCE(SUM(s.amount),0) v FROM sales s JOIN stations st ON st.id=s.station_id
-    WHERE st.tenant_id=? AND s.payment_method IN (${unmapped.map(() => "?").join(",")}) AND s.created_at >= ?`, t, ...unmapped, since) : 0;
+    WHERE st.tenant_id=? AND s.payment_method IN (${unmapped.map(() => "?").join(",")}) AND s.account_id IS NULL AND s.created_at >= ?`, t, ...unmapped, since) : 0;
   const items = {
     received: round2(
       one(`SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)

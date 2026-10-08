@@ -115,6 +115,17 @@ test("each bank account's balance tallies every payment, deposit, sale and bank 
   assert.ok(JSON.stringify(j).includes("Cash taken out of bank"));
 });
 
+test("a card sale can name its own bank's POS machine (credits that account, not the pos-map default)", async () => {
+  const hblId = db.get("SELECT id FROM bank_accounts WHERE bank LIKE 'Habib%' AND tenant_id=1")!.id as number;
+  const posList = ok(await call("salesman", "GET", "/api/pos/bank-pos"), "bank-pos").accounts;
+  assert.ok(posList.some((a: any) => a.id === hblId), "HBL is offered as a POS machine");
+  const bankBal = async (id: number) => ok(await call("admin", "GET", "/api/bank/accounts"), "accts").accounts.find((a: any) => a.id === id).balance;
+  const before = await bankBal(hblId);
+  const sale = ok(await call("salesman", "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 1500, payment_method: "card", account_id: hblId }), "tagged card sale");
+  assert.equal(sale.account_id, hblId);
+  near((await bankBal(hblId)) - before, 1500, "the chosen bank POS was credited");
+});
+
 test("after all of the above: every book still tallies with the ledger", async () => {
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("banks");

@@ -26,6 +26,12 @@ function khataItem(c: Row, showBalance: boolean) {
   };
 }
 
+/** Bank POS machines (active bank accounts) a salesman can attribute a card / digital sale to. */
+pos.get("/pos/bank-pos", h(async (req) => {
+  const { accountName } = await import("./banks.js");
+  return { accounts: all("SELECT * FROM bank_accounts WHERE tenant_id=? AND active=1 ORDER BY bank, id", tid(req)).map((a) => ({ id: a.id, name: accountName(a), bank: a.bank })) };
+}));
+
 /** Scan a QR card (account card or vehicle sticker) to pick the khata account and vehicle in one go. */
 pos.get("/pos/card/:code", h((req) => {
   const code = String(req.params.code).toUpperCase().replace(/^PUMPAI-/, "").trim();

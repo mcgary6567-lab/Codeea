@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from "recharts";
 import { AlertOctagon, AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, CalendarClock, CheckCircle2, ClipboardList, Info, Lightbulb, Plus, Search, Truck, Wallet } from "lucide-react";
 import { ChequeForm, OrderForm, PromiseForm } from "./WholesaleDesk";
 import { WholesaleVoice } from "./WholesaleVoice";
@@ -157,6 +157,22 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
           </ResponsiveContainer></div>
         </div>
       </div>
+
+      {data.monthly_profit?.some((m: any) => m.profit) && <div className="card p-4">
+        <h2 className="font-semibold">Munafa — last 6 months · <Ur>ماہانہ منافع</Ur></h2>
+        <p className="mb-2 text-xs text-slate-500">Supply rate over our purchase cost, har mahine</p>
+        <div className="h-56"><ResponsiveContainer>
+          <BarChart data={data.monthly_profit} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke={GRID} vertical={false} />
+            <XAxis dataKey="month" tickFormatter={(ym: string) => ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(ym.split("-")[1])] ?? ym} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={{ stroke: GRID }} />
+            <YAxis tickFormatter={(v) => (Math.abs(v) >= 100_000 ? `${Math.round(v / 100_000)}L` : Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : v)} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
+            <Tooltip cursor={{ fill: "rgba(15,23,42,.05)" }} formatter={(v: number) => [pkr(v), "Munafa"]} labelFormatter={(ym) => String(ym)} />
+            <Bar dataKey="profit" radius={[4, 4, 0, 0]} maxBarSize={40}>
+              {data.monthly_profit.map((m: any, i: number) => <Cell key={i} fill={m.profit >= 0 ? RECEIVED : "#e11d48"} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer></div>
+      </div>}
 
       <div className="card p-4">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2"><h2 className="font-semibold">How old is the money owed? · <Ur>بقایا کتنا پرانا ہے</Ur></h2><span className="text-sm text-slate-600">Total due {pkr(ageTotal)}</span></div>

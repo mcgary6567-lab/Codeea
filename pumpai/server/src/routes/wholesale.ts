@@ -212,6 +212,19 @@ wholesale.get("/wholesale/dashboard", h((req) => {
     const rows = wkRows.filter((r) => { const x = Date.parse(r.txn_date); return x >= a && x < b; });
     return { week: new Date(a + 5 * 3600_000).toISOString().slice(5, 10), billed: Math.round(rows.filter((r) => r.type === "supply").reduce((s, r) => s + r.amount, 0)), received: Math.round(rows.filter((r) => r.type === "payment").reduce((s, r) => s + r.amount, 0)) };
   });
+  // monthly profit for the last 6 months (supply rate − our last purchase cost), oldest first — for the munafa chart
+  const monthlyProfit = (() => {
+    let y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7)); // this month (1-12), in Pakistan time
+    const out: { month: string; profit: number }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const start = new Date(`${y}-${String(m).padStart(2, "0")}-01T00:00:00+05:00`);
+      const [ny, nm] = m === 12 ? [y + 1, 1] : [y, m + 1];
+      const end = new Date(`${ny}-${String(nm).padStart(2, "0")}-01T00:00:00+05:00`);
+      out.unshift({ month: `${y}-${String(m).padStart(2, "0")}`, profit: profitFor(start, end) });
+      if (m === 1) { y -= 1; m = 12; } else m -= 1;
+    }
+    return out;
+  })();
 
   /* ---------- suggestions: what to do today, most urgent first ---------- */
   type Sug = { level: "critical" | "warning" | "info" | "good"; title: string; ur?: string; detail: string; action?: { kind: string; client_id?: number; label: string } };
@@ -275,7 +288,7 @@ wholesale.get("/wholesale/dashboard", h((req) => {
       })(),
     },
     ageing: Object.fromEntries(Object.entries(ageTotals).map(([k, v]) => [k, Math.round(v)])),
-    daily, weekly, clients, suggestions: sug.slice(0, 20),
+    daily, weekly, monthly_profit: monthlyProfit, clients, suggestions: sug.slice(0, 20),
   };
 }));
 

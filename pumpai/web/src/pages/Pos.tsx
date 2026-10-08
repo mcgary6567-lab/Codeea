@@ -80,6 +80,12 @@ export default function Pos() {
   const [scanCoupon, setScanCoupon] = useState(false);
   const [walletAcct, setWalletAcct] = useState<any>(null);
   const [pickWallet, setPickWallet] = useState(false);
+  // which bank's POS machine a card / digital sale went to
+  const [cardBank, setCardBank] = useState<any>(null);
+  const [pickBank, setPickBank] = useState(false);
+  const bankPos = useApi<any>("/pos/bank-pos");
+  const bankAccounts = (bankPos.data?.accounts ?? cacheGet<any[]>("pos_bank_accounts") ?? []) as any[];
+  useEffect(() => { if (bankPos.data?.accounts) cacheSet("pos_bank_accounts", bankPos.data.accounts); }, [bankPos.data]);
 
   const d = today.data ?? cacheGet<any>(cacheKey);
   const rate = product && d ? d.prices[product] : 0;
@@ -87,7 +93,7 @@ export default function Pos() {
   const litres = mode === "litres" ? value : rate ? value / rate : 0;
   const amount = mode === "amount" ? value : value * rate;
   const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata) && (pay !== "loyalty" || pointsCust) && (pay !== "coupon" || coupon) && (pay !== "wallet" || walletAcct));
-  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); setPointsCust(null); setCoupon(null); setWalletAcct(null); };
+  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); setPointsCust(null); setCoupon(null); setWalletAcct(null); setCardBank(null); };
 
   /** Fill the POS from a spoken sentence; the salesman checks it and presses Save. */
   const applyVoice = async (v: any) => {
@@ -130,7 +136,8 @@ export default function Pos() {
     if (pay === "loyalty" && pointsCust) body.customer_id = pointsCust.id;
     if (pay === "coupon" && coupon) body.coupon_code = coupon.code;
     if (pay === "wallet" && walletAcct) body.customer_id = walletAcct.id;
-    const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name ?? walletAcct?.name, client_uid: body.client_uid };
+    if (["card", "raast", "easypaisa", "jazzcash"].includes(pay!) && cardBank) body.account_id = cardBank.id;
+    const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name ?? walletAcct?.name, bank_name: cardBank?.name, client_uid: body.client_uid };
     if (training) { setDone({ ...shown, training: true }); reset(); return; }
     setSaving(true);
     try {
@@ -280,6 +287,10 @@ export default function Pos() {
                   if (p.key === "loyalty") setPickPoints(true); else setPointsCust(null);
                   if (p.key === "coupon") setScanCoupon(true); else setCoupon(null);
                   if (p.key === "wallet") setPickWallet(true); else setWalletAcct(null);
+                  // card / digital through a bank POS machine: ask which bank's machine
+                  const digital = ["card", "raast", "easypaisa", "jazzcash"].includes(p.key);
+                  if (digital && bankAccounts.length > 0) setPickBank(true);
+                  if (!digital) setCardBank(null);
                 }}
                   className={`flex flex-col items-center justify-center rounded-2xl py-3 text-white shadow transition active:scale-95 ${p.cls} ${pay === p.key ? "scale-[1.03] ring-4 ring-slate-900 ring-offset-2" : pay ? "opacity-50" : ""}`}>
                   <p.icon size={28} />
@@ -306,6 +317,12 @@ export default function Pos() {
                 {amount > walletAcct.wallet_balance && <span className="text-sm font-semibold text-red-600">Not enough · کم ہے</span>}
               </button>
             )}
+            {["card", "raast", "easypaisa", "jazzcash"].includes(pay ?? "") && bankAccounts.length > 0 && (
+              <button onClick={() => setPickBank(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-slate-50 p-3 text-left ring-1 ring-slate-300">
+                <CreditCard className="text-slate-700" /><span className="flex-1">{cardBank ? <><b>{cardBank.name}</b><span className="block text-sm text-slate-600">Is bank ka POS machine</span></> : <span className="font-semibold text-slate-700">Kis bank ka POS? · <Ur>کون سا بینک</Ur></span>}</span>
+                <span className="text-sm text-slate-600 underline">{cardBank ? "Change" : "Choose"}</span>
+              </button>
+            )}
             <button onClick={() => setScan(true)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-100 py-3 text-lg font-semibold text-amber-900 ring-1 ring-amber-300 active:scale-95">
               <span className="text-2xl">📷</span> Scan khata card · <Ur>کارڈ سکین کریں</Ur>
             </button>
@@ -326,7 +343,7 @@ export default function Pos() {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-lg">
                   <span className={`rounded-lg px-2 py-0.5 font-bold sm:px-3 sm:py-1 text-white ${FUEL[product].bg}`}>⛽ {FUEL[product].en} · <Ur>{FUEL[product].ur}</Ur></span>
                   <span className="font-semibold tabular-nums">{num(litres, 2)} L × Rs {rate}</span>
-                  {pay && <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-semibold sm:px-3 sm:py-1">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : ""}</span>}
+                  {pay && <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-semibold sm:px-3 sm:py-1">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : cardBank && ["card", "raast", "easypaisa", "jazzcash"].includes(pay) ? ` — ${cardBank.name}` : ""}</span>}
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-1.5 ring-1 ring-emerald-200 sm:block sm:py-2 sm:text-right">
                   <div className="text-sm text-emerald-800">{pay === "khata" ? <>Add to khata · <Ur>کھاتے میں</Ur></> : <>Collect · <Ur>وصول کریں</Ur></>}</div>
@@ -375,6 +392,7 @@ export default function Pos() {
       {pickWallet && <WalletPicker onClose={() => { setPickWallet(false); if (!walletAcct) setPay(null); }} onPick={(a) => { setWalletAcct(a); setPickWallet(false); }} />}
       {pickPoints && <PointsPicker onClose={() => { setPickPoints(false); if (!pointsCust) setPay(null); }} onPick={(c) => { setPointsCust(c); setPickPoints(false); }} />}
       {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} />}
+      {pickBank && <BankPosPicker accounts={bankAccounts} onClose={() => setPickBank(false)} onPick={(a) => { setCardBank(a); setPickBank(false); }} />}
       {done && (
         <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.training ? "bg-amber-500/95" : done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => setDone(null)}>
           <div>
@@ -639,6 +657,26 @@ function WalletPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: an
             </button>
           ))}
           {data && !list.length && <p className="py-4 text-center text-slate-500">No wallet found. Ask the manager.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Pick which bank's POS machine a card / digital sale went to. */
+function BankPosPicker({ accounts, onClose, onPick }: { accounts: any[]; onClose: () => void; onPick: (a: any) => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-3 sm:p-6">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-4 shadow-xl">
+        <div className="mb-3 flex items-center gap-2"><CreditCard className="text-slate-700" /><h2 className="flex-1 text-2xl font-bold">Kis bank ka POS? · <Ur>کون سا بینک</Ur></h2>
+          <button onClick={onClose} className="rounded-xl bg-slate-100 p-3" aria-label="Close"><X /></button></div>
+        <div className="space-y-2">
+          {accounts.map((a) => (
+            <button key={a.id} onClick={() => onPick(a)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left ring-2 ring-slate-200 hover:ring-slate-500">
+              <span className="text-2xl">🏦</span><span className="flex-1 text-lg font-semibold">{a.name}</span>
+            </button>
+          ))}
+          {!accounts.length && <p className="py-4 text-center text-slate-500">Koi bank account nahi — manager add kare.</p>}
         </div>
       </div>
     </div>

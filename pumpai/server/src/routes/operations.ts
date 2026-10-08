@@ -202,6 +202,8 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     override_limit: z.boolean().optional(),
     slip_no: z.string().max(40).nullable().optional(),
     photo_id: z.number().int().positive().nullable().optional(),
+    /** which bank's POS machine a card / digital sale went to */
+    account_id: z.number().int().positive().nullable().optional(),
     client_uid: z.string().min(8).max(64).nullable().optional(),
     /** when the sale was made on a tablet without internet; billed at the price in force then */
     offline_at: z.string().datetime({ offset: true }).nullable().optional(),
@@ -226,6 +228,7 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
   if (salesman && !at && get("SELECT id FROM notifications WHERE user_id=? AND type='price_change' AND acked_at IS NULL LIMIT 1", req.user!.id))
     throw new AppError(409, "Fuel price has changed. Update the dispenser and confirm the new price first.");
   if (b.override_limit && !can(req.user, "customers.edit")) throw new AppError(403, "Only a manager can allow more than the vehicle's daily limit");
+  if (b.account_id && !get("SELECT id FROM bank_accounts WHERE id=? AND tenant_id=? AND active=1", b.account_id, tid(req))) throw new AppError(400, "Bank account not found");
   const { offline_at: _o, ...sale } = b;
   const saved = recordSale(tid(req), { ...sale, shift_id: shift?.id ?? null, created_by: req.user!.id, ...(at ? { created_at: at } : {}) });
   if (!saved.duplicate) setImmediate(() => {
