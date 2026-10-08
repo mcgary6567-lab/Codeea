@@ -142,7 +142,7 @@ export default function Pos() {
     setSaving(true);
     try {
       const r = await api("/sales", { body });
-      setDone({ ...r, khata_name: khata?.account.name ?? walletAcct?.name });
+      setDone({ ...r, khata_name: khata?.account.name ?? walletAcct?.name, bank_name: cardBank?.name });
       today.reload();
     } catch (e: any) {
       if (!isOffline(e)) { toast("err", e.message); return; }
@@ -404,7 +404,7 @@ export default function Pos() {
               ? <div className="mt-2 text-xl">{done.lines.map((l: any) => `${num(l.qty)} × ${l.name}`).join(", ")}</div>
               : <div className="mt-2 text-2xl">{FUEL[done.product].en} {num(done.litres, 2)} L × Rs {done.rate}</div>}
             <div className="text-5xl font-bold tabular-nums">{pkr(done.shop ? done.total : done.amount)}</div>
-            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.payment_method}</div>
+            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && ["card", "raast", "easypaisa", "jazzcash"].includes(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
             <div className="mt-6 flex justify-center gap-3">
               {!done.training && <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
@@ -507,7 +507,7 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
           {d.recent.map((r: any) => (
             <li key={r.id} className="flex items-center gap-2 py-2 text-sm">
               <span className={`h-3 w-3 shrink-0 rounded-full ${FUEL[r.product]?.bg}`} />
-              <span className="flex-1"><b>{num(r.litres, 2)} L</b> {FUEL[r.product]?.en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.payment_method}</span></span>
+              <span className="flex-1"><b>{num(r.litres, 2)} L</b> {FUEL[r.product]?.en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.bank_name ? `${r.payment_method} · ${r.bank_name}` : r.payment_method}</span></span>
               <span className="font-semibold tabular-nums">{pkr(r.amount)}</span>
               {r.payment_method === "khata" && (r.photo_id
                 ? <a href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" title="Slip photo"><img src={photoUrl(r.photo_id)} alt="Slip photo" className="h-8 w-8 rounded border border-slate-200 object-cover" /></a>
