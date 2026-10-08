@@ -19,6 +19,8 @@ import Prices from "./pages/Prices";
 import Alerts from "./pages/Alerts";
 import Automations from "./pages/Automations";
 import SettingsPage from "./pages/Settings";
+import Lists from "./pages/Lists";
+import { loadLookups } from "./lib/lookups";
 import Users from "./pages/Users";
 import Wholesale from "./pages/Wholesale";
 import Expenses from "./pages/Expenses";
@@ -64,6 +66,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await api("/me");
       setMediaToken(me.media_token);
+      loadLookups().catch(() => {}); // admin-managed lists for every dropdown
       setState({ user: me.user, tenant: me.tenant, permissions: me.permissions, ready: true });
     } catch {
       setState(empty);
@@ -148,6 +151,7 @@ export default function App() {
               <Route path="suppliers" element={<Need perm="suppliers.manage"><Suppliers /></Need>} />
               <Route path="users" element={<Need perm="users.manage"><Users /></Need>} />
               <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />
+              <Route path="lists" element={<Need perm="settings.manage"><Lists /></Need>} />
               <Route path="staff" element={<Need perm="staff.manage"><Staff /></Need>} />
               <Route path="my-account" element={<MyAccount />} />
               <Route path="cash" element={<Need perm="expenses.view|cash.book"><Cash /></Need>} />

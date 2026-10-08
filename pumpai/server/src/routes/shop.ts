@@ -9,6 +9,7 @@ import { all, get, run, tx, now, pkDayStart, pkStart, pkEnd } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { h, parse, tid, requirePerm, scopedStation, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert, audit, UNDO_SECONDS } from "../services.js";
+import { assertLookup } from "./lookups.js";
 import { notify, staff } from "../notifications.js";
 import { shiftSummary } from "../shifts.js";
 import { receiptUrl } from "../billing.js";
@@ -17,7 +18,7 @@ export const shop = Router();
 export const SHOP_CATEGORIES = ["lubricant", "filter", "coolant", "tyre", "battery", "tuck", "service", "other"] as const;
 
 const itemBody = z.object({
-  station_id: z.number(), name: z.string().min(2).max(80), category: z.enum(SHOP_CATEGORIES).default("other"),
+  station_id: z.number(), name: z.string().min(2).max(80), category: z.string().max(40).default("other"), // one of Settings → Lists → Shop categories
   sku: z.string().max(40).optional().nullable(), barcode: z.string().max(40).optional().nullable(), unit: z.string().max(12).default("pc"),
   cost: z.number().min(0).default(0), price: z.number().positive(), reorder_level: z.number().min(0).default(0), stock: z.number().min(0).optional(),
 });
@@ -38,6 +39,7 @@ shop.get("/shop/items", requirePerm("sales.create"), h((req) => {
 
 shop.post("/shop/items", requirePerm("stock.manage"), h((req) => {
   const b = parse(itemBody, req.body);
+  assertLookup(tid(req), "shop_category", b.category);
   if (!get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, tid(req))) throw new AppError(400, "Station not found");
   if (b.barcode && get("SELECT id FROM shop_items WHERE tenant_id=? AND station_id=? AND barcode=?", tid(req), b.station_id, b.barcode)) throw new AppError(400, "This barcode is already used at this station");
   const { id } = run(`INSERT INTO shop_items (tenant_id,station_id,sku,barcode,name,category,unit,cost,price,stock,reorder_level,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -49,6 +51,7 @@ shop.post("/shop/items", requirePerm("stock.manage"), h((req) => {
 shop.patch("/shop/items/:id", requirePerm("stock.manage"), h((req) => {
   const i = ownItem(tid(req), Number(req.params.id));
   const b = parse(itemBody.omit({ station_id: true, stock: true }).partial().extend({ active: z.boolean().optional() }), req.body);
+  assertLookup(tid(req), "shop_category", b.category);
   const m = { ...i, ...b, active: b.active === undefined ? i.active : b.active ? 1 : 0 };
   run("UPDATE shop_items SET name=?, category=?, sku=?, barcode=?, unit=?, cost=?, price=?, reorder_level=?, active=? WHERE id=?",
     m.name, m.category, m.sku ?? null, m.barcode ?? null, m.unit, m.cost, m.price, m.reorder_level, m.active, i.id);

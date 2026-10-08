@@ -8,6 +8,7 @@ import { z } from "zod";
 import { all, get, run, now, pkDate, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, pkr, createAlert } from "../services.js";
+import { assertLookup, lookupExtra } from "./lookups.js";
 import { notify, staff } from "../notifications.js";
 import { sendDirect } from "../whatsapp/cloud.js";
 import { linkPhotos } from "./capture.js";
@@ -70,7 +71,7 @@ export async function bookRecurring(t: number, today = pkDate()) {
 }
 
 /* ================= Utility bills ================= */
-const KIND_CATEGORY: Record<string, string> = { electricity: "Electricity (bijli)", gas: "Other", water: "Other", phone: "Office & stationery" };
+// bill kinds and the expense category each books to live in Settings → Lists → Utility bills
 
 recurring.get("/utility-bills", requirePerm("expenses.view"), h((req) =>
   all("SELECT b.*, s.name station_name FROM utility_bills b LEFT JOIN stations s ON s.id=b.station_id WHERE b.tenant_id=? ORDER BY b.month DESC, b.id DESC LIMIT 60", tid(req))));
@@ -78,11 +79,12 @@ recurring.get("/utility-bills", requirePerm("expenses.view"), h((req) =>
 recurring.post("/utility-bills", requirePerm("expenses.create"), h(async (req) => {
   const t = tid(req);
   const b = parse(z.object({
-    kind: z.enum(["electricity", "gas", "water", "phone"]).default("electricity"), month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+    kind: z.string().max(40).default("electricity"), month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
     units: z.number().min(0).optional().nullable(), amount: z.number().positive().optional().nullable(), due_date: z.string().max(20).optional().nullable(),
     reference: z.string().max(40).optional().nullable(), photo_id: z.number().optional().nullable(), station_id: z.number().optional().nullable(),
     add_expense: z.boolean().default(true), method: z.enum(METHODS).default("bank"),
   }), req.body);
+  assertLookup(t, "utility_kind", b.kind);
   // fill in anything the AI read from the bill photo
   const ai = b.photo_id ? JSON.parse(get("SELECT ai_result FROM photos WHERE id=? AND tenant_id=?", b.photo_id, t)?.ai_result ?? "null") : null;
   const amount = b.amount ?? (ai?.amount ? Number(ai.amount) : null);
@@ -97,7 +99,8 @@ recurring.post("/utility-bills", requirePerm("expenses.create"), h(async (req) =
   let expenseId: number | null = null;
   if (b.add_expense) {
     ensureCategories(t);
-    const cat = get("SELECT name FROM expense_categories WHERE tenant_id=? AND name=?", t, KIND_CATEGORY[b.kind]) ? KIND_CATEGORY[b.kind] : "Other";
+    const want = String(lookupExtra(t, "utility_kind", b.kind).category ?? "Other");
+    const cat = get("SELECT name FROM expense_categories WHERE tenant_id=? AND name=? AND active=1", t, want) ? want : "Other";
     expenseId = run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,receipt_ref,status,created_by,approved_by,expense_date,created_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, b.station_id ?? null, cat, amount, `${b.kind} bill`, b.method, `${b.kind} ${month}${units != null ? ` · ${units} units` : ""}`,
       b.reference ?? ai?.reference ?? null, "approved", req.user!.name, req.user!.name, pkDate(), now()).id;

@@ -55,6 +55,7 @@ import { people, slipPdf } from "./routes/people.js";
 import { setupPublic, business, applyStoredConfig } from "./routes/setup.js";
 import { auditTrail, auditRouter } from "./routes/auditTrail.js";
 import { machines } from "./routes/machines.js";
+import { lookupsRouter } from "./routes/lookups.js";
 import { getSetting } from "./db.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
@@ -225,6 +226,7 @@ api.use(people);
 api.use(business);
 api.use(auditRouter);
 api.use(machines);
+api.use(lookupsRouter);
 app.use("/api", api);
 
 // Serve the built dashboard in production

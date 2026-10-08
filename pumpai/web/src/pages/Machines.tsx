@@ -4,12 +4,14 @@ import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { pkr } from "../lib/format";
 import { useAuth } from "../App";
+import { labelMap } from "../lib/lookups";
 import { PhotoButton, PhotoThumb } from "../components/Capture";
 
-export const TYPE_LABEL: Record<string, string> = {
+// machine-type labels come from Settings → Lists (icon + name), with these as the fallback
+export const TYPE_LABEL = labelMap("machine_type", {
   dispenser: "⛽ Dispenser", generator: "⚡ Generator", compressor: "🛞 Air compressor", submersible_pump: "🛢️ Submersible pump", fan: "🌀 Fan", light: "💡 Lights",
   ups: "🔋 UPS", inverter: "🔋 Inverter", air_conditioner: "❄️ AC", cctv: "📹 CCTV", water_pump: "💧 Water pump", car_wash: "🚿 Car wash", other: "🔧 Other",
-};
+});
 const STATUS: Record<string, { label: string; tone: string }> = { working: { label: "Working", tone: "green" }, faulty: { label: "Not working", tone: "red" }, under_repair: { label: "Under repair", tone: "amber" }, retired: { label: "Retired", tone: "slate" } };
 const LOG: Record<string, { label: string; tone: string }> = { service: { label: "Service", tone: "blue" }, fault: { label: "Fault", tone: "red" }, repair: { label: "Repair", tone: "green" }, reading: { label: "Hours", tone: "slate" }, note: { label: "Note", tone: "slate" } };
 

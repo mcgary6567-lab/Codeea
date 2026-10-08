@@ -4,13 +4,16 @@ import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, useAction } from "./ui";
 import { pkr } from "../lib/format";
 import { useAuth } from "../App";
+import { labelMap, useLookups } from "../lib/lookups";
 import { PhotoButton, PhotoThumb } from "./Capture";
 
 const thisMonth = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7);
-const KIND: Record<string, string> = { electricity: "⚡ Bijli", gas: "🔥 Gas", water: "💧 Water", phone: "☎️ Phone / internet" };
+// utility bill kinds come from Settings → Lists
+const KIND = labelMap("utility_kind", { electricity: "⚡ Bijli", gas: "🔥 Gas", water: "💧 Water", phone: "☎️ Phone / internet" });
 
 /** Fixed monthly costs that book themselves, and utility bills read from a photo (with a warning when higher than last month). */
 export function FixedCosts({ categories, stations, onClose }: { categories: any[]; stations: any[]; onClose: () => void }) {
+  const kinds = useLookups("utility_kind");
   const rec = useApi<any[]>("/recurring-expenses");
   const bills = useApi<any[]>("/utility-bills");
   const { can } = useAuth();
@@ -61,7 +64,7 @@ export function FixedCosts({ categories, stations, onClose }: { categories: any[
           }}>
             <div className="col-span-2 flex items-center gap-2"><PhotoButton kind="bill" label="Photo of bill" onRead={(res, id) => setB((v) => ({ ...v, photo_id: id, units: res?.units != null ? String(res.units) : v.units, amount: res?.amount ? String(res.amount) : v.amount, reference: res?.reference ?? v.reference, month: /^\d{4}-\d{2}$/.test(res?.month ?? "") ? res.month : v.month }))} />
               <span className="flex items-center gap-1.5 text-xs text-slate-600">{b.photo_id ? <><PhotoThumb id={b.photo_id} size={9} /> Bill attached</> : "or type the numbers"}</span></div>
-            <Field label="Bill"><select className="input" value={b.kind} onChange={(e) => setB({ ...b, kind: e.target.value })}>{Object.entries(KIND).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+            <Field label="Bill"><select className="input" value={b.kind} onChange={(e) => setB({ ...b, kind: e.target.value })}>{kinds.list.map((k) => <option key={k.key} value={k.key}>{k.extra.icon ? k.extra.icon + " " : ""}{k.label}</option>)}</select></Field>
             <Field label="Month"><input className="input" type="month" value={b.month} onChange={(e) => setB({ ...b, month: e.target.value })} /></Field>
             <Field label="Units"><input className="input" type="number" min={0} value={b.units} onChange={(e) => setB({ ...b, units: e.target.value })} /></Field>
             <Field label="Amount (Rs)"><input className="input" type="number" min={1} value={b.amount} onChange={(e) => setB({ ...b, amount: e.target.value })} /></Field>

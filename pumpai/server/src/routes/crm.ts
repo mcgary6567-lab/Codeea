@@ -6,6 +6,7 @@ import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./cap
 import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale } from "../services.js";
+import { assertLookup } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { billLink, sendKhataBill, prevMonth } from "../billing.js";
 import { writeCampaign } from "../ai/agent.js";
@@ -37,7 +38,7 @@ crm.get("/customers", requirePerm("customers.view"), h((req) => {
 }));
 
 const customerBody = z.object({
-  name: z.string().min(2), phone: z.string().min(10), type: z.enum(["retail", "fleet", "farmer", "business", "police", "school", "government", "hospital"]).default("retail"),
+  name: z.string().min(2), phone: z.string().min(10), type: z.string().max(40).default("retail"), // one of Settings → Lists → Customer types
   city: z.string().optional().nullable(), credit_limit: z.number().min(0).default(0), opt_in: z.boolean().default(true), notes: z.string().optional().nullable(),
 });
 
@@ -46,6 +47,7 @@ const vehicleBody = z.object({ plate_no: z.string().min(3).max(40), fuel: z.enum
 /** Add a customer or a khata (credit) account, optionally with its vehicles, and tell the team. */
 crm.post("/customers", requirePerm("customers.create"), h(async (req) => {
   const b = parse(customerBody.extend({ vehicles: z.array(vehicleBody).max(50).optional() }), req.body);
+  assertLookup(tid(req), "customer_type", b.type);
   if (b.credit_limit > 0 && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can give khata credit");
   const phone = normalizePhone(b.phone);
   if (get("SELECT id FROM customers WHERE tenant_id=? AND phone=?", tid(req), phone)) throw new AppError(400, "A customer with this phone already exists");
@@ -69,6 +71,7 @@ crm.post("/customers", requirePerm("customers.create"), h(async (req) => {
 crm.patch("/customers/:id", requirePerm("customers.edit"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   const b = parse(customerBody.partial(), req.body);
+  assertLookup(tid(req), "customer_type", b.type);
   if (b.credit_limit !== undefined && b.credit_limit !== c.credit_limit && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can change credit limits");
   const m = { ...c, ...b, phone: b.phone ? normalizePhone(b.phone) : c.phone, opt_in: b.opt_in === undefined ? c.opt_in : b.opt_in ? 1 : 0 };
   run("UPDATE customers SET name=?, phone=?, type=?, city=?, credit_limit=?, opt_in=?, notes=? WHERE id=?", m.name, m.phone, m.type, m.city ?? null, m.credit_limit, m.opt_in, m.notes ?? null, c.id);

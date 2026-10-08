@@ -20,10 +20,12 @@ import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { notify, staff } from "../notifications.js";
 import { khataStatement } from "./crm.js";
 import { billLink } from "../billing.js";
+import { lookups, institutionTypes } from "./lookups.js";
 
 export const care = Router();
 const DAY = 86_400_000;
-export const INSTITUTIONS = ["police", "school", "government", "hospital"];
+/** Institution customer types come from Settings → Lists (customer types ticked "institution"). */
+const INSTITUTIONS = (t: number) => institutionTypes(t);
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
 const n2 = (v: number) => Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
@@ -55,7 +57,7 @@ export async function khataOverdue(t: number) {
   const institutions = getSetting(t, "khata_block_institutions", "0") === "1";
   let n = 0;
   for (const c of all("SELECT * FROM customers WHERE tenant_id=? AND credit_limit > 0 AND balance > 0 AND khata_blocked=0", t)) {
-    if (!institutions && INSTITUTIONS.includes(c.type)) continue;
+    if (!institutions && INSTITUTIONS(t).includes(c.type)) continue;
     const since = lastPaymentOrFirstDebit(c.id);
     if (!since || Date.now() - Date.parse(since) < days * DAY) continue;
     run("UPDATE customers SET khata_blocked=1 WHERE id=?", c.id);
@@ -73,7 +75,7 @@ export async function khataLateFees(t: number) {
   const month = pkDate().slice(0, 7);
   let n = 0;
   for (const c of all("SELECT * FROM customers WHERE tenant_id=? AND credit_limit > 0 AND balance > 0", t)) {
-    if (INSTITUTIONS.includes(c.type)) continue;
+    if (INSTITUTIONS(t).includes(c.type)) continue;
     const since = lastPaymentOrFirstDebit(c.id);
     if (!since || Date.now() - Date.parse(since) < 30 * DAY) continue;
     if (get("SELECT id FROM khata_ledger WHERE customer_id=? AND ref=?", c.id, `LATE-${month}`)) continue;
@@ -167,10 +169,11 @@ ${brandFoot(tid(req))}
 });
 
 /* ================= Service bookings ================= */
-export const SERVICES: Record<string, string> = { car_wash: "Car wash", oil_change: "Oil change", tyre: "Tyre / puncture", service: "Service / tuning" };
+/** Booking services come from Settings → Lists; this is key → label for one pump. */
+export const SERVICES = (t: number): Record<string, string> => Object.fromEntries(lookups(t, "booking_service").map((s) => [s.key, s.label]));
 
 export function createBooking(t: number, o: { customer_id: number; station_id?: number | null; service: string; at: string; vehicle_no?: string | null; note?: string | null; by: string }) {
-  if (!SERVICES[o.service]) throw new AppError(400, "Unknown service");
+  if (!SERVICES(t)[o.service]) throw new AppError(400, "Unknown service — add it in Settings → Lists");
   if (Date.parse(o.at) < Date.now() - 15 * 60_000) throw new AppError(400, "Booking time has already passed");
   const station = o.station_id ?? get("SELECT id FROM stations WHERE tenant_id=? ORDER BY id LIMIT 1", t)!.id;
   // at most 2 bookings of a service in the same half hour
@@ -189,11 +192,11 @@ care.get("/bookings", requirePerm("sales.create"), h((req) => {
 }));
 care.post("/bookings", requirePerm("sales.create"), h(async (req) => {
   const b = parse(z.object({ customer_id: z.number().optional(), phone: z.string().optional(), name: z.string().optional(), station_id: z.number().optional().nullable(),
-    service: z.enum(Object.keys(SERVICES) as [string, ...string[]]), at: z.string().datetime({ offset: true }), vehicle_no: z.string().max(20).optional().nullable(), note: z.string().max(200).optional().nullable() }), req.body);
+    service: z.string().max(40), at: z.string().datetime({ offset: true }), vehicle_no: z.string().max(20).optional().nullable(), note: z.string().max(200).optional().nullable() }), req.body);
   const c = b.customer_id ? ownCustomer(tid(req), b.customer_id) : b.phone ? upsertCustomerByPhone(tid(req), b.phone, b.name) : null;
   if (!c) throw new AppError(400, "Customer phone is needed");
   const bk = createBooking(tid(req), { ...b, customer_id: c.id, station_id: scopedStation(req, b.station_id ?? null), by: req.user!.name });
-  await sendWhatsApp(tid(req), c, `✅ ${SERVICES[bk.service]} booked: ${new Date(bk.at).toLocaleString("en-PK", { timeZone: "Asia/Karachi", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} at ${bk.station_name}. Booking #${bk.id}.`, "system", { kind: "booking" });
+  await sendWhatsApp(tid(req), c, `✅ ${SERVICES(tid(req))[bk.service]} booked: ${new Date(bk.at).toLocaleString("en-PK", { timeZone: "Asia/Karachi", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} at ${bk.station_name}. Booking #${bk.id}.`, "system", { kind: "booking" });
   return bk;
 }));
 care.post("/bookings/:id/:status(done|cancelled|no_show)", requirePerm("sales.create"), h((req) => {
@@ -210,7 +213,7 @@ export async function bookingReminders(t: number) {
     t, new Date().toISOString(), new Date(Date.now() + 75 * 60_000).toISOString())) {
     const c = get("SELECT * FROM customers WHERE id=?", b.customer_id);
     if (!c) continue;
-    await sendWhatsApp(t, c, `⏰ Yaad-dihani: aap ki ${SERVICES[b.service]} booking ${new Date(b.at).toLocaleTimeString("en-PK", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" })} baje ${b.station_name} par hai. Na aa saken to "cancel" likh dein.`, "system", { kind: "booking_reminder", booking_id: b.id });
+    await sendWhatsApp(t, c, `⏰ Yaad-dihani: aap ki ${SERVICES(t)[b.service]} booking ${new Date(b.at).toLocaleTimeString("en-PK", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" })} baje ${b.station_name} par hai. Na aa saken to "cancel" likh dein.`, "system", { kind: "booking_reminder", booking_id: b.id });
     run("UPDATE bookings SET reminded=1 WHERE id=?", b.id);
     n++;
   }
@@ -230,9 +233,14 @@ export async function serviceDue(t: number) {
 
 /* ================= Booking from WhatsApp text (rule engine) ================= */
 /** "kal 5 baje car wash", "aaj shaam 6 bje oil change", "tomorrow 10am tyre" → service + time (Pakistan). */
-export function parseBookingText(text: string): { service: string | null; at: string | null } {
+export function parseBookingText(text: string, tenantId?: number): { service: string | null; at: string | null } {
   const t = ` ${text.toLowerCase()} `;
-  const service = /wash|dhula|dhulai|دھلائی|واش/.test(t) ? "car_wash" : /oil change|oil|mobil|آئل/.test(t) ? "oil_change" : /tyre|tire|puncture|پنکچر|ٹائر/.test(t) ? "tyre" : /service|tuning|سروس/.test(t) ? "service" : null;
+  let service: string | null = null;
+  if (tenantId) for (const s of lookups(tenantId, "booking_service")) { // the admin's keywords, most specific list first
+    const words = String(s.extra.keywords ?? "").split(",").map((w) => w.trim().toLowerCase()).filter(Boolean);
+    if (words.some((w) => t.includes(w)) || t.includes(s.label.toLowerCase())) { service = s.key; break; }
+  }
+  if (!service) service = /wash|dhula|dhulai|دھلائی|واش/.test(t) ? "car_wash" : /oil change|oil|mobil|آئل/.test(t) ? "oil_change" : /tyre|tire|puncture|پنکچر|ٹائر/.test(t) ? "tyre" : /service|tuning|سروس/.test(t) ? "service" : null;
   const plus = /parson|day after/.test(t) ? 2 : /kal|tomorrow|کل/.test(t) ? 1 : 0;
   const m = t.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|bje|bajay|بجے)?/);
   if (!m || !m[3] && !m[2]) return { service, at: null };

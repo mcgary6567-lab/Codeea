@@ -10,9 +10,9 @@ import { z } from "zod";
 import { all, get, run, now, getSetting, setSetting, pkStart, pkEnd, pkDate, type Row } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { round2, pkr, createAlert } from "../services.js";
+import { lookups } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { notify, staff } from "../notifications.js";
-import { SHOP_CATEGORIES } from "./shop.js";
 
 export const feedback = Router();
 const DAY = 86_400_000;
@@ -126,10 +126,10 @@ feedback.get("/commission", requirePerm("staff.manage"), h((req) => {
   const month = String(req.query.month ?? pkDate().slice(0, 7));
   const r = monthRange(month);
   const rows = commission(tid(req), r.from, r.to);
-  return { month, rates: commissionRates(tid(req)), categories: SHOP_CATEGORIES, salesmen: rows, total: round2(rows.reduce((a, x) => a + x.total, 0)) };
+  return { month, rates: commissionRates(tid(req)), categories: lookups(tid(req), "shop_category").map((x) => ({ key: x.key, label: x.label })), salesmen: rows, total: round2(rows.reduce((a, x) => a + x.total, 0)) };
 }));
 feedback.put("/commission/settings", requirePerm("settings.manage"), h((req) => {
-  const b = parse(z.object({ shop: z.record(z.enum(SHOP_CATEGORIES), z.number().min(0).max(50)), per_litre: z.number().min(0).max(10).default(0) }), req.body);
+  const b = parse(z.object({ shop: z.record(z.string().max(40), z.number().min(0).max(50)), per_litre: z.number().min(0).max(10).default(0) }), req.body);
   setSetting(tid(req), "commission_rates", JSON.stringify(b.shop));
   setSetting(tid(req), "commission_per_litre", String(b.per_litre));
   return commissionRates(tid(req));

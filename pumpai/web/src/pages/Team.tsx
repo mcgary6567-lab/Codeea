@@ -5,7 +5,9 @@ import { Badge, Empty, Loading, PageHeader, Stat, useAction } from "../component
 import { dt, num, pkr } from "../lib/format";
 import { useAuth } from "../App";
 
-const CAT_LABEL: Record<string, string> = { lubricant: "Lubricants / engine oil", filter: "Filters", coolant: "Coolant", tyre: "Tyres", battery: "Batteries", tuck: "Tuck shop", service: "Services", other: "Other" };
+import { labelMap } from "../lib/lookups";
+// commission categories come from Settings → Lists (shop categories)
+const CAT_LABEL = labelMap("shop_category", { lubricant: "Lubricants / engine oil", filter: "Filters", coolant: "Coolant", tyre: "Tyres", battery: "Batteries", tuck: "Tuck shop", service: "Services", other: "Other" });
 const Stars = ({ v }: { v: number | null }) => v == null ? <span className="text-slate-400">—</span>
   : <span className="whitespace-nowrap"><span className="text-amber-500">{"★".repeat(Math.round(v))}</span><span className="text-slate-300">{"★".repeat(5 - Math.round(v))}</span> <b className="tabular-nums">{v}</b></span>;
 
@@ -132,9 +134,9 @@ function Commission() {
       <div className="card min-w-0 p-4">
         <h2 className="mb-2 font-semibold">Commission rates</h2>
         <div className="space-y-1.5 text-sm">
-          {data.categories.map((c: string) => (
-            <label key={c} className="flex items-center gap-2"><span className="flex-1">{CAT_LABEL[c] ?? c}</span>
-              <input className="input w-20 py-1 text-right" type="number" min={0} max={50} step={0.5} disabled={!can("settings.manage")} value={rates[c] ?? "0"} onChange={(e) => setRates({ ...rates, [c]: e.target.value })} /> %</label>
+          {data.categories.map((c: any) => (
+            <label key={c.key} className="flex items-center gap-2"><span className="flex-1">{c.label}</span>
+              <input className="input w-20 py-1 text-right" type="number" min={0} max={50} step={0.5} disabled={!can("settings.manage")} value={rates[c.key] ?? "0"} onChange={(e) => setRates({ ...rates, [c.key]: e.target.value })} /> %</label>
           ))}
           <label className="flex items-center gap-2 border-t border-slate-100 pt-2"><span className="flex-1">Fuel, per litre</span>Rs <input className="input w-20 py-1 text-right" type="number" min={0} max={10} step={0.05} disabled={!can("settings.manage")} value={perL} onChange={(e) => setPerL(e.target.value)} /></label>
         </div>

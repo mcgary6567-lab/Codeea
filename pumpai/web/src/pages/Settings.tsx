@@ -35,6 +35,10 @@ export default function SettingsPage() {
         <div><h2 className="font-semibold">Team & access</h2><p className="text-sm text-slate-600">Create Admin, Manager and Salesman logins and control what each can do.</p></div>
         <Link to="/users" className="btn-secondary">Manage users →</Link>
       </div>
+      <div className="card flex items-center justify-between p-4">
+        <div><h2 className="font-semibold">Lists</h2><p className="text-sm text-slate-600">Customer types, machine types, shop categories, utility bills, booking services, training topics, job titles, complaint categories — add or change anything the dropdowns offer.</p></div>
+        <Link to="/lists" className="btn-secondary">Manage lists →</Link>
+      </div>
     </div>
   );
 }

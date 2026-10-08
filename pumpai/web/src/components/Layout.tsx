@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText,
-  Building2,
+  Building2, ListChecks,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -46,7 +46,7 @@ const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
   { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers", "/property"] },
   { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/team", "/my-account"] },
   { key: "safety", label: "Safety", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines", "/alerts"] },
-  { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/settings"] },
+  { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/lists", "/settings"] },
 ];
 const itemCls = (on: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${on ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`;
 const Badge = ({ n }: { n: number }) => n > 0 ? <span className="rounded-full bg-emerald-400 px-1.5 text-xs font-semibold text-emerald-950">{n}</span> : null;
@@ -151,6 +151,7 @@ const NAV = [
   { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale", "manager", "cashier"] },
   { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
   { to: "/audit", label: "Audit log", icon: History, perm: "audit.view" },
+  { to: "/lists", label: "Lists", icon: ListChecks, perm: "settings.manage" },
   { to: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
 ];
 

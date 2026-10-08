@@ -10,7 +10,7 @@ import { all, get, run, now, pkDate, pkStart, getSetting, setSetting } from "../
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { otherMoney } from "./banks.js";
 import { AppError, round2 } from "../services.js";
-import { SHOP_CATEGORIES } from "./shop.js";
+import { lookupKeys } from "./lookups.js";
 import { PRODUCTS } from "../config.js";
 
 export const tax = Router();
@@ -24,10 +24,10 @@ export function taxSettings(t: number) {
     wht_pct: Number(getSetting(t, "wht_pct", "0")), wht_section: getSetting(t, "wht_section", "153(1)(a)"),
   };
 }
-tax.get("/tax/settings", requirePerm("reports.view"), h((req) => ({ ...taxSettings(tid(req)), categories: SHOP_CATEGORIES })));
+tax.get("/tax/settings", requirePerm("reports.view"), h((req) => ({ ...taxSettings(tid(req)), categories: lookupKeys(tid(req), "shop_category") })));
 tax.put("/tax/settings", requirePerm("settings.manage"), h((req) => {
   const b = parse(z.object({
-    gst_pct: z.number().min(0).max(30).optional(), prices_include_tax: z.boolean().optional(), exempt: z.array(z.enum(SHOP_CATEGORIES)).optional(),
+    gst_pct: z.number().min(0).max(30).optional(), prices_include_tax: z.boolean().optional(), exempt: z.array(z.string().max(40)).optional(),
     fuel_gst_pct: z.number().min(0).max(30).optional(), ntn: z.string().max(20).optional(), strn: z.string().max(20).optional(),
     wht_pct: z.number().min(0).max(20).optional(), wht_section: z.string().max(30).optional(),
   }), req.body);

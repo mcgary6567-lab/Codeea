@@ -6,6 +6,7 @@ import { api, useApi } from "../lib/api";
 import { Loading, useAction, useToast } from "../components/ui";
 import { newUid, isOffline, queueSale, dropQueued, dismissFailed, useOfflineQueue, cacheGet, cacheSet } from "../lib/offline";
 import { num, pkr } from "../lib/format";
+import { iconMap, labelMap } from "../lib/lookups";
 import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
 import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
@@ -38,8 +39,9 @@ const OFF_PAY: string[] = ["loyalty", "coupon"];
 /** Paid before (coupon / wallet / points): needs internet to check, cannot be kept offline. */
 const ONLINE_ONLY = ["loyalty", "coupon", "wallet"];
 
-export const TYPE_ICON: Record<string, string> = { police: "🚓", school: "🏫", government: "🏛️", hospital: "🚑", fleet: "🚚", farmer: "🚜", business: "🏢", retail: "🚗" };
-const TYPE_LABEL: Record<string, string> = { police: "Police", school: "School", government: "Govt.", hospital: "Health", fleet: "Fleet", farmer: "Farmer", business: "Business", retail: "Customer" };
+// customer-type icons & labels, backed by Settings → Lists (admin-managed) with these as the fallback
+export const TYPE_ICON = iconMap("customer_type", { police: "🚓", school: "🏫", government: "🏛️", hospital: "🚑", fleet: "🚚", farmer: "🚜", business: "🏢", retail: "🚗" });
+const TYPE_LABEL = labelMap("customer_type", { police: "Police", school: "School", government: "Govt.", hospital: "Health", fleet: "Fleet", farmer: "Farmer", business: "Business", retail: "Customer" });
 const QUICK = { amount: [500, 1000, 2000, 5000], litres: [5, 10, 20, 50] };
 
 const Ur = ({ children, className = "" }: { children: ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;

@@ -5,6 +5,7 @@
 import { customerTools, runTool, type ToolCtx } from "./tools.js";
 import { PRODUCTS } from "../config.js";
 import { pkr, rateFmt } from "../services.js";
+import { lookupLabel } from "../routes/lookups.js";
 import { parseBookingText } from "../routes/customerCare.js";
 
 const has = (t: string, words: string[]) => words.some((w) => t.includes(w));
@@ -30,11 +31,11 @@ export async function fallbackReply(ctx: ToolCtx, text: string): Promise<string>
       await call("cancel_booking", { booking_id: mine[0].id });
       return `Booking #${mine[0].id} cancel kar di gayi. Phir kabhi book karni ho to bata dein. 🙏`;
     }
-    const { service, at } = parseBookingText(text);
+    const { service, at } = parseBookingText(text, ctx.tenantId);
     if (service && at) {
       const r = await call("book_service", { service, at });
       if (r.error || !r.booking_id) return `Maazrat, booking nahi ho saki${r.error ? `: ${r.error}` : ""}. Koi aur waqt bata dein.`;
-      return `✅ Booking #${r.booking_id}: ${{ car_wash: "Car wash", oil_change: "Oil change", tyre: "Tyre / puncture", service: "Service" }[service]} — ${r.at_pakistan_time}, ${r.station}. Ek ghanta pehle yaad dila denge.`;
+      return `✅ Booking #${r.booking_id}: ${lookupLabel(ctx.tenantId, "booking_service", service)} — ${r.at_pakistan_time}, ${r.station}. Ek ghanta pehle yaad dila denge.`;
     }
     if (service) return "Zaroor! Kis din aur kitne baje aana chahenge? Masalan: \"kal 5 baje\" ya \"aaj shaam 7 baje\".";
   }

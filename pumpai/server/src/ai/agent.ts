@@ -9,6 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { config, aiEnabled, PRODUCTS } from "../config.js";
 import { all, get, run, getSetting, pkDate, type Row } from "../db.js";
 import { customerTools, runTool, toolSchemas, type ToolCtx } from "./tools.js";
+import { lookups, lookupKeys } from "../routes/lookups.js";
 import { fallbackReply } from "./fallback.js";
 import { businessTools } from "./businessTools.js";
 import { ensureConversation, storeMessage, sendWhatsApp, sendDirect, bus } from "../whatsapp/cloud.js";
@@ -61,6 +62,8 @@ function customerSystemPrompt(tenantId: number, customer: Row) {
   return `You are the WhatsApp assistant of ${tenant.name}, a petrol pump business in Pakistan.
 Stations: ${stations.map((s) => `${s.name} (${s.address}; ${s.timings}; services: ${s.services})`).join(" | ")}.
 Products: ${Object.entries(PRODUCTS).map(([k, v]) => `${k} = ${v}`).join(", ")}.
+Booking services (key = name): ${lookups(tenantId, "booking_service").map((s) => `${s.key} = ${s.label}`).join(", ")}.
+Complaint categories: ${lookupKeys(tenantId, "complaint_category").join(", ")}.
 
 How to reply:
 - Mirror the customer's language: Roman Urdu if they write Roman Urdu, Urdu script for Urdu, English for English. Default to Roman Urdu.

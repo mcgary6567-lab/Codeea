@@ -13,6 +13,7 @@ import { config, aiEnabled } from "../config.js";
 import { all, get, run, now, pkDate, pkStart, pkEnd, tx } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, round2, pkr, audit } from "../services.js";
+import { trainingTopics } from "./lookups.js";
 import { notify, staff } from "../notifications.js";
 import { linkPhotos, proofPhotos } from "./capture.js";
 import { Pdf } from "../pdf.js";
@@ -174,14 +175,7 @@ people.get("/staff/:id/slips", h((req) => {
 }));
 
 /* ================= Training ================= */
-export const TRAINING_TOPICS: { topic: string; months: number; required: boolean }[] = [
-  { topic: "Fire safety & extinguisher use", months: 12, required: true },
-  { topic: "Emergency shutdown & spill handling", months: 12, required: true },
-  { topic: "POS & cash handling", months: 12, required: true },
-  { topic: "Fuel quality: density & water check", months: 12, required: false },
-  { topic: "Customer service", months: 24, required: false },
-  { topic: "First aid", months: 24, required: false },
-];
+// training topics (validity, required) live in Settings → Lists (routes/lookups.ts)
 const addMonths = (d: string, m: number) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCMonth(x.getUTCMonth() + m); return x.toISOString().slice(0, 10); };
 const statusOf = (next: string | null, today = pkDate()) => {
   if (!next) return "done";
@@ -191,8 +185,9 @@ const statusOf = (next: string | null, today = pkDate()) => {
 
 export function trainingMatrix(t: number, userId?: number) {
   const users = all(`SELECT id, name, role, station_id FROM users WHERE tenant_id=? AND active=1 AND role IN ('salesman','manager') ${userId ? "AND id=?" : ""} ORDER BY role DESC, name`, t, ...(userId ? [userId] : []));
-  const custom = all("SELECT DISTINCT topic FROM trainings WHERE tenant_id=?", t).map((r) => r.topic).filter((x) => !TRAINING_TOPICS.some((d) => d.topic === x));
-  const topics = [...TRAINING_TOPICS, ...custom.map((topic) => ({ topic, months: 12, required: false }))];
+  const defaults = trainingTopics(t);
+  const custom = all("SELECT DISTINCT topic FROM trainings WHERE tenant_id=?", t).map((r) => r.topic).filter((x) => !defaults.some((d) => d.topic === x));
+  const topics = [...defaults, ...custom.map((topic) => ({ topic, months: 12, required: false }))];
   return {
     topics,
     staff: users.map((u) => ({
@@ -212,7 +207,7 @@ people.post("/training", requirePerm("staff.manage"), h((req) => {
   const b = parse(z.object({ user_ids: z.array(z.number()).min(1), topic: z.string().min(3).max(80), done_on: dateStr.optional(), valid_months: z.number().int().min(0).max(60).optional(),
     trainer: z.string().max(80).optional().nullable(), note: z.string().max(200).optional().nullable(), photo_id: z.number().optional().nullable() }), req.body);
   const done = b.done_on ?? pkDate();
-  const months = b.valid_months ?? TRAINING_TOPICS.find((x) => x.topic === b.topic)?.months ?? 12;
+  const months = b.valid_months ?? trainingTopics(t).find((x) => x.topic === b.topic)?.months ?? 12;
   const next = months ? addMonths(done, months) : null;
   const ids: number[] = [];
   for (const uid of b.user_ids) {

@@ -6,6 +6,7 @@ import { dt, pkr } from "../lib/format";
 import { PhotoThumb, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { DAY_STATUS, LeaveForm } from "./MyAccount";
 import { useAuth } from "../App";
+import { useLookups } from "../lib/lookups";
 import { Ur } from "../components/VoiceShell";
 import { LoansBox, SlipsList, TrainingTab, CoachingTab } from "../components/StaffExtras";
 
@@ -214,9 +215,9 @@ function Accounts() {
   );
 }
 
-const JOB_TITLES = ["Chowkidar (day)", "Chowkidar (night)", "Cleaner / sweeper", "Gardener (mali)", "Electrician", "Helper", "Pump operator", "Manager", "Cashier", "Accountant", "Driver", "Cook", "Other"];
 /** Add an employee who does not log in to the app (guard, cleaner, electrician…) — they flow into payroll like anyone else. */
 function AddStaffMember({ stations, onClose, onSaved }: { stations: any[]; onClose: () => void; onSaved: () => void }) {
+  const jobs = useLookups("job_title");
   const [f, setF] = useState({ name: "", job_title: "Chowkidar (night)", custom: "", salary: "", phone: "", duty_start: "", weekly_off: "", station_id: "" });
   const { busy, run } = useAction();
   const title = f.job_title === "Other" ? f.custom : f.job_title;
@@ -229,7 +230,7 @@ function AddStaffMember({ stations, onClose, onSaved }: { stations: any[]; onClo
       }}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-          <Field label="Job / designation"><select className="input" value={f.job_title} onChange={(e) => setF({ ...f, job_title: e.target.value })}>{JOB_TITLES.map((j) => <option key={j}>{j}</option>)}</select></Field>
+          <Field label="Job / designation"><select className="input" value={f.job_title} onChange={(e) => setF({ ...f, job_title: e.target.value })}>{jobs.list.map((j) => <option key={j.key}>{j.label}</option>)}<option>Other</option></select></Field>
           {f.job_title === "Other" && <Field label="Write the job"><input className="input" value={f.custom} onChange={(e) => setF({ ...f, custom: e.target.value })} /></Field>}
           <Field label="Monthly salary (Rs)"><input className="input" type="number" min={0} value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} /></Field>
           <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>

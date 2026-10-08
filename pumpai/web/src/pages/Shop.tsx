@@ -5,7 +5,9 @@ import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { Badge, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, num, pkr } from "../lib/format";
 
-const CATS: Record<string, string> = { lubricant: "Engine oil", filter: "Filters", coolant: "Coolant", tyre: "Tyres", battery: "Battery", tuck: "Tuck shop", service: "Service", other: "Other" };
+import { labelMap, useLookups } from "../lib/lookups";
+// shop categories come from Settings → Lists
+const CATS = labelMap("shop_category", { lubricant: "Engine oil", filter: "Filters", coolant: "Coolant", tyre: "Tyres", battery: "Battery", tuck: "Tuck shop", service: "Service", other: "Other" });
 
 /** Lubricants, filters and tuck shop: items, stock, purchases, counts and profit. */
 export default function Shop() {
@@ -87,6 +89,7 @@ export default function Shop() {
 }
 
 function ItemForm({ item, stationId, onClose, onDone }: { item?: any; stationId: number; onClose: () => void; onDone: () => void }) {
+  const cats = useLookups("shop_category");
   const [f, setF] = useState({ name: item?.name ?? "", category: item?.category ?? "lubricant", barcode: item?.barcode ?? "", unit: item?.unit ?? "pc",
     cost: String(item?.cost ?? ""), price: String(item?.price ?? ""), reorder_level: String(item?.reorder_level ?? "5"), stock: "", active: item ? Boolean(item.active) : true });
   const { busy, run } = useAction();
@@ -101,7 +104,7 @@ function ItemForm({ item, stationId, onClose, onDone }: { item?: any; stationId:
       }}>
         <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Shell Helix HX7 (4 L)" /></Field>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Field label="Category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{Object.entries(CATS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+          <Field label="Category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{cats.list.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></Field>
           <Field label="Barcode"><input className="input font-mono" value={f.barcode} onChange={(e) => setF({ ...f, barcode: e.target.value })} /></Field>
           <Field label="Unit"><input className="input" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} placeholder="pc / can / bottle" /></Field>
           <Field label="Cost (Rs)"><input className="input" type="number" min={0} step="0.01" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>

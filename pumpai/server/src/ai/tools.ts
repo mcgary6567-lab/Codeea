@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { all, get, run, now, type Row } from "../db.js";
 import { PRODUCTS } from "../config.js";
 import { currentPrices, paymentLink, createAlert, pkr, round2 } from "../services.js";
+import { lookupKeys } from "../routes/lookups.js";
 import { bus } from "../whatsapp/cloud.js";
 import { createBooking, portalLink } from "../routes/customerCare.js";
 import { pinOf } from "../routes/pinPortal.js";
@@ -109,12 +110,15 @@ export const customerTools: ToolDef[] = [
     name: "register_complaint",
     description: "Log a complaint (short measure, rude staff, card issue, quality, etc). Use for any dissatisfaction.",
     input_schema: obj({
-      category: { type: "string", enum: ["short_measure", "fuel_quality", "staff_behaviour", "payment", "billing", "facility", "other"] },
+      category: { type: "string", description: "One of the pump's complaint categories (see the system prompt), else 'other'" },
       summary: { type: "string", description: "One-line summary in English" },
       sentiment: { type: "string", enum: ["negative", "very_negative", "neutral"] },
       station_id: { type: "integer" },
     }, ["category", "summary", "sentiment"]),
     run: (ctx, i) => {
+      // the AI's category must be one of the pump's own list (Settings → Lists); anything else is filed under "other"
+      const cats = lookupKeys(ctx.tenantId, "complaint_category");
+      i.category = cats.includes(i.category) ? i.category : cats.includes("other") ? "other" : cats[0];
       const { id } = run("INSERT INTO complaints (tenant_id,customer_id,station_id,category,message,sentiment,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
         ctx.tenantId, ctx.customer.id, i.station_id ?? null, i.category, i.summary, i.sentiment, "open", now());
       createAlert(ctx.tenantId, {
@@ -157,7 +161,7 @@ export const customerTools: ToolDef[] = [
   {
     name: "book_service",
     description: "Book a car wash, oil change, tyre/puncture or service/tuning slot at the pump. Ask for the day and time first; 'at' is an ISO time with +05:00 (Pakistan).",
-    input_schema: obj({ service: { type: "string", enum: ["car_wash", "oil_change", "tyre", "service"] }, at: { type: "string", description: "e.g. 2026-10-06T17:00:00+05:00" }, vehicle_no: { type: "string" } }, ["service", "at"]),
+    input_schema: obj({ service: { type: "string", description: "One of the pump's booking service keys (see the system prompt)" }, at: { type: "string", description: "e.g. 2026-10-06T17:00:00+05:00" }, vehicle_no: { type: "string" } }, ["service", "at"]),
     run: (ctx, i) => {
       const b = createBooking(ctx.tenantId, { customer_id: ctx.customer.id, service: i.service, at: i.at, vehicle_no: i.vehicle_no ?? null, by: "WhatsApp AI" });
       ctx.actions.push(`Booked ${i.service} #${b.id}`);

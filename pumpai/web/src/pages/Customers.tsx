@@ -5,6 +5,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
 import { ago, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
+import { useLookups } from "../lib/lookups";
 import KhataStatement from "../components/KhataStatement";
 import { AccountForm } from "../components/QuickAdd";
 import { TYPE_ICON } from "./Pos";
@@ -15,7 +16,7 @@ import { Ur } from "../components/VoiceShell";
 
 const SEGMENTS = ["", "VIP", "Regular", "At risk", "New", "Fleet", "Agri", "Institution"];
 const segTone: Record<string, string> = { VIP: "violet", Regular: "green", "At risk": "red", New: "blue", Fleet: "amber", Agri: "amber", Institution: "blue" };
-const TYPES = [["retail", "Retail customer"], ["fleet", "Fleet / transport"], ["farmer", "Farmer"], ["business", "Business"], ["police", "Police station"], ["school", "School / college"], ["government", "Government office"], ["hospital", "Hospital / health"]];
+// customer types come from Settings → Lists
 
 export default function Customers() {
   const { id } = useParams();
@@ -107,6 +108,7 @@ function RiskBar({ v }: { v: number }) {
 
 function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onClose: () => void; onSaved: (c: any) => void; initial?: any }) {
   const { can } = useAuth();
+  const types = useLookups("customer_type");
   const [f, setF] = useState<any>(initial ?? { name: "", phone: "", type: "retail", city: "", credit_limit: 0, opt_in: true });
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
@@ -122,7 +124,7 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
         <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <Field label="WhatsApp number"><input className="input" required placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
         <Field label="Type"><select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
-          {TYPES.map(([t, l]) => <option key={t} value={t}>{l}</option>)}</select></Field>
+          {types.list.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}</select></Field>
         <Field label="City"><input className="input" value={f.city ?? ""} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
         {can("credit.set_limit") ? <Field label="Khata credit limit (Rs)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
           : <div className="pt-5 text-xs text-slate-500">Khata credit limits are set by the admin.</div>}

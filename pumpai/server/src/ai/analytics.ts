@@ -3,6 +3,7 @@
  * and anomaly detection. Pure TypeScript so it runs anywhere without a Python service.
  */
 import { all, get, run, now, pkDate, pkDayStart, type Row } from "../db.js";
+import { institutionTypes } from "../routes/lookups.js";
 import { PRODUCTS } from "../config.js";
 
 const DAY = 86_400_000;
@@ -128,7 +129,7 @@ export function scoreCustomers(tenantId: number) {
       risk = Math.min(100, Math.round(util * 55 + Math.min(daysSincePay, 60) * 0.6 + churn * 15));
     }
     const segment =
-      c.type === "fleet" ? "Fleet" : c.type === "farmer" ? "Agri" : ["police", "school", "government", "hospital"].includes(c.type) ? "Institution" :
+      c.type === "fleet" ? "Fleet" : c.type === "farmer" ? "Agri" : institutionTypes(tenantId).includes(c.type) ? "Institution" :
       s && s.spend >= vipCut ? "VIP" : churn > 0.6 ? "At risk" : s ? "Regular" : "New";
     run("UPDATE customers SET churn_score=?, risk_score=?, segment=? WHERE id=?", Math.round(churn * 100) / 100, risk, segment, c.id);
     updated++;

@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Modal, useAction } from "./ui";
 import { useAuth } from "../App";
+import { useLookups } from "../lib/lookups";
 import { ClientForm } from "../pages/Wholesale";
 import { UserForm } from "../pages/Users";
 import { PRODUCTS } from "../lib/format";
@@ -94,14 +95,10 @@ export function AddForm({ kind, onClose, onSaved }: { kind: Key; onClose: () => 
   }
 }
 
-const TYPES: [string, string, string][] = [
-  ["police", "🚓", "Police station"], ["school", "🏫", "School / college"], ["government", "🏛️", "Government office"], ["hospital", "🚑", "Hospital / health"],
-  ["fleet", "🚚", "Fleet / transport"], ["farmer", "🚜", "Farmer"], ["business", "🏢", "Business"], ["retail", "🚗", "Retail customer"],
-];
-
 /** New customer or khata account, with vehicles in one go. */
 export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onClose: () => void; onSaved: (c: any) => void }) {
   const { can } = useAuth();
+  const types = useLookups("customer_type");
   const canCredit = can("credit.set_limit");
   const [f, setF] = useState({ name: "", phone: "", type: khata ? "police" : "retail", city: "", credit_limit: khata ? "100000" : "0", notes: "" });
   const [vehicles, setVehicles] = useState<{ plate_no: string; fuel: string; limit?: string }[]>(khata ? [{ plate_no: "", fuel: "PMG" }] : []);
@@ -120,10 +117,10 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
         <div>
           <span className="label">Account type</span>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {TYPES.filter(([t]) => khata || ["retail", "fleet", "farmer", "business"].includes(t)).map(([t, icon, label]) => (
-              <button type="button" key={t} onClick={() => setF({ ...f, type: t })} aria-pressed={f.type === t}
-                className={`flex items-center gap-2 rounded-lg border-2 p-2 text-left text-sm ${f.type === t ? "border-brand-600 bg-emerald-50" : "border-slate-200"}`}>
-                <span className="text-xl">{icon}</span>{label}
+            {types.list.filter((t) => khata || !t.extra.institution).map((t) => (
+              <button type="button" key={t.key} onClick={() => setF({ ...f, type: t.key })} aria-pressed={f.type === t.key}
+                className={`flex items-center gap-2 rounded-lg border-2 p-2 text-left text-sm ${f.type === t.key ? "border-brand-600 bg-emerald-50" : "border-slate-200"}`}>
+                <span className="text-xl">{t.extra.icon ?? "📒"}</span>{t.label}
               </button>
             ))}
           </div>

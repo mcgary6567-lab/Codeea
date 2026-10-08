@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { useLookups } from "../lib/lookups";
 
-const SERVICE: Record<string, string> = { car_wash: "🚿 Car wash", oil_change: "🛢️ Oil change", tyre: "🛞 Tyre / puncture", service: "🔧 Service / tuning" };
+// booking services come from Settings → Lists
 
 /** Car wash / oil change / tyre bookings (customers also book themselves on WhatsApp). */
 export default function Bookings() {
+  const svc = useLookups("booking_service");
   const { data, reload } = useApi<any[]>("/bookings", 60_000);
   const [adding, setAdding] = useState(false);
   const { run } = useAction();
@@ -24,7 +26,7 @@ export default function Bookings() {
           {list.map((b) => (
             <div key={b.id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 py-2">
               <span className="w-16 text-lg font-bold tabular-nums">{new Date(b.at).toLocaleTimeString("en-PK", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" })}</span>
-              <span className="min-w-[180px] flex-1"><b>{SERVICE[b.service]}</b> · {b.customer_name}<span className="block text-xs text-slate-500">+{b.phone}{b.vehicle_no ? ` · ${b.vehicle_no}` : ""} · {b.station_name}{b.created_by === "WhatsApp AI" ? " · booked on WhatsApp" : ""}</span></span>
+              <span className="min-w-[180px] flex-1"><b>{svc.text(b.service)}</b> · {b.customer_name}<span className="block text-xs text-slate-500">+{b.phone}{b.vehicle_no ? ` · ${b.vehicle_no}` : ""} · {b.station_name}{b.created_by === "WhatsApp AI" ? " · booked on WhatsApp" : ""}</span></span>
               {b.status === "booked" ? <span className="flex gap-1">
                 <button className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => act(b.id, "done", "Done ✓")}>Done</button>
                 <button className="btn-secondary !py-2 text-sm" onClick={() => act(b.id, "no_show", "Marked no-show")}>No-show</button>
@@ -41,8 +43,9 @@ export default function Bookings() {
 }
 
 function BookingForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const svc = useLookups("booking_service");
   const soon = new Date(Date.now() + 5 * 3600_000 + 3600_000);
-  const [f, setF] = useState({ phone: "", name: "", service: "car_wash", day: soon.toISOString().slice(0, 10), time: `${String(soon.getUTCHours()).padStart(2, "0")}:00`, vehicle_no: "" });
+  const [f, setF] = useState({ phone: "", name: "", service: svc.list[0]?.key ?? "car_wash", day: soon.toISOString().slice(0, 10), time: `${String(soon.getUTCHours()).padStart(2, "0")}:00`, vehicle_no: "" });
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title="New booking">
@@ -50,7 +53,7 @@ function BookingForm({ onClose, onDone }: { onClose: () => void; onDone: () => v
         e.preventDefault();
         if (await run(() => api("/bookings", { body: { phone: f.phone, name: f.name || undefined, service: f.service, at: `${f.day}T${f.time}:00+05:00`, vehicle_no: f.vehicle_no || null } }), "Booked — customer told on WhatsApp")) onDone();
       }}>
-        <div className="grid grid-cols-2 gap-2">{Object.entries(SERVICE).map(([k, l]) => <button type="button" key={k} onClick={() => setF({ ...f, service: k })} className={`rounded-xl border-2 p-3 text-left font-medium ${f.service === k ? "border-brand-600 bg-emerald-50" : "border-slate-200"}`}>{l}</button>)}</div>
+        <div className="grid grid-cols-2 gap-2">{svc.list.map((o) => <button type="button" key={o.key} onClick={() => setF({ ...f, service: o.key })} className={`rounded-xl border-2 p-3 text-left font-medium ${f.service === o.key ? "border-brand-600 bg-emerald-50" : "border-slate-200"}`}>{o.extra.icon ? o.extra.icon + " " : ""}{o.label}</button>)}</div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Customer WhatsApp"><input className="input" required placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
           <Field label="Name"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>

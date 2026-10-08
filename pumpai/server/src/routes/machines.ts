@@ -8,6 +8,7 @@ import { z } from "zod";
 import { all, get, run, now, pkDate, tx, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm, scopedStation } from "../auth.js";
 import { AppError, round2, createAlert } from "../services.js";
+import { lookups, lookupKeys, assertLookup } from "./lookups.js";
 import { notify, staff } from "../notifications.js";
 import { sendDirect } from "../whatsapp/cloud.js";
 import { linkPhotos } from "./capture.js";
@@ -16,7 +17,7 @@ import { ensureCategories } from "./expenses.js";
 export const machines = Router();
 const DAY = 86_400_000;
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-export const MACHINE_TYPES = ["dispenser", "generator", "compressor", "submersible_pump", "fan", "light", "ups", "inverter", "air_conditioner", "cctv", "water_pump", "car_wash", "other"] as const;
+// machine types live in Settings → Lists (routes/lookups.ts)
 const addDays = (d: string, n: number) => pkDate(Date.parse(`${d}T12:00:00+05:00`) + n * DAY);
 const daysTo = (d: string | null) => (d ? Math.round((Date.parse(`${d}T12:00:00+05:00`) - Date.parse(`${pkDate()}T12:00:00+05:00`)) / DAY) : null);
 
@@ -38,7 +39,7 @@ machines.get("/machines", requirePerm("sales.create"), h((req) => {
     ORDER BY m.status='retired', s.id, m.type, m.name`, t, ...(own ? [own] : [])).map(withDue);
   const live = rows.filter((r) => r.status !== "retired");
   return {
-    types: MACHINE_TYPES, machines: rows,
+    types: lookupKeys(t, "machine_type"), type_labels: Object.fromEntries(lookups(t, "machine_type").map((x) => [x.key, `${x.extra.icon ? x.extra.icon + " " : ""}${x.label}`])), machines: rows,
     summary: { total: live.length, faulty: live.filter((r) => ["faulty", "under_repair"].includes(r.status)).length, overdue: live.filter((r) => r.due.service === "overdue").length,
       due_soon: live.filter((r) => r.due.service === "due_soon").length, warranty_ending: live.filter((r) => r.due.warranty === "ending").length,
       spent_90d: round2(get("SELECT COALESCE(SUM(cost),0) v FROM machine_logs WHERE tenant_id=? AND day >= ?", t, pkDate(Date.now() - 90 * DAY))!.v) },
@@ -52,7 +53,7 @@ machines.get("/machines/:id", requirePerm("sales.create"), h((req) => {
 }));
 
 const body = z.object({
-  name: z.string().min(2).max(80), type: z.enum(MACHINE_TYPES).default("other"), station_id: z.number().optional().nullable(),
+  name: z.string().min(2).max(80), type: z.string().max(40).default("other"), station_id: z.number().optional().nullable(),
   make: z.string().max(60).optional().nullable(), model: z.string().max(60).optional().nullable(), serial_no: z.string().max(60).optional().nullable(),
   location: z.string().max(80).optional().nullable(), installed_on: dateStr.optional().nullable(), cost: z.number().min(0).optional().nullable(),
   vendor: z.string().max(80).optional().nullable(), vendor_phone: z.string().max(20).optional().nullable(), warranty_until: dateStr.optional().nullable(),
@@ -65,6 +66,7 @@ const nextService = (last: string | null | undefined, every: number | null | und
 machines.post("/machines", requirePerm("alerts.view"), h((req) => {
   const t = tid(req);
   const b = parse(body, req.body);
+  assertLookup(tid(req), "machine_type", b.type);
   if (b.station_id && !get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, t)) throw new AppError(400, "Station not found");
   const { id } = run(`INSERT INTO machines (tenant_id,station_id,name,type,make,model,serial_no,location,installed_on,cost,vendor,vendor_phone,warranty_until,service_every_days,service_every_hours,
     last_service_on,next_service_on,hours,last_service_hours,status,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -78,6 +80,7 @@ machines.patch("/machines/:id", requirePerm("alerts.view"), h((req) => {
   const m = get("SELECT * FROM machines WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!m) throw new AppError(404, "Machine not found");
   const b = parse(body.partial(), req.body);
+  assertLookup(tid(req), "machine_type", b.type);
   const x = { ...m, ...b };
   const scheduleChanged = b.service_every_days !== undefined || b.last_service_on !== undefined;
   run(`UPDATE machines SET station_id=?, name=?, type=?, make=?, model=?, serial_no=?, location=?, installed_on=?, cost=?, vendor=?, vendor_phone=?, warranty_until=?,
