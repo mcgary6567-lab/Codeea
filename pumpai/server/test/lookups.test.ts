@@ -92,6 +92,18 @@ test("admin adds a booking service with keywords; the WhatsApp parser understand
   assert.equal((await call("manager", "POST", "/api/bookings", { customer_id: c.id, station_id: st.id, service: "flying", at: new Date(Date.now() + 2 * 3600_000).toISOString() })).status, 400, "unknown service refused");
 });
 
+test("admin adds a digital payment brand; the bank module and pos-map accept it, cash does not", async () => {
+  const sp = ok(await call("admin", "POST", "/api/lookups", { kind: "payment_method", label: "SadaPay", extra: { icon: "📱", digital: true } }), "sadapay");
+  assert.equal(sp.key, "sadapay");
+  const acct = ok(await call("admin", "POST", "/api/bank/accounts", { bank: "Meezan", title: "Main", kind: "current", opening_date: "2024-01-01" }), "bank");
+  // the new digital method can be mapped to a bank POS machine (proves digitalMethods() includes it everywhere)
+  assert.equal((await call("admin", "PUT", "/api/bank/pos-map", { sadapay: acct.id })).status, 200);
+  // cash is not a bank/digital method, so it cannot be mapped
+  assert.equal((await call("admin", "PUT", "/api/bank/pos-map", { cash: acct.id })).status, 400);
+  // the POS refuses a method that is neither a money method nor a special flow
+  assert.equal((await call("salesman", "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 500, payment_method: "bitcoin" })).status, 400);
+});
+
 test("lists can be reordered and only an unused entry deleted", async () => {
   const before = ok(await call("admin", "GET", "/api/lookups?all=1"), "l").lists.job_title;
   const second = before[1];

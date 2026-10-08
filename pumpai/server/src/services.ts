@@ -1,5 +1,6 @@
 import { all, get, run, tx, now, type Row } from "./db.js";
 import { config } from "./config.js";
+import { digitalMethods } from "./routes/lookups.js";
 
 export class AppError extends Error {
   constructor(public status: number, message: string) {
@@ -146,8 +147,7 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   const ts = s.created_at ?? now();
   return tx(() => {
     // a bank account only applies to a card / digital (POS machine) sale — never cash / khata / coupon etc.
-    const DIGITAL_METHODS = ["card", "raast", "easypaisa", "jazzcash"];
-    const accountId = s.account_id && DIGITAL_METHODS.includes(s.payment_method) ? s.account_id : null;
+    const accountId = s.account_id && digitalMethods(tenantId).includes(s.payment_method) ? s.account_id : null;
     const { id } = run(
       `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,photo_id,at_close,account_id,created_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,

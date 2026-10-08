@@ -8,6 +8,7 @@ import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, METER, meterNam
 import { meterSales } from "./reports.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
+import { moneyMethods, SPECIAL_METHODS } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
@@ -271,7 +272,7 @@ operations.get("/sales", requirePerm("sales.view"), h((req) => {
 operations.post("/sales", requirePerm("sales.create"), h((req) => {
   const b = parse(z.object({
     station_id: z.number(), product, litres: z.number().positive().optional(), amount: z.number().positive().optional(),
-    payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata", "loyalty", "coupon", "wallet"]),
+    payment_method: z.string().max(40), // a money method (Settings → Lists) or khata / loyalty / coupon / wallet — checked below
     coupon_code: z.string().max(40).nullable().optional(),
     customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().max(40).nullable().optional(),
     override_limit: z.boolean().optional(),
@@ -283,6 +284,8 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     /** when the sale was made on a tablet without internet; billed at the price in force then */
     offline_at: z.string().datetime({ offset: true }).nullable().optional(),
   }), req.body);
+  if (!([...SPECIAL_METHODS] as string[]).includes(b.payment_method) && !moneyMethods(tid(req)).includes(b.payment_method))
+    throw new AppError(400, `Unknown payment method: ${b.payment_method} — add it in Settings → Lists`);
   b.station_id = scopedStation(req, b.station_id)!;
   const at = b.offline_at ? new Date(b.offline_at).toISOString() : null;
   if (at && (Date.parse(at) > Date.now() + 60_000 || Date.parse(at) < Date.now() - 48 * 3600_000))

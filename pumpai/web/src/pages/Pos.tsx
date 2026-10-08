@@ -6,7 +6,7 @@ import { api, useApi } from "../lib/api";
 import { Loading, useAction, useToast } from "../components/ui";
 import { newUid, isOffline, queueSale, dropQueued, dismissFailed, useOfflineQueue, cacheGet, cacheSet } from "../lib/offline";
 import { num, pkr } from "../lib/format";
-import { iconMap, labelMap } from "../lib/lookups";
+import { iconMap, labelMap, useLookups, type LookupEntry } from "../lib/lookups";
 import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
 import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
@@ -23,17 +23,27 @@ const FUEL: Record<string, { en: string; ur: string; bg: string; ring: string }>
   HSD: { en: "Diesel", ur: "ڈیزل", bg: "bg-[#1baf7a]", ring: "ring-[#1baf7a]" },
 };
 
-const PAY = [
-  { key: "cash", en: "Cash", ur: "نقد", icon: Banknote, cls: "bg-emerald-600" },
-  { key: "easypaisa", en: "Easypaisa", ur: "ایزی پیسہ", icon: Smartphone, cls: "bg-[#0f9d58]" },
-  { key: "jazzcash", en: "JazzCash", ur: "جاز کیش", icon: Smartphone, cls: "bg-[#c8102e]" },
-  { key: "card", en: "Card", ur: "کارڈ", icon: CreditCard, cls: "bg-slate-700" },
-  { key: "raast", en: "Raast", ur: "راست", icon: Zap, cls: "bg-[#4a3aa7]" },
+type PayOpt = { key: string; en: string; ur: string; icon: any; cls: string; emoji?: string };
+// styling for the standard money methods; custom brands get a generic look + their emoji
+const PAY_STYLE: Record<string, { icon: any; cls: string; ur?: string }> = {
+  cash: { icon: Banknote, cls: "bg-emerald-600", ur: "نقد" }, easypaisa: { icon: Smartphone, cls: "bg-[#0f9d58]", ur: "ایزی پیسہ" },
+  jazzcash: { icon: Smartphone, cls: "bg-[#c8102e]", ur: "جاز کیش" }, card: { icon: CreditCard, cls: "bg-slate-700", ur: "کارڈ" }, raast: { icon: Zap, cls: "bg-[#4a3aa7]", ur: "راست" },
+};
+// the fixed non-money methods, handled by their own flows (never freely added)
+const SPECIAL_PAY: PayOpt[] = [
   { key: "khata", en: "Khata", ur: "کھاتہ", icon: BookOpen, cls: "bg-amber-600" },
   { key: "loyalty", en: "Points", ur: "پوائنٹس", icon: Gift, cls: "bg-pink-600" },
   { key: "coupon", en: "Coupon", ur: "کوپن", icon: Ticket, cls: "bg-orange-600" },
   { key: "wallet", en: "Wallet", ur: "والٹ", icon: Wallet, cls: "bg-sky-700" },
-] as const;
+];
+/** The POS payment buttons: the admin's money methods (Settings → Lists) + the fixed khata/points/coupon/wallet. */
+function usePay(): PayOpt[] {
+  const money = useLookups("payment_method").list;
+  const list = money.map((m: LookupEntry) => ({ key: m.key, en: m.label, ur: PAY_STYLE[m.key]?.ur ?? m.label, icon: PAY_STYLE[m.key]?.icon ?? CreditCard, cls: PAY_STYLE[m.key]?.cls ?? "bg-slate-600", emoji: m.extra.icon as string | undefined }));
+  return [...list, ...SPECIAL_PAY];
+}
+/** true for a method whose money lands in a bank (card / digital brand), so the bank name is shown. */
+const isBankPay = (m: string) => !["cash", "khata", "loyalty", "coupon", "wallet"].includes(m);
 /** Payment options switched off on this pump's POS (points and coupons are not used). */
 const OFF_PAY: string[] = ["loyalty", "coupon"];
 /** Paid before (coupon / wallet / points): needs internet to check, cannot be kept offline. */
@@ -47,6 +57,7 @@ const QUICK = { amount: [500, 1000, 2000, 5000], litres: [5, 10, 20, 50] };
 const Ur = ({ children, className = "" }: { children: ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 
 export default function Pos() {
+  const PAY = usePay();
   const { user } = useAuth();
   const isSalesman = user?.role === "salesman";
   const stations = useApi<any[]>(isSalesman ? null : "/stations");
@@ -138,7 +149,7 @@ export default function Pos() {
     if (pay === "loyalty" && pointsCust) body.customer_id = pointsCust.id;
     if (pay === "coupon" && coupon) body.coupon_code = coupon.code;
     if (pay === "wallet" && walletAcct) body.customer_id = walletAcct.id;
-    if (["card", "raast", "easypaisa", "jazzcash"].includes(pay!) && cardBank) body.account_id = cardBank.id;
+    if (pay && isBankPay(pay) && cardBank) body.account_id = cardBank.id;
     const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name ?? walletAcct?.name, bank_name: cardBank?.name, client_uid: body.client_uid };
     if (training) { setDone({ ...shown, training: true }); reset(); return; }
     setSaving(true);
@@ -290,7 +301,7 @@ export default function Pos() {
                   if (p.key === "coupon") setScanCoupon(true); else setCoupon(null);
                   if (p.key === "wallet") setPickWallet(true); else setWalletAcct(null);
                   // card / digital through a bank POS machine: ask which bank's machine
-                  const digital = ["card", "raast", "easypaisa", "jazzcash"].includes(p.key);
+                  const digital = isBankPay(p.key);
                   if (digital && bankAccounts.length > 0) setPickBank(true);
                   if (!digital) setCardBank(null);
                 }}
@@ -319,7 +330,7 @@ export default function Pos() {
                 {amount > walletAcct.wallet_balance && <span className="text-sm font-semibold text-red-600">Not enough · کم ہے</span>}
               </button>
             )}
-            {["card", "raast", "easypaisa", "jazzcash"].includes(pay ?? "") && bankAccounts.length > 0 && (
+            {pay && isBankPay(pay) && bankAccounts.length > 0 && (
               <button onClick={() => setPickBank(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-slate-50 p-3 text-left ring-1 ring-slate-300">
                 <CreditCard className="text-slate-700" /><span className="flex-1">{cardBank ? <><b>{cardBank.name}</b><span className="block text-sm text-slate-600">Is bank ka POS machine</span></> : <span className="font-semibold text-slate-700">Kis bank ka POS? · <Ur>کون سا بینک</Ur></span>}</span>
                 <span className="text-sm text-slate-600 underline">{cardBank ? "Change" : "Choose"}</span>
@@ -345,7 +356,7 @@ export default function Pos() {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-lg">
                   <span className={`rounded-lg px-2 py-0.5 font-bold sm:px-3 sm:py-1 text-white ${FUEL[product].bg}`}>⛽ {FUEL[product].en} · <Ur>{FUEL[product].ur}</Ur></span>
                   <span className="font-semibold tabular-nums">{num(litres, 2)} L × Rs {rate}</span>
-                  {pay && <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-semibold sm:px-3 sm:py-1">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : cardBank && ["card", "raast", "easypaisa", "jazzcash"].includes(pay) ? ` — ${cardBank.name}` : ""}</span>}
+                  {pay && <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-semibold sm:px-3 sm:py-1">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : cardBank && isBankPay(pay) ? ` — ${cardBank.name}` : ""}</span>}
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-1.5 ring-1 ring-emerald-200 sm:block sm:py-2 sm:text-right">
                   <div className="text-sm text-emerald-800">{pay === "khata" ? <>Add to khata · <Ur>کھاتے میں</Ur></> : <>Collect · <Ur>وصول کریں</Ur></>}</div>
@@ -406,7 +417,7 @@ export default function Pos() {
               ? <div className="mt-2 text-xl">{done.lines.map((l: any) => `${num(l.qty)} × ${l.name}`).join(", ")}</div>
               : <div className="mt-2 text-2xl">{FUEL[done.product].en} {num(done.litres, 2)} L × Rs {done.rate}</div>}
             <div className="text-5xl font-bold tabular-nums">{pkr(done.shop ? done.total : done.amount)}</div>
-            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && ["card", "raast", "easypaisa", "jazzcash"].includes(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
+            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && isBankPay(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
             <div className="mt-6 flex justify-center gap-3">
               {!done.training && <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
@@ -713,6 +724,7 @@ const CAT: Record<string, string> = { lubricant: "🛢️ Oil", filter: "🧰 Fi
 
 /** Shop sale on the POS: tap items (or scan the barcode), choose payment, save. */
 function ShopPos({ d, disabled, training, onSaved }: { d: any; disabled: boolean; training?: boolean; onSaved: (r: any) => void }) {
+  const PAY = usePay();
   const { data: live, reload } = useApi<any[]>(`/shop/items?station_id=${d.station.id}`);
   useEffect(() => { if (live) cacheSet(`shop_items_${d.station.id}`, live); }, [live, d.station.id]);
   const items = live ?? cacheGet<any[]>(`shop_items_${d.station.id}`) ?? [];

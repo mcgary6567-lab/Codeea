@@ -10,6 +10,7 @@ import { taxSettings, splitTax } from "./tax.js";
 import { PRODUCTS } from "../config.js";
 import { posMap, DEPOT_PAY, BYPASS_PAY } from "./banks.js";
 import { cashPosition } from "./backoffice.js";
+import { digitalMethods } from "./lookups.js";
 
 export const ledger = Router();
 
@@ -19,10 +20,10 @@ interface Voucher { date: string; no: string; type: string; narration: string; l
 const CASH = "Cash in hand", BANK = "Bank", DIGITAL = "Digital collections (Easypaisa/JazzCash/Card/Raast)";
 /** Money said to be "bank transfer" / "cheque" with no bank account chosen: it waits here until linked (Cash & bank shows it to link). */
 const UNLINKED = "Bank — account not chosen";
-const payAccount = (m: string | null | undefined) => {
+const payAccount = (t: number, m: string | null | undefined) => {
   const x = (m ?? "").toLowerCase();
   if (x === "cash" || x === "") return CASH;
-  if (["easypaisa", "jazzcash", "card", "raast"].includes(x)) return DIGITAL;
+  if (digitalMethods(t).includes(x)) return DIGITAL;
   if (x === "khata") return "Khata receivable";
   if (x === "loyalty") return "Loyalty points redeemed";
   if (x === "coupon") return "Fuel coupons (unused)";
@@ -52,10 +53,10 @@ export function journal(t: number, fromDay: string, toDay: string) {
   // money that names a bank account sits in the bank (as the bank module counts it), whatever the method was called;
   // POS card / JazzCash / Easypaisa / Raast sales go to the account each method is linked to
   const posBank = posMap(t);
-  const via = (m: string | null | undefined, accountId?: number | null) => (accountId ? BANK : payAccount(m));
+  const via = (m: string | null | undefined, accountId?: number | null) => (accountId ? BANK : payAccount(t, m));
   // ...from the day that account was opened (as the bank module counts them); before that they stay in digital collections
   const posFrom: Record<string, string> = Object.fromEntries(Object.entries(posBank).map(([m, id]) => [m, get("SELECT opening_date d FROM bank_accounts WHERE id=? AND tenant_id=?", id, t)?.d ?? "9999-12-31"]));
-  const sold = (m: string | null | undefined, d: string) => (m && posBank[m.toLowerCase()] && d >= posFrom[m.toLowerCase()] ? BANK : payAccount(m));
+  const sold = (m: string | null | undefined, d: string) => (m && posBank[m.toLowerCase()] && d >= posFrom[m.toLowerCase()] ? BANK : payAccount(t, m));
 
   // fuel sales: one voucher per day, money side by payment method
   const fuel = all(`SELECT date(datetime(s.created_at,'+5 hours')) d, s.payment_method m, SUM(s.amount) a, SUM(s.litres) l FROM sales s JOIN stations st ON st.id=s.station_id

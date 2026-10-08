@@ -19,6 +19,7 @@ export const banks = Router();
 type Row = Record<string, any>;
 /** POS payment methods whose money lands in a bank account rather than the cash bag. */
 export const POS_DIGITAL = ["card", "raast", "easypaisa", "jazzcash"] as const;
+import { digitalMethods, lookupLabel } from "./lookups.js";
 
 export const accountName = (a: Row) =>
   `${a.bank}${a.branch ? ` ${a.branch}` : ""}${a.account_no ? ` ··${String(a.account_no).replace(/[^0-9A-Za-z]/g, "").slice(-4)}` : ""}`;
@@ -119,8 +120,8 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
   // card / Raast / Easypaisa / JazzCash sales: one line per day per account per method, from the day the account was opened.
   // A fuel sale can name its own bank's POS machine (sales.account_id); untagged sales fall to the method's pos-map default.
   const map = posMap(t);
-  const posLabel = (m: string) => (m === "raast" ? "Raast" : m === "card" ? "card" : m === "easypaisa" ? "Easypaisa" : "JazzCash");
-  for (const m of POS_DIGITAL) {
+  const posLabel = (m: string) => lookupLabel(t, "payment_method", m);
+  for (const m of digitalMethods(t)) {
     const mapped = map[m] ?? null;
     // every account that receives this method's money: the mapped default + any explicitly chosen on a sale
     const explicit = all("SELECT DISTINCT s.account_id id FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.payment_method=? AND s.account_id IS NOT NULL", t, m).map((r) => r.id as number);
@@ -172,7 +173,7 @@ export function unlinkedMoney(t: number) {
   const one = (sql: string, ...a: unknown[]) => round2(get(sql, ...(a as []))!.v ?? 0);
   const nonCash = (col: string) => `${col} IS NOT NULL AND LOWER(TRIM(${col})) NOT IN ('cash','wht','','paid to depot')`;
   const map = posMap(t);
-  const unmapped = POS_DIGITAL.filter((m) => !map[m]);
+  const unmapped = digitalMethods(t).filter((m) => !map[m]);
   // an unmapped-method sale that still names its own bank's POS machine IS linked, so exclude those
   const pos = unmapped.length ? one(`SELECT COALESCE(SUM(s.amount),0) v FROM sales s JOIN stations st ON st.id=s.station_id
     WHERE st.tenant_id=? AND s.payment_method IN (${unmapped.map(() => "?").join(",")}) AND s.account_id IS NULL AND s.created_at >= ?`, t, ...unmapped, since) : 0;
@@ -235,7 +236,8 @@ banks.patch("/bank/accounts/:id", requirePerm("bank.manage"), h((req) => {
 /** Card / Raast / Easypaisa / JazzCash sales → which account they settle into. */
 banks.put("/bank/pos-map", requirePerm("bank.manage"), h((req) => {
   const t = tid(req);
-  const b = parse(z.record(z.enum(POS_DIGITAL), z.number().int().positive().nullable()), req.body);
+  const b = parse(z.record(z.string().max(40), z.number().int().positive().nullable()), req.body);
+  for (const m of Object.keys(b)) if (!digitalMethods(tid(req)).includes(m)) throw new AppError(400, `${m} is not a bank/digital payment method`);
   const map = posMap(t);
   for (const [k, v] of Object.entries(b)) { if (v) { ownAccount(t, v); map[k] = v; } else delete map[k]; }
   setSetting(t, "bank_pos_map", JSON.stringify(map));

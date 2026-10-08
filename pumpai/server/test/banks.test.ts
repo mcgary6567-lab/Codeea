@@ -89,7 +89,7 @@ test("each bank account's balance tallies every payment, deposit, sale and bank 
   const st = ok(await call("admin", "GET", `/api/bank/accounts/${mzn.id}/statement`), "statement");
   near(st.opening + st.money_in - st.money_out, st.closing);
   near(st.closing, bal(mzn.id));
-  assert.ok(st.lines.some((l: any) => l.kind === "pos" && /card/.test(l.text)));
+  assert.ok(st.lines.some((l: any) => l.kind === "pos" && /card/i.test(l.text)));
   assert.ok(st.lines.some((l: any) => /Wholesale payment/.test(l.text)));
 
   // voiding the wholesale payment takes it out of the bank; deleting a transfer removes both halves

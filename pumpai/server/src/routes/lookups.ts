@@ -73,6 +73,15 @@ export const KINDS: Record<string, { label: string; hint: string; fields: { key:
     label: "Job titles", hint: "Designations for staff who do not log in (guard, cleaner, electrician…).", fields: [], used_in: ["users", "job_title"],
     defaults: ["Chowkidar (day)", "Chowkidar (night)", "Cleaner / sweeper", "Gardener (mali)", "Electrician", "Helper", "Pump operator", "Manager", "Cashier", "Accountant", "Driver", "Cook"].map((k) => ({ key: k, label: k })),
   },
+  payment_method: {
+    label: "Payment methods", hint: "The money ways shown at the POS and shop (besides khata, wallet, coupon, points). 'Goes to' — Cash stays in the drawer; Bank/digital settles into a bank account (set which in Cash & bank → POS machines).",
+    fields: [{ key: "icon", label: "Icon (emoji)", type: "text" }, { key: "digital", label: "Goes to bank (not cash)", type: "boolean" }], used_in: ["sales", "payment_method"],
+    defaults: [
+      { key: "cash", label: "Cash", extra: { icon: "💵", digital: false } }, { key: "card", label: "Card machine", extra: { icon: "💳", digital: true } },
+      { key: "jazzcash", label: "JazzCash", extra: { icon: "📱", digital: true } }, { key: "easypaisa", label: "Easypaisa", extra: { icon: "📱", digital: true } },
+      { key: "raast", label: "Raast", extra: { icon: "⚡", digital: true } },
+    ],
+  },
   complaint_category: {
     label: "Complaint categories", hint: "How complaints are classified (the WhatsApp assistant picks one of these).", fields: [], used_in: ["complaints", "category"],
     defaults: [
@@ -120,6 +129,15 @@ export function assertLookup(t: number, kind: string, key: string | null | undef
 export const institutionTypes = (t: number) => lookups(t, "customer_type").filter((x) => x.extra.institution).map((x) => x.key);
 /** Training topics with validity, in the shape the training matrix uses. */
 export const trainingTopics = (t: number) => lookups(t, "training_topic").map((x) => ({ topic: x.key, months: Number(x.extra.months ?? 12), required: Boolean(x.extra.required) }));
+/** Non-khata money methods the admin set up (cash + card/digital brands). */
+export const paymentMethods = (t: number) => lookups(t, "payment_method");
+/** Keys of money methods that settle into a bank account (card, JazzCash, SadaPay…), not the cash drawer.
+ *  This one list drives the POS, the bank module AND the ledger, so adding a brand never breaks the tally. */
+export const digitalMethods = (t: number): string[] => lookups(t, "payment_method").filter((m) => m.extra.digital).map((m) => m.key);
+/** Payment-method keys that are NOT a credit/prepaid flow — the plain money ones (cash + digital). */
+export const moneyMethods = (t: number): string[] => lookups(t, "payment_method").map((m) => m.key);
+/** The fixed non-money POS methods handled by their own flows (never freely added). */
+export const SPECIAL_METHODS = ["khata", "loyalty", "coupon", "wallet"] as const;
 
 /* ================= Admin routes ================= */
 lookupsRouter.get("/lookups", h((req) => {

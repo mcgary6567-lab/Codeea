@@ -9,7 +9,7 @@ import { all, get, run, tx, now, pkDayStart, pkStart, pkEnd } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { h, parse, tid, requirePerm, scopedStation, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert, audit, UNDO_SECONDS } from "../services.js";
-import { assertLookup } from "./lookups.js";
+import { assertLookup, moneyMethods } from "./lookups.js";
 import { notify, staff } from "../notifications.js";
 import { shiftSummary } from "../shifts.js";
 import { receiptUrl } from "../billing.js";
@@ -94,9 +94,10 @@ shop.post("/shop/sales", requirePerm("sales.create"), h(async (req) => {
   const t = tid(req);
   const b = parse(z.object({
     station_id: z.number(), lines: z.array(z.object({ item_id: z.number(), qty: z.number().positive().max(10_000) })).min(1).max(50),
-    payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata"]), customer_id: z.number().nullable().optional(),
+    payment_method: z.string().max(40), customer_id: z.number().nullable().optional(), // money method (Settings → Lists) or khata
     client_uid: z.string().min(8).max(64).nullable().optional(),
   }), req.body);
+  if (b.payment_method !== "khata" && !moneyMethods(tid(req)).includes(b.payment_method)) throw new AppError(400, `Unknown payment method: ${b.payment_method}`);
   const stationId = scopedStation(req, b.station_id)!;
   if (b.client_uid) { const dup = get("SELECT * FROM shop_sales WHERE client_uid=?", b.client_uid); if (dup) return { ...dup, duplicate: true }; }
   const salesman = req.user!.role === "salesman";
