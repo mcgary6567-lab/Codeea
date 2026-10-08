@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send, Banknote } from "lucide-react";
+import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send, Banknote, Receipt } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
@@ -329,11 +329,8 @@ function ClientDetail({ id }: { id: string }) {
       <div className="print:hidden"><Link to="/wholesale" className="inline-flex min-h-9 items-center gap-1 text-sm text-brand-600 hover:underline"><ArrowLeft size={14} /> All clients</Link></div>
       <PageHeader title={c.name} subtitle={[c.business_name, c.city, c.phone && phone(c.phone)].filter(Boolean).join(" · ")}
         actions={<div className="flex flex-wrap gap-2 print:hidden">
-          {can("wholesale.manage") && <>
-            <button className="btn-primary" onClick={() => setAction("supply")} disabled={!c.active}><Truck size={15} /> New supply · <Ur>سپلائی</Ur></button>
-            <button className="btn-secondary" onClick={() => setAction("payment")}><Wallet size={15} /> Receive payment · <Ur>رقم وصول</Ur></button>
-            <button className="btn-secondary" onClick={() => setAction("return")}><Undo2 size={15} /> Fuel return · <Ur>واپسی</Ur></button>
-          </>}
+          {/* primary actions are the big tiles below; here only the occasional ones */}
+          {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("return")}><Undo2 size={15} /> Fuel return · <Ur>واپسی</Ur></button>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setAction("adjustment")}><SlidersHorizontal size={15} /> Adjustment · <Ur>ایڈجسٹمنٹ</Ur></button>}
           {can("wholesale.manage") && c.phone && <button className="btn-secondary" disabled={sending} onClick={async () => {
             setSending(true);
@@ -342,6 +339,16 @@ function ClientDetail({ id }: { id: string }) {
           }}><Send size={15} /> WhatsApp statement · <Ur>حساب بھیجیں</Ur></button>}
           {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("edit")}><Pencil size={15} /> Edit · <Ur>تبدیل</Ur></button>}
         </div>} />
+
+      {/* big, one-tap common actions — saaf aur samajhne me aasan */}
+      {can("wholesale.manage") && <div className="grid grid-cols-3 gap-3 print:hidden">
+        <button onClick={() => setAction("supply")} disabled={!c.active} className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-brand-600 py-4 text-white shadow active:scale-95 disabled:opacity-50">
+          <Truck size={26} /><span className="text-base font-bold">Supply</span><Ur className="text-sm">سپلائی</Ur></button>
+        <button onClick={() => setAction("payment")} className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-emerald-600 py-4 text-white shadow active:scale-95">
+          <Wallet size={26} /><span className="text-base font-bold">Payment</span><Ur className="text-sm">رقم وصول</Ur></button>
+        <button onClick={() => setAction(can("wholesale.rates") ? "rates" : "order")} className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-slate-700 py-4 text-white shadow active:scale-95">
+          {can("wholesale.rates") ? <><SlidersHorizontal size={26} /><span className="text-base font-bold">Rate</span><Ur className="text-sm">ریٹ</Ur></> : <><Receipt size={26} /><span className="text-base font-bold">Order</span><Ur className="text-sm">آرڈر</Ur></>}</button>
+      </div>}
 
       {(can("wholesale.manage") || can("wholesale.view")) && <div className="print:hidden"><WholesaleVoice compact clientId={c.id} onDone={refresh} /></div>}
 
