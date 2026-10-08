@@ -525,13 +525,13 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
   const [f, setF] = useState<any>({ station_id: "", product: products[0], litres: "", rate: "", tanker_id: "", driver_id: "", vehicle_no: "", location: client.city ?? "", ref: "", note: "", txn_date: new Date().toISOString().slice(0, 10), override_limit: false });
   useEffect(() => { if (stations.data && !f.station_id) setF((x: any) => ({ ...x, station_id: stations.data![0].id })); }, [stations.data]);
   useEffect(() => { if (order) setF((x: any) => ({ ...x, product: order.product, litres: String(order.litres), location: order.location ?? x.location, note: order.note ?? x.note })); }, [order?.id]);
+  const [step, setStep] = useState(1);
   const { busy, run } = useAction();
   const station = stations.data?.find((s) => s.id === Number(f.station_id));
   const tank = station?.tanks.filter((t: any) => t.product === f.product).sort((a: any, b: any) => b.current_l - a.current_l)[0];
   const rate = Number(f.rate) || client.rates[f.product] || 0;
   const amount = Number(f.litres) * rate;
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSubmit = async () => {
     const body: any = { station_id: Number(f.station_id), product: f.product, litres: Number(f.litres), ref: f.ref || null, note: f.note || null, txn_date: f.txn_date, photo_ids: photos,
       ...(kind === "supply" ? { ...fleetBody(f), location: f.location || null } : { vehicle_no: f.vehicle_no || null }) };
     if (f.rate && can("wholesale.rates")) body.rate = Number(f.rate);
@@ -539,31 +539,93 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
     if (order) body.order_id = order.id;
     if (await run(() => api(`/wholesale/clients/${client.id}/${kind}`, { body }), (r: any) => `${kind === "supply" ? "Supply" : "Return"} saved. Due now ${pkr(r.due_after)}`)) onDone();
   };
+
+  // ---------- Return: the simple single form (unchanged) ----------
+  if (kind === "return") {
+    return (
+      <Modal open onClose={onClose} title={`Fuel returned by ${client.name} · واپسی`}>
+        <form onSubmit={(e) => { e.preventDefault(); doSubmit(); }} className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Into station · کہاں"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+            <Field label="Product · تیل"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p]}</option>)}</select></Field>
+            <Field label="Litres · لیٹر"><input className="input" type="number" step="0.01" min={1} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
+            <Field label={can("wholesale.rates") ? "Rate (Rs/L) — blank = rate card" : "Rate (Rs/L)"}><input className="input" type="number" step="0.01" disabled={!can("wholesale.rates")} placeholder={client.rates[f.product] ? String(client.rates[f.product]) : "last supply rate"} value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} /></Field>
+            <Field label="Date · تاریخ"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
+            <Field label="Tanker / vehicle no."><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
+            <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+          </div>
+          <ProofPhotos value={photos} onChange={setPhotos} hint="return slip" />
+          {tank && <p className="text-xs text-slate-500">{tank.name}: {num(tank.current_l)} L · space {num(tank.capacity_l - tank.current_l)} L</p>}
+          {Number(f.litres) > 0 && rate > 0 && <div className="rounded-lg bg-slate-50 p-2 text-sm">{num(Number(f.litres), 2)} L × Rs {rate} = <b>{pkr(amount)}</b> · due after: <b>{pkr(client.summary.due - amount)}</b></div>}
+          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save return · محفوظ کریں</button></div>
+        </form>
+      </Modal>
+    );
+  }
+
+  // ---------- Supply: 3-step wizard — har banda aasani se samajh sake ----------
+  const step1ok = f.product && Number(f.litres) > 0 && rate > 0;
+  const step2ok = !!f.station_id;
+  const Dot = ({ n, label }: { n: number; label: string }) => (
+    <div className="flex flex-1 items-center gap-1.5">
+      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step >= n ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-500"}`}>{n}</span>
+      <span className={`text-xs ${step === n ? "font-semibold text-slate-800" : "text-slate-400"}`}>{label}</span>
+    </div>
+  );
   return (
-    <Modal open onClose={onClose} title={kind === "supply" ? `Supply fuel to ${client.name} · سپلائی` : `Fuel returned by ${client.name} · واپسی`}>
-      <form onSubmit={submit} className="space-y-3">
-        {order && <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-800">📋 Delivering the order for <b>{order.needed_on}</b> — {num(order.litres)} L {PRODUCTS[order.product]}. Saving closes the order.</p>}
+    <Modal open onClose={onClose} title={`Supply fuel to ${client.name} · سپلائی`}>
+      <div className="mb-3 flex items-center gap-1">
+        <Dot n={1} label="Kya & kitna" /><Dot n={2} label="Kahan se" /><Dot n={3} label="Confirm" />
+      </div>
+      {order && <p className="mb-2 rounded-lg bg-brand-50 p-2 text-sm text-brand-800">📋 Order deliver ho raha hai — <b>{order.needed_on}</b>, {num(order.litres)} L {PRODUCTS[order.product]}. Save karne par order band ho jayega.</p>}
+
+      {step === 1 && <div className="space-y-4">
+        <div>
+          <span className="label">Kaunsa tel? · <Ur>تیل</Ur></span>
+          <div className="mt-1 grid grid-cols-3 gap-2">
+            {products.map((p) => (
+              <button type="button" key={p} onClick={() => setF({ ...f, product: p })} className={`rounded-xl py-3 text-center font-semibold ring-2 ${f.product === p ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-200"}`}>
+                {PRODUCTS[p]}<span className="block text-xs font-normal opacity-80">{client.rates[p] ? `Rs ${client.rates[p]}/L` : "rate nahi"}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <Field label="Kitne litre? · لیٹر"><input autoFocus className="input py-3 text-2xl" type="number" step="0.01" min={1} inputMode="decimal" value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
+        {can("wholesale.rates") && <Field label="Rate (Rs/L) — khaali = client ka rate card"><input className="input" type="number" step="0.01" placeholder={client.rates[f.product] ? String(client.rates[f.product]) : "no rate set"} value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} /></Field>}
+        {Number(f.litres) > 0 && rate > 0 && <div className="rounded-xl bg-emerald-50 p-3 text-center ring-1 ring-emerald-200"><div className="text-sm text-emerald-700">{num(Number(f.litres), 2)} L × Rs {rate}</div><div className="text-2xl font-bold text-emerald-800">{pkr(amount)}</div></div>}
+        {!step1ok && Number(f.litres) > 0 && rate <= 0 && <p className="text-sm text-rose-600">Is client ka {PRODUCTS[f.product]} rate card nahi — pehle rate set karein.</p>}
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="btn-primary" disabled={!step1ok} onClick={() => setStep(2)}>Aage →</button></div>
+      </div>}
+
+      {step === 2 && <div className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label={kind === "supply" ? "From station · کہاں سے" : "Into station · کہاں"}><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-          <Field label="Product · تیل"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p]}</option>)}</select></Field>
-          <Field label="Litres · لیٹر"><input className="input" type="number" step="0.01" min={1} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
-          <Field label={can("wholesale.rates") ? "Rate (Rs/L) — blank = rate card" : "Rate (Rs/L)"}>
-            <input className="input" type="number" step="0.01" disabled={!can("wholesale.rates")} placeholder={client.rates[f.product] ? String(client.rates[f.product]) : kind === "return" ? "last supply rate" : "no rate set"} value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} />
-          </Field>
+          <Field label="Kahan se (station) · کہاں سے"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+          <FleetPicker f={f} setF={setF} />
+          <Field label="Drop location · جگہ"><input className="input" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
           <Field label="Date · تاریخ"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
-          {kind === "supply" ? <>
-            <FleetPicker f={f} setF={setF} />
-            <Field label="Drop location · جگہ"><input className="input" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
-          </> : <Field label="Tanker / vehicle no."><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>}
+        </div>
+        {tank && <p className="text-xs text-slate-500">{tank.name}: {num(tank.current_l)} L stock me</p>}
+        <div className="flex justify-between gap-2"><button type="button" className="btn-secondary" onClick={() => setStep(1)}>← Peeche</button><button type="button" className="btn-primary" disabled={!step2ok} onClick={() => setStep(3)}>Aage →</button></div>
+      </div>}
+
+      {step === 3 && <div className="space-y-3">
+        <div className="rounded-xl bg-slate-50 p-3 text-sm">
+          <div className="flex justify-between py-0.5"><span className="text-slate-500">Client</span><b>{client.name}</b></div>
+          <div className="flex justify-between py-0.5"><span className="text-slate-500">Tel · litre</span><b>{PRODUCTS[f.product]} · {num(Number(f.litres), 2)} L</b></div>
+          <div className="flex justify-between py-0.5"><span className="text-slate-500">Rate</span><b>Rs {rate}/L</b></div>
+          <div className="flex justify-between py-0.5"><span className="text-slate-500">Station</span><b>{station?.name ?? "—"}</b></div>
+          {f.location && <div className="flex justify-between py-0.5"><span className="text-slate-500">Jagah</span><b>{f.location}</b></div>}
+          <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-base"><span>Amount</span><b className="text-emerald-700">{pkr(amount)}</b></div>
+          <div className="flex justify-between text-xs text-slate-500"><span>Due after</span><span>{pkr(client.summary.due + amount)}</span></div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Delivery note / ref no."><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>
-        <ProofPhotos value={photos} onChange={setPhotos} hint={kind === "supply" ? "signed delivery note / chalan, tanker at site" : "return slip"} />
-        {tank && <p className="text-xs text-slate-500">{tank.name}: {num(tank.current_l)} L in stock {kind === "return" && `· space ${num(tank.capacity_l - tank.current_l)} L`}</p>}
-        {Number(f.litres) > 0 && rate > 0 && <div className="rounded-lg bg-slate-50 p-2 text-sm">{num(Number(f.litres), 2)} L × Rs {rate} = <b>{pkr(amount)}</b> · due after: <b>{pkr(client.summary.due + (kind === "supply" ? amount : -amount))}</b></div>}
-        {kind === "supply" && can("wholesale.rates") && client.credit_limit > 0 && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={f.override_limit} onChange={(e) => setF({ ...f, override_limit: e.target.checked })} /> Allow even if it crosses the credit limit (admin)</label>}
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save {kind} · محفوظ کریں</button></div>
-      </form>
+        <ProofPhotos value={photos} onChange={setPhotos} hint="signed delivery note / chalan, tanker at site" />
+        {can("wholesale.rates") && client.credit_limit > 0 && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={f.override_limit} onChange={(e) => setF({ ...f, override_limit: e.target.checked })} /> Credit limit cross ho to bhi allow karein (admin)</label>}
+        <div className="flex justify-between gap-2"><button type="button" className="btn-secondary" onClick={() => setStep(2)}>← Peeche</button><button type="button" className="btn-primary" disabled={busy} onClick={doSubmit}><Truck size={15} /> Supply save karein · محفوظ</button></div>
+      </div>}
     </Modal>
   );
 }
