@@ -198,6 +198,7 @@ test("direct amounts: enter full supplier cost + full client amount, profit is t
   assert.ok(typeof stk.month?.profit === "number", "month profit present");
   assert.ok(stk.month.profit >= 20000 - 0.5, `month profit includes this sale: ${stk.month.profit}`);
   assert.ok(typeof stk.month.last?.profit === "number", "last month profit present");
+  assert.ok(stk.month.year?.profit >= 20000 - 0.5, `year profit includes this sale: ${stk.month.year?.profit}`);
   // monthly series for the chart
   const series = ok(await call("wholesale", "GET", "/api/bypass/monthly?months=6"), "monthly");
   assert.equal(series.length, 6, "six months");

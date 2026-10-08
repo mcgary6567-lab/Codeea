@@ -156,7 +156,12 @@ export function bypassMonthProfit(tenantId: number) {
   const monthStart = new Date(`${ym}-01T00:00:00+05:00`).toISOString();
   const lastYm = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
   const lastStart = new Date(`${lastYm}-01T00:00:00+05:00`).toISOString();
-  return { ...bypassProfit(tenantId, monthStart), last: { ...bypassProfit(tenantId, lastStart, monthStart), month: lastYm } };
+  const yearStart = new Date(`${y}-01-01T00:00:00+05:00`).toISOString();
+  return {
+    ...bypassProfit(tenantId, monthStart),
+    last: { ...bypassProfit(tenantId, lastStart, monthStart), month: lastYm },
+    year: { ...bypassProfit(tenantId, yearStart), year: y },
+  };
 }
 
 /** Bypass stock on hand (bought but not yet delivered), per fuel, with its value and average cost. */

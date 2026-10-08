@@ -38,6 +38,8 @@ export function BypassPanel() {
           hint={stock.data?.month ? `bika ${pkrShort(stock.data.month.billed)} − cost ${pkrShort(stock.data.month.cost)}` : "—"} />
         <Stat label="Pichle mahine ka munafa" value={pkrShort(stock.data?.month?.last?.profit ?? 0)} tone={(stock.data?.month?.last?.profit ?? 0) >= 0 ? "green" : "red"}
           hint={stock.data?.month?.last ? `${stock.data.month.last.month} · bika ${pkrShort(stock.data.month.last.billed)} − cost ${pkrShort(stock.data.month.last.cost)}` : "—"} />
+        <Stat label={`${stock.data?.month?.year?.year ?? ""} ka munafa`} value={pkrShort(stock.data?.month?.year?.profit ?? 0)} tone={(stock.data?.month?.year?.profit ?? 0) >= 0 ? "green" : "red"}
+          hint={stock.data?.month?.year ? `is saal · bika ${pkrShort(stock.data.month.year.billed)} − cost ${pkrShort(stock.data.month.year.cost)}` : "—"} />
       </div>
 
       <MonthlyProfitChart data={monthly.data ?? []} />
