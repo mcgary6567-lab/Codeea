@@ -95,6 +95,13 @@ export function journal(t: number, fromDay: string, toDay: string) {
     // bypass on our depot ID: only the kiraya is ours — the client owes us the carriage, booked as income (no fuel on our books)
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Carriage income", r.amount)]);
   }
+  // carriage / kiraya with thekedars (bypass on our depot ID): their own receivable, booked as income (no fuel on our books)
+  for (const r of all(`SELECT c.*, k.name FROM carriage_txns c JOIN thekedars k ON k.id=c.thekedar_id WHERE c.tenant_id=? AND c.voided=0 AND c.created_at >= ? AND c.created_at < ?`, ...P)) {
+    const d = day(r.created_at);
+    if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Carriage receivable", r.amount), cr("Carriage income", r.amount)]);
+    if (r.type === "payment") add(d, "Receipt", `Carriage payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Carriage receivable", r.amount)]);
+    if (r.type === "adjustment") add(d, "Journal", `Carriage adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, r.amount >= 0 ? [dr("Carriage receivable", r.amount), cr("Other income", r.amount)] : [dr("Other income", -r.amount), cr("Carriage receivable", -r.amount)]);
+  }
   // suppliers (purchase cost, payments, withholding, credit notes)
   for (const r of all(`SELECT s.*, p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)) {
     const d = day(r.created_at), pay = `Payable — ${r.name}`;

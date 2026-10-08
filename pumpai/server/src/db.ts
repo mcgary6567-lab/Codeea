@@ -546,6 +546,40 @@ export function migrate() {
     invoice_ref TEXT, note TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
   addColumn("bypass_fuel_payments", "voided", "INTEGER NOT NULL DEFAULT 0");
   addColumn("bypass_fuel_payments", "carriage_txn_id", "INTEGER"); // links the fuel money to the kiraya supply it belongs to
+
+  /* ---- Carriage / kiraya business: its own party ("thekedar") and its own ledger, separate from wholesale ---- */
+  // Carriage (bypass on our depot ID) is run with thekedars, not wholesale clients. A thekedar has his own running
+  // account: we bill him the fixed kiraya (receivable, booked as income) and he settles it like any other party.
+  db.exec(`CREATE TABLE IF NOT EXISTS thekedars (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    name TEXT NOT NULL, phone TEXT, cnic TEXT, city TEXT, address TEXT,
+    opening_balance REAL NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, notes TEXT, created_at TEXT NOT NULL)`);
+  // type: carriage (kiraya billed, due up) | payment (thekedar pays, due down) | adjustment (+/- due)
+  db.exec(`CREATE TABLE IF NOT EXISTS carriage_txns (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, thekedar_id INTEGER NOT NULL REFERENCES thekedars(id),
+    type TEXT NOT NULL CHECK (type IN ('carriage','payment','adjustment')),
+    supplier_id INTEGER, product TEXT, litres REAL, amount REAL NOT NULL,
+    method TEXT, account_id INTEGER, vehicle_no TEXT, ref TEXT, note TEXT,
+    voided INTEGER NOT NULL DEFAULT 0, void_reason TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_carriage_thekedar ON carriage_txns(thekedar_id, txn_date)");
+  // fuel-money records now belong to a thekedar (carriage). Add thekedar_id and relax the old NOT NULL on client_id/supplier_id.
+  {
+    const sql = (get("SELECT sql FROM sqlite_master WHERE type='table' AND name='bypass_fuel_payments'")?.sql ?? "") as string;
+    if (sql && !sql.includes("thekedar_id")) {
+      const cols = "id,tenant_id,client_id,supplier_id,amount,mode,status,in_account_id,in_ref,fwd_account_id,fwd_ref,forwarded_at,forwarded_by,invoice_ref,note,created_by,txn_date,created_at,voided,carriage_txn_id";
+      db.exec("PRAGMA foreign_keys=OFF");
+      db.exec(`CREATE TABLE bypass_fuel_payments__new (
+        id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, thekedar_id INTEGER, client_id INTEGER, supplier_id INTEGER, amount REAL NOT NULL,
+        mode TEXT NOT NULL CHECK (mode IN ('direct','through_us')), status TEXT NOT NULL CHECK (status IN ('direct','held','forwarded')),
+        in_account_id INTEGER, in_ref TEXT, fwd_account_id INTEGER, fwd_ref TEXT, forwarded_at TEXT, forwarded_by TEXT,
+        invoice_ref TEXT, note TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL,
+        voided INTEGER NOT NULL DEFAULT 0, carriage_txn_id INTEGER)`);
+      db.exec(`INSERT INTO bypass_fuel_payments__new (${cols}) SELECT ${cols} FROM bypass_fuel_payments`);
+      db.exec("DROP TABLE bypass_fuel_payments");
+      db.exec("ALTER TABLE bypass_fuel_payments__new RENAME TO bypass_fuel_payments");
+      db.exec("PRAGMA foreign_keys=ON");
+    }
+  }
   addCashierRole();
   // cashier: cheques received from khata customers / others and cheques we issue (wholesale cheques have their own register)
   db.exec(`CREATE TABLE IF NOT EXISTS cheques (

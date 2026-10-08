@@ -232,6 +232,7 @@ export function seed() {
     seedMachines(tenantId, st1, st2);
     seedBanks(tenantId);
     seedWholesaleDesk(tenantId);
+    seedCarriage(tenantId, T0);
     // 6 of the coupon book were filled at the pump (a real coupon sale each: stock out, coupon used, money taken off the coupon liability)
     all("SELECT code FROM fuel_coupons WHERE tenant_id=? AND batch='B-DEMO-01' ORDER BY id LIMIT 6", tenantId).forEach((c, i) =>
       recordSale(tenantId, { station_id: st1, product: "PMG", payment_method: "coupon", coupon_code: c.code, created_at: iso(T0 - (8 - i) * DAY + 3 * 3600_000) } as any));
@@ -309,6 +310,34 @@ function seedCompliance(tenantId: number, stations: number[], T0: number) {
       run("INSERT INTO attendance (tenant_id,user_id,station_id,day,check_in,check_out,late_minutes,source) VALUES (?,?,?,?,?,?,?,?)",
         tenantId, u.id, u.station_id ?? stations[0], dd, iso(inAt), iso(inAt + 12 * 3600_000), late, "app");
     }
+  }
+}
+
+/** Carriage / kiraya (bypass on our depot ID) — run with thekedars, a separate party from wholesale clients. Needs suppliers (depots) to exist first. */
+function seedCarriage(tenantId: number, T0: number) {
+  const depotId = (get("SELECT id FROM suppliers WHERE tenant_id=? ORDER BY id LIMIT 1", tenantId)?.id ?? null) as number | null;
+  const theks = [
+    { name: "Rafiq Carriage Contractor", phone: "923007778881", city: "Multan", opening: 0, freq: 6, kiraya: [6000, 12000], size: [4000, 8000] },
+    { name: "Yasir Goods Transport", phone: "923008889992", city: "Sahiwal", opening: 15000, freq: 8, kiraya: [8000, 15000], size: [5000, 10000] },
+  ];
+  for (const k of theks) {
+    const kid = run("INSERT INTO thekedars (tenant_id,name,phone,city,opening_balance,created_at) VALUES (?,?,?,?,?,?)",
+      tenantId, k.name, k.phone, k.city, k.opening, iso(T0 - 60 * DAY)).id;
+    if (!depotId) continue;
+    for (let d = 55; d >= 2; d--) {
+      if (d % k.freq !== 0) continue;
+      const ts = iso(T0 - d * DAY + 11 * 3600_000);
+      const litres = Math.round((k.size[0] + rnd() * (k.size[1] - k.size[0])) / 500) * 500;
+      const kiraya = Math.round((k.kiraya[0] + rnd() * (k.kiraya[1] - k.kiraya[0])) / 500) * 500;
+      run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,supplier_id,product,litres,amount,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        tenantId, kid, "carriage", depotId, "HSD", litres, kiraya, `INV-${1000 + d}`, "Bypass on our ID · fixed kiraya", "Haji Abdul Rehman (CEO)", ts, ts);
+      if (d % (k.freq * 2) === 0)
+        run(`INSERT INTO bypass_fuel_payments (tenant_id,thekedar_id,supplier_id,amount,mode,status,invoice_ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+          tenantId, kid, depotId, Math.round(litres * 266), "direct", "direct", `INV-${1000 + d}`, "Thekedar paid depot direct", "Haji Abdul Rehman (CEO)", ts, ts);
+    }
+    const pts = iso(T0 - 8 * DAY + 11 * 3600_000);
+    run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,amount,method,ref,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+      tenantId, kid, "payment", k.kiraya[0], "cash", "Kiraya received", "Haji Abdul Rehman (CEO)", pts, pts);
   }
 }
 

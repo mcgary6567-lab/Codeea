@@ -71,7 +71,7 @@ test("a sale shows up in the 24h report: revenue, stock and money in", async () 
 test("receivables and payables (as of now)", async () => {
   const r = (await call("manager", "GET", "/api/reports")).data;
   assert.ok(r.receivables.total > 0);
-  assert.equal(Math.round(r.receivables.khata_total + r.receivables.wholesale_total), Math.round(r.receivables.total));
+  assert.equal(Math.round(r.receivables.khata_total + r.receivables.wholesale_total + (r.receivables.carriage_total ?? 0)), Math.round(r.receivables.total));
   assert.equal(Math.round(r.receivables.aging.reduce((a: number, b: any) => a + b.amount, 0)), Math.round(r.receivables.total));
   assert.ok(r.receivables.list.every((x: any) => x.amount > 0));
   assert.ok(r.payables.list.some((x: any) => x.kind === "Supplier"));

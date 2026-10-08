@@ -9,6 +9,7 @@ export async function tallyBooks(label = "") {
   const db = await import("../../src/db.js");
   const { journal } = await import("../../src/routes/ledger.js");
   const { clientDue } = await import("../../src/routes/wholesale.js");
+  const { thekedarDue } = await import("../../src/routes/carriage.js");
   const { supplierOwed } = await import("../../src/routes/suppliers.js");
   const { bankAccounts } = await import("../../src/routes/banks.js");
   const { cashPosition } = await import("../../src/routes/backoffice.js");
@@ -23,6 +24,8 @@ export async function tallyBooks(label = "") {
   assert.ok(!J.trial_balance.some((x) => x.account === "Suspense"), `${label} nothing in Suspense`);
   const cs = db.all("SELECT id, opening_balance FROM wholesale_clients WHERE tenant_id=?", t);
   near(cs.reduce((a, c) => a + clientDue(c.id) - c.opening_balance, 0), tb("Wholesale receivable"), "wholesale receivable");
+  const ks = db.all("SELECT id, opening_balance FROM thekedars WHERE tenant_id=?", t);
+  near(ks.reduce((a, k) => a + thekedarDue(k.id) - k.opening_balance, 0), tb("Carriage receivable"), "carriage receivable");
   for (const s of db.all("SELECT id, name, opening_balance FROM suppliers WHERE tenant_id=?", t))
     near(supplierOwed(s.id) - s.opening_balance, -tb(`Payable — ${s.name}`), `supplier ${s.name}`);
   let khata = 0;

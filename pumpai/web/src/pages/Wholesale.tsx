@@ -202,7 +202,7 @@ function ClientDetail({ id }: { id: string }) {
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const stmt = useApi<any>(`/wholesale/clients/${id}/statement${qs ? `?${qs}` : ""}`);
   const [params, setParams] = useSearchParams();
-  const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit" | "order" | "promise" | "cheque" | "carriage" | "fuelpay">(() => (params.get("do") as any) || null);
+  const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit" | "order" | "promise" | "cheque">(() => (params.get("do") as any) || null);
   // supplying a booked order (from the order book) fills the form and closes the order
   const [orderId, setOrderId] = useState<number | null>(() => Number(params.get("order")) || null);
   const [deskKey, setDeskKey] = useState(0);
@@ -227,8 +227,6 @@ function ClientDetail({ id }: { id: string }) {
             <button className="btn-primary" onClick={() => setAction("supply")} disabled={!c.active}><Truck size={15} /> New supply · <Ur>سپلائی</Ur></button>
             <button className="btn-secondary" onClick={() => setAction("payment")}><Wallet size={15} /> Receive payment · <Ur>رقم وصول</Ur></button>
             <button className="btn-secondary" onClick={() => setAction("return")}><Undo2 size={15} /> Fuel return · <Ur>واپسی</Ur></button>
-            {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("carriage")} disabled={!c.active}><Truck size={15} /> Bypass (our ID) · <Ur>کرایہ</Ur></button>}
-            {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("fuelpay")}><Banknote size={15} /> Fuel payment · <Ur>فیول</Ur></button>}
           </>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setAction("adjustment")}><SlidersHorizontal size={15} /> Adjustment · <Ur>ایڈجسٹمنٹ</Ur></button>}
           {can("wholesale.manage") && c.phone && <button className="btn-secondary" disabled={sending} onClick={async () => {
@@ -292,7 +290,6 @@ function ClientDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {can("wholesale.manage") && <HeldFuel clientId={c.id} refreshKey={deskKey} onChanged={refresh} />}
 
       <ClientDeskCard client={c} refreshKey={deskKey} onChanged={refresh} onAction={(a, oid) => { if (a === "supply-order") { setOrderId(oid ?? null); setAction("supply"); } else setAction(a); }} />
 
@@ -329,8 +326,6 @@ function ClientDetail({ id }: { id: string }) {
       {action === "cheque" && <ChequeForm client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "payment" && <PaymentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "adjustment" && <AdjustmentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
-      {action === "carriage" && <CarriageEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
-      {action === "fuelpay" && <FuelPaymentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "rates" && <RatesEditor client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "edit" && <ClientForm initial={c} onClose={() => setAction(null)} onSaved={() => { setAction(null); refresh(); }} />}
     </div>
@@ -504,148 +499,6 @@ function AdjustmentEntry({ client, onClose, onDone }: { client: any; onClose: ()
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
     </Modal>
-  );
-}
-
-/** Bypass supply on OUR depot ID: the fuel is the client's (not our books), we only bill the kiraya/carriage as income. */
-function CarriageEntry({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
-  const depots = useApi<any[]>("/wholesale/depots");
-  const [f, setF] = useState({ supplier_id: "", invoice_ref: "", vehicle_no: "", amount: "", note: "" });
-  const [lines, setLines] = useState<{ product: string; litres: string }[]>([{ product: "HSD", litres: "" }]);
-  const [withFuel, setWithFuel] = useState(false);
-  const [fu, setFu] = useState({ amount: "", mode: "direct", in_method: "Bank transfer", forward_now: true, fwd_method: "Bank transfer" });
-  const [inAcc, setInAcc] = useState<number | null>(null);
-  const [fwdAcc, setFwdAcc] = useState<number | null>(null);
-  const { busy, run } = useAction();
-  const totalL = lines.reduce((a, l) => a + (Number(l.litres) || 0), 0);
-  const kiraya = Number(f.amount) || 0; // fixed kiraya written on the depot invoice
-  const fuelThrough = withFuel && fu.mode === "through_us";
-  const valid = f.supplier_id && totalL > 0 && kiraya > 0 && (!withFuel || (Number(fu.amount) > 0 && (!fuelThrough || inAcc)));
-  return (
-    <Modal open onClose={onClose} title={`Bypass supply (our ID) — ${client.name}`}>
-      <form className="space-y-3" onSubmit={async (e) => {
-        e.preventDefault();
-        const body: any = {
-          supplier_id: Number(f.supplier_id), invoice_ref: f.invoice_ref || null, vehicle_no: f.vehicle_no || null,
-          lines: lines.filter((l) => Number(l.litres) > 0).map((l) => ({ product: l.product, litres: Number(l.litres) })),
-          mode: "lump", amount: Number(f.amount), note: f.note || null,
-          fuel: withFuel ? { mode: fu.mode, amount: Number(fu.amount), ...(fuelThrough ? { in_method: fu.in_method, in_account_id: inAcc, forward_now: fu.forward_now, fwd_method: fu.fwd_method, fwd_account_id: fwdAcc ?? inAcc } : {}) } : null,
-        };
-        if (await run(() => api(`/wholesale/clients/${client.id}/carriage`, { body }), (r: any) => `Kiraya ${pkr(r.kiraya)} billed. Due now ${pkr(r.due)}`)) onDone();
-      }}>
-        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Depot humari ID par load karta hai aur hamein invoice deta hai — fuel ka paisa humari books mein nahi aata. Hum sirf <b>kiraya</b> client se charge karte hain, jo poora munafa hai. <Ur className="block">صرف کرایہ کلائنٹ کے ذمے — فیول ہمارے کھاتے میں نہیں</Ur></p>
-        <Field label="Depot (our ID) *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
-          <option value="">— choose depot —</option>{(depots.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
-        <div className="space-y-2">
-          <span className="label">Fuel lifted (for the record) · <Ur>کتنا تیل</Ur></span>
-          {lines.map((l, i) => (
-            <div key={i} className="flex gap-2">
-              <select className="input" value={l.product} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-              <input className="input" type="number" min={0} placeholder="litres" value={l.litres} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
-              {lines.length > 1 && <button type="button" className="min-h-10 px-2 text-red-600" aria-label="Remove" onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>}
-            </div>
-          ))}
-          <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setLines([...lines, { product: "PMG", litres: "" }])}>+ Add fuel</button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Invoice no. (depot) · انوائس"><input className="input" value={f.invoice_ref} onChange={(e) => setF({ ...f, invoice_ref: e.target.value })} /></Field>
-          <Field label="Tanker / vehicle"><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
-        </div>
-        <Field label="Kiraya (fixed — as written on the depot invoice) · کرایہ *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="e.g. 8000" /></Field>
-        <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
-
-        {/* optional: record the fuel money (depot bill) in the same entry */}
-        <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={withFuel} onChange={(e) => setWithFuel(e.target.checked)} /> Fuel money bhi abhi record karein? · <Ur>فیول کا پیسہ بھی</Ur></label>
-        {withFuel && <div className="space-y-3 rounded-xl bg-slate-50 p-3">
-          <Field label="Fuel amount (Rs) · depot invoice *"><input className="input" type="number" min={1} value={fu.amount} onChange={(e) => setFu({ ...fu, amount: e.target.value })} /></Field>
-          <div className="grid grid-cols-1 gap-2">
-            <button type="button" onClick={() => setFu({ ...fu, mode: "direct" })} aria-pressed={fu.mode === "direct"} className={`rounded-xl px-3 py-2 text-left text-sm ${fu.mode === "direct" ? "bg-slate-800 font-semibold text-white" : "bg-white ring-1 ring-slate-200"}`}>Client paid the depot <b>direct</b> (screenshot)</button>
-            <button type="button" onClick={() => setFu({ ...fu, mode: "through_us" })} aria-pressed={fu.mode === "through_us"} className={`rounded-xl px-3 py-2 text-left text-sm ${fu.mode === "through_us" ? "bg-slate-800 font-semibold text-white" : "bg-white ring-1 ring-slate-200"}`}>Client sent it to <b>us</b> → we forward</button>
-          </div>
-          {fuelThrough && <div className="space-y-2">
-            <AccountPicker method={fu.in_method} value={inAcc} onChange={setInAcc} label="Client sent to which account? · کس اکاؤنٹ میں" required />
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={fu.forward_now} onChange={(e) => setFu({ ...fu, forward_now: e.target.checked })} /> Forward to the depot now</label>
-            {fu.forward_now && <AccountPicker method={fu.fwd_method} value={fwdAcc} onChange={setFwdAcc} label="Forwarded from which account?" />}
-          </div>}
-        </div>}
-
-        <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">Total {num(totalL)} L · Kiraya billed: <b className="tabular-nums">{pkr(kiraya)}</b> <span className="text-slate-500">(client ke zimme, poora munafa)</span>{withFuel && Number(fu.amount) > 0 && <span className="block text-slate-500">Fuel Rs {num(Number(fu.amount))} — {fu.mode === "direct" ? "depot ko direct" : "humare through"}</span>}</div>
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Bill kiraya</button></div>
-      </form>
-    </Modal>
-  );
-}
-
-/** Fuel money for a bypass supply — separate from kiraya. Client paid the depot direct (record only), or sent it to us to forward. */
-function FuelPaymentEntry({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
-  const depots = useApi<any[]>("/wholesale/depots");
-  const [f, setF] = useState({ supplier_id: "", amount: "", mode: "direct", invoice_ref: "", note: "", in_method: "Bank transfer", in_ref: "", forward_now: true, fwd_method: "Bank transfer", fwd_ref: "" });
-  const [inAcc, setInAcc] = useState<number | null>(null);
-  const [fwdAcc, setFwdAcc] = useState<number | null>(null);
-  const [photos, setPhotos] = useState<number[]>([]);
-  const { busy, run } = useAction();
-  const through = f.mode === "through_us";
-  const valid = f.supplier_id && Number(f.amount) > 0 && (!through || inAcc);
-  return (
-    <Modal open onClose={onClose} title={`Fuel payment (bypass) — ${client.name}`}>
-      <form className="space-y-3" onSubmit={async (e) => {
-        e.preventDefault();
-        const body = {
-          supplier_id: Number(f.supplier_id), amount: Number(f.amount), mode: f.mode, invoice_ref: f.invoice_ref || null, note: f.note || null, photo_ids: photos,
-          ...(through ? { in_method: f.in_method, in_account_id: inAcc, in_ref: f.in_ref || null, forward_now: f.forward_now, fwd_method: f.fwd_method, fwd_account_id: fwdAcc ?? inAcc, fwd_ref: f.fwd_ref || null } : {}),
-        };
-        if (await run(() => api(`/wholesale/clients/${client.id}/fuel-payment`, { body }), "Fuel payment saved")) onDone();
-      }}>
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Yeh depot ke fuel ka paisa hai — <b>humara kiraya nahi</b>. Client ki due par asar nahi; sirf record (aur through-us mein humare bank se guzarta hai, net zero).</p>
-        <Field label="Depot *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
-          <option value="">— choose depot —</option>{(depots.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Fuel amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
-          <Field label="Depot invoice no."><input className="input" value={f.invoice_ref} onChange={(e) => setF({ ...f, invoice_ref: e.target.value })} /></Field>
-        </div>
-        <fieldset>
-          <legend className="label">How was it paid? · <Ur>کیسے</Ur></legend>
-          <div className="grid grid-cols-1 gap-2">
-            <button type="button" onClick={() => setF({ ...f, mode: "direct" })} aria-pressed={f.mode === "direct"} className={`rounded-xl px-3 py-2.5 text-left text-sm ${f.mode === "direct" ? "bg-slate-800 font-semibold text-white" : "bg-slate-100"}`}>Client paid the depot <b>direct</b> — we keep the screenshot · <Ur>کلائنٹ نے سیدھا ڈپو کو</Ur></button>
-            <button type="button" onClick={() => setF({ ...f, mode: "through_us" })} aria-pressed={through} className={`rounded-xl px-3 py-2.5 text-left text-sm ${through ? "bg-slate-800 font-semibold text-white" : "bg-slate-100"}`}>Client sent it to <b>us</b> → we forward to the depot · <Ur>ہمیں بھیجا، ہم ڈپو کو</Ur></button>
-          </div>
-        </fieldset>
-        {through && <div className="space-y-3 rounded-xl bg-sky-50 p-3">
-          <AccountPicker method={f.in_method} value={inAcc} onChange={setInAcc} label="Client sent to which of our accounts? · کس اکاؤنٹ میں آیا" required />
-          <Field label="Ref (client's transfer)"><input className="input" value={f.in_ref} onChange={(e) => setF({ ...f, in_ref: e.target.value })} /></Field>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={f.forward_now} onChange={(e) => setF({ ...f, forward_now: e.target.checked })} /> Forward to the depot now · <Ur>ابھی ڈپو کو بھیج دیا</Ur></label>
-          {f.forward_now && <>
-            <AccountPicker method={f.fwd_method} value={fwdAcc} onChange={setFwdAcc} label="Forwarded from which account? · کس اکاؤنٹ سے" />
-            <Field label="Ref (to depot)"><input className="input" value={f.fwd_ref} onChange={(e) => setF({ ...f, fwd_ref: e.target.value })} /></Field>
-          </>}
-          {!f.forward_now && <p className="text-xs text-amber-800">Abhi "held" dikhega — baad mein Forward kar dena. · <Ur>بعد میں فارورڈ کریں</Ur></p>}
-        </div>}
-        <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
-        <ProofPhotos value={photos} onChange={setPhotos} hint={f.mode === "direct" ? "client's payment screenshot" : "bank receipt(s)"} />
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Save</button></div>
-      </form>
-    </Modal>
-  );
-}
-
-/** Fuel money we received from this client but have not yet forwarded to the depot. */
-function HeldFuel({ clientId, refreshKey, onChanged }: { clientId: number; refreshKey: number; onChanged: () => void }) {
-  const { data, reload } = useApi<any[]>(`/wholesale/fuel-held?k=${refreshKey}`);
-  const { busy, run } = useAction();
-  const mine = (data ?? []).filter((f) => f.client_id === clientId);
-  if (!mine.length) return null;
-  return (
-    <div className="card border-l-4 border-l-amber-500 p-4 print:hidden">
-      <h2 className="mb-2 font-semibold">⏳ Fuel money held for the depot · <Ur>ڈپو کو دینا باقی</Ur></h2>
-      <ul className="divide-y divide-slate-100">
-        {mine.map((f) => (
-          <li key={f.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
-            <span className="min-w-0 flex-1"><b className="tabular-nums">{pkr(f.amount)}</b> → {f.depot_name ?? "depot"}{f.invoice_ref ? ` · inv ${f.invoice_ref}` : ""}<span className="block text-xs text-slate-500">{dt(f.txn_date)}{f.note ? ` · ${f.note}` : ""}</span></span>
-            <button className="btn-primary !py-1.5 text-sm" disabled={busy} onClick={() => run(() => api(`/wholesale/fuel-payments/${f.id}/forward`, { body: {} }), "Forwarded to the depot").then(() => { reload(); onChanged(); })}><Send size={14} /> Forward to depot</button>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 

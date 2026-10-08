@@ -116,7 +116,7 @@ export function balanceSheet(t: number) {
   const banks = bankAccounts(t).total;
   // cheques received but not yet cleared are still money owed to us (they sit in the receivables), so they are not added again
   // cash taken by the salesmen and not yet handed to the cashier is still the pump's money
-  const assets = { cash_in_hand: r0(cash), cash_with_salesmen: r0(cashWithSalesmen(t).total), banks: r0(banks), fuel_stock: r0(fuel), shop_stock: r0(shopStock), khata_receivable: r0(b.receivables.khata_total), wholesale_receivable: r0(b.receivables.wholesale_total), staff_advances: r0(Math.max(0, staffOwe)) };
+  const assets = { cash_in_hand: r0(cash), cash_with_salesmen: r0(cashWithSalesmen(t).total), banks: r0(banks), fuel_stock: r0(fuel), shop_stock: r0(shopStock), khata_receivable: r0(b.receivables.khata_total), wholesale_receivable: r0(b.receivables.wholesale_total), carriage_receivable: r0(b.receivables.carriage_total ?? 0), staff_advances: r0(Math.max(0, staffOwe)) };
   const liabilities = {
     suppliers: r0(b.payables.suppliers_total), customer_advances: r0(b.payables.total - b.payables.suppliers_total), expenses_pending: r0(b.payables.pending_expenses.amount),
     unused_coupons: one("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND status='active'"),

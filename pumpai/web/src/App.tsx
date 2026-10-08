@@ -24,6 +24,7 @@ import Expenses from "./pages/Expenses";
 import Property from "./pages/Property";
 import Reports from "./pages/Reports";
 import Suppliers from "./pages/Suppliers";
+import Carriage from "./pages/Carriage";
 import Staff from "./pages/Staff";
 import MyAccount from "./pages/MyAccount";
 import Cards from "./pages/Cards";
@@ -137,6 +138,8 @@ export default function App() {
               <Route path="automations" element={<Need perm="automations.manage"><Automations /></Need>} />
               <Route path="wholesale" element={<Need perm="wholesale.view"><Wholesale /></Need>} />
               <Route path="wholesale/:id" element={<Need perm="wholesale.view"><Wholesale /></Need>} />
+              <Route path="carriage" element={<Need perm="carriage.view"><Carriage /></Need>} />
+              <Route path="carriage/:id" element={<Need perm="carriage.view"><Carriage /></Need>} />
               <Route path="expenses" element={<Need perm="expenses.view"><Expenses /></Need>} />
               <Route path="property" element={<Need perm="expenses.view"><Property /></Need>} />
               <Route path="reports" element={<Need perm="reports.view"><Reports /></Need>} />

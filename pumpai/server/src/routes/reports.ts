@@ -12,6 +12,7 @@ import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { clientDue, carriageIncome } from "./wholesale.js";
+import { thekedarDue, carriageIncomeThekedar } from "./carriage.js";
 import { supplierOwed } from "./suppliers.js";
 import { tankOutlook } from "../ai/analytics.js";
 import { rentalIncome } from "./property.js";
@@ -208,7 +209,7 @@ export function buildReport(t: number, from: string, to: string) {
   const revenue = round2(retail.amount + wholesale.net_billed + shopS.sales);
   const digital = sales.by_payment.filter((m) => ["jazzcash", "easypaisa", "raast", "card"].includes(m.method)).reduce((a, m) => a + m.amount, 0);
   const rent_income = rentalIncome(t, from, to);
-  const carriage_income = carriageIncome(t, from, to); // bypass-on-our-ID kiraya — whole amount is profit
+  const carriage_income = round2(carriageIncome(t, from, to) + carriageIncomeThekedar(t, from, to)); // bypass-on-our-ID kiraya (wholesale-legacy + thekedar) — whole amount is profit
   const summary = {
     revenue, retail_sales: round2(retail.amount), retail_litres: r0(retail.litres), retail_txns: retail.txns,
     wholesale_net: wholesale.net_billed, wholesale_litres: r0(wholesale.supplied_l - wholesale.returned_l),
@@ -287,18 +288,23 @@ export function balances(t: number) {
     const lp = lastPay("SELECT MAX(txn_date) d FROM wholesale_txns WHERE client_id=? AND type='payment' AND voided=0", c.id);
     return { ...c, balance: clientDue(c.id), kind: "Wholesale client", last_payment: lp, days_since_payment: age(lp) };
   }).filter((c) => c.balance !== 0);
+  const carRows = all("SELECT id, name, phone FROM thekedars WHERE tenant_id=?", t).map((k) => {
+    const lp = lastPay("SELECT MAX(txn_date) d FROM carriage_txns WHERE thekedar_id=? AND type='payment' AND voided=0", k.id);
+    return { ...k, balance: thekedarDue(k.id), kind: "Thekedar (carriage)", last_payment: lp, days_since_payment: age(lp) };
+  }).filter((k) => k.balance !== 0);
   const supRows = all("SELECT id, name, phone FROM suppliers WHERE tenant_id=?", t).map((s) => {
     const lp = lastPay("SELECT MAX(txn_date) d FROM supplier_txns WHERE supplier_id=? AND type='payment'", s.id);
     return { ...s, owed: supplierOwed(s.id), kind: "Supplier", last_payment: lp };
   });
 
-  const recv = [...khataRows.filter((c) => c.balance > 0), ...wsRows.filter((c) => c.balance > 0)]
+  const recv = [...khataRows.filter((c) => c.balance > 0), ...wsRows.filter((c) => c.balance > 0), ...carRows.filter((c) => c.balance > 0)]
     .map((c) => ({ ...c, amount: round2(c.balance), aging: bucketOf(c.days_since_payment) })).sort((a, b) => b.amount - a.amount);
   const agingOrder = ["0-30 days", "31-60 days", "61-90 days", "90+ days", "No payment yet"];
   const payables = [
     ...supRows.filter((s) => s.owed > 0).map((s) => ({ ...s, amount: s.owed, reason: "Fuel purchased on credit" })),
     ...khataRows.filter((c) => c.balance < 0).map((c) => ({ ...c, amount: round2(-c.balance), reason: "Customer advance (paid more than used)" })),
     ...wsRows.filter((c) => c.balance < 0).map((c) => ({ ...c, amount: round2(-c.balance), reason: "Wholesale advance" })),
+    ...carRows.filter((c) => c.balance < 0).map((c) => ({ ...c, amount: round2(-c.balance), reason: "Thekedar advance (carriage)" })),
   ].sort((a, b) => b.amount - a.amount);
   const pendingExp = all("SELECT category, amount, paid_to, created_by, expense_date FROM expenses WHERE tenant_id=? AND status='pending' ORDER BY amount DESC", t);
 
@@ -307,6 +313,7 @@ export function balances(t: number) {
       total: round2(recv.reduce((a, r) => a + r.amount, 0)),
       khata_total: round2(recv.filter((r) => r.kind === "Khata customer").reduce((a, r) => a + r.amount, 0)),
       wholesale_total: round2(recv.filter((r) => r.kind === "Wholesale client").reduce((a, r) => a + r.amount, 0)),
+      carriage_total: round2(recv.filter((r) => r.kind === "Thekedar (carriage)").reduce((a, r) => a + r.amount, 0)),
       aging: agingOrder.map((b) => ({ bucket: b, amount: round2(recv.filter((r) => r.aging === b).reduce((a, r) => a + r.amount, 0)), count: recv.filter((r) => r.aging === b).length })),
       list: recv,
     },

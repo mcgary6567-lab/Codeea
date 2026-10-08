@@ -45,7 +45,7 @@ test("wholesale module access is separate", async () => {
   // wholesale officer sees nothing else
   for (const url of ["/api/dashboard", "/api/customers", "/api/expenses", "/api/users", "/api/sales", "/api/shifts", "/api/prices", "/api/orders"]) assert.equal((await call("wholesale", "GET", url)).status, 403, url);
   const me = (await call("wholesale", "GET", "/api/me")).data;
-  assert.deepEqual(me.permissions.sort(), ["wholesale.manage", "wholesale.view"]);
+  assert.deepEqual(me.permissions.sort(), ["carriage.manage", "carriage.view", "wholesale.manage", "wholesale.view"]);
 });
 
 test("only admin sets per-client rates and credit limits", async () => {
