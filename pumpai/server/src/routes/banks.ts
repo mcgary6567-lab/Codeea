@@ -30,6 +30,8 @@ const isCash = (m?: string | null) => !m || /^cash$/i.test(m.trim());
  */
 export const DEPOT_PAY = "Paid to depot";
 export const notDepot = (col: string) => `LOWER(COALESCE(${col},''))<>'paid to depot'`;
+// a wholesale client settled a bypass supplier direct (no money through us): lowers the client's due and our bypass payable
+export const BYPASS_PAY = "Paid bypass supplier";
 
 /**
  * The account a payment names, checked to belong to this pump. Cash never goes to a bank account;
@@ -98,7 +100,7 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
     ...all(`SELECT x.account_id, x.txn_date at, -x.amount amount, 'payment' kind, 'Paid supplier — ' || s.name || ' (' || COALESCE(x.method,'') || COALESCE(' ' || x.ref, '') || ')' text, x.created_by who, 'stx:' || x.id ref
       FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.type='payment' AND COALESCE(x.method,'')<>'WHT'${acc}`, t, ...A),
     ...all(`SELECT x.account_id, x.txn_date at, -x.amount amount, 'payment' kind, 'Bypass supplier paid — ' || s.name || COALESCE(' ' || x.ref, '') text, x.created_by who, 'byppay:' || x.id ref
-      FROM bypass_supplier_payments x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.mode='we_pay' AND x.voided=0${acc}`, t, ...A),
+      FROM bypass_supplier_payments x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.mode IN ('we_pay','through_us') AND x.voided=0${acc}`, t, ...A),
     ...all(`SELECT x.account_id, x.created_at at, -x.amount amount, 'expense' kind, 'Expense — ' || x.category || COALESCE(' · ' || x.paid_to, '') text, x.created_by who, 'expense:' || x.id ref
       FROM expenses x WHERE x.tenant_id=? AND x.status='approved'${acc}`, t, ...A),
     ...all(`SELECT x.account_id, x.created_at at, CASE WHEN x.type='refund' THEN -x.amount ELSE x.amount END amount, 'receipt' kind,

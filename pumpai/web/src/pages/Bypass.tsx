@@ -204,30 +204,51 @@ function SupplierStatement({ id, onClose, onChanged }: { id: number; onClose: ()
 }
 
 function PaySupplier({ id, owed, onClose, onDone }: { id: number; owed: number; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ amount: "", method: "Bank transfer", ref: "", note: "" });
+  const clients = useApi<any[]>("/wholesale/clients");
+  const [f, setF] = useState({ amount: "", mode: "we_pay", method: "Bank transfer", client_id: "", ref: "", note: "" });
   const [acc, setAcc] = useState<number | null>(null);
   const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
+  const needsClient = f.mode !== "we_pay";
+  const needsBank = f.mode !== "client_direct";
+  const MODES: [string, string, string][] = [
+    ["we_pay", "Hum pay karein", "humare bank/cash se supplier ko"],
+    ["client_direct", "Client ne direct diya", "client ne supplier ko khud diya — uski due bhi kam"],
+    ["through_us", "Client → hum → supplier", "client ne hamein bheja, hum ne aage diya (net-zero)"],
+  ];
+  const valid = Number(f.amount) > 0 && (!needsClient || f.client_id) && (!needsBank || f.mode === "client_direct" || true);
   return (
     <Modal open onClose={onClose} title="Pay bypass supplier">
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        const body = { amount: Number(f.amount), mode: "we_pay", method: f.method, account_id: acc, ref: f.ref || null, note: f.note || null, photo_ids: photos };
-        if (await run(() => api(`/bypass/suppliers/${id}/payment`, { body }), (r: any) => `Paid. We now owe ${pkr(r.bypass_owed)}`)) onDone();
+        const body: any = { amount: Number(f.amount), mode: f.mode, ref: f.ref || null, note: f.note || null, photo_ids: photos };
+        if (needsClient) body.client_id = Number(f.client_id);
+        if (needsBank) { body.method = f.method; body.account_id = acc; }
+        if (await run(() => api(`/bypass/suppliers/${id}/payment`, { body }), (r: any) => `Done. We now owe ${pkr(r.bypass_owed)}${r.client_due !== undefined ? ` · client due ${pkr(r.client_due)}` : ""}`)) onDone();
       }}>
         <p className="text-sm text-slate-600">We owe: <b>{pkr(owed)}</b></p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
-          <Field label="Method"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{["Bank transfer", "Cash", "Cheque", "Raast", "JazzCash", "Easypaisa", "Online"].map((m) => <option key={m}>{m}</option>)}</select></Field>
-        </div>
-        <AccountPicker method={f.method} value={acc} onChange={setAcc} />
+        <fieldset>
+          <legend className="label">Kaun pay kar raha hai? · <Ur>کون ادائیگی</Ur></legend>
+          <div className="grid grid-cols-1 gap-2">
+            {MODES.map(([m, title, sub]) => (
+              <button type="button" key={m} onClick={() => setF({ ...f, mode: m })} aria-pressed={f.mode === m}
+                className={`rounded-xl px-3 py-2 text-left text-sm ${f.mode === m ? "bg-slate-800 font-semibold text-white" : "bg-slate-100 text-slate-700"}`}>{title}<span className={`block text-xs font-normal ${f.mode === m ? "text-white/80" : "text-slate-500"}`}>{sub}</span></button>
+            ))}
+          </div>
+        </fieldset>
+        <Field label="Amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+        {needsClient && <Field label="Which client paid? · کون سا کلائنٹ *"><select className="input" required value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value })}>
+          <option value="">— choose client —</option>{(clients.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name} · due {pkr(c.due)}</option>)}</select></Field>}
+        {needsBank && <>
+          <Field label={f.mode === "through_us" ? "Client sent to / we forwarded from which account?" : "Method"}><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{["Bank transfer", "Cash", "Cheque", "Raast", "JazzCash", "Easypaisa", "Online"].map((m) => <option key={m}>{m}</option>)}</select></Field>
+          <AccountPicker method={f.method} value={acc} onChange={setAcc} />
+        </>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Ref / slip"><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Client-direct aur through-us (client ne supplier ko diya / client ne hamein diya hum ne aage) agle step mein aa rahe hain.</p>
         <ProofPhotos value={photos} onChange={setPhotos} hint="payment slip / screenshot" />
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !(Number(f.amount) > 0)}>Save payment</button></div>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Save payment</button></div>
       </form>
     </Modal>
   );

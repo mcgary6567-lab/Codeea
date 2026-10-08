@@ -8,7 +8,7 @@ import { h, tid, requirePerm } from "../auth.js";
 import { AppError, round2 } from "../services.js";
 import { taxSettings, splitTax } from "./tax.js";
 import { PRODUCTS } from "../config.js";
-import { posMap, DEPOT_PAY } from "./banks.js";
+import { posMap, DEPOT_PAY, BYPASS_PAY } from "./banks.js";
 import { cashPosition } from "./backoffice.js";
 
 export const ledger = Router();
@@ -90,7 +90,8 @@ export function journal(t: number, fromDay: string, toDay: string) {
     // paid straight to our depot: what we owe the depot goes down instead of money coming in
     const depot = r.type === "payment" && r.method === DEPOT_PAY ? get("SELECT p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.ref=?", `wtx:${r.id}`)?.name : null;
     if (depot) add(d, "Journal", `Wholesale payment — ${r.name} paid ${depot} direct${r.ref ? ` (${r.ref})` : ""}`, [dr(`Payable — ${depot}`, r.amount), cr("Wholesale receivable", r.amount)]);
-    else if (r.type === "payment") add(d, "Receipt", `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
+    // a client who settled a bypass supplier direct: the receivable credit is booked against the bypass payable (below), so skip it here
+    else if (r.type === "payment" && r.method !== BYPASS_PAY) add(d, "Receipt", `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Wholesale adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Other income", r.amount)]);
     // bypass on our depot ID: only the kiraya is ours — the client owes us the carriage, booked as income (no fuel on our books)
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Carriage income", r.amount)]);
@@ -109,6 +110,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
   for (const r of all(`SELECT b.*, s.name FROM bypass_supplier_payments b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.created_at >= ? AND b.created_at < ?`, ...P)) {
     const d = day(r.created_at);
     if (r.mode === "we_pay") add(d, "Payment", `Bypass supplier paid — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass suppliers payable", r.amount), cr(via(r.method, r.account_id), r.amount)]);
+    else if (r.mode === "through_us") add(d, "Payment", `Bypass forwarded to ${r.name} (through us)${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass suppliers payable", r.amount), cr(via(r.method, r.account_id), r.amount)]);
     else if (r.mode === "client_direct") add(d, "Journal", `Bypass — client paid ${r.name} direct${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass suppliers payable", r.amount), cr("Wholesale receivable", r.amount)]);
   }
   // suppliers (purchase cost, payments, withholding, credit notes)

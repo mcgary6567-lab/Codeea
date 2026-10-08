@@ -110,6 +110,36 @@ test("we pay the bypass supplier from the bank: bypass account down, bank down",
   near(tb(L1, "Bypass suppliers payable") - tb(L0, "Bypass suppliers payable"), 300000, "payable reduced");
 });
 
+test("client pays the bypass supplier direct: client's due and our bypass payable both down, no money through us", async () => {
+  const L0 = ok(await ledger(), "l0");
+  const bankOf = async () => ok(await call("admin", "GET", "/api/bank/accounts"), "banks").accounts.find((a: any) => a.id === acc).balance as number;
+  const bank0 = await bankOf();
+  const owed0 = ok(await call("wholesale", "GET", "/api/bypass/suppliers"), "bl").find((s: any) => s.id === S2.id).bypass_owed;
+  const due0 = await clientDueOf(W1.id);
+  const r = ok(await call("wholesale", "POST", `/api/bypass/suppliers/${S2.id}/payment`, { amount: 50000, mode: "client_direct", client_id: W1.id, ref: "slip-9" }), "client direct");
+  near(r.bypass_owed, owed0 - 50000, "bypass owed down");
+  near(r.client_due, due0 - 50000, "client due down");
+  near(await bankOf(), bank0, "no money through our bank");
+  const L1 = ok(await ledger(), "l1");
+  near(tb(L1, "Bypass suppliers payable") - tb(L0, "Bypass suppliers payable"), 50000, "payable reduced");
+  near(tb(L1, "Wholesale receivable") - tb(L0, "Wholesale receivable"), -50000, "receivable reduced");
+});
+
+test("through us: client sends money to us, we forward to the supplier (net-zero through our bank)", async () => {
+  const L0 = ok(await ledger(), "l0");
+  const bankOf = async () => ok(await call("admin", "GET", "/api/bank/accounts"), "banks").accounts.find((a: any) => a.id === acc).balance as number;
+  const bank0 = await bankOf();
+  const owed0 = ok(await call("wholesale", "GET", "/api/bypass/suppliers"), "bl").find((s: any) => s.id === S2.id).bypass_owed;
+  const due0 = await clientDueOf(W1.id);
+  const r = ok(await call("wholesale", "POST", `/api/bypass/suppliers/${S2.id}/payment`, { amount: 40000, mode: "through_us", client_id: W1.id, method: "Bank transfer", account_id: acc, ref: "thru-1" }), "through us");
+  near(r.bypass_owed, owed0 - 40000, "bypass owed down");
+  near(r.client_due, due0 - 40000, "client due down");
+  near(await bankOf(), bank0, "bank net zero (in then out)");
+  const L1 = ok(await ledger(), "l1");
+  near(tb(L1, "Bypass suppliers payable") - tb(L0, "Bypass suppliers payable"), 40000, "payable reduced");
+  near(tb(L1, "Wholesale receivable") - tb(L0, "Wholesale receivable"), -40000, "receivable reduced");
+});
+
 test("bypass supplier statement (separate from the pump-stock statement)", async () => {
   const stmt = ok(await call("wholesale", "GET", `/api/bypass/suppliers/${S.id}/statement`), "statement");
   assert.ok(stmt.lines.some((l: any) => l.kind === "purchase"), "has a purchase line");

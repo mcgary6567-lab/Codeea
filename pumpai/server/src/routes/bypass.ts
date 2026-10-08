@@ -16,7 +16,8 @@ import { AppError, round2 } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
-import { insertTxn, fleet, priceSupply } from "./wholesale.js";
+import { insertTxn, fleet, priceSupply, clientDue } from "./wholesale.js";
+import { BYPASS_PAY } from "./banks.js";
 import { deliverOrder } from "./wholesaleDesk.js";
 
 export const bypass = Router();
@@ -170,13 +171,33 @@ bypass.post("/bypass/suppliers/:id/payment", requirePerm("wholesale.manage"), h(
     method: z.string().max(30).optional().nullable(), account_id: accountIdField, client_id: z.number().int().optional().nullable(),
     ref: z.string().max(60).optional().nullable(), note: z.string().max(200).optional().nullable(), txn_date: day.optional(), photo_ids: proofPhotos,
   }), req.body);
-  if (b.mode !== "we_pay") throw new AppError(400, "Client-direct and through-us settlement are coming in the next step; use 'we pay' for now.");
+  const amount = round2(b.amount);
   const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
-  const acc = bankAccountFor(t, b.account_id, b.method ?? "bank");
-  const { id } = run(`INSERT INTO bypass_supplier_payments (tenant_id,supplier_id,amount,mode,method,account_id,ref,note,created_by,txn_date,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)`, t, s.id, round2(b.amount), "we_pay", b.method ?? null, acc ?? null, b.ref ?? null, b.note ?? null, req.user!.name, ts, now());
-  if (b.photo_ids?.length) linkPhotos(t, b.photo_ids, `byp:pay:${id}`);
-  return { payment: get("SELECT * FROM bypass_supplier_payments WHERE id=?", id), bypass_owed: bypassOwed(s.id) };
+  // the client legs lower that client's due to us as well — pick the client who paid
+  let client: any = null;
+  if (b.mode !== "we_pay") {
+    if (!b.client_id) throw new AppError(400, "Choose the client who paid");
+    client = get("SELECT * FROM wholesale_clients WHERE id=? AND tenant_id=?", b.client_id, t);
+    if (!client) throw new AppError(400, "Client not found");
+    const due = clientDue(client.id);
+    if (amount > due + 0.01) throw new AppError(400, `${client.name} only owes ${Math.round(due).toLocaleString("en-PK")} — a bypass settlement cannot be more than the client's due.`);
+  }
+  const acc = b.mode === "client_direct" ? null : bankAccountFor(t, b.account_id, b.method ?? "bank");
+  const out = tx(() => {
+    let wtxId: number | null = null;
+    if (b.mode === "client_direct") {
+      // client paid the supplier direct: no money through us — just lowers the client's due (BYPASS_PAY is booked against the bypass payable)
+      wtxId = insertTxn(req, client.id, { type: "payment", amount, method: BYPASS_PAY, ref: b.ref ?? null, note: b.note || `Paid ${s.name} direct (bypass)`, txn_date: b.txn_date }).id as number;
+    } else if (b.mode === "through_us") {
+      // client sent it to us (a normal receipt into our account) and we forward it on to the supplier (the payment below)
+      wtxId = insertTxn(req, client.id, { type: "payment", amount, method: b.method ?? "Bank transfer", account_id: acc, ref: b.ref ?? null, note: b.note || `For ${s.name} (bypass, through us)`, txn_date: b.txn_date }).id as number;
+    }
+    const { id } = run(`INSERT INTO bypass_supplier_payments (tenant_id,supplier_id,amount,mode,client_id,wtx_id,method,account_id,ref,note,created_by,txn_date,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, s.id, amount, b.mode, client?.id ?? null, wtxId, b.method ?? null, acc ?? null, b.ref ?? null, b.note ?? null, req.user!.name, ts, now());
+    if (b.photo_ids?.length) linkPhotos(t, b.photo_ids, `byp:pay:${id}`);
+    return id;
+  });
+  return { payment: get("SELECT * FROM bypass_supplier_payments WHERE id=?", out), bypass_owed: bypassOwed(s.id), client_due: client ? clientDue(client.id) : undefined };
 }));
 
 /** Void a bypass purchase or payment (correction). */
@@ -191,6 +212,9 @@ bypass.post("/bypass/payments/:id/void", requirePerm("wholesale.void"), h((req) 
   const t = tid(req);
   const r = get("SELECT * FROM bypass_supplier_payments WHERE id=? AND tenant_id=? AND voided=0", Number(req.params.id), t);
   if (!r) throw new AppError(404, "Payment not found");
-  run("UPDATE bypass_supplier_payments SET voided=1 WHERE id=?", r.id);
+  tx(() => {
+    run("UPDATE bypass_supplier_payments SET voided=1 WHERE id=?", r.id);
+    if (r.wtx_id) run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=? AND tenant_id=?", "bypass payment voided", r.wtx_id, t); // reverse the client leg too
+  });
   return { ok: true, bypass_owed: bypassOwed(r.supplier_id) };
 }));
