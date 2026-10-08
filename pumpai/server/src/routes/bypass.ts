@@ -179,6 +179,27 @@ bypass.get("/bypass/deliveries", h((req) => {
     .map((d) => ({ ...d, margin: round2((d.billed as number) - (d.sold_cost as number)) }));
 }));
 
+/** Monthly bypass munafa series for the last N months (oldest first) — for the panel chart. */
+bypass.get("/bypass/monthly", h((req) => {
+  const t = tid(req);
+  const months = Math.min(24, Math.max(1, Number(req.query.months) || 6));
+  const ym = pkDate().slice(0, 7);
+  let [y, m] = ym.split("-").map(Number);
+  const out: { month: string; billed: number; cost: number; profit: number }[] = [];
+  for (let i = 0; i < months; i++) {
+    const mm = `${y}-${String(m).padStart(2, "0")}`;
+    const start = new Date(`${mm}-01T00:00:00+05:00`).toISOString();
+    const [ny, nm] = m === 12 ? [y + 1, 1] : [y, m + 1];
+    const end = new Date(`${ny}-${String(nm).padStart(2, "0")}-01T00:00:00+05:00`).toISOString();
+    const billed = get(`SELECT COALESCE(SUM(w.amount),0) v FROM bypass_drops bd JOIN wholesale_txns w ON w.id=bd.wtx_id
+      WHERE bd.tenant_id=? AND bd.voided=0 AND w.voided=0 AND bd.txn_date >= ? AND bd.txn_date < ?`, t, start, end)!.v as number;
+    const cost = bypassCost(t, start, end);
+    out.unshift({ month: mm, billed: round2(billed), cost, profit: round2(billed - cost) });
+    if (m === 1) { y -= 1; m = 12; } else m -= 1;
+  }
+  return out;
+}));
+
 /* ================= A supplier's bypass statement ================= */
 export function bypassStatement(tenantId: number, supplierId: number, from?: string, to?: string) {
   const s = get("SELECT s.*, d.name depot_name FROM suppliers s LEFT JOIN depots d ON d.id=s.depot_id WHERE s.id=? AND s.tenant_id=?", supplierId, tenantId);

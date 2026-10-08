@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
 import { Plus, Truck, Factory, Download, Printer, HandCoins, ArrowLeft, Ban } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Empty, ErrorBox, Field, Loading, Modal, Stat, useAction } from "../components/ui";
@@ -17,8 +18,9 @@ export function BypassPanel() {
   const sups = useApi<any[]>("/bypass/suppliers");
   const dels = useApi<any[]>("/bypass/deliveries");
   const stock = useApi<any>("/bypass/stock");
+  const monthly = useApi<any[]>("/bypass/monthly?months=6");
   const [openSup, setOpenSup] = useState<number | null>(null);
-  const refresh = () => { sups.reload(); dels.reload(); stock.reload(); };
+  const refresh = () => { sups.reload(); dels.reload(); stock.reload(); monthly.reload(); };
   const owedTotal = (sups.data ?? []).reduce((a, s) => a + (s.bypass_owed > 0 ? s.bypass_owed : 0), 0);
   const stockLines = (stock.data?.by_product ?? []) as any[];
   return (
@@ -37,6 +39,8 @@ export function BypassPanel() {
         <Stat label="Pichle mahine ka munafa" value={pkrShort(stock.data?.month?.last?.profit ?? 0)} tone={(stock.data?.month?.last?.profit ?? 0) >= 0 ? "green" : "red"}
           hint={stock.data?.month?.last ? `${stock.data.month.last.month} · bika ${pkrShort(stock.data.month.last.billed)} − cost ${pkrShort(stock.data.month.last.cost)}` : "—"} />
       </div>
+
+      <MonthlyProfitChart data={monthly.data ?? []} />
 
       <div className="card overflow-hidden">
         <h2 className="border-b p-4 font-semibold"><Factory size={15} className="mr-1 inline text-slate-500" /> Bypass suppliers · <Ur>سپلائر</Ur></h2>
@@ -70,6 +74,30 @@ export function BypassPanel() {
       </div>
 
       {openSup && <SupplierStatement id={openSup} onClose={() => setOpenSup(null)} onChanged={refresh} />}
+    </div>
+  );
+}
+
+/** Monthly bypass munafa — a small bar chart (green = faida, red = nuqsan) over the last few months. */
+function MonthlyProfitChart({ data }: { data: any[] }) {
+  if (!data.length || data.every((d) => !d.profit && !d.billed)) return null;
+  const GRID = "#e5e7eb", AXIS = "#6b7280";
+  const label = (ym: string) => { const [, m] = (ym ?? "").split("-"); return ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m)] ?? ym; };
+  return (
+    <div className="card p-4">
+      <h2 className="font-semibold">Mahine ka munafa · <Ur>ماہانہ منافع</Ur></h2>
+      <p className="mb-2 text-xs text-slate-500">Client se mila − delivered cost, har mahine</p>
+      <div className="h-56"><ResponsiveContainer>
+        <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="month" tickFormatter={label} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={{ stroke: GRID }} />
+          <YAxis tickFormatter={(v) => (Math.abs(v) >= 100_000 ? `${Math.round(v / 100_000)}L` : Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : v)} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
+          <Tooltip cursor={{ fill: "rgba(15,23,42,.05)" }} formatter={(v: number) => [pkr(v), "Munafa"]} labelFormatter={(ym) => label(ym) + " " + String(ym).slice(0, 4)} />
+          <Bar dataKey="profit" radius={[4, 4, 0, 0]} maxBarSize={40}>
+            {data.map((d, i) => <Cell key={i} fill={d.profit >= 0 ? "#1baf7a" : "#e11d48"} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer></div>
     </div>
   );
 }

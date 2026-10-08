@@ -197,6 +197,11 @@ test("direct amounts: enter full supplier cost + full client amount, profit is t
   const stk = ok(await call("wholesale", "GET", "/api/bypass/stock"), "stock");
   assert.ok(typeof stk.month?.profit === "number", "month profit present");
   assert.ok(stk.month.profit >= 20000 - 0.5, `month profit includes this sale: ${stk.month.profit}`);
+  assert.ok(typeof stk.month.last?.profit === "number", "last month profit present");
+  // monthly series for the chart
+  const series = ok(await call("wholesale", "GET", "/api/bypass/monthly?months=6"), "monthly");
+  assert.equal(series.length, 6, "six months");
+  assert.ok(series[5].profit >= 20000 - 0.5, "current month (last in series) includes this sale");
 });
 
 test("after all of the above: every book still tallies with the ledger", async () => {
