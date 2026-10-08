@@ -4,20 +4,9 @@ import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../componen
 import { PRODUCTS } from "../lib/format";
 import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { SupplierForm } from "../components/QuickAdd";
+import { supplierOpts } from "../components/SupplierSelect";
 import { useAuth } from "../App";
 import { PRODUCT_COLORS, dt, num } from "../lib/format";
-
-/** Supplier <option>s grouped by depot, each labelled "Company — Person" so the right man is picked. */
-function supplierOpts(list: any[], flagNoWa = false) {
-  const groups = new Map<string, { name: string; rows: any[] }>();
-  for (const s of list) {
-    const key = s.depot_id ? `d${s.depot_id}` : "none";
-    if (!groups.has(key)) groups.set(key, { name: s.depot_id ? (s.depot_name ?? "Depot") : "No depot", rows: [] });
-    groups.get(key)!.rows.push(s);
-  }
-  const opt = (s: any) => <option key={s.id} value={s.id}>{[s.company, s.name].filter(Boolean).join(" — ")}{flagNoWa && !s.phone ? " (no WhatsApp)" : ""}</option>;
-  return [...groups.values()].map((g, i) => <optgroup key={i} label={g.name}>{g.rows.map(opt)}</optgroup>);
-}
 
 export default function Stock() {
   const dash = useApi<any>("/dashboard");

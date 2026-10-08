@@ -7,6 +7,7 @@ import { PRODUCTS, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { ProofPhotos } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
+import { supplierOpts } from "../components/SupplierSelect";
 
 const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 
@@ -213,8 +214,8 @@ function CarriageEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: 
         };
         if (await run(() => api(`/carriage/thekedars/${thekedar.id}/carriage`, { body }), (r: any) => `Kiraya ${pkr(r.kiraya)} billed. Baqaya ${pkr(r.due)}`)) onDone();
       }}>
-        <Field label="Depot (our ID) *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
-          <option value="">— choose depot —</option>{(depots.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+        <Field label="Depot (our ID) · depot → company → banda *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
+          <option value="">— choose depot —</option>{supplierOpts(depots.data ?? [])}</select></Field>
         <div className="space-y-2">
           <span className="label">Fuel lifted (for the record) · <Ur>کتنا تیل</Ur></span>
           {lines.map((l, i) => (
@@ -304,8 +305,8 @@ function FuelPaymentEntry({ thekedar, onClose, onDone }: { thekedar: any; onClos
         if (await run(() => api(`/carriage/thekedars/${thekedar.id}/fuel-payment`, { body }), "Fuel payment saved")) onDone();
       }}>
         <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Yeh depot ke fuel ka paisa hai — <b>humara kiraya nahi</b>. Thekedar ki due par asar nahi; sirf record (aur through-us mein humare bank se guzarta hai, net zero).</p>
-        <Field label="Depot *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
-          <option value="">— choose depot —</option>{(depots.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+        <Field label="Depot · depot → company → banda *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
+          <option value="">— choose depot —</option>{supplierOpts(depots.data ?? [])}</select></Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Fuel amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Depot invoice no."><input className="input" value={f.invoice_ref} onChange={(e) => setF({ ...f, invoice_ref: e.target.value })} /></Field>

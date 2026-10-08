@@ -35,7 +35,7 @@ before(async () => {
 after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 test("a short tanker opens a claim; claim goes to the depot on WhatsApp; credit note lowers what we owe", async () => {
-  const sup = db.get("SELECT * FROM suppliers WHERE name='Shell Machike Depot'");
+  const sup = db.get("SELECT * FROM suppliers WHERE company='Shell'");
   const tank = db.get("SELECT * FROM tanks WHERE station_id=1 AND product='HSD'");
   db.run("UPDATE tanks SET current_l=? WHERE id=?", 5000, tank.id);
   const d = ok(await call("manager", "POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: 10000, received_l: 9900, tanker_no: "TLR-TEST", supplier_id: sup.id, purchase_rate: 260, freight: 18000 }), "delivery");
@@ -109,7 +109,7 @@ test("sales tax on shop receipts, withholding on supplier payment, monthly tax r
   const html = (await call("", "GET", new URL(sale.receipt_url).pathname)).data as string;
   assert.match(html, /Includes sales tax 18%/);
   assert.match(html, /NTN 1234567-8/);
-  const sup = db.get("SELECT * FROM suppliers WHERE name='PSO Mehmoodkot Depot'");
+  const sup = db.get("SELECT * FROM suppliers WHERE company='PSO'");
   const { supplierOwed } = await import("../src/routes/suppliers.js");
   const owed = supplierOwed(sup.id);
   ok(await call("manager", "POST", `/api/suppliers/${sup.id}/payment`, { amount: 99000, method: "Bank transfer", ref: "PO-WHT", withholding: 1000 }), "payment");

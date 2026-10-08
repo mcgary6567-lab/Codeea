@@ -541,7 +541,8 @@ const FREIGHT_CAT = "Tanker freight & transport";
 wholesale.get("/wholesale/depots", h((req) => {
   // suppliers to buy a depot-direct trip from, each with the last rate they charged per fuel (any supplier's when they have none)
   const t = tid(req);
-  return all("SELECT id, name, phone FROM suppliers WHERE tenant_id=? AND COALESCE(active,1)=1 ORDER BY name", t).map((s) => ({
+  return all(`SELECT s.id, s.name, s.phone, s.depot_id, s.company, d.name depot_name FROM suppliers s LEFT JOIN depots d ON d.id=s.depot_id
+    WHERE s.tenant_id=? AND COALESCE(s.active,1)=1 ORDER BY COALESCE(d.name,''), s.company, s.name`, t).map((s) => ({
     ...s, rates: Object.fromEntries(Object.keys(PRODUCTS).map((p) => [p,
       get("SELECT rate FROM supplier_txns WHERE supplier_id=? AND type='purchase' AND product=? AND rate > 0 ORDER BY txn_date DESC, id DESC LIMIT 1", s.id, p)?.rate ?? lastCost(t, p)])),
   }));

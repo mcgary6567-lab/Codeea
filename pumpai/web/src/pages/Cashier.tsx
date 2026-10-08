@@ -290,7 +290,7 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
             <div className="grid gap-2 sm:grid-cols-2">{(depots.data?.supplier ?? []).map((x: any) => (
               <button type="button" key={x.id} aria-pressed={depotId === x.id} onClick={() => setDepotId(x.id)}
                 className={`flex min-h-12 items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-left text-sm ${depotId === x.id ? "ring-2 ring-brand-600" : "ring-1 ring-slate-200"}`}>
-                <span className="min-w-0 font-semibold">{x.name}</span><span className="shrink-0 text-xs text-slate-500">{x.balance < 0 ? <>advance with them <b className="tabular-nums">{pkr(-x.balance)}</b></> : <>we owe <b className="tabular-nums">{pkr(x.balance)}</b></>}</span></button>))}</div>
+                <span className="min-w-0"><span className="block font-semibold leading-tight">{[x.company, x.name].filter(Boolean).join(" — ")}</span>{x.depot_name && <span className="block text-xs text-slate-400">{x.depot_name}</span>}</span><span className="shrink-0 text-xs text-slate-500">{x.balance < 0 ? <>advance with them <b className="tabular-nums">{pkr(-x.balance)}</b></> : <>we owe <b className="tabular-nums">{pkr(x.balance)}</b></>}</span></button>))}</div>
           </fieldset>
           {depotRow && amount > 0 && <p className="text-sm">We owe {depotRow.name}: <b>{pkr(depotRow.balance)}</b> → after · <Ur>بعد میں</Ur>: <b>{pkr(depotRow.balance - amount)}</b></p>}
         </div>

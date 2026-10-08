@@ -76,19 +76,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback((kind: Toast["kind"], text: string) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, kind, text }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "ok" ? 2600 : 5000);
   }, []);
+  const dismiss = (id: number) => setToasts((t) => t.filter((x) => x.id !== id));
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[60] space-y-2">
-        {toasts.map((t) => (
-          <div key={t.id} className={`flex max-w-sm items-start gap-2 rounded-lg px-4 py-3 text-sm text-white shadow-lg ${t.kind === "ok" ? "bg-slate-900" : "bg-red-600"}`}>
-            {t.kind === "ok" ? <CheckCircle2 size={18} className="shrink-0 text-emerald-400" /> : <AlertTriangle size={18} className="shrink-0" />}
-            <span>{t.text}</span>
+      {/* Prominent centered pop-up shown whenever anything is saved, approved, sent or fails — system-wide. */}
+      {toasts.length > 0 && createPortal(
+        <>
+          <style>{`@keyframes pumpai-pop{0%{opacity:0;transform:translateY(-12px) scale(.94)}60%{transform:translateY(0) scale(1.02)}100%{opacity:1;transform:translateY(0) scale(1)}}`}</style>
+          <div className="pointer-events-none fixed inset-x-0 top-6 z-[100] flex flex-col items-center gap-3 px-4">
+            {toasts.map((t) => (
+              <div key={t.id} role="status" onClick={() => dismiss(t.id)}
+                style={{ animation: "pumpai-pop .28s cubic-bezier(.34,1.56,.64,1) both" }}
+                className={`pointer-events-auto flex w-full max-w-sm cursor-pointer items-center gap-3 rounded-2xl px-5 py-4 text-white shadow-2xl ring-1 ${t.kind === "ok" ? "bg-emerald-600 ring-emerald-700/30" : "bg-red-600 ring-red-700/30"}`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.kind === "ok" ? "bg-white/20" : "bg-white/20"}`}>
+                  {t.kind === "ok" ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold leading-tight">{t.kind === "ok" ? "Ho gaya" : "Ruk gaya"}</div>
+                  <div className="text-sm leading-snug text-white/90">{t.text}</div>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>, document.body)}
     </ToastCtx.Provider>
   );
 }

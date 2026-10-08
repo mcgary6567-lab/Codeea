@@ -593,6 +593,19 @@ function seedMoney(tenantId: number) {
     if (toMove <= 0) break;
     if (p.amount <= toMove) { run("UPDATE supplier_txns SET supplier_id=? WHERE id=?", second, p.id); toMove -= p.amount; }
   }
+  // Depots: the physical place we lift fuel from. Inside each, several company men (company + person) we deal with.
+  // The two existing supplier rows become the first contact in each depot; a couple more men are added so the
+  // "depot → company → banda" picker shows real grouping everywhere a supplier/depot is chosen.
+  const dep1 = run("INSERT INTO depots (tenant_id,name,address,city,phone,notes,created_at) VALUES (?,?,?,?,?,?,?)",
+    tenantId, "Mehmoodkot Depot", "Mehmoodkot, near Qadirpur Rawan", "Muzaffargarh", "0661-123456", "Main lifting point", iso(Date.now() - 70 * DAY)).id;
+  const dep2 = run("INSERT INTO depots (tenant_id,name,address,city,phone,notes,created_at) VALUES (?,?,?,?,?,?,?)",
+    tenantId, "Machike Depot", "Machike, Sheikhupura Road", "Sheikhupura", "056-7654321", "Second lifting point", iso(Date.now() - 70 * DAY)).id;
+  run("UPDATE suppliers SET depot_id=?, company=?, name=? WHERE id=? AND tenant_id=?", dep1, "PSO", "Imran Khan", first.id, tenantId);
+  run("UPDATE suppliers SET depot_id=?, company=?, name=? WHERE id=? AND tenant_id=?", dep2, "Shell", "Irfan Ali", second, tenantId);
+  run("INSERT INTO suppliers (tenant_id,name,phone,opening_balance,notes,depot_id,company,created_at) VALUES (?,?,?,?,?,?,?,?)",
+    tenantId, "Waseem Akhtar", "923007001122", 0, "Byco man at Mehmoodkot", dep1, "Byco", iso(Date.now() - 60 * DAY));
+  run("INSERT INTO suppliers (tenant_id,name,phone,opening_balance,notes,depot_id,company,created_at) VALUES (?,?,?,?,?,?,?,?)",
+    tenantId, "Kashif Mehmood", "923007003344", 0, "Total man at Machike", dep2, "Total", iso(Date.now() - 60 * DAY));
   setSetting(tenantId, "ntn", "4217651-3");
   setSetting(tenantId, "strn", "3277876154321");
   // contacts and social pages for the letterhead on statements, bills and challans

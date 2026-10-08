@@ -4,6 +4,7 @@ import { api, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "./Capture";
 import { challanPages, printPages, tripSheetPage } from "./TripPrint";
 import { Badge, Empty, Field, Loading, Modal, useAction } from "./ui";
+import { supplierOpts } from "./SupplierSelect";
 import { PRODUCTS, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
 
@@ -132,8 +133,8 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
           <div className="space-y-3 rounded-lg bg-sky-50 p-3 ring-1 ring-sky-200">
             <p className="text-xs text-sky-900">The tanker loads at the supplier's depot and goes straight to the clients — our tanks do not change. The supplier's bill is added to their account; each client is billed as usual.</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="Supplier (depot)"><select className="input" required value={f.supplier_id} onChange={(e) => { setF({ ...f, supplier_id: e.target.value }); setCost({}); }}>
-                <option value="">— choose supplier —</option>{(depots.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+              <Field label="Supplier (depot → company → banda)"><select className="input" required value={f.supplier_id} onChange={(e) => { setF({ ...f, supplier_id: e.target.value }); setCost({}); }}>
+                <option value="">— choose supplier —</option>{supplierOpts(depots.data ?? [])}</select></Field>
               <Field label="Depot invoice / bilty no."><input className="input" value={f.depot_ref} onChange={(e) => setF({ ...f, depot_ref: e.target.value })} /></Field>
               <Field label="Freight · کرایہ"><select className="input" value={f.freight_by} onChange={(e) => setF({ ...f, freight_by: e.target.value })}>
                 <option value="rate">Included in the rate</option><option value="supplier">Separate — on the supplier's bill</option><option value="cash">Separate — paid in cash</option></select></Field>

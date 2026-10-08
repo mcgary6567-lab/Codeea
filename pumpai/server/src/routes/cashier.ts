@@ -107,7 +107,8 @@ cashier.get("/cashier/parties", requirePerm("cashier.desk"), h((req) => {
     ORDER BY (balance > 0) DESC, balance DESC, name LIMIT 30`, t, q, q);
   if (!kind || kind === "wholesale") out.wholesale = all("SELECT id, name, phone, business_name FROM wholesale_clients WHERE tenant_id=? AND active=1 AND (name LIKE ? OR COALESCE(business_name,'') LIKE ? OR COALESCE(phone,'') LIKE ?) ORDER BY name LIMIT 30", t, q, q, q)
     .map((c) => ({ ...c, balance: round2(clientDue(c.id)) })).sort((a, b) => b.balance - a.balance);
-  if (!kind || kind === "supplier") out.supplier = all("SELECT id, name, phone FROM suppliers WHERE tenant_id=? AND name LIKE ? ORDER BY name LIMIT 30", t, q)
+  if (!kind || kind === "supplier") out.supplier = all(`SELECT s.id, s.name, s.phone, s.company, s.depot_id, d.name depot_name FROM suppliers s LEFT JOIN depots d ON d.id=s.depot_id
+    WHERE s.tenant_id=? AND (s.name LIKE ? OR COALESCE(s.company,'') LIKE ? OR COALESCE(d.name,'') LIKE ?) ORDER BY COALESCE(d.name,''), s.company, s.name LIMIT 30`, t, q, q, q)
     .map((s) => ({ ...s, balance: round2(supplierOwed(s.id)) })).sort((a, b) => b.balance - a.balance);
   if (!kind || kind === "staff") out.staff = all("SELECT id, name, phone, role FROM users WHERE tenant_id=? AND active=1 AND role<>'admin' AND name LIKE ? ORDER BY name LIMIT 30", t, q)
     .map((u) => ({ ...u, balance: staffBalance(u.id) }));

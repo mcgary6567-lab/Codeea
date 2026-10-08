@@ -52,9 +52,11 @@ export function carriageIncomeThekedar(tenantId: number, fromIso: string, toIso?
   return round2(r.v as number);
 }
 
-/** Depots (our IDs) a bypass can be lifted on — the suppliers list. */
+/** Depots (our IDs) a bypass can be lifted on — suppliers grouped under their depot (depot → company → banda). */
 carriage.get("/carriage/depots", h((req) =>
-  all("SELECT id, name, phone FROM suppliers WHERE tenant_id=? AND COALESCE(active,1)=1 ORDER BY name", tid(req))));
+  all(`SELECT s.id, s.name, s.phone, s.depot_id, s.company, d.name depot_name
+       FROM suppliers s LEFT JOIN depots d ON d.id=s.depot_id
+       WHERE s.tenant_id=? AND COALESCE(s.active,1)=1 ORDER BY COALESCE(d.name,''), s.company, s.name`, tid(req))));
 
 /* ================= Thekedars (the carriage party) ================= */
 carriage.get("/carriage/thekedars", h((req) => {
