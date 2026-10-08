@@ -1,7 +1,7 @@
 /** Expense management: categories with monthly budgets, approval flow, monthly summary vs revenue. */
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { all, get, run, now, pkDate, getSetting, setSetting } from "../db.js";
+import { all, get, run, tx, now, pkDate, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
 import { AppError, createAlert, pkr, round2 } from "../services.js";
@@ -38,19 +38,45 @@ function checkBudget(t: number, category: string, month: string) {
 }
 
 /* ---------------- Categories & settings ---------------- */
+/** Categories to pick from (switched-off ones are left out unless ?all=1 — the admin's category screen). */
 expenses.get("/expense-categories", requireAny("expenses.view", "cash.pay"), h((req) => {
   ensureCategories(tid(req));
-  return { categories: all("SELECT * FROM expense_categories WHERE tenant_id=? ORDER BY name", tid(req)), approval_limit: approvalLimit(tid(req)) };
+  return { categories: all(`SELECT * FROM expense_categories WHERE tenant_id=? ${req.query.all === "1" ? "" : "AND active=1"} ORDER BY name`, tid(req)), approval_limit: approvalLimit(tid(req)) };
 }));
 expenses.post("/expense-categories", requirePerm("expenses.approve"), h((req) => {
-  const b = parse(z.object({ name: z.string().min(2), monthly_budget: z.number().min(0).nullable().optional() }), req.body);
-  if (get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", tid(req), b.name)) throw new AppError(400, "Category already exists");
+  const b = parse(z.object({ name: z.string().trim().min(2).max(60), monthly_budget: z.number().min(0).nullable().optional() }), req.body);
+  const dup = get("SELECT id, active FROM expense_categories WHERE tenant_id=? AND name=?", tid(req), b.name);
+  if (dup?.active) throw new AppError(400, "Category already exists");
+  if (dup) { run("UPDATE expense_categories SET active=1 WHERE id=?", dup.id); return get("SELECT * FROM expense_categories WHERE id=?", dup.id); } // switched off earlier — bring it back
   return get("SELECT * FROM expense_categories WHERE id=?", run("INSERT INTO expense_categories (tenant_id,name,monthly_budget) VALUES (?,?,?)", tid(req), b.name, b.monthly_budget ?? null).id);
 }));
+/** Rename a category (its past expenses follow the new name), set its budget, or switch it off / on. */
 expenses.patch("/expense-categories/:id", requirePerm("expenses.approve"), h((req) => {
-  const b = parse(z.object({ monthly_budget: z.number().min(0).nullable() }), req.body);
-  run("UPDATE expense_categories SET monthly_budget=? WHERE id=? AND tenant_id=?", b.monthly_budget, Number(req.params.id), tid(req));
-  return get("SELECT * FROM expense_categories WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
+  const b = parse(z.object({ name: z.string().trim().min(2).max(60).optional(), monthly_budget: z.number().min(0).nullable().optional(), active: z.boolean().optional() }), req.body);
+  const t = tid(req);
+  const c = get("SELECT * FROM expense_categories WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!c) throw new AppError(404, "Category not found");
+  tx(() => {
+    if (b.name && b.name !== c.name) {
+      if (get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=? AND id<>?", t, b.name, c.id)) throw new AppError(400, "Another category already has this name");
+      run("UPDATE expense_categories SET name=? WHERE id=?", b.name, c.id);
+      run("UPDATE expenses SET category=? WHERE tenant_id=? AND category=?", b.name, t, c.name);
+      run("UPDATE recurring_expenses SET category=? WHERE tenant_id=? AND category=?", b.name, t, c.name);
+    }
+    if (b.monthly_budget !== undefined) run("UPDATE expense_categories SET monthly_budget=? WHERE id=?", b.monthly_budget, c.id);
+    if (b.active !== undefined) run("UPDATE expense_categories SET active=? WHERE id=?", b.active ? 1 : 0, c.id);
+  });
+  return get("SELECT * FROM expense_categories WHERE id=?", c.id);
+}));
+/** Delete a category nothing uses; one with expenses is switched off instead. */
+expenses.delete("/expense-categories/:id", requirePerm("expenses.approve"), h((req) => {
+  const t = tid(req);
+  const c = get("SELECT * FROM expense_categories WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!c) throw new AppError(404, "Category not found");
+  if (get("SELECT id FROM expenses WHERE tenant_id=? AND category=? LIMIT 1", t, c.name) || get("SELECT id FROM recurring_expenses WHERE tenant_id=? AND category=? LIMIT 1", t, c.name))
+    throw new AppError(400, "This category has expenses — switch it off instead");
+  run("DELETE FROM expense_categories WHERE id=?", c.id);
+  return { ok: true };
 }));
 expenses.put("/expenses/settings", requirePerm("expenses.approve"), h((req) => {
   const b = parse(z.object({ approval_limit: z.number().min(0) }), req.body);
@@ -135,7 +161,7 @@ expenses.post("/expenses", requireAny("expenses.create", "cash.pay"), h((req) =>
 /** Book an expense (approved at once up to the approval limit, else sent to the owner). Also used by the cashier desk. */
 export async function createExpense(req: Request, b: z.infer<typeof expenseBody>) {
   const t = tid(req);
-  if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", t, b.category)) throw new AppError(400, "Unknown category");
+  if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=? AND active=1", t, b.category)) throw new AppError(400, "Unknown category");
   if (b.station_id && !get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, t)) throw new AppError(400, "Station not found");
   const autoApprove = can(req.user, "expenses.approve") || b.amount <= approvalLimit(t);
   const date = b.expense_date ?? pkDate();

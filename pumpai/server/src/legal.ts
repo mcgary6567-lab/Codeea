@@ -12,7 +12,7 @@ function who() {
   const t = get("SELECT * FROM tenants ORDER BY id LIMIT 1");
   const name = t?.name ?? "This petrol pump";
   const phone = t ? getSetting(t.id, "owner_phone") || t.owner_phone || "" : "";
-  const address = t ? getSetting(t.id, "address") : "";
+  const address = t ? [getSetting(t.id, "biz_address"), getSetting(t.id, "biz_city")].filter(Boolean).join(", ") : "";
   return { name: esc(name), phone: esc(phone ? `+${String(phone).replace(/^\+/, "")}` : ""), address: esc(address ?? "") };
 }
 const page = (title: string, body: string) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

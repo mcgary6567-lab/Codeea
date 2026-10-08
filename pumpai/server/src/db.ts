@@ -650,6 +650,11 @@ export function migrate() {
   // rush-hour shift close: litres put back in the tank after a nozzle test, and the notes counted in the cash bag
   addColumn("meter_readings", "test_l", "REAL");
   addColumn("shifts", "cash_notes", "TEXT");
+  // the admin can close a station, retire a tank or a meter and switch off an expense category — history stays
+  addColumn("stations", "active", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("tanks", "active", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("nozzles", "active", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("expense_categories", "active", "INTEGER NOT NULL DEFAULT 1");
 }
 
 /** Allow the cashier role on databases made before it (the users table keeps every column it has today). */

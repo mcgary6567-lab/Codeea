@@ -254,7 +254,7 @@ function Tax() {
       {can("settings.manage") && f && (
         <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-4" onSubmit={async (e) => {
           e.preventDefault();
-          if (await run(() => api("/tax/settings", { method: "PUT", body: { gst_pct: Number(f.gst_pct), prices_include_tax: Boolean(f.prices_include_tax), fuel_gst_pct: Number(f.fuel_gst_pct), ntn: f.ntn, strn: f.strn, wht_section: f.wht_section,
+          if (await run(() => api("/tax/settings", { method: "PUT", body: { gst_pct: Number(f.gst_pct), prices_include_tax: Boolean(f.prices_include_tax), fuel_gst_pct: Number(f.fuel_gst_pct), ntn: f.ntn, strn: f.strn, wht_section: f.wht_section, wht_pct: Number(f.wht_pct) || 0,
             exempt: String(f.exempt).split(",").map((x) => x.trim()).filter(Boolean) } }), "Tax settings saved")) reload();
         }}>
           <h3 className="font-semibold sm:col-span-4">Tax settings</h3>
@@ -265,6 +265,7 @@ function Tax() {
           <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={f.prices_include_tax} onChange={(e) => setF({ ...f, prices_include_tax: e.target.checked })} /> Shop prices already include GST</label>
           <Field label="Exempt categories (comma)"><input className="input" placeholder="tuck, service" value={f.exempt} onChange={(e) => setF({ ...f, exempt: e.target.value })} /></Field>
           <Field label="Default WHT section"><input className="input" value={f.wht_section} onChange={(e) => setF({ ...f, wht_section: e.target.value })} /></Field>
+          <Field label="Default WHT %"><input className="input" type="number" min={0} max={20} step="0.5" value={f.wht_pct ?? ""} onChange={(e) => setF({ ...f, wht_pct: e.target.value })} /></Field>
           <div className="sm:col-span-4"><button className="btn-primary" disabled={busy}>Save tax settings</button> <span className="text-xs text-slate-500">NTN / STRN and the tax line are printed on every shop receipt.</span></div>
         </form>
       )}

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Field, Loading, PageHeader, useAction } from "../components/ui";
+import { Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { StationForm, TankForm } from "../components/QuickAdd";
 import { BusinessProfile, Integrations, About } from "../components/BusinessSettings";
 import { PRODUCTS, num } from "../lib/format";
@@ -25,6 +25,7 @@ export default function SettingsPage() {
       <BusinessProfile />
       <AutoSwitches values={data.automation ?? {}} review={data.google_review_url} onSaved={reload} />
       <KhataRules r={data.khata_rules} onSaved={reload} />
+      <Limits l={data.limits} onSaved={reload} />
       <Safety />
       <Backups />
       <Hardware />
@@ -38,23 +39,48 @@ export default function SettingsPage() {
   );
 }
 
+/** Everything on the forecourt the admin can change: stations, tanks and meters — add, edit, close/retire, delete. */
 function StationsSection() {
-  const { data, reload } = useApi<any[]>("/stations");
+  const { data, reload } = useApi<any[]>("/stations?all=1");
+  const { busy, run } = useAction();
   const [addStation, setAddStation] = useState(false);
+  const [editStation, setEditStation] = useState<any | null>(null);
   const [tankFor, setTankFor] = useState<number | null>(null);
+  const [editTank, setEditTank] = useState<any | null>(null);
+  const [meterFor, setMeterFor] = useState<any | null>(null);
   if (!data) return <Loading />;
+  const small = "btn-secondary min-h-9 !px-2.5 !py-1 text-xs sm:min-h-0";
+  const danger = `${small} !text-rose-700`;
   return (
     <div className="card p-4">
-      <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Stations & tanks</h2><button className="btn-secondary" onClick={() => setAddStation(true)}>+ Add station</button></div>
+      <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Stations, tanks & meters</h2><button className="btn-secondary" onClick={() => setAddStation(true)}>+ Add station</button></div>
       <div className="space-y-3">
         {data.map((s) => (
-          <div key={s.id} className="rounded-lg border border-slate-200 p-3">
+          <div key={s.id} className={`rounded-lg border border-slate-200 p-3 ${s.active ? "" : "bg-slate-50 opacity-75"}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div><div className="font-medium">{s.name}</div><div className="text-xs text-slate-500">{[s.omc, s.city, s.address, s.timings].filter(Boolean).join(" · ")}</div></div>
-              <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs sm:min-h-0" onClick={() => setTankFor(s.id)}>+ Add tank</button>
+              <div className="min-w-0"><div className="font-medium">{s.name}{!s.active && <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">CLOSED</span>}</div><div className="text-xs text-slate-500">{[s.omc, s.city, s.address, s.timings].filter(Boolean).join(" · ")}</div></div>
+              <div className="flex flex-wrap gap-1.5">
+                <button className={small} onClick={() => setEditStation(s)}>Edit</button>
+                {s.active && <button className={small} onClick={() => setTankFor(s.id)}>+ Tank</button>}
+                <button className={small} disabled={busy} onClick={() => confirm(s.active ? `Close ${s.name}? It disappears from the POS and lists; its history stays.` : `Reopen ${s.name}?`) && run(() => api(`/stations/${s.id}`, { method: "PATCH", body: { active: !s.active } }), s.active ? "Station closed" : "Station reopened").then(reload)}>{s.active ? "Close" : "Reopen"}</button>
+                {!s.tanks.length && <button className={danger} disabled={busy} onClick={() => confirm(`Delete ${s.name}?`) && run(() => api(`/stations/${s.id}`, { method: "DELETE" }), "Station deleted").then(reload)}>Delete</button>}
+              </div>
             </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {s.tanks.map((t: any) => <span key={t.id} className="rounded-lg bg-slate-50 px-2 py-1 text-xs">{t.name} · {PRODUCTS[t.product]} · {num(t.capacity_l)} L · {s.nozzles.filter((n: any) => n.tank_id === t.id).length} nozzles</span>)}
+            <div className="mt-2 space-y-1.5">
+              {s.tanks.map((t: any) => {
+                const meters = s.nozzles.filter((n: any) => n.tank_id === t.id);
+                return (
+                  <div key={t.id} className={`flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-xs ${t.active ? "" : "opacity-60"}`}>
+                    <span className="min-w-0 flex-1"><b>{t.name}</b> · {PRODUCTS[t.product]} · {num(t.capacity_l)} L · {num(t.current_l)} L now · reorder at {t.reorder_pct}% · {meters.length} meter{meters.length === 1 ? "" : "s"}{!t.active && <span className="ml-1 font-semibold text-slate-500">RETIRED</span>}</span>
+                    <span className="flex flex-wrap gap-1">
+                      <button className={small} onClick={() => setEditTank(t)}>Edit</button>
+                      {t.active && <button className={small} onClick={() => setMeterFor(t)}>+ Meter</button>}
+                      <button className={small} disabled={busy} onClick={() => confirm(t.active ? `Retire ${t.name}? It must be empty. Its meters are retired too.` : `Bring ${t.name} back?`) && run(() => api(`/tanks/${t.id}`, { method: "PATCH", body: { active: !t.active } }), t.active ? "Tank retired" : "Tank restored").then(reload)}>{t.active ? "Retire" : "Restore"}</button>
+                      <button className={danger} disabled={busy} onClick={() => confirm(`Delete ${t.name}? Only possible if it was never used.`) && run(() => api(`/tanks/${t.id}`, { method: "DELETE" }), "Tank deleted").then(reload)}>Delete</button>
+                    </span>
+                  </div>
+                );
+              })}
               {!s.tanks.length && <span className="text-xs text-amber-700">No tanks yet</span>}
             </div>
             {s.nozzles.length > 0 && <Meters nozzles={s.nozzles} onSaved={reload} />}
@@ -62,12 +88,31 @@ function StationsSection() {
         ))}
       </div>
       {addStation && <StationForm onClose={() => setAddStation(false)} onSaved={() => { setAddStation(false); reload(); }} />}
+      {editStation && <StationForm edit={editStation} onClose={() => setEditStation(null)} onSaved={() => { setEditStation(null); reload(); }} />}
       {tankFor && <TankForm stations={data} stationId={tankFor} onClose={() => setTankFor(null)} onSaved={() => { setTankFor(null); reload(); }} />}
+      {editTank && <TankForm stations={data} edit={editTank} onClose={() => setEditTank(null)} onSaved={() => { setEditTank(null); reload(); }} />}
+      {meterFor && <AddMeter tank={meterFor} onClose={() => setMeterFor(null)} onSaved={() => { setMeterFor(null); reload(); }} />}
     </div>
   );
 }
 
-/** Meters of a station with their numbers (No.1, No.2 …); the number and name can be changed. */
+/** A new dispenser meter on an existing tank, with the totalizer reading showing on it today. */
+function AddMeter({ tank, onClose, onSaved }: { tank: any; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState({ label: "", totalizer: "" });
+  const { busy, run } = useAction();
+  return (
+    <Modal open onClose={onClose} title={`New meter on ${tank.name}`}>
+      <form className="space-y-3" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api(`/tanks/${tank.id}/nozzles`, { body: { label: f.label || undefined, totalizer: Number(f.totalizer) || 0 } }), "Meter added")) onSaved(); }}>
+        <Field label="Name on the dispenser"><input className="input" placeholder={`e.g. Machine 3 left (${PRODUCTS[tank.product]})`} maxLength={30} value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} /></Field>
+        <Field label="Totalizer reading now"><input className="input tabular-nums" type="number" min={0} step="0.01" value={f.totalizer} onChange={(e) => setF({ ...f, totalizer: e.target.value })} /></Field>
+        <p className="text-xs text-slate-500">It gets the next meter number and joins the next shift's handover sheet.</p>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Add meter</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Meters of a station with their numbers (No.1, No.2 …); number and name can be changed, a dead meter retired or deleted. */
 function Meters({ nozzles, onSaved }: { nozzles: any[]; onSaved: () => void }) {
   const [edit, setEdit] = useState<any | null>(null);
   const { busy, run } = useAction();
@@ -76,8 +121,8 @@ function Meters({ nozzles, onSaved }: { nozzles: any[]; onSaved: () => void }) {
       <div className="mb-1 text-xs font-medium text-slate-500">Meters (numbers show on shifts, reports and alerts — tap to change)</div>
       <div className="flex flex-wrap gap-2">
         {nozzles.map((n) => (
-          <button key={n.id} type="button" onClick={() => setEdit({ id: n.id, meter_no: String(n.meter_no ?? ""), label: n.label })}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50">
+          <button key={n.id} type="button" onClick={() => setEdit({ id: n.id, meter_no: String(n.meter_no ?? ""), label: n.label, active: Boolean(n.active) })}
+            className={`flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50 ${n.active ? "" : "line-through opacity-50"}`}>
             <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-800 font-bold text-white">{n.meter_no}</span>{n.label} · {PRODUCTS[n.product]}
           </button>
         ))}
@@ -90,10 +135,29 @@ function Meters({ nozzles, onSaved }: { nozzles: any[]; onSaved: () => void }) {
           <Field label="Meter No."><input className="input w-20" type="number" min={1} max={99} required value={edit.meter_no} onChange={(e) => setEdit({ ...edit, meter_no: e.target.value })} /></Field>
           <Field label="Name on the dispenser"><input className="input w-40" required maxLength={30} value={edit.label} onChange={(e) => setEdit({ ...edit, label: e.target.value })} /></Field>
           <button className="btn-primary" disabled={busy}>Save</button><button type="button" className="btn-secondary" onClick={() => setEdit(null)}>Cancel</button>
-          <span className="w-full text-xs text-slate-500">If another meter already has this number, the two swap numbers.</span>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/nozzles/${edit.id}`, { method: "PATCH", body: { active: !edit.active } }), edit.active ? "Meter retired" : "Meter restored").then(() => { setEdit(null); onSaved(); })}>{edit.active ? "Retire" : "Restore"}</button>
+          <button type="button" className="btn-secondary !text-rose-700" disabled={busy} onClick={() => confirm("Delete this meter? Only possible if it never ran a shift.") && run(() => api(`/nozzles/${edit.id}`, { method: "DELETE" }), "Meter deleted").then(() => { setEdit(null); onSaved(); })}>Delete</button>
+          <span className="w-full text-xs text-slate-500">If another meter already has this number, the two swap numbers. A retired meter leaves the handover sheet but keeps its history.</span>
         </form>
       )}
     </div>
+  );
+}
+
+/** Operating limits that used to be fixed in the code. */
+function Limits({ l, onSaved }: { l?: Record<string, any>; onSaved: () => void }) {
+  const [f, setF] = useState({ test_limit_l: String(l?.test_limit_l ?? 10), shortage_min: String(l?.shortage_min ?? 100), utility_alert_pct: String(l?.utility_alert_pct ?? 15), shortage_tolerance_pct: String(l?.shortage_tolerance_pct ?? 0.2), pin_admin: Boolean(l?.pin_admin) });
+  const { busy, run } = useAction();
+  return (
+    <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { limits: { test_limit_l: Number(f.test_limit_l), shortage_min: Number(f.shortage_min), utility_alert_pct: Number(f.utility_alert_pct), shortage_tolerance_pct: Number(f.shortage_tolerance_pct), pin_admin: f.pin_admin } } }), "Limits saved").then(onSaved); }}>
+      <h2 className="font-semibold sm:col-span-2">Limits & tolerances</h2>
+      <label className="block"><span className="label">Test litres allowed per shift (returned to the tank)</span><input className="input" type="number" min={0} max={500} value={f.test_limit_l} onChange={(e) => setF({ ...f, test_limit_l: e.target.value })} /></label>
+      <label className="block"><span className="label">Cash shortage below this (Rs) is ignored, not charged to the salesman</span><input className="input" type="number" min={0} value={f.shortage_min} onChange={(e) => setF({ ...f, shortage_min: e.target.value })} /></label>
+      <label className="block"><span className="label">Tanker transit loss allowed (% of invoice) before a claim</span><input className="input" type="number" min={0} max={2} step="0.05" value={f.shortage_tolerance_pct} onChange={(e) => setF({ ...f, shortage_tolerance_pct: e.target.value })} /></label>
+      <label className="block"><span className="label">Utility bill jump that raises an alert (% over last month)</span><input className="input" type="number" min={0} max={500} value={f.utility_alert_pct} onChange={(e) => setF({ ...f, utility_alert_pct: e.target.value })} /></label>
+      <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={f.pin_admin} onChange={(e) => setF({ ...f, pin_admin: e.target.checked })} /> Let the owner (admin) also sign in with a 4-digit PIN on the pump tablet</label>
+      <div className="sm:col-span-2"><button className="btn-primary" disabled={busy}>Save</button></div>
+    </form>
   );
 }
 
@@ -103,7 +167,7 @@ const SWITCHES: [string, string, string][] = [
   ["khata_auto_block", "Put overdue khata on hold", "An account with no payment for the days set below is put on hold at the POS until it pays; the customer is told on WhatsApp."],
   ["ask_rating", "Ask customers to rate each fill (1–5)", "After a fill on a customer's account they get a WhatsApp; a bad rating asks what went wrong, opens a complaint and alerts the manager."],
   ["wa_approvals", "Approvals on WhatsApp", "A manager's price change (when two-person rule is on) or an expense above the limit is sent to the owner — reply 1 to approve, 2 to reject."],
-  ["shortage_to_staff", "Put cash shortages on the salesman's account", "When a shift closes short (Rs 100 or more), the amount is added to the salesman's staff account to adjust from salary."],
+  ["shortage_to_staff", "Put cash shortages on the salesman's account", "When a shift closes short (above the amount set in Limits below), the amount is added to the salesman's staff account to adjust from salary."],
 ];
 function AutoSwitches({ values, review, onSaved }: { values: Record<string, boolean>; review?: string; onSaved: () => void }) {
   const { run } = useAction();

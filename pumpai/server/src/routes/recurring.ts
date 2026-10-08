@@ -29,7 +29,7 @@ recurring.post("/recurring-expenses", requirePerm("expenses.approve"), h((req) =
   const t = tid(req);
   const b = parse(body, req.body);
   ensureCategories(t);
-  if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", t, b.category)) throw new AppError(400, "Unknown category");
+  if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=? AND active=1", t, b.category)) throw new AppError(400, "Unknown category");
   // starts next time the day comes round; if that day already passed this month, it starts next month
   const started = Number(pkDate().slice(8)) >= b.day_of_month ? pkDate().slice(0, 7) : null;
   const { id } = run(`INSERT INTO recurring_expenses (tenant_id,station_id,category,amount,paid_to,method,day_of_month,note,last_month,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,

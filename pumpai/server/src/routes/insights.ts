@@ -90,6 +90,9 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
     automation: Object.fromEntries(AUTO_SETTINGS.map((k) => [k, getSetting(t, k, "1") !== "0"])),
     google_review_url: getSetting(t, "google_review_url", ""),
     khata_rules: { block_days: Number(getSetting(t, "khata_block_days", "60")), block_institutions: getSetting(t, "khata_block_institutions", "0") === "1", late_fee_pct: Number(getSetting(t, "khata_late_fee_pct", "0")) },
+    // operating limits the owner can tune (defaults match what the code assumed before they were settings)
+    limits: { test_limit_l: Number(getSetting(t, "test_limit_l", "10")), shortage_min: Number(getSetting(t, "shortage_min", "100")), utility_alert_pct: Number(getSetting(t, "utility_alert_pct", "15")),
+      shortage_tolerance_pct: Number(getSetting(t, "shortage_tolerance_pct", "0.2")), pin_admin: getSetting(t, "pin_admin", "0") === "1" },
     integrations: {
       claude: { connected: aiEnabled(), model: config.aiModel, effort: config.aiEffort },
       whatsapp: { connected: waLive(), phone_number_id: config.wa.phoneNumberId ? "…" + config.wa.phoneNumberId.slice(-4) : null, webhook_url: `${config.publicUrl}/webhooks/whatsapp`, verify_token_set: Boolean(config.wa.verifyToken), template: config.wa.templateName },
@@ -100,8 +103,14 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
 insightsRouter.put("/settings", requirePerm("settings.manage"), h((req) => {
   const b = parse(z.object({ business_name: z.string().min(2).optional(), owner_name: z.string().optional(), owner_phone: z.string().optional(),
     automation: z.record(z.enum(AUTO_SETTINGS), z.boolean()).optional(), google_review_url: z.string().url().or(z.literal("")).optional(),
-    khata_rules: z.object({ block_days: z.number().int().min(15).max(365).optional(), block_institutions: z.boolean().optional(), late_fee_pct: z.number().min(0).max(5).optional() }).optional() }), req.body);
+    khata_rules: z.object({ block_days: z.number().int().min(15).max(365).optional(), block_institutions: z.boolean().optional(), late_fee_pct: z.number().min(0).max(5).optional() }).optional(),
+    limits: z.object({ test_limit_l: z.number().min(0).max(500).optional(), shortage_min: z.number().min(0).max(100_000).optional(), utility_alert_pct: z.number().min(0).max(500).optional(),
+      shortage_tolerance_pct: z.number().min(0).max(2).optional(), pin_admin: z.boolean().optional() }).optional() }), req.body);
   if (b.google_review_url !== undefined) setSetting(tid(req), "google_review_url", b.google_review_url);
+  if (b.limits) {
+    for (const k of ["test_limit_l", "shortage_min", "utility_alert_pct", "shortage_tolerance_pct"] as const) if (b.limits[k] !== undefined) setSetting(tid(req), k, String(b.limits[k]));
+    if (b.limits.pin_admin !== undefined) setSetting(tid(req), "pin_admin", b.limits.pin_admin ? "1" : "0");
+  }
   if (b.khata_rules) {
     if (b.khata_rules.block_days !== undefined) setSetting(tid(req), "khata_block_days", String(b.khata_rules.block_days));
     if (b.khata_rules.block_institutions !== undefined) setSetting(tid(req), "khata_block_institutions", b.khata_rules.block_institutions ? "1" : "0");

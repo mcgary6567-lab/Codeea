@@ -70,7 +70,7 @@ export function forecast(tenantId: number, horizon = 7, stationId?: number) {
 /** Days until each tank reaches its reorder level and until empty, using the station-level forecast. */
 export function tankOutlook(tenantId: number) {
   const tanks = all(
-    `SELECT t.*, s.name station_name FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY s.id, t.id`,
+    `SELECT t.*, s.name station_name FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND t.active=1 AND s.active=1 ORDER BY s.id, t.id`,
     tenantId,
   );
   const cache = new Map<number, ReturnType<typeof forecast>>();

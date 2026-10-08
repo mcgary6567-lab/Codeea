@@ -174,12 +174,17 @@ function ExpenseForm({ categories, stations, limit, canApprove, onClose, onSaved
   );
 }
 
+/** Categories: rename (past expenses follow), budget, switch off / on, delete when unused. */
 function CategorySetup({ data, onClose, onChanged }: { data: any; onClose: () => void; onChanged: () => void }) {
+  const all = useApi<any>("/expense-categories?all=1");
+  const cats: any[] = all.data?.categories ?? data.categories;
   const [name, setName] = useState("");
   const [limit, setLimit] = useState(String(data.approval_limit));
-  const [budgets, setBudgets] = useState<Record<number, string>>({});
-  useEffect(() => setBudgets(Object.fromEntries(data.categories.map((c: any) => [c.id, c.monthly_budget ? String(c.monthly_budget) : ""]))), [data]);
+  const [rows, setRows] = useState<Record<number, { name: string; budget: string }>>({});
+  useEffect(() => setRows(Object.fromEntries(cats.map((c: any) => [c.id, { name: c.name, budget: c.monthly_budget ? String(c.monthly_budget) : "" }]))), [all.data, data]);
   const { busy, run } = useAction();
+  const changed = () => { all.reload(); onChanged(); };
+  const small = "btn-secondary min-h-9 !px-2 !py-1 text-xs sm:min-h-0";
   return (
     <Modal open onClose={onClose} title="Expense categories & budgets" wide>
       <div className="space-y-4">
@@ -187,15 +192,25 @@ function CategorySetup({ data, onClose, onChanged }: { data: any; onClose: () =>
           <Field label="Manager approval limit (Rs) — above this needs admin approval"><input className="input w-48" type="number" min={0} value={limit} onChange={(e) => setLimit(e.target.value)} /></Field>
           <button className="btn-secondary" disabled={busy}>Save</button>
         </form>
-        <table className="w-full">
+        <div className="overflow-x-auto"><table className="w-full min-w-[520px]">
           <thead><tr><th className="th">Category</th><th className="th">Monthly budget (Rs)</th><th className="th" /></tr></thead>
-          <tbody>{data.categories.map((c: any) => (
-            <tr key={c.id}><td className="td text-sm">{c.name}</td>
-              <td className="td"><input className="input w-28 sm:w-40" type="number" min={0} placeholder="no budget" value={budgets[c.id] ?? ""} onChange={(e) => setBudgets({ ...budgets, [c.id]: e.target.value })} /></td>
-              <td className="td"><button className="btn-secondary min-h-9 !px-2 !py-1 text-xs sm:min-h-0" disabled={busy} onClick={() => run(() => api(`/expense-categories/${c.id}`, { method: "PATCH", body: { monthly_budget: budgets[c.id] ? Number(budgets[c.id]) : null } }), "Budget saved").then(onChanged)}>Save</button></td></tr>
-          ))}</tbody>
-        </table>
-        <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/expense-categories", { body: { name } }), "Category added")) { setName(""); onChanged(); } }}>
+          <tbody>{cats.map((c: any) => {
+            const r = rows[c.id] ?? { name: c.name, budget: "" };
+            return (
+              <tr key={c.id} className={c.active ? "" : "opacity-50"}>
+                <td className="td"><input className="input w-40 sm:w-56" value={r.name} onChange={(e) => setRows({ ...rows, [c.id]: { ...r, name: e.target.value } })} /></td>
+                <td className="td"><input className="input w-28 sm:w-40" type="number" min={0} placeholder="no budget" value={r.budget} onChange={(e) => setRows({ ...rows, [c.id]: { ...r, budget: e.target.value } })} /></td>
+                <td className="td"><span className="flex flex-wrap gap-1">
+                  <button className={small} disabled={busy} onClick={() => run(() => api(`/expense-categories/${c.id}`, { method: "PATCH", body: { name: r.name, monthly_budget: r.budget ? Number(r.budget) : null } }), "Saved").then(changed)}>Save</button>
+                  <button className={small} disabled={busy} onClick={() => run(() => api(`/expense-categories/${c.id}`, { method: "PATCH", body: { active: !c.active } }), c.active ? "Switched off" : "Switched on").then(changed)}>{c.active ? "Switch off" : "Switch on"}</button>
+                  <button className={`${small} !text-rose-700`} disabled={busy} onClick={() => confirm(`Delete "${c.name}"? Only possible if no expense uses it.`) && run(() => api(`/expense-categories/${c.id}`, { method: "DELETE" }), "Deleted").then(changed)}>Delete</button>
+                </span></td>
+              </tr>
+            );
+          })}</tbody>
+        </table></div>
+        <p className="text-xs text-slate-500">Renaming a category moves its past expenses to the new name. A switched-off category leaves the expense form but keeps its history.</p>
+        <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/expense-categories", { body: { name } }), "Category added")) { setName(""); changed(); } }}>
           <input className="input" placeholder="New category name" value={name} onChange={(e) => setName(e.target.value)} />
           <button className="btn-primary" disabled={busy || name.length < 2}>Add</button>
         </form>

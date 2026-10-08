@@ -84,3 +84,67 @@ test("supplier, wholesale client, station and tank notify the right people", asy
   const stations = (await call("admin", "GET", "/api/stations")).data;
   assert.equal(stations.find((s: any) => s.id === st.id).nozzles.length, 2);
 });
+
+test("admin edits, closes and deletes stations; edits, retires and deletes tanks; adds, retires and deletes meters", async () => {
+  const st = (await call("admin", "POST", "/api/stations", { name: "Temp Site", city: "Okara" })).data;
+  // edit (typo fix + location for the attendance distance check)
+  const e = await call("admin", "PATCH", `/api/stations/${st.id}`, { name: "Temp Site Okara", lat: 30.81, lng: 73.45, timings: "6am–11pm" });
+  assert.equal(e.status, 200); assert.equal(e.data.name, "Temp Site Okara"); assert.equal(e.data.lat, 30.81);
+  assert.equal((await call("manager", "PATCH", `/api/stations/${st.id}`, { name: "x" })).status, 403);
+  // a tank, its meters, then more meters later
+  const tk = (await call("admin", "POST", "/api/tanks", { station_id: st.id, name: "T1", product: "PMG", capacity_l: 10000, current_l: 0, nozzles: 1 })).data;
+  const m2 = (await call("admin", "POST", `/api/tanks/${tk.id}/nozzles`, { label: "Machine 2 right", totalizer: 500.5 })).data;
+  assert.equal(m2.label, "Machine 2 right"); assert.equal(m2.totalizer, 500.5); assert.equal(m2.meter_no, 2);
+  let s = (await call("admin", "GET", "/api/stations")).data.find((x: any) => x.id === st.id);
+  assert.equal(s.nozzles.length, 2);
+  // tank edit: capacity cannot drop below the stock; reorder level and name change
+  assert.equal((await call("admin", "PATCH", `/api/tanks/${tk.id}`, { capacity_l: 5000, name: "T1 Petrol", reorder_pct: 30 })).status, 200);
+  assert.equal((await call("admin", "GET", "/api/stations")).data.find((x: any) => x.id === st.id).tanks[0].reorder_pct, 30);
+  // retire a meter: it leaves the handover sheet and the shift; restore brings it back
+  assert.equal((await call("admin", "PATCH", `/api/nozzles/${m2.id}`, { active: false })).status, 200);
+  const sheet = (await call("admin", "GET", `/api/shifts/handover?station_id=${st.id}`)).data;
+  assert.deepEqual(sheet.nozzles.map((n: any) => n.nozzle_id), [s.nozzles[0].id]);
+  assert.equal((await call("admin", "GET", "/api/stations")).data.find((x: any) => x.id === st.id).nozzles.length, 1, "retired meter hidden");
+  assert.equal((await call("admin", "GET", "/api/stations?all=1")).data.find((x: any) => x.id === st.id).nozzles.length, 2, "…but listed for the admin");
+  assert.equal((await call("admin", "DELETE", `/api/nozzles/${m2.id}`)).status, 200, "never ran a shift → can be deleted");
+  // a meter that ran a shift cannot be deleted, only retired
+  const first = s.nozzles[0];
+  const sh = (await call("admin", "POST", "/api/shifts/open", { station_id: st.id, attendant: "Tester", readings: { [first.id]: 0 } })).data;
+  assert.equal((await call("admin", "PATCH", `/api/nozzles/${first.id}`, { active: false })).status, 400, "running in an open shift");
+  assert.equal((await call("admin", "PATCH", `/api/tanks/${tk.id}`, { active: false })).status, 400, "meter running");
+  assert.equal((await call("admin", "PATCH", `/api/stations/${st.id}`, { active: false })).status, 400, "open shift");
+  assert.equal((await call("admin", "POST", `/api/shifts/${sh.id}/close`, { readings: { [first.id]: 0 }, cash_actual: 0 })).status, 200);
+  assert.equal((await call("admin", "DELETE", `/api/nozzles/${first.id}`)).status, 400, "has readings → retire instead");
+  assert.equal((await call("admin", "DELETE", `/api/tanks/${tk.id}`)).status, 400, "has history → retire instead");
+  assert.equal((await call("admin", "PATCH", `/api/tanks/${tk.id}`, { active: false })).status, 200, "empty tank retires with its meters");
+  s = (await call("admin", "GET", "/api/stations")).data.find((x: any) => x.id === st.id);
+  assert.equal(s.tanks.length, 0); assert.equal(s.nozzles.length, 0);
+  // close the station: it leaves every list; reopen brings it back; delete only when unused
+  assert.equal((await call("admin", "DELETE", `/api/stations/${st.id}`)).status, 400, "has a tank → close instead");
+  assert.equal((await call("admin", "PATCH", `/api/stations/${st.id}`, { active: false })).status, 200);
+  assert.ok(!(await call("admin", "GET", "/api/stations")).data.some((x: any) => x.id === st.id));
+  assert.ok((await call("admin", "GET", "/api/stations?all=1")).data.some((x: any) => x.id === st.id && !x.active));
+  const empty = (await call("admin", "POST", "/api/stations", { name: "Never Used" })).data;
+  assert.equal((await call("admin", "DELETE", `/api/stations/${empty.id}`)).status, 200);
+  assert.equal((await call("admin", "DELETE", `/api/stations/1`)).status, 400, "station 1 has history");
+});
+
+test("admin renames, switches off and deletes expense categories; limits are settings", async () => {
+  const c = (await call("admin", "POST", "/api/expense-categories", { name: "Chai & biskut" })).data;
+  const exp = (await call("manager", "POST", "/api/expenses", { category: "Chai & biskut", amount: 150 })).data;
+  assert.equal((await call("admin", "PATCH", `/api/expense-categories/${c.id}`, { name: "Tea & biscuits", monthly_budget: 5000 })).status, 200);
+  const list = (await call("manager", "GET", "/api/expenses")).data.expenses;
+  assert.equal(list.find((x: any) => x.id === exp.id).category, "Tea & biscuits", "past expenses follow the new name");
+  assert.equal((await call("admin", "DELETE", `/api/expense-categories/${c.id}`)).status, 400, "in use → switch off instead");
+  assert.equal((await call("admin", "PATCH", `/api/expense-categories/${c.id}`, { active: false })).status, 200);
+  assert.ok(!(await call("manager", "GET", "/api/expense-categories")).data.categories.some((x: any) => x.id === c.id), "off → not offered");
+  assert.ok((await call("admin", "GET", "/api/expense-categories?all=1")).data.categories.some((x: any) => x.id === c.id && !x.active));
+  assert.equal((await call("manager", "POST", "/api/expenses", { category: "Tea & biscuits", amount: 10 })).status, 400, "switched-off category refused");
+  const unused = (await call("admin", "POST", "/api/expense-categories", { name: "Typo catgory" })).data;
+  assert.equal((await call("admin", "DELETE", `/api/expense-categories/${unused.id}`)).status, 200);
+  // limits
+  assert.equal((await call("admin", "PUT", "/api/settings", { limits: { test_limit_l: 25, shortage_min: 250, shortage_tolerance_pct: 0.5, utility_alert_pct: 20, pin_admin: true } })).status, 200);
+  const l = (await call("admin", "GET", "/api/settings")).data.limits;
+  assert.deepEqual(l, { test_limit_l: 25, shortage_min: 250, utility_alert_pct: 20, shortage_tolerance_pct: 0.5, pin_admin: true });
+  assert.equal((await call("admin", "GET", "/api/claims")).data.tolerance_pct, 0.5, "claims read the same setting");
+});

@@ -33,21 +33,48 @@ function ownTank(tenantId: number, tankId: number) {
   return t;
 }
 
+/** Stations with their tanks and meters. Closed stations, retired tanks and meters are left out unless ?all=1 (the Settings page). */
 operations.get("/stations", requireAny("sales.view", "stock.manage", "wholesale.view", "users.manage"), h((req) => {
   const own = req.user!.role === "salesman" ? scopedStation(req) : null;
-  return all(`SELECT * FROM stations WHERE tenant_id=? ${own ? "AND id=" + Number(own) : ""} ORDER BY id`, tid(req)).map((s) => ({
+  const act = req.query.all === "1" ? "" : "AND active=1";
+  return all(`SELECT * FROM stations WHERE tenant_id=? ${own ? "AND id=" + Number(own) : ""} ${act} ORDER BY id`, tid(req)).map((s) => ({
   ...s,
-  tanks: all("SELECT * FROM tanks WHERE station_id=? ORDER BY id", s.id),
-  nozzles: all(`SELECT n.*, ${METER} name, t.product FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.meter_no, n.id`, s.id),
+  tanks: all(`SELECT * FROM tanks WHERE station_id=? ${act} ORDER BY id`, s.id),
+  nozzles: all(`SELECT n.*, ${METER} name, t.product FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ${act.replace("active", "n.active")} ORDER BY n.meter_no, n.id`, s.id),
 }));
 }));
 
+const stationBody = z.object({ name: z.string().min(2).max(80), city: z.string().max(60).optional().nullable(), address: z.string().max(200).optional().nullable(), omc: z.string().max(40).optional().nullable(),
+  timings: z.string().max(60).optional().nullable(), services: z.string().max(200).optional().nullable(), lat: z.number().min(-90).max(90).optional().nullable(), lng: z.number().min(-180).max(180).optional().nullable() });
 operations.post("/stations", requirePerm("stations.manage"), h(async (req) => {
-  const b = parse(z.object({ name: z.string().min(2), city: z.string().optional(), address: z.string().optional(), omc: z.string().optional(), timings: z.string().optional(), services: z.string().optional() }), req.body);
-  const st = get("SELECT * FROM stations WHERE id=?", run("INSERT INTO stations (tenant_id,name,city,address,omc,timings,services) VALUES (?,?,?,?,?,?,?)",
-    tid(req), b.name, b.city ?? null, b.address ?? null, b.omc ?? null, b.timings ?? "24 hours", b.services ?? null).id)!;
+  const b = parse(stationBody, req.body);
+  const st = get("SELECT * FROM stations WHERE id=?", run("INSERT INTO stations (tenant_id,name,city,address,omc,timings,services,lat,lng) VALUES (?,?,?,?,?,?,?,?,?)",
+    tid(req), b.name, b.city ?? null, b.address ?? null, b.omc ?? null, b.timings ?? "24 hours", b.services ?? null, b.lat ?? null, b.lng ?? null).id)!;
   await announce(tid(req), req.user!.id, ["manager", "admin"], { type: "new_station", data: { station_id: st.id }, title: `⛽ New station: ${st.name}`, body: "Add its tanks and assign salesmen." });
   return st;
+}));
+/** Edit a station (name, address, timings, location for the attendance distance check) or close / reopen it. */
+operations.patch("/stations/:id", requirePerm("stations.manage"), h((req) => {
+  const b = parse(stationBody.partial().extend({ active: z.boolean().optional() }), req.body);
+  const s = ownStation(tid(req), Number(req.params.id));
+  if (b.active === false && get("SELECT id FROM shifts WHERE station_id=? AND status='open'", s.id)) throw new AppError(400, "Close the open shifts at this station first");
+  tx(() => {
+    for (const k of ["name", "city", "address", "omc", "timings", "services", "lat", "lng"] as const) if (b[k] !== undefined) run(`UPDATE stations SET ${k}=? WHERE id=?`, b[k], s.id);
+    if (b.active !== undefined) run("UPDATE stations SET active=? WHERE id=?", b.active ? 1 : 0, s.id);
+  });
+  audit(tid(req), req.user!, "station_edit", `station:${s.id}`, b);
+  return get("SELECT * FROM stations WHERE id=?", s.id);
+}));
+/** Delete a station that was never used (no sales, shifts or tanks); a used one is closed instead. */
+operations.delete("/stations/:id", requirePerm("stations.manage"), h((req) => {
+  const s = ownStation(tid(req), Number(req.params.id));
+  if (get("SELECT id FROM stations WHERE tenant_id=? AND id<>? AND active=1 LIMIT 1", tid(req), s.id) == null) throw new AppError(400, "This is the only station — it cannot be removed");
+  const used = get("SELECT (SELECT COUNT(*) FROM sales WHERE station_id=?) + (SELECT COUNT(*) FROM shifts WHERE station_id=?) + (SELECT COUNT(*) FROM tanks WHERE station_id=?) n", s.id, s.id, s.id)!.n;
+  if (used) throw new AppError(400, "This station has tanks or history — close it instead (it keeps its records)");
+  run("DELETE FROM stations WHERE id=?", s.id);
+  run("UPDATE users SET station_id=NULL WHERE station_id=?", s.id);
+  audit(tid(req), req.user!, "station_delete", `station:${s.id}`, { name: s.name });
+  return { ok: true };
 }));
 
 operations.post("/tanks", requirePerm("stock.manage"), h(async (req) => {
@@ -64,19 +91,67 @@ operations.post("/tanks", requirePerm("stock.manage"), h(async (req) => {
   return tank;
 }));
 
-/** Renumber or rename a meter (No.1, No.2 …). Taking a number another meter has swaps the two. */
+/** Edit a tank (name, capacity, reorder level) or retire / bring back an empty one. Stock itself moves only through dips and deliveries. */
+operations.patch("/tanks/:id", requirePerm("stock.manage"), h((req) => {
+  const b = parse(z.object({ name: z.string().trim().min(1).max(60).optional(), capacity_l: z.number().positive().max(500_000).optional(), reorder_pct: z.number().min(5).max(80).optional(), active: z.boolean().optional() }), req.body);
+  const tk = ownTank(tid(req), Number(req.params.id));
+  if (b.capacity_l !== undefined && b.capacity_l < tk.current_l) throw new AppError(400, `Capacity cannot be less than the ${Math.round(tk.current_l).toLocaleString()} L in the tank now`);
+  if (b.active === false) {
+    if (tk.current_l > 0.5) throw new AppError(400, `Empty the tank first — it still shows ${Math.round(tk.current_l).toLocaleString()} L (record a dip)`);
+    if (get("SELECT r.id FROM meter_readings r JOIN shifts sh ON sh.id=r.shift_id JOIN nozzles n ON n.id=r.nozzle_id WHERE n.tank_id=? AND sh.status='open' LIMIT 1", tk.id)) throw new AppError(400, "A meter on this tank is running in an open shift");
+  }
+  tx(() => {
+    for (const k of ["name", "capacity_l", "reorder_pct"] as const) if (b[k] !== undefined) run(`UPDATE tanks SET ${k}=? WHERE id=?`, b[k], tk.id);
+    if (b.active !== undefined) { run("UPDATE tanks SET active=? WHERE id=?", b.active ? 1 : 0, tk.id); run("UPDATE nozzles SET active=? WHERE tank_id=?", b.active ? 1 : 0, tk.id); }
+  });
+  audit(tid(req), req.user!, "tank_edit", `tank:${tk.id}`, b);
+  return get("SELECT * FROM tanks WHERE id=?", tk.id);
+}));
+/** Delete a tank that was never used (no deliveries, dips or meter readings); a used one is retired instead. */
+operations.delete("/tanks/:id", requirePerm("stock.manage"), h((req) => {
+  const tk = ownTank(tid(req), Number(req.params.id));
+  const used = get(`SELECT (SELECT COUNT(*) FROM deliveries WHERE tank_id=?) + (SELECT COUNT(*) FROM dip_readings WHERE tank_id=?)
+    + (SELECT COUNT(*) FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE n.tank_id=?) + (SELECT COUNT(*) FROM sales s JOIN nozzles n ON n.id=s.nozzle_id WHERE n.tank_id=?) n`, tk.id, tk.id, tk.id, tk.id)!.n;
+  if (used) throw new AppError(400, "This tank has history — retire it instead (it keeps its records)");
+  tx(() => { run("DELETE FROM tank_charts WHERE tank_id=?", tk.id); run("DELETE FROM nozzles WHERE tank_id=?", tk.id); run("DELETE FROM tanks WHERE id=?", tk.id); });
+  audit(tid(req), req.user!, "tank_delete", `tank:${tk.id}`, { name: tk.name });
+  return { ok: true };
+}));
+
+/** Add a dispenser meter to an existing tank (a new machine on the forecourt). */
+operations.post("/tanks/:id/nozzles", requirePerm("stock.manage"), h((req) => {
+  const b = parse(z.object({ label: z.string().trim().max(30).optional(), totalizer: z.number().min(0).max(99_999_999).default(0), meter_no: z.number().int().min(1).max(99).optional() }), req.body);
+  const tk = ownTank(tid(req), Number(req.params.id));
+  const n = Number(get("SELECT COUNT(*) n FROM nozzles WHERE tank_id=?", tk.id)!.n) + 1;
+  const { id } = run("INSERT INTO nozzles (station_id,tank_id,label,totalizer,meter_no) VALUES (?,?,?,?,?)", tk.station_id, tk.id, b.label || `${tk.product}-${n}`, b.totalizer, b.meter_no ?? null);
+  audit(tid(req), req.user!, "meter_add", `nozzle:${id}`, b);
+  return get(`SELECT n.*, ${METER} name FROM nozzles n WHERE n.id=?`, id);
+}));
+const nozzleBusy = (id: number) => Boolean(get("SELECT r.id FROM meter_readings r JOIN shifts sh ON sh.id=r.shift_id WHERE r.nozzle_id=? AND sh.status='open' LIMIT 1", id));
+/** Renumber or rename a meter (No.1, No.2 …), or retire / bring back one. Taking a number another meter has swaps the two. */
 operations.patch("/nozzles/:id", requirePerm("stock.manage"), h((req) => {
-  const b = parse(z.object({ meter_no: z.number().int().min(1).max(99).optional(), label: z.string().trim().min(1).max(30).optional() }), req.body);
+  const b = parse(z.object({ meter_no: z.number().int().min(1).max(99).optional(), label: z.string().trim().min(1).max(30).optional(), active: z.boolean().optional() }), req.body);
   const n = get("SELECT n.* FROM nozzles n JOIN stations s ON s.id=n.station_id WHERE n.id=? AND s.tenant_id=?", Number(req.params.id), tid(req));
   if (!n) throw new AppError(404, "Meter not found");
+  if (b.active === false && nozzleBusy(n.id)) throw new AppError(400, "This meter is running in an open shift — close the shift first");
   tx(() => {
     if (b.meter_no && b.meter_no !== n.meter_no) {
       run("UPDATE nozzles SET meter_no=? WHERE station_id=? AND meter_no=?", n.meter_no, n.station_id, b.meter_no);
       run("UPDATE nozzles SET meter_no=? WHERE id=?", b.meter_no, n.id);
     }
     if (b.label) run("UPDATE nozzles SET label=? WHERE id=?", b.label, n.id);
+    if (b.active !== undefined) run("UPDATE nozzles SET active=? WHERE id=?", b.active ? 1 : 0, n.id);
   });
   return get(`SELECT n.*, ${METER} name FROM nozzles n WHERE n.id=?`, n.id);
+}));
+/** Delete a meter that never ran a shift; one with readings is retired instead. */
+operations.delete("/nozzles/:id", requirePerm("stock.manage"), h((req) => {
+  const n = get("SELECT n.* FROM nozzles n JOIN stations s ON s.id=n.station_id WHERE n.id=? AND s.tenant_id=?", Number(req.params.id), tid(req));
+  if (!n) throw new AppError(404, "Meter not found");
+  if (get("SELECT id FROM meter_readings WHERE nozzle_id=? LIMIT 1", n.id) || get("SELECT id FROM sales WHERE nozzle_id=? LIMIT 1", n.id)) throw new AppError(400, "This meter has readings — retire it instead");
+  run("DELETE FROM nozzles WHERE id=?", n.id);
+  audit(tid(req), req.user!, "meter_delete", `nozzle:${n.id}`, { label: n.label });
+  return { ok: true };
 }));
 
 /** Litres and money per meter for a period (default: today). */
@@ -290,7 +365,7 @@ operations.get("/shifts/handover", requirePerm("shifts.manage"), h((req) => {
   const busy = busyNozzles(stationId);
   return {
     station_id: stationId,
-    nozzles: all("SELECT n.*, t.product, t.name tank FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.meter_no, n.id", stationId).map((n) => {
+    nozzles: all("SELECT n.*, t.product, t.name tank FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? AND n.active=1 ORDER BY n.meter_no, n.id", stationId).map((n) => {
       const last = get(`SELECT sh.attendant, sh.closed_at, r.closing FROM meter_readings r JOIN shifts sh ON sh.id=r.shift_id
         WHERE r.nozzle_id=? AND sh.status='closed' AND r.closing IS NOT NULL ORDER BY sh.closed_at DESC LIMIT 1`, n.id);
       return { nozzle_id: n.id, meter_no: n.meter_no, code: n.label, label: meterName(n as any), product: n.product, tank: n.tank, last_reading: n.totalizer, handed_over_by: last?.attendant ?? null, handed_over_at: last?.closed_at ?? null, busy: busy.has(n.id) };
@@ -312,7 +387,7 @@ operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
   const st = ownStation(tid(req), stationId);
   if (get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=?", stationId, attendant)) throw new AppError(400, "This attendant already has an open shift");
   const busy = busyNozzles(stationId);
-  const stationNozzles = all("SELECT n.*, t.product, t.id tank_id FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.meter_no", stationId)
+  const stationNozzles = all("SELECT n.*, t.product, t.id tank_id FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? AND n.active=1 ORDER BY n.meter_no", stationId)
     .map((n) => ({ ...n, label: meterName(n as any) }));
   const chosen = b.readings ? stationNozzles.filter((n) => String(n.id) in b.readings!) : stationNozzles.filter((n) => !busy.has(n.id));
   if (b.readings && chosen.length !== Object.keys(b.readings).length) throw new AppError(400, "Unknown nozzle in readings");
@@ -358,7 +433,7 @@ operations.post("/shifts/:id/expenses", requirePerm("shifts.expenses"), h(async 
   const shift = ownOpenShift(req, Number(req.params.id));
   if (shift.status !== "open") throw new AppError(400, "Shift is closed");
   const b = parse(z.object({ category: z.string().min(2), amount: z.number().positive().max(1_000_000), paid_to: z.string().max(80).optional().nullable(), note: z.string().max(200).optional().nullable(), photo_id: z.number().optional().nullable() }), req.body);
-  if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", tid(req), b.category)) throw new AppError(400, "Unknown expense category");
+  if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=? AND active=1", tid(req), b.category)) throw new AppError(400, "Unknown expense category");
   const limit = Number(getSetting(tid(req), "expense_approval_limit", "10000"));
   const status = req.user!.role === "admin" || b.amount <= limit ? "approved" : "pending";
   const { id } = run(`INSERT INTO expenses (tenant_id,station_id,shift_id,category,amount,paid_to,method,note,status,created_by,approved_by,expense_date,created_at)

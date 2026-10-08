@@ -175,12 +175,15 @@ export function SupplierForm({ onClose, onSaved }: { onClose: () => void; onSave
   );
 }
 
-export function StationForm({ onClose, onSaved }: { onClose: () => void; onSaved: (s: any) => void }) {
-  const [f, setF] = useState({ name: "", city: "", address: "", omc: "PSO", timings: "24 hours", services: "" });
+/** Add a station, or (with `edit`) change an existing one's details. */
+export function StationForm({ edit, onClose, onSaved }: { edit?: any; onClose: () => void; onSaved: (s: any) => void }) {
+  const [f, setF] = useState({ name: edit?.name ?? "", city: edit?.city ?? "", address: edit?.address ?? "", omc: edit?.omc ?? "PSO", timings: edit?.timings ?? "24 hours", services: edit?.services ?? "",
+    lat: edit?.lat != null ? String(edit.lat) : "", lng: edit?.lng != null ? String(edit.lng) : "" });
   const { busy, run } = useAction();
+  const body = { ...f, services: f.services || null, lat: f.lat ? Number(f.lat) : null, lng: f.lng ? Number(f.lng) : null };
   return (
-    <SimpleModal title="New station" busy={busy} onClose={onClose} onSubmit={async () => {
-      const r = await run(() => api("/stations", { body: { ...f, services: f.services || undefined } }), "Station added");
+    <SimpleModal title={edit ? "Edit station" : "New station"} busy={busy} onClose={onClose} onSubmit={async () => {
+      const r = edit ? await run(() => api(`/stations/${edit.id}`, { method: "PATCH", body }), "Station saved") : await run(() => api("/stations", { body }), "Station added");
       if (r) onSaved(r);
     }}>
       <Field label="Station name"><input className="input" required minLength={2} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
@@ -193,28 +196,36 @@ export function StationForm({ onClose, onSaved }: { onClose: () => void; onSaved
         <Field label="Timings"><input className="input" value={f.timings} onChange={(e) => setF({ ...f, timings: e.target.value })} /></Field>
         <Field label="Services"><input className="input" placeholder="Tuck shop, air, car wash" value={f.services} onChange={(e) => setF({ ...f, services: e.target.value })} /></Field>
       </div>
-      <p className="text-xs text-slate-500">Next: add its tanks, then assign salesmen to it on the Users page.</p>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Latitude (for attendance distance)"><input className="input" type="number" step="any" placeholder="31.5204" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} /></Field>
+        <Field label="Longitude"><input className="input" type="number" step="any" placeholder="74.3587" value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} /></Field>
+      </div>
+      {!edit && <p className="text-xs text-slate-500">Next: add its tanks, then assign salesmen to it on the Users page.</p>}
     </SimpleModal>
   );
 }
 
-export function TankForm({ stations, stationId, onClose, onSaved }: { stations: any[]; stationId?: number; onClose: () => void; onSaved: (t: any) => void }) {
-  const [f, setF] = useState({ station_id: String(stationId ?? stations[0]?.id ?? ""), product: "PMG", name: "", capacity_l: "20000", current_l: "0", reorder_pct: "25", nozzles: "2" });
+/** Add a tank with its meters, or (with `edit`) change a tank's name, capacity and reorder level. */
+export function TankForm({ stations, stationId, edit, onClose, onSaved }: { stations: any[]; stationId?: number; edit?: any; onClose: () => void; onSaved: (t: any) => void }) {
+  const [f, setF] = useState({ station_id: String(stationId ?? stations[0]?.id ?? ""), product: edit?.product ?? "PMG", name: edit?.name ?? "", capacity_l: edit ? String(edit.capacity_l) : "20000", current_l: "0", reorder_pct: edit ? String(edit.reorder_pct) : "25", nozzles: "2" });
   const { busy, run } = useAction();
   return (
-    <SimpleModal title="New tank & nozzles" busy={busy} onClose={onClose} onSubmit={async () => {
-      const r = await run(() => api("/tanks", { body: { station_id: Number(f.station_id), product: f.product, name: f.name || `Tank ${PRODUCTS[f.product]}`, capacity_l: Number(f.capacity_l), current_l: Number(f.current_l), reorder_pct: Number(f.reorder_pct), nozzles: Number(f.nozzles) } }), "Tank added");
+    <SimpleModal title={edit ? "Edit tank" : "New tank & nozzles"} busy={busy} onClose={onClose} onSubmit={async () => {
+      const r = edit
+        ? await run(() => api(`/tanks/${edit.id}`, { method: "PATCH", body: { name: f.name, capacity_l: Number(f.capacity_l), reorder_pct: Number(f.reorder_pct) } }), "Tank saved")
+        : await run(() => api("/tanks", { body: { station_id: Number(f.station_id), product: f.product, name: f.name || `Tank ${PRODUCTS[f.product]}`, capacity_l: Number(f.capacity_l), current_l: Number(f.current_l), reorder_pct: Number(f.reorder_pct), nozzles: Number(f.nozzles) } }), "Tank added");
       if (r) onSaved(r);
     }}>
-      <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+      {!edit && <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Fuel"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{Object.entries(PRODUCTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
-        <Field label="Tank name"><input className="input" placeholder="Tank-4 Diesel" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        {!edit && <Field label="Fuel"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{Object.entries(PRODUCTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>}
+        <Field label="Tank name"><input className="input" placeholder="Tank-4 Diesel" required={Boolean(edit)} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <Field label="Capacity (litres)"><input className="input" type="number" min={1} required value={f.capacity_l} onChange={(e) => setF({ ...f, capacity_l: e.target.value })} /></Field>
-        <Field label="Current stock (litres, from dip)"><input className="input" type="number" min={0} required value={f.current_l} onChange={(e) => setF({ ...f, current_l: e.target.value })} /></Field>
+        {!edit && <Field label="Current stock (litres, from dip)"><input className="input" type="number" min={0} required value={f.current_l} onChange={(e) => setF({ ...f, current_l: e.target.value })} /></Field>}
         <Field label="Reorder at (% full)"><input className="input" type="number" min={5} max={80} value={f.reorder_pct} onChange={(e) => setF({ ...f, reorder_pct: e.target.value })} /></Field>
-        <Field label="Number of nozzles"><input className="input" type="number" min={0} max={12} value={f.nozzles} onChange={(e) => setF({ ...f, nozzles: e.target.value })} /></Field>
+        {!edit && <Field label="Number of nozzles"><input className="input" type="number" min={0} max={12} value={f.nozzles} onChange={(e) => setF({ ...f, nozzles: e.target.value })} /></Field>}
       </div>
+      {edit && <p className="text-xs text-slate-500">Stock in the tank changes only through dips and deliveries. Fuel type cannot change once the tank has history.</p>}
     </SimpleModal>
   );
 }
