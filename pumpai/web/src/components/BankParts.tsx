@@ -172,6 +172,7 @@ export function BankAccounts({ cashInHand, onChanged }: { cashInHand: number; on
               <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-slate-500">
                 <span className="whitespace-nowrap text-emerald-700">▲ {pkr(a.month_in)}</span><span className="whitespace-nowrap text-red-600">▼ {pkr(a.month_out)}</span><span className="whitespace-nowrap">this month</span>
               </div>
+              {a.pos_today > 0 && <div className="mt-0.5 text-xs text-slate-500">💳 POS aaj {pkr(a.pos_today)}{a.pos_month > a.pos_today ? ` · mahine ${pkr(a.pos_month)}` : ""}</div>}
             </button>
           ))}
         </div>

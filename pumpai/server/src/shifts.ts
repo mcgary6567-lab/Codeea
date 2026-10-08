@@ -73,8 +73,14 @@ export function shiftSummary(shiftId: number) {
   const shop = { total: shopSum(["cash", "easypaisa", "jazzcash", "raast", "card", "khata"]), cash: shopSum(["cash"]), digital: shopSum(["easypaisa", "jazzcash", "raast", "card"]), khata: shopSum(["khata"]), sales: shopBy.reduce((a, p) => a + p.n, 0) };
   const cashSales = round2(sum(["cash"]) + shop.cash);
   const expensesTotal = round2(expenses.reduce((a, e) => a + e.amount, 0));
+  // POS / card money this shift, split by the bank machine it was taken on (null = not tagged to a bank)
+  const posByBank = all(`SELECT s.account_id, b.bank, b.title, b.account_no, ROUND(SUM(s.amount),2) amount, COUNT(*) n
+    FROM sales s LEFT JOIN bank_accounts b ON b.id=s.account_id
+    WHERE s.shift_id=? AND s.payment_method IN ('card','jazzcash','easypaisa','raast') GROUP BY s.account_id ORDER BY amount DESC`, shiftId)
+    .map((r) => ({ account_id: r.account_id, amount: r.amount, n: r.n,
+      bank: r.account_id ? [r.bank, r.title].filter(Boolean).join(" — ") + (r.account_no ? ` (…${String(r.account_no).replace(/\s/g, "").slice(-4)})` : "") : "Bank set nahi" }));
   return {
-    by_product: byProduct, by_payment: byPayment,
+    by_product: byProduct, by_payment: byPayment, pos_by_bank: posByBank,
     litres: round2(byProduct.reduce((a, p) => a + p.litres, 0)), amount: round2(byProduct.reduce((a, p) => a + p.amount, 0)),
     cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]), points: sum(["loyalty"]), prepaid: sum(["coupon", "wallet"]), shop,
     expenses, expenses_total: expensesTotal,

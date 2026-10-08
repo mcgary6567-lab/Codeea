@@ -124,6 +124,16 @@ test("a card sale can name its own bank's POS machine (credits that account, not
   const sale = ok(await call("salesman", "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 1500, payment_method: "card", account_id: hblId }), "tagged card sale");
   assert.equal(sale.account_id, hblId);
   near((await bankBal(hblId)) - before, 1500, "the chosen bank POS was credited");
+  // the cashier/owner bank view shows today's POS receipts for that bank
+  const acct = ok(await call("admin", "GET", "/api/bank/accounts"), "accts").accounts.find((a: any) => a.id === hblId);
+  assert.ok(acct.pos_today >= 1500, `POS today shown on the bank: ${acct.pos_today}`);
+  // the salesman's shift shows the POS money split by bank machine
+  const live = ok(await call("salesman", "GET", "/api/pos/today"), "pos today");
+  const sid = live.shift?.id ?? live.shift_id;
+  if (sid) {
+    const sum = ok(await call("salesman", "GET", `/api/shifts/${sid}/live`), "shift live").summary;
+    assert.ok((sum.pos_by_bank ?? []).some((x: any) => x.account_id === hblId && x.amount >= 1500), "shift POS-by-bank lists HBL");
+  }
 });
 
 test("after all of the above: every book still tallies with the ledger", async () => {

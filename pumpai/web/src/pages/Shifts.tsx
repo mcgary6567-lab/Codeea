@@ -131,6 +131,9 @@ function MyShift({ id, onEnd }: { id: number; onEnd: () => void }) {
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <div className="flex justify-between"><span>📒 Khata</span><span className="tabular-nums">{pkr(s.khata)}</span></div>
           <div className="flex justify-between"><span>📱 Digital</span><span className="tabular-nums">{pkr(s.digital)}</span></div>
+          {(s.pos_by_bank ?? []).filter((x: any) => x.account_id).map((x: any) => (
+            <div key={x.account_id} className="flex justify-between pl-4 text-xs text-slate-500"><span>💳 POS — {x.bank} ({x.n})</span><span className="tabular-nums">{pkr(x.amount)}</span></div>
+          ))}
           <div className="flex justify-between"><span>💵 Cash sales</span><span className="tabular-nums">{pkr(s.cash_sales)}</span></div>
           <div className="flex justify-between text-red-700"><span>− Expenses</span><span className="tabular-nums">{pkr(s.expenses_total)}</span></div>
           <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold"><span>Cash in bag (so far)</span><span className="tabular-nums">{pkr(s.cash_expected)}</span></div>

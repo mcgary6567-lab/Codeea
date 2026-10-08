@@ -159,6 +159,7 @@ export function bankAccounts(t: number) {
       balance: round2(a.opening_balance + sum(() => true)),
       month_in: sum((m) => m.at >= month && m.amount > 0), month_out: round2(-sum((m) => m.at >= month && m.amount < 0)),
       today_in: sum((m) => m.at >= today && m.amount > 0), today_out: round2(-sum((m) => m.at >= today && m.amount < 0)),
+      pos_today: sum((m) => m.kind === "pos" && m.at >= today), pos_month: sum((m) => m.kind === "pos" && m.at >= month),
       last_at: mine.length ? mine[mine.length - 1].at : null,
     };
   });
