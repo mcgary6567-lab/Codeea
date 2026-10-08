@@ -103,9 +103,13 @@ export function journal(t: number, fromDay: string, toDay: string) {
     if (r.type === "payment") add(d, "Receipt", `Carriage payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Carriage receivable", r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Carriage adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, r.amount >= 0 ? [dr("Carriage receivable", r.amount), cr("Other income", r.amount)] : [dr("Other income", -r.amount), cr("Carriage receivable", -r.amount)]);
   }
-  // bypass delivery: fuel bought from suppliers (own payable, kept apart from pump-stock) — its cost is against the bypass sales
+  // bypass delivery: fuel bought from suppliers goes into bypass stock (asset); its cost hits P&L only when delivered
   for (const r of all(`SELECT b.*, s.name FROM bypass_purchases b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.created_at >= ? AND b.created_at < ?`, ...P)) {
-    add(day(r.created_at), "Purchase", `Bypass fuel — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.cost_rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass fuel cost", r.amount), cr("Bypass suppliers payable", r.amount)]);
+    add(day(r.created_at), "Purchase", `Bypass fuel — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.cost_rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass stock", r.amount), cr("Bypass suppliers payable", r.amount)]);
+  }
+  // delivered out of the bypass stock: its share of the cost moves from stock to cost of sales
+  for (const r of all(`SELECT * FROM bypass_drops WHERE tenant_id=? AND voided=0 AND cost_amount > 0 AND created_at >= ? AND created_at < ?`, ...P)) {
+    add(day(r.created_at), "Journal", `Bypass delivered — ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.unit_cost}`, [dr("Bypass fuel cost", r.cost_amount), cr("Bypass stock", r.cost_amount)]);
   }
   for (const r of all(`SELECT b.*, s.name FROM bypass_supplier_payments b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.created_at >= ? AND b.created_at < ?`, ...P)) {
     const d = day(r.created_at);

@@ -595,6 +595,13 @@ export function migrate() {
     product TEXT NOT NULL, litres REAL NOT NULL, cost_rate REAL NOT NULL, amount REAL NOT NULL,
     ref TEXT, note TEXT, voided INTEGER NOT NULL DEFAULT 0, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_bypass_pur_sup ON bypass_purchases(supplier_id, txn_date)");
+  // fuel delivered out of the bypass stock to a client — carries its share of the stock cost (weighted average).
+  // Buying more than we deliver leaves the rest as bypass stock (an asset) to sell later when the rate goes up.
+  db.exec(`CREATE TABLE IF NOT EXISTS bypass_drops (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, delivery_id INTEGER, wtx_id INTEGER, client_id INTEGER,
+    product TEXT NOT NULL, litres REAL NOT NULL, unit_cost REAL NOT NULL, cost_amount REAL NOT NULL,
+    voided INTEGER NOT NULL DEFAULT 0, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_bypass_drops_prod ON bypass_drops(product, txn_date)");
   // what we pay the bypass supplier: we_pay (from our bank/cash), client_direct (client paid them for us),
   // through_us (client sent it to us, we forwarded) — the client legs also lower that client's due to us.
   db.exec(`CREATE TABLE IF NOT EXISTS bypass_supplier_payments (

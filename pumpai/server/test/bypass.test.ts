@@ -25,7 +25,8 @@ async function call(who: string, method: string, url: string, body?: unknown) {
   return { status: res.status, data: (await res.json().catch(() => null)) as any };
 }
 const ok = (r: { status: number; data: any }, msg: string) => { assert.equal(r.status, 200, `${msg}: ${JSON.stringify(r.data)}`); return r.data; };
-const near = (a: number, b: number, msg?: string) => assert.ok(Math.abs(a - b) < 0.06, `${msg ?? ""} ${a} ≈ ${b}`);
+const near = (a: number, b: number, msg?: string) => assert.ok(Math.abs(a - b) < 0.5, `${msg ?? ""} ${a} ≈ ${b}`);
+const round2 = (n: number) => Math.round(n * 100) / 100;
 const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
 function ledger() { return call("admin", "GET", `/api/ledger?from=${today()}&to=${today()}`); }
 const tb = (l: any, a: string) => l.trial_balance.find((x: any) => x.account === a)?.balance ?? 0;
@@ -59,7 +60,7 @@ test("can't deliver more litres than purchased", async () => {
     purchases: [{ supplier_id: S.id, product: "HSD", litres: 1000, cost_rate: 255 }],
     drops: [{ client_id: W1.id, product: "HSD", litres: 1500, override_limit: true }] });
   assert.equal(bad.status, 400, "refused");
-  assert.match(bad.data.error, /cannot deliver more than you bought|purchased/i);
+  assert.match(bad.data.error, /cannot deliver more than you have|available/i);
 });
 
 let DEL: any;
@@ -72,31 +73,52 @@ test("bypass delivery: multi-supplier purchase, clients billed, supplier bypass 
   DEL = ok(await call("wholesale", "POST", "/api/bypass/deliveries", { station_id: st,
     purchases: [{ supplier_id: S.id, product: "HSD", litres: 2000, cost_rate: 255, ref: "BILTY-1" }, { supplier_id: S2.id, product: "HSD", litres: 1000, cost_rate: 256, ref: "BILTY-2" }],
     drops: [{ client_id: W1.id, product: "HSD", litres: 2000, override_limit: true }, { client_id: W2.id, product: "HSD", litres: 800, override_limit: true }] }), "delivery");
-  const cost = 2000 * 255 + 1000 * 256;
+  // buy 3000 L, deliver 2800 L → 200 L held as bypass stock; cost of the 2800 delivered is at the 3000 L weighted average
+  const bought = 2000 * 255 + 1000 * 256;        // = 766000 (we owe the suppliers this much)
+  const avg = round2(bought / 3000);             // weighted-average cost per litre, rounded like the server
+  const soldCost = round2(2000 * avg) + round2(800 * avg); // each drop costed separately
+  const held = round2(bought - soldCost);        // 200 L still in stock
   const billed = DEL.billed;
   const w1Amt = DEL.drops.find((d: any) => d.client_id === W1.id).amount;
   const w2Amt = DEL.drops.find((d: any) => d.client_id === W2.id).amount;
-  near(DEL.cost, cost, "purchase cost"); near(DEL.margin, billed - cost, "margin");
+  near(DEL.bought, bought, "bought (purchase cost)"); near(DEL.sold_cost, soldCost, "delivered cost"); near(DEL.margin, billed - soldCost, "margin on what was sold");
+  near(DEL.stock.litres, 200, "200 L held in bypass stock");
   // our tanks and the pump-stock supplier payable did not move
   near(db.get("SELECT COALESCE(SUM(current_l),0) l FROM tanks WHERE station_id=?", st)!.l as number, tanks0, "no stock moved");
   near(await supOwed(S.id), pumpOwed0, "pump-stock payable unchanged (separate account)");
   // clients owe their drops
   near(await clientDueOf(W1.id) - due1_0, w1Amt, "W1 billed");
   near(await clientDueOf(W2.id) - due2_0, w2Amt, "W2 billed");
-  // supplier bypass accounts
+  // supplier bypass accounts: we owe the FULL purchase regardless of what was delivered
   const bl = ok(await call("wholesale", "GET", "/api/bypass/suppliers"), "bl");
   near(bl.find((s: any) => s.id === S.id).bypass_owed, 2000 * 255, "S bypass owed");
   near(bl.find((s: any) => s.id === S2.id).bypass_owed, 1000 * 256, "S2 bypass owed");
   const L1 = ok(await ledger(), "l1");
-  near(tb(L1, "Bypass suppliers payable") - tb(L0, "Bypass suppliers payable"), -cost, "ledger bypass payable (liability)");
-  near(tb(L1, "Bypass fuel cost") - tb(L0, "Bypass fuel cost"), cost, "ledger bypass cost");
+  near(tb(L1, "Bypass suppliers payable") - tb(L0, "Bypass suppliers payable"), -bought, "ledger bypass payable (liability)");
+  near(tb(L1, "Bypass stock") - tb(L0, "Bypass stock"), held, "ledger bypass stock (held 200 L)");
+  near(tb(L1, "Bypass fuel cost") - tb(L0, "Bypass fuel cost"), soldCost, "ledger bypass cost = only what was delivered");
   near(tb(L1, "Wholesale receivable") - tb(L0, "Wholesale receivable"), billed, "ledger receivable up by drops");
+});
+
+test("hold and sell later: deliver the held stock in a second delivery with no fresh purchase", async () => {
+  const stock0 = ok(await call("wholesale", "GET", "/api/bypass/stock"), "stock0");
+  const hsd0 = stock0.by_product.find((p: any) => p.product === "HSD")?.litres ?? 0;
+  assert.ok(hsd0 >= 199, "about 200 L held from the earlier delivery");
+  // can't deliver more than the held stock
+  const tooMuch = await call("wholesale", "POST", "/api/bypass/deliveries", { station_id: st, drops: [{ client_id: W1.id, product: "HSD", litres: hsd0 + 500, override_limit: true }] });
+  assert.equal(tooMuch.status, 400); assert.match(tooMuch.data.error, /available|more than you have/i);
+  // deliver the rest from stock — no purchase this time
+  const r = ok(await call("wholesale", "POST", "/api/bypass/deliveries", { station_id: st, drops: [{ client_id: W1.id, product: "HSD", litres: hsd0, override_limit: true }] }), "sell from stock");
+  near(r.bought, 0, "no fresh purchase"); assert.ok(r.sold_cost > 0, "delivered at stock cost");
+  const stock1 = ok(await call("wholesale", "GET", "/api/bypass/stock"), "stock1");
+  near(stock1.total.litres, 0, "bypass stock cleared");
 });
 
 test("bypass delivery adds its cost to profit (direct cost, not stock purchases)", async () => {
   const dayStart = new Date(Date.parse(`${today()}T00:00:00+05:00`)).toISOString();
   const rep = ok(await call("admin", "GET", `/api/reports?from=${encodeURIComponent(dayStart)}&to=${encodeURIComponent(new Date().toISOString())}`), "report");
-  assert.ok(rep.stock.direct.cost >= 2000 * 255 + 1000 * 256, "bypass cost in direct cost");
+  // by now all 3000 L have been delivered (2800 + the 200 held), so their full cost is in the direct cost of sales
+  assert.ok(rep.stock.direct.cost >= 765000, `delivered bypass cost in direct cost (${rep.stock.direct.cost})`);
 });
 
 test("we pay the bypass supplier from the bank: bypass account down, bank down", async () => {

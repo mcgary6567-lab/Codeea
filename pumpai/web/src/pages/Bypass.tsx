@@ -15,10 +15,12 @@ export function BypassPanel() {
   const { can } = useAuth();
   const sups = useApi<any[]>("/bypass/suppliers");
   const dels = useApi<any[]>("/bypass/deliveries");
+  const stock = useApi<any>("/bypass/stock");
   const [add, setAdd] = useState(false);
   const [openSup, setOpenSup] = useState<number | null>(null);
-  const refresh = () => { sups.reload(); dels.reload(); };
+  const refresh = () => { sups.reload(); dels.reload(); stock.reload(); };
   const owedTotal = (sups.data ?? []).reduce((a, s) => a + (s.bypass_owed > 0 ? s.bypass_owed : 0), 0);
+  const stockLines = (stock.data?.by_product ?? []) as any[];
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -30,6 +32,7 @@ export function BypassPanel() {
 
       <div className="flex flex-wrap gap-3">
         <Stat label="We owe bypass suppliers" value={pkrShort(owedTotal)} tone="red" />
+        <Stat label="Bypass stock on hand" value={pkrShort(stock.data?.total?.value ?? 0)} hint={stockLines.length ? stockLines.map((p) => `${num(p.litres)} L ${PRODUCTS[p.product]}`).join(" · ") : "koi stock nahi"} />
       </div>
 
       <div className="card overflow-hidden">
@@ -77,15 +80,18 @@ function NewDelivery({ onClose, onDone }: { onClose: () => void; onDone: () => v
   const [drops, setDrops] = useState([{ client_id: "", product: "HSD", litres: "" }]);
   const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
+  const stock = useApi<any>("/bypass/stock");
+  const held = (p: string) => (stock.data?.by_product ?? []).find((x: any) => x.product === p)?.litres ?? 0;
 
   const sumBy = (rows: { product: string; litres: string }[]) => rows.reduce((m, r) => { const p = r.product; m[p] = (m[p] ?? 0) + (Number(r.litres) || 0); return m; }, {} as Record<string, number>);
   const bought = useMemo(() => sumBy(buys), [buys]);
   const dropped = useMemo(() => sumBy(drops), [drops]);
-  const overBy = useMemo(() => Object.entries(dropped).filter(([p, l]) => l > (bought[p] ?? 0) + 0.01).map(([p, l]) => ({ p, l, have: bought[p] ?? 0 })), [dropped, bought]);
+  // a drop can draw from the stock already held plus what is being bought right now
+  const overBy = useMemo(() => Object.entries(dropped).filter(([p, l]) => l > held(p) + (bought[p] ?? 0) + 0.01).map(([p, l]) => ({ p, l, have: held(p) + (bought[p] ?? 0) })), [dropped, bought, stock.data]);
   const cost = buys.reduce((a, b) => a + (Number(b.litres) || 0) * (Number(b.cost_rate) || 0), 0);
   const validBuys = buys.filter((b) => b.supplier_id && Number(b.litres) > 0 && Number(b.cost_rate) > 0);
   const validDrops = drops.filter((d) => d.client_id && Number(d.litres) > 0);
-  const valid = station && validBuys.length > 0 && validDrops.length > 0 && overBy.length === 0;
+  const valid = !!station && (validBuys.length > 0 || validDrops.length > 0) && overBy.length === 0;
 
   return (
     <Modal open onClose={onClose} title="New bypass delivery" wide>
@@ -106,7 +112,7 @@ function NewDelivery({ onClose, onDone }: { onClose: () => void; onDone: () => v
 
         {/* Supplier purchase lines */}
         <div className="rounded-xl bg-slate-50 p-3">
-          <div className="mb-2 text-sm font-semibold">Maal kahan se liya (supplier + litre + cost) · <Ur>خریداری</Ur></div>
+          <div className="mb-2 text-sm font-semibold">Maal kahan se liya (supplier + litre + cost) <span className="font-normal text-slate-400">— optional, sirf stock se bechna hai to khaali</span> · <Ur>خریداری</Ur></div>
           <div className="space-y-2">
             {buys.map((b, i) => (
               <div key={i} className="grid grid-cols-12 gap-2">
@@ -138,11 +144,12 @@ function NewDelivery({ onClose, onDone }: { onClose: () => void; onDone: () => v
             ))}
           </div>
           <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "" }])}>+ Add drop</button>
-          <div className="mt-1 text-xs text-slate-500">Dropped: {Object.entries(dropped).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"}</div>
+          <div className="mt-1 text-xs text-slate-500">Dropped: {Object.entries(dropped).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"}{Object.keys({ ...dropped }).map((p) => held(p) > 0 ? ` · ${PRODUCTS[p]} held stock ${num(held(p))} L` : "").join("")}</div>
+          <p className="mt-1 text-xs text-slate-400">Jitna abhi khareeda + pehle se held stock, usse zyada drop nahi ho sakta. Sirf stock se bechna hai to upar "khareedari" khaali chhoro.</p>
         </div>
 
         {overBy.length > 0 && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
-          {overBy.map((o) => `${PRODUCTS[o.p]}: ${num(o.l)} L drop ho raha hai lekin sirf ${num(o.have)} L khareeda — itna stock nahi.`).join(" ")} <Ur className="block">خریدے سے زیادہ ڈیلیور نہیں ہو سکتا</Ur>
+          {overBy.map((o) => `${PRODUCTS[o.p]}: ${num(o.l)} L drop ho raha hai lekin sirf ${num(o.have)} L available (held + abhi khareeda) — itna stock nahi.`).join(" ")} <Ur className="block">دستیاب سے زیادہ ڈیلیور نہیں ہو سکتا</Ur>
         </div>}
 
         <Field label="Note"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
