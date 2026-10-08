@@ -130,31 +130,38 @@ carriage.post("/carriage/thekedars/:id/carriage", requirePerm("carriage.manage")
   const b = parse(z.object({
     supplier_id: z.number().int(), invoice_ref: z.string().max(60).optional().nullable(), vehicle_no: z.string().max(30).optional().nullable(),
     lines: z.array(z.object({ product, litres: z.number().positive().max(200_000) })).min(1),
-    amount: z.number().positive().max(1_000_000_000), note: z.string().max(200).optional().nullable(), txn_date: day.optional(),
+    amount: z.number().positive().max(1_000_000_000), govt_pct: z.number().min(0).max(100).optional().nullable(),
+    note: z.string().max(200).optional().nullable(), txn_date: day.optional(),
     photo_ids: proofPhotos, notify: z.boolean().default(true), fuel: fuelSchema.optional().nullable(),
   }), req.body);
   const depot = get("SELECT name FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id, t);
   if (!depot) throw new AppError(400, "Choose the depot (our ID) the fuel was lifted on");
   const litres = round2(b.lines.reduce((a, l) => a + l.litres, 0));
-  const kiraya = round2(b.amount);
+  // the kiraya written on the invoice, less the govt cut (e.g. 10%) → the net kiraya billed to the thekedar (our income)
+  const gross = round2(b.amount);
+  const pct = round2(b.govt_pct ?? 0);
+  const govtCut = round2(gross * pct / 100);
+  const kiraya = round2(gross - govtCut);
+  if (kiraya <= 0) throw new AppError(400, "Net kiraya after the govt cut must be more than zero");
   const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
   const breakdown = b.lines.map((l) => `${round2(l.litres)} L ${PRODUCTS[l.product] ?? l.product}`).join(" + ");
   const single = b.lines.length === 1 ? b.lines[0].product : null;
-  const note = [`Bypass on our ID · ${depot.name}`, breakdown, "fixed kiraya", b.note].filter(Boolean).join(" · ");
+  const note = [`Bypass on our ID · ${depot.name}`, breakdown, pct > 0 ? `kiraya ${gross} − govt ${pct}% (${govtCut}) = ${kiraya}` : "fixed kiraya", b.note].filter(Boolean).join(" · ");
   const by = req.user!.name;
   const { id, fuelId } = tx(() => {
-    const { id } = run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,supplier_id,product,litres,amount,vehicle_no,ref,note,created_by,txn_date,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      t, k.id, "carriage", b.supplier_id, single, litres, kiraya, b.vehicle_no ?? null, b.invoice_ref ?? null, note, by, ts, now());
+    const { id } = run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,supplier_id,product,litres,amount,gross_amount,govt_pct,vehicle_no,ref,note,created_by,txn_date,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      t, k.id, "carriage", b.supplier_id, single, litres, kiraya, gross, pct || null, b.vehicle_no ?? null, b.invoice_ref ?? null, note, by, ts, now());
     if (b.photo_ids?.length) linkPhotos(t, b.photo_ids, `carr:${id}`); // depot invoice photo
     const fuelId = b.fuel ? recordFuel(t, k, b.supplier_id, depot.name, b.fuel, b.invoice_ref ?? null, b.note ?? null, ts, by, id) : null;
     return { id, fuelId };
   });
   if (b.notify) {
     const fuelLine = b.fuel ? `\nFuel Rs ${Math.round(b.fuel.amount).toLocaleString("en-PK")} ${b.fuel.mode === "direct" ? "aap ne depot ko di" : (b.fuel.forward_now ? "hum ne depot ko bhej di" : "hamein mili")}.` : "";
-    tell(t, k, "carriage", `carr:${id}`, `${k.name}\nBypass supply${b.invoice_ref ? ` (inv ${b.invoice_ref})` : ""}: ${breakdown}.\nKiraya Rs ${Math.round(kiraya).toLocaleString("en-PK")} aap ke zimme.${fuelLine}\n— ${tenantName(t)}`);
+    const kirayaLine = pct > 0 ? `Kiraya Rs ${Math.round(gross).toLocaleString("en-PK")} − govt ${pct}% = Rs ${Math.round(kiraya).toLocaleString("en-PK")} aap ke zimme.` : `Kiraya Rs ${Math.round(kiraya).toLocaleString("en-PK")} aap ke zimme.`;
+    tell(t, k, "carriage", `carr:${id}`, `${k.name}\nBypass supply${b.invoice_ref ? ` (inv ${b.invoice_ref})` : ""}: ${breakdown}.\n${kirayaLine}${fuelLine}\n— ${tenantName(t)}`);
   }
-  return { txn: get("SELECT * FROM carriage_txns WHERE id=?", id), kiraya, litres, due: thekedarDue(k.id), fuel_id: fuelId };
+  return { txn: get("SELECT * FROM carriage_txns WHERE id=?", id), kiraya, gross, govt_pct: pct, govt_cut: govtCut, litres, due: thekedarDue(k.id), fuel_id: fuelId };
 }));
 
 /* ================= Thekedar pays his kiraya / an adjustment ================= */

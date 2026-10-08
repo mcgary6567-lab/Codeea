@@ -562,6 +562,8 @@ export function migrate() {
     method TEXT, account_id INTEGER, vehicle_no TEXT, ref TEXT, note TEXT,
     voided INTEGER NOT NULL DEFAULT 0, void_reason TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_carriage_thekedar ON carriage_txns(thekedar_id, txn_date)");
+  addColumn("carriage_txns", "govt_pct", "REAL");       // govt cut taken off the kiraya (e.g. 10 = 10%)
+  addColumn("carriage_txns", "gross_amount", "REAL");   // the kiraya before the govt cut; `amount` is the net billed
   // fuel-money records now belong to a thekedar (carriage). Add thekedar_id and relax the old NOT NULL on client_id/supplier_id.
   {
     const sql = (get("SELECT sql FROM sqlite_master WHERE type='table' AND name='bypass_fuel_payments'")?.sql ?? "") as string;

@@ -130,7 +130,7 @@ function Statement({ data, canVoid, onChanged }: { data: any; canVoid: boolean; 
   const { busy, run } = useAction();
   const lines: any[] = data.lines ?? [];
   if (!lines.length) return <Empty>Koi entry nahi.</Empty>;
-  const label = (r: any) => r.type === "carriage" ? `Kiraya${r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}${r.ref ? ` · inv ${r.ref}` : ""}`
+  const label = (r: any) => r.type === "carriage" ? `Kiraya${r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}${r.govt_pct ? ` · ${pkr(r.gross_amount)} − govt ${r.govt_pct}%` : ""}${r.ref ? ` · inv ${r.ref}` : ""}`
     : r.type === "payment" ? `Payment${r.method ? ` · ${r.method}` : ""}${r.ref ? ` · ${r.ref}` : ""}`
       : r.type === "adjustment" ? `Adjustment${r.note ? ` · ${r.note}` : ""}`
         : r.type === "fuel_note" ? `Fuel ${pkr(r.amount)} · ${r.fuel_mode === "direct" ? "depot ko direct" : r.fuel_status === "forwarded" ? "through us (forwarded)" : "through us (held)"}${r.depot_name ? ` · ${r.depot_name}` : ""}` : r.type;
@@ -190,7 +190,7 @@ function ThekedarForm({ initial, onClose, onSaved }: { initial?: any; onClose: (
 /** Bill the fixed kiraya (+ optionally record the fuel money in the same entry). */
 function CarriageEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: () => void; onDone: () => void }) {
   const depots = useApi<any[]>("/carriage/depots");
-  const [f, setF] = useState({ supplier_id: "", invoice_ref: "", vehicle_no: "", amount: "", note: "" });
+  const [f, setF] = useState({ supplier_id: "", invoice_ref: "", vehicle_no: "", amount: "", govt_pct: "", note: "" });
   const [lines, setLines] = useState<{ product: string; litres: string }[]>([{ product: "HSD", litres: "" }]);
   const [photos, setPhotos] = useState<number[]>([]);
   const [withFuel, setWithFuel] = useState(false);
@@ -199,7 +199,10 @@ function CarriageEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: 
   const [fwdAcc, setFwdAcc] = useState<number | null>(null);
   const { busy, run } = useAction();
   const totalL = lines.reduce((a, l) => a + (Number(l.litres) || 0), 0);
-  const kiraya = Number(f.amount) || 0;
+  const gross = Number(f.amount) || 0; // kiraya as written on the invoice
+  const pct = Math.min(100, Math.max(0, Number(f.govt_pct) || 0));
+  const govtCut = Math.round(gross * pct / 100);
+  const kiraya = Math.round(gross - govtCut); // net kiraya billed to the thekedar
   const fuelThrough = withFuel && fu.mode === "through_us";
   const valid = f.supplier_id && totalL > 0 && kiraya > 0 && (!withFuel || (Number(fu.amount) > 0 && (!fuelThrough || inAcc)));
   return (
@@ -209,7 +212,7 @@ function CarriageEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: 
         const body: any = {
           supplier_id: Number(f.supplier_id), invoice_ref: f.invoice_ref || null, vehicle_no: f.vehicle_no || null, photo_ids: photos,
           lines: lines.filter((l) => Number(l.litres) > 0).map((l) => ({ product: l.product, litres: Number(l.litres) })),
-          amount: Number(f.amount), note: f.note || null,
+          amount: Number(f.amount), govt_pct: pct || null, note: f.note || null,
           fuel: withFuel ? { mode: fu.mode, amount: Number(fu.amount), ...(fuelThrough ? { in_method: fu.in_method, in_account_id: inAcc, forward_now: fu.forward_now, fwd_method: fu.fwd_method, fwd_account_id: fwdAcc ?? inAcc } : {}) } : null,
         };
         if (await run(() => api(`/carriage/thekedars/${thekedar.id}/carriage`, { body }), (r: any) => `Kiraya ${pkr(r.kiraya)} billed. Baqaya ${pkr(r.due)}`)) onDone();
@@ -231,7 +234,11 @@ function CarriageEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: 
           <Field label="Invoice no. (depot) · انوائس"><input className="input" value={f.invoice_ref} onChange={(e) => setF({ ...f, invoice_ref: e.target.value })} /></Field>
           <Field label="Tanker / vehicle"><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
         </div>
-        <Field label="Kiraya (fixed — as written on the depot invoice) · کرایہ *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="e.g. 8000" /></Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Kiraya (as written on the depot invoice) · کرایہ *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="e.g. 8000" /></Field>
+          <Field label="Govt cut % (optional) · گورنمنٹ کٹوتی"><input className="input" type="number" min={0} max={100} step="0.01" value={f.govt_pct} onChange={(e) => setF({ ...f, govt_pct: e.target.value })} placeholder="e.g. 10" /></Field>
+        </div>
+        {pct > 0 && gross > 0 && <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Kiraya {pkr(gross)} − Govt {pct}% ({pkr(govtCut)}) = <b>{pkr(kiraya)}</b> final · <Ur>گورنمنٹ کٹوتی کے بعد</Ur></div>}
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
 
         <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={withFuel} onChange={(e) => setWithFuel(e.target.checked)} /> Fuel money bhi abhi record karein? · <Ur>فیول کا پیسہ بھی</Ur></label>

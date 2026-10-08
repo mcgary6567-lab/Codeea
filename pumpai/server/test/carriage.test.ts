@@ -128,6 +128,21 @@ test("carriage is NOT reachable on the wholesale client route any more (fully mo
   assert.equal(r.status, 404, "old wholesale carriage route is gone");
 });
 
+test("govt % is deducted from the kiraya: net is billed and booked as income", async () => {
+  const L0 = ok(await ledger(), "l0");
+  const st0 = ok(await call("wholesale", "GET", `/api/carriage/thekedars/${K.id}`), "st0");
+  // kiraya 8000, govt 10% → net 7200 billed
+  const r = ok(await call("wholesale", "POST", `/api/carriage/thekedars/${K.id}/carriage`,
+    { supplier_id: S.id, invoice_ref: "DEP-GOV", amount: 8000, govt_pct: 10, lines: [{ product: "HSD", litres: 3000 }] }), "carriage govt");
+  assert.equal(r.kiraya, 7200, "net kiraya after 10% cut");
+  assert.equal(r.gross, 8000, "gross kept");
+  assert.equal(r.govt_cut, 800, "govt cut");
+  const st1 = ok(await call("wholesale", "GET", `/api/carriage/thekedars/${K.id}`), "st1");
+  near(st1.closing_balance - st0.closing_balance, 7200, "due up by the net only");
+  const L1 = ok(await ledger(), "l1");
+  near(tb(L1, "Carriage income") - tb(L0, "Carriage income"), -7200, "income up by the net only (govt cut is not our income)");
+});
+
 test("after all of the above: every book still tallies with the ledger", async () => {
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("carriage");
