@@ -12,6 +12,7 @@ import { PortalCard } from "../components/PortalCard";
 import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
 import { ChequeForm, ClientDeskCard, CollectTab, OrderForm, OrdersTab, PromiseForm } from "../components/WholesaleDesk";
 import { WholesaleVoice } from "../components/WholesaleVoice";
+import { BypassPanel } from "./Bypass";
 const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 
 const TYPE: Record<string, { label: string; tone: string }> = {
@@ -50,7 +51,7 @@ function ClientList() {
           <button key={k} onClick={() => setTab(k)} className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-center text-sm leading-tight ${tab === k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>{l}<Ur className="block text-xs">{u}</Ur></button>
         ))}
       </div>
-      {tab === "trips" && <TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setParams({ tab: "trips", do: "trip" }) : undefined} />}
+      {tab === "trips" && <><TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setParams({ tab: "trips", do: "trip" }) : undefined} /><div className="mt-6 border-t pt-6"><BypassPanel /></div></>}
       {tab === "fleet" && <FleetTab key={action ?? "fleet"} start={action === "tanker" || action === "driver" ? action : null} />}
       {tab === "orders" && <OrdersTab onTrip={() => setParams({ tab: "orders", do: "trip" })} />}
       {tab === "collect" && <CollectTab />}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Truck, Factory, Download, Printer, HandCoins, ArrowLeft, Ban } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Empty, ErrorBox, Field, Loading, Modal, Stat, useAction } from "../components/ui";
 import { PRODUCTS, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { ProofPhotos } from "../components/Capture";
@@ -10,8 +10,8 @@ import { supplierOpts } from "../components/SupplierSelect";
 
 const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 
-/** Bypass delivery: buy fuel from suppliers at the depot and deliver straight to wholesale clients. */
-export default function Bypass() {
+/** Bypass delivery — shown inside the Wholesale "Tanker trips" tab: buy fuel from suppliers at the depot and deliver straight to wholesale clients. */
+export function BypassPanel() {
   const { can } = useAuth();
   const sups = useApi<any[]>("/bypass/suppliers");
   const dels = useApi<any[]>("/bypass/deliveries");
@@ -21,8 +21,11 @@ export default function Bypass() {
   const owedTotal = (sups.data ?? []).reduce((a, s) => a + (s.bypass_owed > 0 ? s.bypass_owed : 0), 0);
   return (
     <div className="space-y-4">
-      <PageHeader title="Bypass delivery" subtitle="Depot se maal, seedha client ko — supplier ka alag khata"
-        actions={can("wholesale.manage") && <button className="btn-primary" onClick={() => setAdd(true)}><Plus size={16} /> New delivery</button>} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><h2 className="flex items-center gap-2 text-lg font-semibold"><Truck size={18} className="text-slate-500" /> Bypass delivery · <Ur>بائی پاس</Ur></h2>
+          <p className="text-sm text-slate-500">Depot se maal, seedha client ko — supplier ka alag khata</p></div>
+        {can("wholesale.manage") && <button className="btn-primary" onClick={() => setAdd(true)}><Plus size={16} /> New bypass delivery</button>}
+      </div>
       <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Hum supplier se cost par maal lete hain aur client ko unke rate par dete hain — farq (margin) humara munafa. Supplier ka bypass khata pump-stock se bilkul alag hai, aur jitna maal liya usse zyada deliver nahi ho sakta. <Ur className="block">سپلائر کا بائی پاس کھاتہ پمپ اسٹاک سے الگ</Ur></p>
 
       <div className="flex flex-wrap gap-3">

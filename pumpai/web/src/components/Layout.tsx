@@ -35,13 +35,13 @@ const SUBS: Record<string, typeof WHOLESALE_SUB> = { "/wholesale": WHOLESALE_SUB
 /** Urdu next to the English in the short menus (salesman, wholesale officer, cashier). */
 const NAV_UR: Record<string, string> = {
   "/pos": "سیل", "/shifts": "شفٹ", "/customers": "گاہک", "/bookings": "بکنگ", "/prices": "ریٹ", "/checklist": "روزانہ چیک",
-  "/machines": "مشینیں", "/my-account": "میرا حساب", "/wholesale": "ہول سیل", "/carriage": "کرایہ", "/bypass": "بائی پاس", "/cashier": "کیشیئر", "/cash": "کیش بک",
+  "/machines": "مشینیں", "/my-account": "میرا حساب", "/wholesale": "ہول سیل", "/carriage": "کرایہ", "/cashier": "کیشیئر", "/cash": "کیش بک",
 };
 /** Manager / owner menu groups (other roles have short menus and see them flat). */
 const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
   { key: "sales", label: "Sales & shifts", icon: Fuel, items: ["/pos", "/shifts", "/bookings"] },
   { key: "customers", label: "Customers & khata", icon: Users, items: ["/customers", "/khata", "/prepaid", "/inbox", "/orders", "/complaints", "/campaigns"] },
-  { key: "wholesale", label: "Wholesale", icon: Container, items: ["/wholesale", "/carriage", "/bypass"] },
+  { key: "wholesale", label: "Wholesale", icon: Container, items: ["/wholesale", "/carriage"] },
   { key: "stock", label: "Stock & prices", icon: Droplets, items: ["/stock", "/register", "/prices", "/shop"] },
   { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers", "/property"] },
   { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/team", "/my-account"] },
@@ -127,7 +127,6 @@ const NAV = [
   { to: "/prepaid", label: "Coupons & wallets", icon: Ticket, perm: "khata.manage" },
   { to: "/wholesale", label: "Wholesale Supply", icon: Container, perm: "wholesale.view" },
   { to: "/carriage", label: "Carriage / kiraya", icon: Truck, perm: "carriage.view" },
-  { to: "/bypass", label: "Bypass delivery", icon: Route, perm: "wholesale.view" },
   { to: "/cashier", label: "Cashier desk", icon: Banknote, perm: "cashier.desk" },
   { to: "/expenses", label: "Expenses", icon: Receipt, perm: "expenses.view" },
   { to: "/cash", label: "Cash & bank", icon: Landmark, perm: "expenses.view" },
