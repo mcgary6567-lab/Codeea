@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Landmark, Calculator, ArrowDownCircle, ArrowUpCircle, Printer } from "lucide-react";
-import { api, useApi } from "../lib/api";
+import { Download } from "lucide-react";
+import { api, linkToken, useApi } from "../lib/api";
 import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
 import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
@@ -24,6 +25,7 @@ export default function Cash() {
     <div className="space-y-5">
       <PageHeader title="Cash & bank" subtitle="Office cash worked out from shifts, payments, expenses and bank deposits"
         actions={<>
+          <a className="btn-secondary" href={`/api/cash.csv?token=${linkToken()}`}><Download size={15} /> Excel / CSV</a>
           <button className="btn-secondary" onClick={() => setForm("count")}><Calculator size={15} /> Count cash</button>
           <button className="btn-primary" onClick={() => setForm("deposit")}><Landmark size={15} /> Bank deposit</button>
         </>} />

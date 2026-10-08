@@ -87,6 +87,37 @@ backoffice.get("/cash", requireAny("expenses.view", "cash.book"), h((req) => ({
   counts: all(`SELECT c.*, ${proofCol("'cashcount:'||c.id")} FROM cash_counts c WHERE c.tenant_id=? ORDER BY c.id DESC LIMIT 15`, tid(req)),
 })));
 
+// labels for the cash-book CSV (mirror the web page's IN/OUT rows)
+const CASH_IN: Record<string, string> = { shift_cash: "Cash handed over from shifts", khata_cash: "Khata payments in cash", wholesale_cash: "Wholesale payments in cash", carriage_cash: "Carriage payments in cash", prepaid_cash: "Coupons sold & wallet deposits (cash)", staff_repaid: "Staff advances paid back", bank_withdrawals: "Cash taken out of bank", counter_sales: "Counter cash sales", other_cash: "Other money in (cash counter)" };
+const CASH_OUT: Record<string, string> = { bank_deposits: "Deposited in bank", expenses: "Cash expenses (office)", supplier_payments: "Supplier paid in cash", bypass_supplier_payments: "Bypass supplier paid in cash", staff_advances: "Staff advances / bonus", other_cash: "Other payments (cash counter)" };
+
+/** The office cash book as a CSV (Excel) download — cash movement since the last count, plus bank deposits. */
+backoffice.get("/cash.csv", requireAny("expenses.view", "cash.book"), (req, res, next) => {
+  try {
+    const pos = cashPosition(tid(req));
+    const deposits = all(`${DEPOSIT_SQL} WHERE d.tenant_id=? ORDER BY d.id DESC LIMIT 30`, tid(req));
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const lines: string[] = [
+      ["Cash & bank book"].map(esc).join(","),
+      ["Since last count", pos.since ? String(pos.since).slice(0, 10) : ""].map(esc).join(","),
+      "",
+      ["Cash movement", "In/Out", "Amount"].map(esc).join(","),
+      ...Object.entries(CASH_IN).filter(([k]) => k in pos.ins).map(([k, l]) => [l, "In", (pos.ins as Record<string, number>)[k]].map(esc).join(",")),
+      ...Object.entries(CASH_OUT).filter(([k]) => k in pos.outs).map(([k, l]) => [l, "Out", (pos.outs as Record<string, number>)[k]].map(esc).join(",")),
+      ["Total in", "", pos.total_in].map(esc).join(","),
+      ["Total out", "", pos.total_out].map(esc).join(","),
+      ["Cash in hand (should be)", "", pos.cash_in_hand].map(esc).join(","),
+      "",
+      ["Bank deposits"].map(esc).join(","),
+      ["Date", "Bank", "Slip no.", "By", "Amount"].map(esc).join(","),
+      ...deposits.map((d) => [String(d.created_at).slice(0, 16).replace("T", " "), d.bank, d.slip_ref ?? "", d.deposited_by ?? "", d.amount].map(esc).join(",")),
+    ];
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="cash-book-${pkDate()}.csv"`);
+    res.send("﻿" + lines.join("\n"));
+  } catch (e) { next(e); }
+});
+
 backoffice.post("/cash/deposits", requireAny("expenses.create", "cash.book"), h((req) => {
   const b = parse(z.object({ amount: z.number().positive().max(100_000_000), bank: z.string().min(2).max(60).optional().nullable(), account_id: accountIdField, slip_ref: z.string().max(60).optional().nullable(),
     station_id: z.number().optional().nullable(), photo_id: z.number().optional().nullable(), note: z.string().max(200).optional().nullable() }), req.body);

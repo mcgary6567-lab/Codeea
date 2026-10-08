@@ -464,6 +464,28 @@ export function onlineToday(t: number, since = pkDayStart()) {
 
 cashier.get("/cashier/daybook", requirePerm("cashier.desk"), h((req) => cashierDayBook(tid(req), req.query.date ? parse(day, req.query.date) : pkDate())));
 
+/** The day book as a CSV (Excel) download — oldest entry first. */
+cashier.get("/cashier/daybook.csv", (req, res, next) => {
+  try {
+    const d = req.query.date ? parse(day, req.query.date) : pkDate();
+    const b = cashierDayBook(tid(req), d);
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const out = [
+      ["Cash & bank day book", d].map(esc).join(","),
+      ["Opening cash", b.cash.opening ?? ""].map(esc).join(","),
+      ["Time", "In/Out", "Entry", "Party", "Method", "Account", "Amount", "By"].map(esc).join(","),
+      ...b.rows.map((r: any) => [String(r.at).slice(0, 16).replace("T", " "), r.dir, r.what, r.party ?? "", r.method ?? "", r.account ?? (r.cash ? "Cash" : ""), r.amount, r.who ?? ""].map(esc).join(",")),
+      [].join(","),
+      ["Cash in", b.totals.in_cash].map(esc).join(","), ["Cash out", b.totals.out_cash].map(esc).join(","),
+      ["Bank in", b.totals.in_bank].map(esc).join(","), ["Bank out", b.totals.out_bank].map(esc).join(","),
+      ["Deposited in bank", b.totals.deposited].map(esc).join(","), ["Closing cash", b.cash.closing ?? ""].map(esc).join(","),
+    ].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="daybook-${d}.csv"`);
+    res.send("﻿" + out);
+  } catch (e) { next(e); }
+});
+
 /* ---------------- the desk ---------------- */
 cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   const t = tid(req);

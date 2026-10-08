@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Printer } from "lucide-react";
-import { useApi } from "../lib/api";
+import { Printer, Download } from "lucide-react";
+import { useApi, linkToken } from "../lib/api";
 import { Loading, PageHeader, ErrorBox } from "../components/ui";
 import { num } from "../lib/format";
 
@@ -23,7 +23,10 @@ export default function Register() {
     <div className="space-y-5">
       <div className="print:hidden">
         <PageHeader title="Stock register" subtitle="Daily stock register and monthly return (Explosives / OGRA format), made from sales, tankers and dips"
-          actions={<button className="btn-primary" onClick={() => window.print()} disabled={!d}><Printer size={15} /> Print</button>} />
+          actions={<>
+            <a className={`btn-secondary ${station ? "" : "pointer-events-none opacity-50"}`} href={station ? `/api/register.csv?station_id=${station}&${q}&token=${linkToken()}` : undefined}><Download size={15} /> Excel / CSV</a>
+            <button className="btn-primary" onClick={() => window.print()} disabled={!d}><Printer size={15} /> Print</button>
+          </>} />
         <div className="card mt-4 flex flex-wrap items-end gap-3 p-3 text-sm">
           <label className="grid gap-1"><span className="text-slate-500">Station</span>
             <select className="input" value={station} onChange={(e) => setF({ ...f, station_id: Number(e.target.value) })}>

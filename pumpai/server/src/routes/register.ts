@@ -90,3 +90,40 @@ register.get("/register", requirePerm("stock.manage"), h((req) => {
   if (from > to) throw new AppError(400, "From date is after the to date");
   return stockRegister(tid(req), station, from, to);
 }));
+
+/** The stock register as a CSV (Excel) download — oldest day first, product by product. */
+register.get("/register.csv", (req, res, next) => {
+  try {
+    const q = parse(z.object({ station_id: z.coerce.number().optional(), from: dateStr.optional(), to: dateStr.optional(), month: z.string().regex(/^\d{4}-\d{2}$/).optional() }), req.query);
+    const station = scopedStation(req, q.station_id ?? null) ?? get("SELECT id FROM stations WHERE tenant_id=? ORDER BY id LIMIT 1", tid(req))!.id;
+    let from = q.from, to = q.to;
+    if (q.month) {
+      from = `${q.month}-01`;
+      const last = pkDate(Date.parse(`${q.month}-01T12:00:00+05:00`) + 31 * DAY).slice(0, 7);
+      to = pkDate(Date.parse(`${last}-01T12:00:00+05:00`) - DAY);
+    }
+    to = to ?? pkDate();
+    if (to > pkDate()) to = pkDate();
+    from = from ?? pkDate(Date.parse(`${to}T12:00:00+05:00`) - 6 * DAY);
+    if (from > to) throw new AppError(400, "From date is after the to date");
+    const reg = stockRegister(tid(req), station, from, to);
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const lines: string[] = [
+      ["Stock register", (reg.station as Row)?.name].map(esc).join(","),
+      ["From", from, "To", to].map(esc).join(","),
+    ];
+    for (const p of reg.products as Row[]) {
+      lines.push("");
+      lines.push([`${p.name} (${p.tanks} tank${p.tanks === 1 ? "" : "s"})`].map(esc).join(","));
+      lines.push(["Date", "Opening", "Receipts", "Total", "Sales", "Wholesale", "Book closing", "Dip closing", "Gain/loss", "Closing"].map(esc).join(","));
+      for (const d of p.days as Row[])
+        lines.push([d.day, d.opening, d.receipts, d.total, d.sales, d.wholesale, d.book_closing, d.dip_closing ?? "", d.gain_loss, d.closing].map(esc).join(","));
+      const m = p.month as Row;
+      lines.push(["Month", m.opening, m.receipts, "", m.sales, m.wholesale, "", "", m.gain_loss, m.closing].map(esc).join(","));
+      lines.push(["Variation %", m.variation_pct].map(esc).join(","));
+    }
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="stock-register-${from}_${to}.csv"`);
+    res.send("﻿" + lines.join("\n"));
+  } catch (e) { next(e); }
+});

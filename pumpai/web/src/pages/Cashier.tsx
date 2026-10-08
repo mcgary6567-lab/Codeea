@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PrintFooter, PrintHeader } from "../components/Letterhead";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  ArrowDownCircle, ArrowUpCircle, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
+  ArrowDownCircle, ArrowUpCircle, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, Download, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
 } from "lucide-react";
-import { api, useApi } from "../lib/api";
+import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { toWords } from "../lib/words";
@@ -686,7 +686,8 @@ function DayBook() {
           <button className="btn-secondary min-h-10 !px-2" aria-label="Next day" disabled={isToday} onClick={() => setDate(shiftDay(date, 1))}><ChevronRight size={18} /></button>
         </div>
         {!isToday && <button className="btn-secondary min-h-10 !px-3 text-sm" onClick={() => setDate(today())}>Today<span className="hidden sm:inline"> · <Ur>آج</Ur></span></button>}
-        <button className="btn-secondary min-h-10 !px-3 sm:ml-auto" aria-label="Print" onClick={() => window.print()}><Printer size={15} /><span className="hidden sm:inline"> Print · <Ur>پرنٹ</Ur></span></button>
+        <a className="btn-secondary min-h-10 !px-3 sm:ml-auto" href={`/api/cashier/daybook.csv?date=${date}&token=${linkToken()}`}><Download size={15} /><span className="hidden sm:inline"> Excel / CSV</span></a>
+        <button className="btn-secondary min-h-10 !px-3" aria-label="Print" onClick={() => window.print()}><Printer size={15} /><span className="hidden sm:inline"> Print · <Ur>پرنٹ</Ur></span></button>
       </div>
       {error && <ErrorBox error={error} />}
       {!data ? <Loading /> : <>
