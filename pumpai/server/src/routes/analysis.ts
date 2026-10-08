@@ -121,6 +121,8 @@ export function balanceSheet(t: number) {
     suppliers: r0(b.payables.suppliers_total), customer_advances: r0(b.payables.total - b.payables.suppliers_total), expenses_pending: r0(b.payables.pending_expenses.amount),
     unused_coupons: one("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND status='active'"),
     withholding_tax_payable: one("SELECT COALESCE(SUM(amount),0) v FROM tax_withholdings WHERE tenant_id=? AND cpr_no IS NULL"),
+    bypass_suppliers: r0((get("SELECT COALESCE(SUM(amount),0) v FROM bypass_purchases WHERE tenant_id=? AND voided=0", t)!.v as number)
+      - (get("SELECT COALESCE(SUM(amount),0) v FROM bypass_supplier_payments WHERE tenant_id=? AND voided=0", t)!.v as number)),
   };
   const totalA = Object.values(assets).reduce((a, v) => a + v, 0), totalL = Object.values(liabilities).reduce((a, v) => a + v, 0);
   return { as_of: new Date().toISOString(), assets, liabilities, total_assets: totalA, total_liabilities: totalL, net_worth: totalA - totalL,

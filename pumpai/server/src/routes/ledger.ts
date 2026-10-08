@@ -102,6 +102,15 @@ export function journal(t: number, fromDay: string, toDay: string) {
     if (r.type === "payment") add(d, "Receipt", `Carriage payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Carriage receivable", r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Carriage adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, r.amount >= 0 ? [dr("Carriage receivable", r.amount), cr("Other income", r.amount)] : [dr("Other income", -r.amount), cr("Carriage receivable", -r.amount)]);
   }
+  // bypass delivery: fuel bought from suppliers (own payable, kept apart from pump-stock) — its cost is against the bypass sales
+  for (const r of all(`SELECT b.*, s.name FROM bypass_purchases b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.created_at >= ? AND b.created_at < ?`, ...P)) {
+    add(day(r.created_at), "Purchase", `Bypass fuel — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.cost_rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass fuel cost", r.amount), cr("Bypass suppliers payable", r.amount)]);
+  }
+  for (const r of all(`SELECT b.*, s.name FROM bypass_supplier_payments b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.created_at >= ? AND b.created_at < ?`, ...P)) {
+    const d = day(r.created_at);
+    if (r.mode === "we_pay") add(d, "Payment", `Bypass supplier paid — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass suppliers payable", r.amount), cr(via(r.method, r.account_id), r.amount)]);
+    else if (r.mode === "client_direct") add(d, "Journal", `Bypass — client paid ${r.name} direct${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass suppliers payable", r.amount), cr("Wholesale receivable", r.amount)]);
+  }
   // suppliers (purchase cost, payments, withholding, credit notes)
   for (const r of all(`SELECT s.*, p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)) {
     const d = day(r.created_at), pay = `Payable — ${r.name}`;

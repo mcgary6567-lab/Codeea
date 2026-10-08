@@ -131,7 +131,8 @@ export function buildReport(t: number, from: string, to: string) {
   /* ---------- Purchases & cost ---------- */
   // fuel bought into our tanks (depot-direct trips never entered stock: their cost is counted against their own sales below)
   const purchases = all(`SELECT product, SUM(litres) litres, SUM(amount) cost FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND trip_id IS NULL AND txn_date >= ? AND txn_date < ? GROUP BY product`, ...P);
-  const direct = get(`SELECT COALESCE(SUM(amount),0) cost FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND trip_id IS NOT NULL AND txn_date >= ? AND txn_date < ?`, ...P)!.cost as number;
+  const direct = (get(`SELECT COALESCE(SUM(amount),0) cost FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND trip_id IS NOT NULL AND txn_date >= ? AND txn_date < ?`, ...P)!.cost as number)
+    + (get(`SELECT COALESCE(SUM(amount),0) cost FROM bypass_purchases WHERE tenant_id=? AND voided=0 AND txn_date >= ? AND txn_date < ?`, ...P)!.cost as number);
   const directL: Record<string, number> = Object.fromEntries(all(`SELECT w.product, SUM(w.litres) l FROM wholesale_txns w JOIN wholesale_trips tr ON tr.id=w.trip_id
     WHERE w.tenant_id=? AND w.voided=0 AND w.type='supply' AND tr.source='depot' AND w.txn_date >= ? AND w.txn_date < ? GROUP BY w.product`, ...P).map((x) => [x.product, x.l as number]));
   const avgCost: Record<string, number | null> = {};

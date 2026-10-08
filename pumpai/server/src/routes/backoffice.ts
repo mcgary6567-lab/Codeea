@@ -58,6 +58,7 @@ export function cashFlows(t: number, since: string, until: string) {
     bank_deposits: one("SELECT COALESCE(SUM(amount),0) v FROM bank_deposits WHERE tenant_id=? AND created_at > ? AND created_at <= ?", ...P),
     expenses: one("SELECT COALESCE(SUM(amount),0) v FROM expenses WHERE tenant_id=? AND status='approved' AND method='cash' AND shift_id IS NULL AND created_at > ? AND created_at <= ?", ...P),
     supplier_payments: one("SELECT COALESCE(SUM(amount),0) v FROM supplier_txns WHERE tenant_id=? AND type='payment' AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
+    bypass_supplier_payments: one("SELECT COALESCE(SUM(amount),0) v FROM bypass_supplier_payments WHERE tenant_id=? AND mode='we_pay' AND voided=0 AND account_id IS NULL AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
     other_cash: one("SELECT COALESCE(SUM(amount),0) v FROM cashier_vouchers WHERE tenant_id=? AND direction='out' AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at > ? AND created_at <= ?", ...P),
     staff_advances: one(`SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND (type='advance' OR (type='bonus' AND month IS NULL)) AND ${cashSql("method")} AND created_at > ? AND created_at <= ?`, ...P),
   };

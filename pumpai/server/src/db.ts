@@ -582,6 +582,27 @@ export function migrate() {
       db.exec("PRAGMA foreign_keys=ON");
     }
   }
+  /* ---- Bypass delivery: buy fuel from suppliers at the depot and deliver straight to wholesale clients ---- */
+  // The supplier's bypass dealings keep their OWN account (separate from the pump-stock supplier payable): we buy at a
+  // cost, deliver to clients at their rate, earn the margin. One delivery can source from several suppliers (each line
+  // its own litres + cost) and drop to several clients; we can never deliver more litres than we purchased.
+  db.exec(`CREATE TABLE IF NOT EXISTS bypass_deliveries (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER,
+    tanker_id INTEGER, driver_id INTEGER, vehicle_no TEXT, driver_name TEXT,
+    note TEXT, voided INTEGER NOT NULL DEFAULT 0, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS bypass_purchases (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, delivery_id INTEGER, supplier_id INTEGER NOT NULL,
+    product TEXT NOT NULL, litres REAL NOT NULL, cost_rate REAL NOT NULL, amount REAL NOT NULL,
+    ref TEXT, note TEXT, voided INTEGER NOT NULL DEFAULT 0, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_bypass_pur_sup ON bypass_purchases(supplier_id, txn_date)");
+  // what we pay the bypass supplier: we_pay (from our bank/cash), client_direct (client paid them for us),
+  // through_us (client sent it to us, we forwarded) — the client legs also lower that client's due to us.
+  db.exec(`CREATE TABLE IF NOT EXISTS bypass_supplier_payments (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, supplier_id INTEGER NOT NULL, amount REAL NOT NULL,
+    mode TEXT NOT NULL CHECK (mode IN ('we_pay','client_direct','through_us')),
+    client_id INTEGER, wtx_id INTEGER, method TEXT, account_id INTEGER, ref TEXT, note TEXT,
+    voided INTEGER NOT NULL DEFAULT 0, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_bypass_pay_sup ON bypass_supplier_payments(supplier_id, txn_date)");
   addCashierRole();
   // cashier: cheques received from khata customers / others and cheques we issue (wholesale cheques have their own register)
   db.exec(`CREATE TABLE IF NOT EXISTS cheques (

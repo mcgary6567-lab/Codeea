@@ -10,6 +10,7 @@ export async function tallyBooks(label = "") {
   const { journal } = await import("../../src/routes/ledger.js");
   const { clientDue } = await import("../../src/routes/wholesale.js");
   const { thekedarDue } = await import("../../src/routes/carriage.js");
+  const { bypassOwed } = await import("../../src/routes/bypass.js");
   const { supplierOwed } = await import("../../src/routes/suppliers.js");
   const { bankAccounts } = await import("../../src/routes/banks.js");
   const { cashPosition } = await import("../../src/routes/backoffice.js");
@@ -26,6 +27,8 @@ export async function tallyBooks(label = "") {
   near(cs.reduce((a, c) => a + clientDue(c.id) - c.opening_balance, 0), tb("Wholesale receivable"), "wholesale receivable");
   const ks = db.all("SELECT id, opening_balance FROM thekedars WHERE tenant_id=?", t);
   near(ks.reduce((a, k) => a + thekedarDue(k.id) - k.opening_balance, 0), tb("Carriage receivable"), "carriage receivable");
+  const bsups = db.all("SELECT DISTINCT supplier_id FROM bypass_purchases WHERE tenant_id=?", t);
+  near(bsups.reduce((a, s) => a + bypassOwed(s.supplier_id), 0), -tb("Bypass suppliers payable"), "bypass suppliers payable");
   for (const s of db.all("SELECT id, name, opening_balance FROM suppliers WHERE tenant_id=?", t))
     near(supplierOwed(s.id) - s.opening_balance, -tb(`Payable — ${s.name}`), `supplier ${s.name}`);
   let khata = 0;

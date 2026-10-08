@@ -473,7 +473,7 @@ const fuelBody = z.object({
 });
 
 /** Tanker number and driver name from the fleet register (a typed vehicle number still works). */
-function fleet(t: number, b: { tanker_id?: number | null; driver_id?: number | null; vehicle_no?: string | null }) {
+export function fleet(t: number, b: { tanker_id?: number | null; driver_id?: number | null; vehicle_no?: string | null }) {
   const tanker = b.tanker_id ? get("SELECT * FROM tankers WHERE id=? AND tenant_id=?", b.tanker_id, t) : null;
   if (b.tanker_id && !tanker) throw new AppError(400, "Tanker not found");
   const driverId = b.driver_id ?? tanker?.driver_id ?? null;
@@ -483,7 +483,7 @@ function fleet(t: number, b: { tanker_id?: number | null; driver_id?: number | n
 }
 
 /** Rate and amount for one supply to one client, after the rate-permission and credit-limit checks. */
-function priceSupply(req: Request, clientId: number, p: { product: string; litres: number; rate?: number; override_limit?: boolean }, alreadyAdded = 0) {
+export function priceSupply(req: Request, clientId: number, p: { product: string; litres: number; rate?: number; override_limit?: boolean }, alreadyAdded = 0) {
   const c = ownClient(tid(req), clientId);
   if (!c.active) throw new AppError(400, `${c.name} is inactive`);
   const card = rates(c.id)[p.product];
