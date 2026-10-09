@@ -3,7 +3,7 @@ import { AlertTriangle, Check, Volume2, X } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, useAction } from "./ui";
 import { pkr } from "../lib/format";
-import { ProofPhotos } from "./Capture";
+import { ProofPhotos, PhotoButton } from "./Capture";
 import { AccountPicker } from "./BankParts";
 import { VoiceShell, speak, Ur } from "./VoiceShell";
 
@@ -83,6 +83,17 @@ function Result({ r, onClose, onSaved }: { r: any; onClose: () => void; onSaved:
         {r.intent === "payment" && <Field label="Method · طریقہ"><select className="input" value={f.method} onChange={(e) => set("method", e.target.value)}>{METHODS.map((m) => <option key={m}>{m}</option>)}</select></Field>}
         {r.intent === "charge" && <Field label="For what · کس چیز کا"><input className="input" value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>}
       </div>
+      {r.intent === "payment" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <PhotoButton kind="payment" label="📷 Read payment screenshot" onRead={(res, id) => {
+            setPhotos((p) => [...new Set([...p, id])]);
+            if (res?.amount) set("amount", String(Math.round(res.amount)));
+            const map: Record<string, string> = { jazzcash: "JazzCash", easypaisa: "Easypaisa", raast: "Raast", bank: "Bank transfer" };
+            if (res?.method && map[res.method]) set("method", map[res.method]);
+          }} />
+          <span className="text-xs text-slate-500">JazzCash/Easypaisa/bank screenshot se amount khud bhar jaye ga</span>
+        </div>
+      )}
       {r.intent === "payment" && <AccountPicker method={f.method} value={account} onChange={setAccount} />}
       {c && <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-xl bg-slate-50 px-3 py-2 text-sm">
         <span>Khata now · <Ur>ابھی</Ur>: <b>{pkr(c.balance)}</b></span>

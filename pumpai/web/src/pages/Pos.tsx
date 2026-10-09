@@ -124,6 +124,13 @@ export default function Pos() {
   const bankAccounts = (bankPos.data?.accounts ?? cacheGet<any[]>("pos_bank_accounts") ?? []) as any[];
   useEffect(() => { if (bankPos.data?.accounts) cacheSet("pos_bank_accounts", bankPos.data.accounts); }, [bankPos.data]);
 
+  const [usual, setUsual] = useState<any>(null);
+  useEffect(() => {
+    if (pay !== "khata" || !khata?.account?.id) { setUsual(null); return; }
+    const q = `customer_id=${khata.account.id}${khata.vehicle ? `&vehicle=${encodeURIComponent(khata.vehicle)}` : ""}`;
+    api<any>(`/pos/usual?${q}`).then((r) => setUsual(r.usual)).catch(() => setUsual(null));
+  }, [pay, khata?.account?.id, khata?.vehicle]);
+
   const d = today.data ?? cacheGet<any>(cacheKey);
   const rate = product && d ? d.prices[product] : 0;
   const value = Number(entry) || 0;
@@ -371,6 +378,13 @@ export default function Pos() {
                 <span className="flex-1"><span className="block text-lg font-semibold">{khata.account.name} {khata.pending && <span className="ml-1 rounded-full bg-violet-600 px-2 py-0.5 align-middle text-xs font-bold text-white">CARD PENDING</span>}</span>
                   <span className="text-sm text-slate-600">{[khata.vehicle && `Vehicle ${khata.vehicle}`, khata.slip && `Slip ${khata.slip}`, khata.photo_id && "📷 photo", khata.discount ? `− Rs ${khata.discount} discount` : ""].filter(Boolean).join(" · ") || "No vehicle / slip"}</span></span>
                 <span className="text-sm text-amber-700 underline">Change</span>
+              </button>
+            )}
+            {pay === "khata" && usual && (
+              <button onClick={() => { setProduct(usual.product); setMode("amount"); setEntry(String(usual.amount)); }}
+                className="mt-2 flex w-full items-center gap-2 rounded-xl bg-sky-50 p-3 text-left text-sm ring-1 ring-sky-200 active:scale-95">
+                🔁 <span className="flex-1"><b>Usual:</b> {fuelOf(usual.product).en} · Rs {usual.amount.toLocaleString("en-IN")} <span className="text-slate-500">(~{num(usual.litres, 1)} L · {usual.times}×)</span></span>
+                <span className="text-sky-700 underline">Fill</span>
               </button>
             )}
           </Step>

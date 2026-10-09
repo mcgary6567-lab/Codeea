@@ -17,7 +17,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 
 capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stock.manage", "expenses.create", "shifts.expenses", "wholesale.manage", "khata.manage", "staff.manage", "suppliers.manage", "cash.receive", "cash.pay", "cheques.manage", "cash.book", "bank.manage"), h(async (req) => {
   const b = parse(z.object({
-    kind: z.enum(["meter", "invoice", "receipt", "bill", "slip", "selfie", "proof"]),
+    kind: z.enum(["meter", "invoice", "receipt", "bill", "slip", "payment", "selfie", "proof"]),
     image: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/, "Send a JPEG, PNG or WebP photo"),
     hint: z.string().max(300).optional(),
   }), req.body);

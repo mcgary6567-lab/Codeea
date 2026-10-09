@@ -299,6 +299,30 @@ export function khataAging(t: number) {
 }
 crm.get("/khata/aging", requirePerm("khata.manage"), h((req) => khataAging(tid(req))));
 
+/**
+ * AI-style credit-limit review: suggest raising limits for reliable payers who keep hitting the cap, and lowering
+ * them for high-risk / long-overdue accounts. The owner (credit.set_limit) approves each with one tap.
+ */
+const niceLimit = (n: number) => Math.max(1000, Math.round(n / 1000) * 1000);
+crm.get("/khata/limit-review", requirePerm("khata.manage"), h((req) => {
+  const t = tid(req), DAY = 86_400_000;
+  const custs = all("SELECT id, name, type, balance, credit_limit, risk_score, khata_blocked FROM customers WHERE tenant_id=? AND credit_limit > 0 AND active=1", t);
+  const out: any[] = [];
+  for (const c of custs) {
+    const lastPay = get("SELECT MAX(created_at) d FROM khata_ledger WHERE customer_id=? AND type='credit'", c.id)?.d as string | null;
+    const daysSince = lastPay ? Math.floor((Date.now() - Date.parse(lastPay)) / DAY) : null;
+    const util = c.credit_limit > 0 ? c.balance / c.credit_limit : 0;
+    if (!c.khata_blocked && (c.risk_score ?? 0) < 30 && util >= 0.8 && (daysSince == null || daysSince <= 20)) {
+      const suggested = niceLimit(c.credit_limit * 1.3);
+      if (suggested > c.credit_limit) out.push({ id: c.id, name: c.name, type: c.type, balance: round2(c.balance), credit_limit: c.credit_limit, risk_score: Math.round(c.risk_score ?? 0), suggested_limit: suggested, direction: "raise", reason: "Reliable payer, often near the limit" });
+    } else if (((c.risk_score ?? 0) >= 70 || (daysSince != null && daysSince > 60)) && c.balance >= 0) {
+      const suggested = Math.max(niceLimit(c.balance), niceLimit(c.credit_limit * 0.6));
+      if (suggested < c.credit_limit) out.push({ id: c.id, name: c.name, type: c.type, balance: round2(c.balance), credit_limit: c.credit_limit, risk_score: Math.round(c.risk_score ?? 0), suggested_limit: suggested, direction: "lower", reason: daysSince != null && daysSince > 60 ? `No payment for ${daysSince} days` : "High credit-risk score" });
+    }
+  }
+  return out.sort((a, b) => (a.direction === b.direction ? b.balance - a.balance : a.direction === "lower" ? -1 : 1));
+}));
+
 /* ---------------- Khata security: post-dated cheques & guarantors ---------------- */
 crm.get("/customers/:id/guarantees", requirePerm("khata.manage"), h((req) =>
   all("SELECT * FROM khata_guarantees WHERE customer_id=? AND tenant_id=? ORDER BY CASE status WHEN 'held' THEN 0 ELSE 1 END, id DESC", Number(req.params.id), tid(req))));

@@ -27,6 +27,30 @@ function khataItem(c: Row, showBalance: boolean) {
   };
 }
 
+/** A khata customer's / vehicle's usual fill (most common product + amount), to one-tap prefill the POS. */
+pos.get("/pos/usual", h((req) => {
+  const t = tid(req);
+  const cid = Number(req.query.customer_id);
+  const veh = String(req.query.vehicle ?? "").toUpperCase().trim();
+  if (!cid || !get("SELECT id FROM customers WHERE id=? AND tenant_id=?", cid, t)) return { usual: null };
+  const rows = veh
+    ? all("SELECT product, amount, litres FROM sales WHERE customer_id=? AND payment_method='khata' AND COALESCE(pending,0)=0 AND UPPER(vehicle_no)=? ORDER BY id DESC LIMIT 20", cid, veh)
+    : all("SELECT product, amount, litres FROM sales WHERE customer_id=? AND payment_method='khata' AND COALESCE(pending,0)=0 ORDER BY id DESC LIMIT 20", cid);
+  if (rows.length < 2) return { usual: null };
+  // most common (product + amount rounded to nearest 100)
+  const tally = new Map<string, { product: string; amount: number; n: number; litres: number[] }>();
+  for (const r of rows) {
+    const amt = Math.round(r.amount / 100) * 100;
+    const key = `${r.product}|${amt}`;
+    const e = tally.get(key) ?? { product: r.product as string, amount: amt, n: 0, litres: [] as number[] };
+    e.n++; e.litres.push(r.litres); tally.set(key, e);
+  }
+  const top = [...tally.values()].sort((a, b) => b.n - a.n)[0];
+  if (top.n < 2) return { usual: null }; // no clear pattern
+  const med = [...top.litres].sort((a, b) => a - b)[Math.floor(top.litres.length / 2)];
+  return { usual: { product: top.product, amount: top.amount, litres: Math.round(med * 100) / 100, times: top.n } };
+}));
+
 /** Bank POS machines (active bank accounts) a salesman can attribute a card / digital sale to. */
 pos.get("/pos/bank-pos", h(async (req) => {
   const { accountName } = await import("./banks.js");

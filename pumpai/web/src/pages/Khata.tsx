@@ -8,10 +8,12 @@ import { BellRing } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Empty, Loading, PageHeader, Stat, useAction } from "../components/ui";
 import { ago, phone, pkr, pkrShort } from "../lib/format";
+import { useAuth } from "../App";
 
 export default function Khata() {
   const { data, reload } = useApi<any[]>("/khata");
   const nav = useNavigate();
+  const { can } = useAuth();
   const { busy, run } = useAction();
   const [group, setGroup] = useState("");
   const [bill, setBill] = useState<number | null>(null);
@@ -34,6 +36,7 @@ export default function Khata() {
         <Stat label="High credit risk · خطرہ" value={highRisk} tone="red" />
       </div>
       <AgingCard onOpen={(id) => nav(`/customers/${id}`)} />
+      <LimitReviewCard canSet={can("credit.set_limit")} onApplied={reload} />
       <OpenGovtBills onOpen={setBill} />
       <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         {[["", "All · سب"], ["institution", "🏛️ Police / Govt / Schools · سرکاری"], ["fleet", "🚚 Fleets · گاڑیاں"], ["farmer", "🚜 Farmers · زمیندار"], ["business", "🏢 Businesses · کاروبار"], ["retail", "🚗 Retail · عام"]].map(([k, l]) => (
@@ -131,6 +134,35 @@ function AgingCard({ onOpen }: { onOpen: (id: number) => void }) {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+/** AI credit-limit review: raise reliable payers, lower risky ones — one-tap apply (owner only). */
+function LimitReviewCard({ canSet, onApplied }: { canSet: boolean; onApplied: () => void }) {
+  const { data, reload } = useApi<any[]>("/khata/limit-review");
+  const { busy, run } = useAction();
+  if (!data || !data.length) return null;
+  const apply = (c: any) => run(() => api(`/customers/${c.id}`, { method: "PATCH", body: { credit_limit: c.suggested_limit } }), `${c.name}: limit set to ${pkr(c.suggested_limit)}`).then((r) => { if (r) { reload(); onApplied(); } });
+  return (
+    <div className="card mb-4 p-4">
+      <h2 className="mb-1 font-semibold">💡 Credit-limit suggestions · <Ur>حد کی تجویز</Ur></h2>
+      <p className="mb-2 text-xs text-slate-500">Achhe payer jo aksar limit tak pohanchte hain — barhayein; risky / purane bakaya — ghatayein.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr><th className="th">Customer</th><th className="th text-right">Now</th><th className="th text-right">Suggested</th><th className="th">Why</th>{canSet && <th className="th" />}</tr></thead>
+          <tbody>{data.map((c) => (
+            <tr key={c.id}>
+              <td className="td">{c.name}</td>
+              <td className="td text-right tabular-nums text-slate-500">{pkr(c.credit_limit)}</td>
+              <td className={`td text-right font-semibold tabular-nums ${c.direction === "raise" ? "text-emerald-700" : "text-red-600"}`}>{c.direction === "raise" ? "↑ " : "↓ "}{pkr(c.suggested_limit)}</td>
+              <td className="td text-xs text-slate-500">{c.reason}</td>
+              {canSet && <td className="td text-right"><button className="btn-secondary !px-2 !py-1 text-xs" disabled={busy} onClick={() => apply(c)}>Apply</button></td>}
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      {!canSet && <p className="mt-1 text-xs text-slate-500">Limit sirf CEO/admin change kar sakte hain.</p>}
     </div>
   );
 }

@@ -31,7 +31,7 @@ async function record<T>(content: Anthropic.Beta.BetaContentBlockParam[], descri
   return (use?.input as T) ?? null;
 }
 
-export type PhotoKind = "meter" | "invoice" | "receipt" | "bill" | "slip";
+export type PhotoKind = "meter" | "invoice" | "receipt" | "bill" | "slip" | "payment";
 const PROMPTS: Record<PhotoKind, { text: string; description: string; schema: Record<string, unknown> }> = {
   meter: {
     text: "This is a photo of a fuel dispenser at a Pakistani petrol pump. Read the TOTALIZER (the cumulative litres counter, often labelled 'Total' or 'Totalizer', usually the longest number), not the sale amount or the price per litre. If more than one totalizer is visible (one per nozzle), return each one with its side or label. Copy every digit exactly, including decimals. If a digit is unclear, say so in the note and lower the confidence.",
@@ -87,6 +87,17 @@ const PROMPTS: Record<PhotoKind, { text: string; description: string; schema: Re
       properties: {
         amount: { type: "number" }, paid_to: { type: "string" }, date: { type: "string" }, description: { type: "string" },
         category: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] },
+      },
+      required: ["confidence"],
+    },
+  },
+  payment: {
+    text: "This is a screenshot of a digital payment in Pakistan — JazzCash, Easypaisa, Raast, or a bank app transfer — that a khata (credit) customer sent to pay their account. Extract the amount paid in rupees, the date/time, the sender's name, and the transaction ID / reference number (TID / Trx ID / RRN). Leave a field out if it is not visible.",
+    description: "Record the payment screenshot details.",
+    schema: {
+      properties: {
+        amount: { type: "number" }, date: { type: "string" }, sender: { type: "string" }, reference: { type: "string" },
+        method: { type: "string", enum: ["jazzcash", "easypaisa", "raast", "bank", "other"] }, confidence: { type: "string", enum: ["high", "medium", "low"] },
       },
       required: ["confidence"],
     },
