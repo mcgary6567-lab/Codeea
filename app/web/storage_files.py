@@ -155,7 +155,8 @@ FOLDER_RULES: dict[str, Optional[Rule]] = {
     "reports": STAFF_UPLOAD_RULE,                                                                       # staff (generated report files)
     "migration": STAFF_UPLOAD_RULE,                                                                     # staff (legacy import files)
     "backups": Rule(perms=("backups.view",)),                                                           # database archives: backups.view only
-    "case_evidence": None,                                                                              # never here: /cases/{id}/evidence/{file} checks the case is visible
+    "case_evidence": None,
+    "contact_recordings": None,                                                                         # never here: /parent-contacts/{id}/recording checks access                                                                              # never here: /cases/{id}/evidence/{file} checks the case is visible
     "agent_screenshots": None,                                                                          # never here: /hr/confido-agents/screenshots/{id}/image is the only route
 }
 DEFAULT_RULE = Rule(perms=("settings.view",))                                                           # any other folder: staff with settings.view; everyone else 404

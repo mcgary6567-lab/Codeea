@@ -49,6 +49,7 @@ ACADEMIC_GROUPS = [
         _i("Client List", "/clients", "users", "clients.view"),
         _i("Trial Client List", "/clients/trial", "flask-conical", "clients.view"),
         _i("Online Registrations", "/registrations", "clipboard-list", "registration.view"),
+        _i("Parent Contact Log", "/parent-contacts", "phone-call", "parent_contacts.view"),
     ]},
     {"slug": "requests", "label": "Client Requests", "icon": "inbox", "blurb": "Leave, time and teacher changes, references, complaints", "items": [
         _i("Leave Applications", "/requests/leaves", "calendar-off", "requests.view"),

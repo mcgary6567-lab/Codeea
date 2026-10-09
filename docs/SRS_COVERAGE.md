@@ -43,7 +43,7 @@ classes, supervisors only their assigned teachers, parents only their own family
 | 1 | CEO / Executive Command Center | Built | `/command-center` |
 | 2 | Academic Home Dashboard | Built | `/dashboard` |
 | 3 | CRM & Lead Management | Built | `/crm/leads` |
-| 4 | Client / Parent Management | Built | `/clients` |
+| 4 | Client / Parent Management | Built | `/clients`; parent contact log with follow-ups reminded daily until done (docs/PARENT_COMMUNICATION.md) |
 | 5 | Student Management | Built | `/students`; academic journey with period selector, teacher and class-time history, monthly summary board (docs/STUDENT_JOURNEY.md) |
 | 6 | Online Registration | Built | `/register` (public), `/registrations` |
 | 7 | Trial Management | Built | `/trials` |
@@ -87,7 +87,7 @@ classes, supervisors only their assigned teachers, parents only their own family
 |---|---|---|---|
 | 41 | Monthly Test & Result-Card Automation | Built | Tests auto-generated from curriculum position; bilingual English/Urdu result-card PDF; WhatsApp + portal delivery; month-over-month improvement %; dor schedule generated automatically; new sabaq blocked until the dor quota is met, with logged teacher override; declining scores routed to the retention queue |
 | 42 | Feedback & Voice-of-Customer | Built | Triggered surveys, NPS and eNPS, negative ratings auto-raise an owned ticket with an SLA clock, staff grievances bypass department heads, sentiment feeds the Command Center |
-| 43 | Ambassador (Referral) Program | Built | 60-day satisfaction-gated invite, unique family code and link, dual-sided **account credit** posted to both ledgers (never cash or coupons), referral ledger with weekly counts, referral share of gross adds |
+| 43 | Ambassador (Referral) Program | Built | 60-day satisfaction-gated invite, unique family code and link, dual-sided **account credit** posted to both ledgers (never cash or coupons), referral ledger with weekly counts, referral share of gross adds; referrals mentioned in a conversation become leads or asks with follow-up tasks, eligibility flagged for approval (docs/PARENT_COMMUNICATION.md) |
 | 44 | Teacher-Match at Enrolment | Built | Ranked recommendation on shift, timezone, gender and level fit; unverified teachers excluded; overrides require a logged reason; 90-day survival tracked |
 | 45 | Pricing, Discount Ladder & Scholarship Governance | Built | 0–20 % manager, 21–35 % CEO, above 35 % impossible; teacher-cost-plus-20 % pricing floor enforced; scholarships recorded separately from discounts; weekly discount register |
 | 46 | Teacher Development, Grading & Ustaadh Lab | Built | Grade A/B/C computed from QA, punctuality and retention; grade maps to salary band consumed by payroll; training assignments and promotion gates |

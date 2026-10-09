@@ -431,8 +431,11 @@ def timeline(db: Session, student: Student, start: date, end: date, viewer: User
                                                  ParentContact.contacted_at >= s_dt, ParentContact.contacted_at <= e_dt):
             if pc.case_id and not cx.can_view(db, viewer, pc.case):
                 continue
-            ev.append(_ev(pc.contacted_at, "family", f"Family contacted ({pc.channel})",
-                          (pc.parent_response or pc.summary or "")[:250], f"/cases/{pc.case_id}" if pc.case_id else None, pc.satisfaction))
+            from app.services.contacts import PURPOSE_LABELS
+            ev.append(_ev(pc.contacted_at, "family", f"Conversation with the family: {PURPOSE_LABELS.get(pc.purpose, pc.purpose)} ({pc.channel})",
+                          " · ".join(x for x in [(pc.issue and f"Issue: {pc.issue}") or "", (pc.parent_response or pc.summary or "")[:200],
+                                                 (pc.agreed_action and f"Agreed: {pc.agreed_action}") or ""] if x),
+                          f"/parent-contacts/{pc.id}", pc.sentiment or pc.satisfaction))
         for f in db.query(Feedback).filter(or_(Feedback.student_id == student.id, Feedback.client_id == student.client_id),
                                            Feedback.submitted_at >= s_dt, Feedback.submitted_at <= e_dt):
             ev.append(_ev(f.submitted_at, "family", "Parent feedback" + (f" · NPS {f.nps}" if f.nps is not None else ""),
@@ -635,7 +638,13 @@ def monthly_summary(db: Session, student: Student, period: str, viewer: User) ->
     negative = (db.query(Feedback).filter(or_(Feedback.student_id == student.id, Feedback.client_id == student.client_id),
                                           Feedback.is_negative.is_(True), Feedback.submitted_at >= datetime.combine(start, time.min),
                                           Feedback.submitted_at <= datetime.combine(end, time.max)).all())
+    from app.services import contacts as contacts_svc
+    conversations = (contacts_svc.visible(db, viewer, db.query(ParentContact).filter(
+        or_(ParentContact.student_id == student.id, (ParentContact.client_id == student.client_id) & ParentContact.student_id.is_(None)),
+        ParentContact.contacted_at >= datetime.combine(start, time.min), ParentContact.contacted_at <= datetime.combine(end, time.max)))
+        .order_by(ParentContact.contacted_at.desc()).all())
     return {"period": period, "label": start.strftime("%B %Y"), "start": start, "end": end, "stats": stats, "syllabus": syl,
+            "conversations": conversations,
             "evaluations": evals, "tests": tests, "recommendations": recs, "observations": observations[:12],
             "concerns": concerns, "negative_feedback": negative, "actions": open_actions(db, student, viewer),
             "flags": flags_for(stats, syl, evals, tests, recs)}

@@ -1022,7 +1022,10 @@ def referrals(request: Request, status: str = "", page: int = 1, db: Session = D
     if status:
         q = q.filter(Referral.status == status)
     pg = paginate(q.order_by(Referral.created_at.desc()), page, 25)
+    from app.services import contacts as contacts_svc
+    data["eligible"] = db.query(Referral).filter(Referral.eligible_at.isnot(None), Referral.status.in_(["signed_up", "qualified"])).count()
     return render(request, "crm/referrals.html", {"user": user, "d": data, "page": pg, "status": status, "statuses": svc.REFERRAL_STATUSES,
+                                                  "referral_stage": contacts_svc.referral_stage,
                                                   "base_url": f"/crm/referrals?status={status}"})
 
 

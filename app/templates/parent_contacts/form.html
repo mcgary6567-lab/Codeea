@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Record a conversation{% endblock %}
+{% block content %}
+{{ ui.page_header('Record a conversation with a family', 'What was discussed, what the family said, and what happens next. An issue or an agreed action becomes a follow-up that is reminded daily until it is done.', back='/parent-contacts') }}
+<form method="post" action="/parent-contacts/new" enctype="multipart/form-data" class="max-w-3xl space-y-6"
+      x-data='{ fam: "{{ family.id if family else '' }}", byClient: {{ students_by_client|tojson }}, issue: false, ref: {{ "true" if purpose == "referral" else "false" }} }'>
+  {% call ui.card('Who and when') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.select('client_id', 'Family', client_options, family.id if family else '', required=True, attrs='x-model="fam"') }}
+    <div>
+      <label class="mb-1 block text-xs font-semibold text-slate-600">Student</label>
+      <select name="student_id" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+        <option value="">The whole family</option>
+        <template x-for="s in (byClient[fam] || [])" :key="s[0]"><option :value="s[0]" x-text="s[1]" :selected="String(s[0]) === '{{ student.id if student else '' }}'"></option></template>
+      </select>
+    </div>
+    {{ ui.select('purpose', 'About', purposes, purpose, placeholder=None, attrs='@change="ref = ref || $event.target.value === \'referral\'"') }}
+    {{ ui.input('contacted_at', 'Date and time', '', type='datetime-local', help='Leave empty for now') }}
+    {{ ui.select('channel', 'How', channels, 'phone', placeholder=None) }}
+    <div class="grid grid-cols-2 gap-3">
+      {{ ui.select('direction', 'Who called', [('outbound','We contacted them'),('inbound','They contacted us')], 'outbound', placeholder=None) }}
+      {{ ui.input('duration_minutes', 'Minutes', '', type='number', min=0) }}
+    </div>
+  </div>
+  {% endcall %}
+
+  {% call ui.card('What was said') %}
+  <div class="grid gap-4">
+    {{ ui.textarea('summary', 'Summary of the conversation', '', rows=3, placeholder='What you discussed') }}
+    {{ ui.textarea('parent_response', "What the family said", '', rows=3, placeholder='Their words, as closely as you can') }}
+    <div class="w-60">{{ ui.select('sentiment', 'How the family felt', sentiments, '', placeholder='Not noted') }}</div>
+  </div>
+  {% endcall %}
+
+  {% call ui.card('Issue and follow-up', 'Leave empty when nothing needs to happen') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="has_issue" value="1" x-model="issue" class="h-4 w-4 rounded border-slate-300"> <span class="font-medium">The conversation identified an issue</span></label>
+    <div class="sm:col-span-2" x-show="issue" x-cloak>{{ ui.textarea('issue', 'The issue', '', rows=2, placeholder='e.g. Child struggling with the new lesson; class time clashes with school') }}</div>
+    <div x-show="issue" x-cloak>{{ ui.select('issue_category', 'Issue category', issue_categories, '', placeholder='Choose') }}</div>
+    <div class="sm:col-span-2">{{ ui.input('agreed_action', 'Agreed action', '', placeholder='What we will do') }}</div>
+    {{ ui.input('follow_up_date', 'Follow-up by', '', type='date', help='Defaults to two days from today') }}
+    {{ ui.select('responsible_id', 'Responsible person', staff_options, user.id, placeholder=None) }}
+  </div>
+  {% endcall %}
+
+  {% call ui.card('Recording and transcript', 'Only where it is legally permitted and the family has been told') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.input('recording_url', 'Recording link or reference', '', placeholder='Link from the calling system') }}
+    <div><label class="mb-1 block text-xs font-semibold text-slate-600">Recording file</label><input type="file" name="recording" accept="audio/*,video/mp4,video/webm,.pdf,.txt" class="block w-full text-sm"></div>
+    <div class="sm:col-span-2">{{ ui.textarea('transcript', 'Transcript', '', rows=3) }}</div>
+  </div>
+  {% endcall %}
+
+  {% call ui.card('Referral') %}
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="referral_mentioned" value="1" x-model="ref" class="h-4 w-4 rounded border-slate-300"> <span class="font-medium">The family wants to refer another family</span></label>
+  <div class="mt-3 grid gap-4 sm:grid-cols-2" x-show="ref" x-cloak>
+    {{ ui.input('referred_name', "Referred person's name", '') }}
+    {{ ui.select('referred_relation', 'Relation', relations, 'friend', placeholder=None) }}
+    {{ ui.input('referred_phone', 'Phone / WhatsApp', '') }}
+    {{ ui.input('referred_email', 'Email', '', type='email') }}
+    <div class="sm:col-span-2">{{ ui.input('referral_note', 'Note', '', placeholder='Children, course of interest, best time to call') }}</div>
+    <p class="sm:col-span-2 text-xs text-slate-500">With a phone or email a lead is created for a closer to call within a day. Without them a task is created to collect the details. Rewards are account credit for both families once the referred family subscribes.</p>
+  </div>
+  {% endcall %}
+
+  {{ ui.button('Save the conversation', icon='save') }}
+</form>
+{% endblock %}

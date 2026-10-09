@@ -283,6 +283,23 @@
 {{ ui.table_end() }}
 
 {% elif tab == 'comms' %}
+{% if conversations is defined %}
+{% call ui.card('Conversations with the family', 'Calls, messages and meetings recorded by staff') %}
+  {% if has_perm(user, 'parent_contacts.add') %}<div class="mb-3">{{ ui.button('Record a conversation', href='/parent-contacts/new?client_id=' ~ c.id, icon='phone-call', size='sm') }}</div>{% endif %}
+  {{ ui.table_start(['When', 'About', 'How', 'Summary', 'Follow-up', 'By'], compact=True) }}
+  {% for pc in conversations %}
+  {% set fu = follow_up_state(pc) %}
+  <tr><td class="px-3 py-1.5 text-xs whitespace-nowrap"><a class="text-brand-700 hover:underline" href="/parent-contacts/{{ pc.id }}">{{ pc.contacted_at|datetime }}</a></td>
+    <td class="px-3 py-1.5 text-xs">{{ purpose_labels.get(pc.purpose, pc.purpose) }}{% if pc.student %} · {{ pc.student.full_name }}{% endif %}</td>
+    <td class="px-3 py-1.5 text-xs">{{ channel_labels.get(pc.channel, pc.channel) }}</td>
+    <td class="px-3 py-1.5 text-xs max-w-md"><div class="line-clamp-2">{{ pc.summary or pc.parent_response or '—' }}</div></td>
+    <td class="px-3 py-1.5 text-xs">{{ '—' if fu == 'none' else fu|titleize }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ pc.contacted_by.full_name if pc.contacted_by else 'Family' }}</td></tr>
+  {% else %}{{ ui.empty('No conversations recorded yet.', 6) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+<div class="mt-6 mb-2 text-sm font-semibold text-slate-700">Messages sent to the family</div>
+{% endif %}
 {{ ui.table_start(['When', 'Channel', 'Event', 'Title', 'Body', 'Status']) }}
 {% for n in notifications %}<tr><td class="px-4 py-2 text-xs whitespace-nowrap">{{ n.created_at|datetime }}</td><td class="px-4 py-2">{{ ui.badge(n.channel) }}</td><td class="px-4 py-2 text-xs">{{ n.event_type }}</td><td class="px-4 py-2 font-medium">{{ n.title }}</td><td class="px-4 py-2 text-xs max-w-md truncate">{{ n.body }}</td><td class="px-4 py-2">{{ ui.badge(n.status) }}</td></tr>
 {% else %}{{ ui.empty('No communications logged' ~ (' — this client has no portal login.' if not c.user else '.'), 6) }}{% endfor %}

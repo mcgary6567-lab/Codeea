@@ -110,6 +110,12 @@
     {% for f in m.negative_feedback %}<p class="py-1 text-sm">Negative feedback: {{ f.comment or ('NPS ' ~ f.nps) }}</p>{% endfor %}
     {% if not m.concerns and not m.negative_feedback %}<p class="text-sm text-slate-400">None raised.</p>{% endif %}
   {% endcall %}
+  {% call ui.card('Parent communication', m.conversations|length ~ ' conversation(s) this month') %}
+    {% for pc in m.conversations %}<p class="border-b border-slate-100 py-1.5 text-sm"><a class="text-brand-700 hover:underline" href="/parent-contacts/{{ pc.id }}">{{ pc.contacted_at|date }}</a>
+      · {{ pc.purpose|titleize }}{% if pc.issue %} · <span class="text-amber-700">{{ pc.issue }}</span>{% endif %}
+      {% if pc.agreed_action %}<span class="block text-xs text-slate-500">Agreed: {{ pc.agreed_action }}</span>{% endif %}</p>
+    {% else %}<p class="text-sm text-slate-400">No conversation recorded this month.</p>{% endfor %}
+  {% endcall %}
   {% call ui.card('Outstanding actions') %}
     {% for t in m.actions.tasks %}<p class="py-1 text-sm">{{ t.title }} <span class="text-xs text-slate-500">· {{ t.assignee.full_name if t.assignee else 'unassigned' }} · due {{ t.due_date|date }}</span></p>{% endfor %}
     {% for c in m.actions.cases %}<p class="py-1 text-sm">Open case <a class="text-brand-700 hover:underline" href="/cases/{{ c.id }}">{{ c.case_number }}</a></p>{% endfor %}
@@ -205,6 +211,7 @@
   {% endcall %}
   {% call ui.card('Links') %}
     <div class="flex flex-wrap gap-2">
+      {% if has_perm(user, 'parent_contacts.add') %}{{ ui.button('Record a parent conversation', href='/parent-contacts/new?student_id=' ~ s.id, icon='phone-call', size='sm') }}{% endif %}
       {{ ui.button('Student record', href='/students/' ~ s.id, icon='user', variant='secondary', size='sm') }}
       {{ ui.button('Progress & curriculum', href='/academics/progress/' ~ s.id, icon='book-open', variant='secondary', size='sm') }}
       {{ ui.button('Monthly board', href='/academics/student-summary?month=' ~ win.month, icon='layout-list', variant='ghost', size='sm') }}

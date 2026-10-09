@@ -37,6 +37,7 @@ WORKFLOW_TRIGGERS = {
     "subscription.cancelled": ("Subscription cancelled", "client"),
     "course.completed": ("Course completed (certificate issued)", "student"),
     "feedback.submitted": ("Survey / NPS answer submitted", "client"),
+    "parent.contacted": ("A conversation with the family was recorded", "client"),
     "student.at_risk": ("Student flagged at risk", "student"),
     "student.recommendation": ("Teacher recorded a recommendation about the student", "student"),
     "student.inactive": ("Student with no attended class for N days (daily check)", "student"),

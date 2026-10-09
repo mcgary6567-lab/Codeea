@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Parent contact log{% endblock %}
+{% block content %}
+{% call ui.page_header('Parent contact log', 'Every conversation with a family: what was said, what was agreed, who follows up and by when') %}
+  {% if has_perm(user, 'parent_contacts.add') %}{{ ui.button('Record a conversation', href='/parent-contacts/new', icon='phone-call') }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat('This month', stats.this_month, icon='phone-call', color='sky') }}
+  {{ ui.stat('Issues identified', stats.issues, icon='alert-circle', color='amber', href='/parent-contacts?issue=1') }}
+  {{ ui.stat('Follow-ups open', stats.open, icon='list-checks', color='indigo', href='/parent-contacts?follow_up=open') }}
+  {{ ui.stat('Overdue', stats.overdue, icon='alarm-clock-off', color='rose', href='/parent-contacts?follow_up=overdue') }}
+  {{ ui.stat('Mine to do', stats.mine, icon='user', color='violet', href='/parent-contacts?follow_up=mine') }}
+  {{ ui.stat('Referrals mentioned', stats.referrals, icon='gift', color='emerald', href='/parent-contacts?referral=1') }}
+</div>
+
+{% call ui.filter_bar('/parent-contacts') %}
+  <div class="w-44">{{ ui.input('q', 'Search', q, placeholder='Family, words, issue') }}</div>
+  <div class="w-44">{{ ui.select('purpose', 'About', purposes + [('complaint_confirmation', 'Complaint confirmation')], purpose, placeholder='Anything') }}</div>
+  <div class="w-44">{{ ui.select('staff', 'Staff', staff_options, staff, placeholder='Anyone') }}</div>
+  <div class="w-40">{{ ui.select('follow_up', 'Follow-up', [('open','Open'),('overdue','Overdue'),('mine','Mine to do')], follow_up, placeholder='Any') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['When', 'Family', 'About', 'How', 'Summary', 'Mood', 'Follow-up', 'By', '']) }}
+{% for pc in page.items %}
+{% set fu = follow_up_state(pc) %}
+<tr class="hover:bg-slate-50">
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ pc.contacted_at|datetime }}</td>
+  <td class="px-3 py-2 text-sm">{% if pc.client %}<a class="font-medium hover:text-brand-700" href="/clients/{{ pc.client_id }}?tab=comms">{{ pc.client.full_name }}</a>{% endif %}
+    <div class="text-xs text-slate-500">{{ pc.student.full_name if pc.student else '' }}</div></td>
+  <td class="px-3 py-2 text-xs">{{ purpose_labels.get(pc.purpose, pc.purpose) }}
+    {% if pc.issue %}<div class="text-amber-700">Issue: {{ issue_labels.get(pc.issue_category, '') }}</div>{% endif %}
+    {% if pc.referral_id %}<div class="text-emerald-700">Referral</div>{% endif %}
+    {% if pc.case_id %}<div><a class="text-brand-700 hover:underline" href="/cases/{{ pc.case_id }}">complaint</a></div>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ channel_labels.get(pc.channel, pc.channel) }}{% if pc.duration_minutes %} · {{ pc.duration_minutes }} min{% endif %}</td>
+  <td class="px-3 py-2 text-xs max-w-sm"><div class="line-clamp-2">{{ pc.summary or pc.parent_response or '—' }}</div></td>
+  <td class="px-3 py-2">{% if pc.sentiment %}{{ ui.badge({'positive':'completed','neutral':'draft','concerned':'pending','upset':'failed'}[pc.sentiment], sentiment_labels[pc.sentiment]) }}{% elif pc.satisfaction %}{{ ui.badge('pending', pc.satisfaction|titleize) }}{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{% if fu == 'none' %}—{% else %}{{ ui.badge({'open':'in_progress','overdue':'overdue','done':'completed','cancelled':'cancelled'}[fu], fu|titleize) }}
+    <div class="text-[11px] text-slate-500">{{ pc.follow_up_task.assignee.full_name if pc.follow_up_task and pc.follow_up_task.assignee else '' }}{% if pc.follow_up_date %} · {{ pc.follow_up_date|date }}{% endif %}</div>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ pc.contacted_by.full_name if pc.contacted_by else 'Family (portal)' }}</td>
+  <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/parent-contacts/' ~ pc.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No conversations recorded yet.', 9, 'phone-call') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

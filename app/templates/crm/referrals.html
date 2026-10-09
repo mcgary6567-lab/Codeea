@@ -44,7 +44,7 @@
   <td class="px-4 py-2 text-xs">{{ r.referred_name or '—' }}
     {% if r.referred_lead_id %}<a href="/crm/leads/{{ r.referred_lead_id }}" class="ml-1 text-brand-600">lead</a>{% endif %}
     {% if r.referred_client_id %}<a href="/clients/{{ r.referred_client_id }}" class="ml-1 text-brand-600">client</a>{% endif %}</td>
-  <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-4 py-2">{{ ui.badge('pending' if r.eligible_at and r.status in ('signed_up','qualified') else r.status, referral_stage(r)) }}</td>
   <td class="px-4 py-2 text-xs">{% if r.status == 'credited' %}{{ r.credit_amount|money(r.credit_currency) }} × 2 families
     <div class="text-[10px] text-slate-400">ledger {{ r.ambassador_credit_ledger_id }} / {{ r.referred_credit_ledger_id or '—' }}</div>{% else %}—{% endif %}</td>
   <td class="px-4 py-2 text-xs">{{ r.qualified_at|date if r.qualified_at else '—' }}</td>

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Conversation with {{ pc.client.full_name if pc.client else 'family' }}{% endblock %}
+{% block content %}
+{% set fu = follow_up_state(pc) %}
+{% call ui.page_header(channel_labels.get(pc.channel, pc.channel) ~ ' with ' ~ (pc.client.full_name if pc.client else 'the family'), purpose_labels.get(pc.purpose, pc.purpose) ~ ' · ' ~ (pc.contacted_at|datetime) ~ ' · ' ~ (pc.contacted_by.full_name if pc.contacted_by else 'the family, in the portal'), back='/parent-contacts') %}
+  {% if pc.sentiment %}{{ ui.badge({'positive':'completed','neutral':'draft','concerned':'pending','upset':'failed'}[pc.sentiment], sentiment_labels[pc.sentiment]) }}{% endif %}
+  {% if fu != 'none' %}{{ ui.badge({'open':'in_progress','overdue':'overdue','done':'completed','cancelled':'cancelled'}[fu], 'Follow-up ' ~ fu) }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('The conversation') %}
+      {% if pc.summary %}<p class="whitespace-pre-wrap text-sm text-slate-700">{{ pc.summary }}</p>{% endif %}
+      {% if pc.parent_response %}<blockquote class="mt-3 border-l-4 border-slate-200 pl-3 text-sm italic text-slate-700">“{{ pc.parent_response }}”</blockquote>{% endif %}
+      <div class="mt-4">{{ ui.dl([('Family', pc.client.full_name if pc.client else '—'), ('Student', pc.student.full_name if pc.student else 'Whole family'),
+                                  ('Who called', 'We contacted them' if pc.direction == 'outbound' else 'They contacted us'),
+                                  ('Length', (pc.duration_minutes ~ ' min') if pc.duration_minutes else '—'),
+                                  ('Feedback', pc.feedback), ('Satisfaction', pc.satisfaction|titleize if pc.satisfaction else '—')]) }}</div>
+    {% endcall %}
+
+    {% if pc.issue or pc.agreed_action %}
+    {% call ui.card('Issue → action → responsible → due → completion') %}
+      {{ ui.dl([('Issue', pc.issue), ('Category', issue_labels.get(pc.issue_category, '—') if pc.issue_category else '—'), ('Agreed action', pc.agreed_action),
+                ('Responsible', pc.responsible.full_name if pc.responsible else '—'), ('Due', pc.follow_up_date|date if pc.follow_up_date else '—'),
+                ('Status', fu|titleize)]) }}
+      {% if pc.follow_up_task %}<p class="mt-3 text-xs text-slate-500">Task: <a class="text-brand-700 hover:underline" href="/tasks/{{ pc.follow_up_task.id }}">{{ pc.follow_up_task.title }}</a>. The responsible person is reminded every day it is due or overdue until it is done.</p>
+        {% if pc.follow_up_task.status in ('done','completed') and pc.follow_up_task.description %}<p class="mt-2 whitespace-pre-wrap rounded bg-emerald-50 p-2 text-xs text-emerald-900">{{ pc.follow_up_task.description.split('\n\n')[-1] }}</p>{% endif %}{% endif %}
+      {% if can_update and fu in ('open', 'overdue') %}
+      <form method="post" action="/parent-contacts/{{ pc.id }}/follow-up/done" class="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3">
+        <div class="min-w-[16rem] flex-1">{{ ui.input('note', 'What was done', '', required=True) }}</div>
+        {{ ui.button('Mark done', icon='check', size='sm', variant='success') }}
+      </form>
+      {% endif %}
+    {% endcall %}
+    {% endif %}
+
+    {% if pc.referral %}
+    {% call ui.card('Referral') %}
+      {{ ui.dl([('Referred', pc.referral.referred_name or 'Details to collect'), ('Phone', pc.referral.referred_phone or '—'),
+                ('Stage', referral_stage(pc.referral)), ('Referral code', pc.referral.referral_code)]) }}
+      <div class="mt-3 flex flex-wrap gap-2 text-xs">
+        {% if pc.referral.referred_lead_id %}<a class="text-brand-700 hover:underline" href="/crm/leads/{{ pc.referral.referred_lead_id }}">Open the lead</a>{% endif %}
+        <a class="text-brand-700 hover:underline" href="/crm/referrals">Referral ledger</a>
+      </div>
+      {% for t in referral_tasks %}<p class="mt-2 text-xs">{{ ui.badge(t.status, t.status|label('task')) }} {{ t.title }} · {{ t.assignee.full_name if t.assignee else 'unassigned' }} · due {{ t.due_date|date }}</p>{% endfor %}
+    {% endcall %}
+    {% endif %}
+
+    {% if pc.transcript or recording or pc.recording_url %}
+    {% call ui.card('Recording and transcript') %}
+      <div class="flex flex-wrap gap-4 text-sm">
+        {% if recording %}<a class="text-brand-700 hover:underline" href="{{ ('/cases/' ~ pc.case_id ~ '/evidence/' ~ recording.id) if recording.entity_type == 'case' else ('/parent-contacts/' ~ pc.id ~ '/recording') }}" target="_blank"><i data-lucide="file-audio" class="inline h-4 w-4"></i> Play the recording</a>{% endif %}
+        {% if pc.recording_url %}<a class="text-brand-700 hover:underline" href="{{ pc.recording_url }}" target="_blank" rel="noopener noreferrer"><i data-lucide="link" class="inline h-4 w-4"></i> Recording reference</a>{% endif %}
+      </div>
+      {% if pc.transcript %}<p class="mt-3 whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs text-slate-700">{{ pc.transcript }}</p>{% endif %}
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card('Next steps') %}
+      <div class="flex flex-col gap-2">
+        {% if pc.case_id %}{{ ui.button('Open the complaint', href='/cases/' ~ pc.case_id, icon='life-buoy', variant='secondary', size='sm') }}
+        {% elif can_raise %}
+        <form method="post" action="/parent-contacts/{{ pc.id }}/complaint">{{ ui.button('Raise as a complaint', icon='life-buoy', variant='warning', size='sm') }}</form>
+        {% endif %}
+        {% if has_perm(user, 'parent_contacts.add') %}{{ ui.button('Record another conversation', href='/parent-contacts/new?client_id=' ~ pc.client_id ~ ('&student_id=' ~ pc.student_id if pc.student_id else ''), icon='phone-call', variant='secondary', size='sm') }}{% endif %}
+        {% if pc.student_id %}{{ ui.button("Student's journey", href='/students/' ~ pc.student_id ~ '/journey', icon='route', variant='ghost', size='sm') }}{% endif %}
+        {{ ui.button('Family record', href='/clients/' ~ pc.client_id ~ '?tab=comms', icon='users', variant='ghost', size='sm') }}
+      </div>
+    {% endcall %}
+    {% call ui.card('Earlier conversations with this family') %}
+      {% for h in history %}
+      <a href="/parent-contacts/{{ h.id }}" class="block border-b border-slate-100 py-2 text-sm hover:bg-slate-50">
+        <span class="text-xs text-slate-500">{{ h.contacted_at|date }} · {{ purpose_labels.get(h.purpose, h.purpose) }}</span>
+        <div class="line-clamp-2 text-slate-700">{{ h.summary or h.parent_response or '—' }}</div></a>
+      {% else %}<p class="text-sm text-slate-400">None.</p>{% endfor %}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

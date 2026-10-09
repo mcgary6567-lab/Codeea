@@ -360,6 +360,12 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
     elif tab == "comms":
         ctx["notifications"] = (db.query(Notification).filter(Notification.user_id == c.user_id).order_by(Notification.created_at.desc()).limit(100).all()
                                 if c.user_id else [])
+        from app.services import contacts as contacts_svc
+        if rbac.has_permission(user, "parent_contacts.view"):
+            ctx["conversations"] = contacts_svc.family_contacts(db, user, c.id)
+            ctx["follow_up_state"] = contacts_svc.follow_up_state
+            ctx["purpose_labels"] = contacts_svc.PURPOSE_LABELS
+            ctx["channel_labels"] = contacts_svc.CHANNEL_LABELS
     elif tab == "audit":
         sids = [s.id for s in c.students] or [-1]
         ctx["events"] = (db.query(AuditEvent).filter(or_((AuditEvent.entity_type == "Client") & (AuditEvent.entity_id == c.id),

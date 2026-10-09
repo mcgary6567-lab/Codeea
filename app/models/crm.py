@@ -215,6 +215,7 @@ class Referral(Base, PKMixin, TimestampMixin):
     qualified_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     credit_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     credit_currency: Mapped[str] = mapped_column(String(3), default="GBP")
+    eligible_at: Mapped[Optional[datetime]] = mapped_column(DateTime)  # referred family subscribed: the credit awaits approval
     ambassador_credit_ledger_id: Mapped[Optional[int]] = mapped_column(ForeignKey("ledger_entries.id", ondelete="SET NULL"))
     referred_credit_ledger_id: Mapped[Optional[int]] = mapped_column(ForeignKey("ledger_entries.id", ondelete="SET NULL"))
     ghl_source_tag: Mapped[Optional[str]] = mapped_column(String(80))
@@ -354,6 +355,12 @@ class CaseComment(Base, PKMixin):
 
 PARENT_CONTACT_CHANNELS = ["phone", "whatsapp", "video", "meeting", "email", "portal"]
 PARENT_SATISFACTION = ["satisfied", "partly_satisfied", "not_satisfied", "unreachable"]
+PARENT_CONTACT_PURPOSES = [("academic", "Academic progress"), ("attendance", "Attendance"), ("performance", "Performance"),
+                           ("complaint", "Complaint"), ("complaint_confirmation", "Complaint confirmation"), ("billing", "Billing"),
+                           ("schedule", "Schedule / timing"), ("referral", "Referral"), ("general", "General")]
+PARENT_SENTIMENTS = [("positive", "Positive"), ("neutral", "Neutral"), ("concerned", "Concerned"), ("upset", "Upset")]
+ISSUE_CATEGORIES = [("academic", "Academic"), ("attendance", "Attendance"), ("behaviour", "Behaviour"), ("teacher", "Teacher"),
+                    ("schedule", "Schedule"), ("billing", "Billing"), ("technical", "Technical"), ("other", "Other")]
 
 
 class ParentContact(Base, PKMixin, TimestampMixin):
@@ -382,12 +389,21 @@ class ParentContact(Base, PKMixin, TimestampMixin):
     transcript: Mapped[Optional[str]] = mapped_column(Text)
     referral_mentioned: Mapped[bool] = mapped_column(Boolean, default=False)
     outcome: Mapped[Optional[str]] = mapped_column(String(30))  # closed | reopened | escalated | awaiting | recorded
+    # General parent communication (docs/PARENT_COMMUNICATION.md)
+    direction: Mapped[str] = mapped_column(String(10), default="outbound")  # outbound | inbound
+    duration_minutes: Mapped[Optional[int]] = mapped_column(Integer)
+    sentiment: Mapped[Optional[str]] = mapped_column(String(20))  # positive | neutral | concerned | upset
+    issue: Mapped[Optional[str]] = mapped_column(Text)  # the problem the conversation identified, if any
+    issue_category: Mapped[Optional[str]] = mapped_column(String(30))
+    referral_id: Mapped[Optional[int]] = mapped_column(ForeignKey("referrals.id", ondelete="SET NULL"))
 
     case = relationship("Case", back_populates="contacts")
     client = relationship("Client")
     student = relationship("Student")
     contacted_by = relationship("User", foreign_keys=[contacted_by_id])
     responsible = relationship("User", foreign_keys=[responsible_id])
+    follow_up_task = relationship("Task", foreign_keys=[follow_up_task_id])
+    referral = relationship("Referral", foreign_keys=[referral_id])
 
 
 class RetentionAction(Base, PKMixin, TimestampMixin):
