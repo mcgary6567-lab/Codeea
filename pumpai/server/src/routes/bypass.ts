@@ -20,6 +20,8 @@ import { bankAccountFor, accountIdField } from "./banks.js";
 import { insertTxn, fleet, priceSupply, clientDue } from "./wholesale.js";
 import { BYPASS_PAY } from "./banks.js";
 import { deliverOrder } from "./wholesaleDesk.js";
+import { profile } from "./setup.js";
+import { SOCIALS } from "../brandPrint.js";
 
 export const bypass = Router();
 bypass.use("/bypass", requirePerm("wholesale.view"));
@@ -183,6 +185,39 @@ bypass.get("/bypass/deliveries", h((req) => {
      FROM bypass_deliveries d WHERE d.tenant_id=? AND d.voided=0 ORDER BY d.txn_date DESC, d.id DESC LIMIT 60`, t)
     // munafa = client ne jo diya (billed) − us delivery me bike maal ki cost (COGS); stock hold ho to sirf delivered hissa counts
     .map((d) => ({ ...d, margin: round2((d.billed as number) - (d.sold_cost as number)) }));
+}));
+
+/**
+ * One bypass delivery with everything the printed voucher/challan needs — same shape the pump
+ * trip sheet uses, so the shared challan/trip-sheet printer renders it unchanged. Each client's
+ * drop carries the per-litre rate from THAT client's own rate card (the rate the CEO set), the
+ * amount it made, and the client's balance after the delivery.
+ */
+bypass.get("/bypass/deliveries/:id", h((req) => {
+  const t = tid(req);
+  const d = get(`SELECT d.*, ${proofCol("'byp:'||d.id")}, dr.phone driver_phone
+    FROM bypass_deliveries d LEFT JOIN drivers dr ON dr.id=d.driver_id WHERE d.id=? AND d.tenant_id=?`, Number(req.params.id), t);
+  if (!d) throw new AppError(404, "Delivery not found");
+  const drops = all(`SELECT w.id, w.client_id, c.name client_name, c.business_name, c.phone, c.address, bd.product, bd.litres, w.rate, w.amount, w.location, w.ref, bd.voided
+    FROM bypass_drops bd JOIN wholesale_txns w ON w.id=bd.wtx_id JOIN wholesale_clients c ON c.id=bd.client_id
+    WHERE bd.delivery_id=? ORDER BY bd.id`, d.id);
+  // balance owed by each client right now (shown on the voucher so the client sees the running khata)
+  for (const x of drops) (x as any).balance = clientDue(x.client_id as number);
+  const purchases = all(`SELECT bp.product, bp.litres, bp.cost_rate rate, bp.amount, bp.ref, s.name supplier_name
+    FROM bypass_purchases bp JOIN suppliers s ON s.id=bp.supplier_id WHERE bp.delivery_id=? AND bp.voided=0 ORDER BY bp.id`, d.id);
+  const live = drops.filter((x) => !x.voided);
+  const delivered_l = round2(live.reduce((a, x) => a + (x.litres as number), 0));
+  const billed = round2(live.reduce((a, x) => a + (x.amount as number), 0));
+  // letterhead for the printed papers (same source as the pump trip sheet)
+  const biz = profile(t);
+  const st = get("SELECT name, address, city FROM stations WHERE id=?", d.station_id)!;
+  const business = { name: biz.name, phone: biz.biz_phone || biz.owner_phone, address: biz.place || [st.address, st.city].filter(Boolean).join(", "),
+    city: biz.biz_city || st.city, ntn: biz.ntn, strn: biz.strn, logo_url: biz.logo_url, footer: biz.receipt_footer, station: st.name,
+    email: biz.biz_email, website: biz.website, omc: biz.omc, color: biz.brand_color, social: Object.fromEntries(SOCIALS.map((x) => [x.key, biz[x.key]]).filter(([, v]) => v)) };
+  return { id: d.id, trip_date: d.txn_date, source: "depot", depot_ref: purchases.map((p) => p.ref).filter(Boolean).join(", ") || null,
+    supplier_name: [...new Set(purchases.map((p) => p.supplier_name))].join(", ") || null, bypass: true,
+    vehicle_no: d.vehicle_no, driver_name: d.driver_name, driver_phone: d.driver_phone, note: d.note, station_name: st.name,
+    drops, purchases, delivered_l, billed, business };
 }));
 
 /** Monthly bypass munafa series for the last N months (oldest first) — for the panel chart. */

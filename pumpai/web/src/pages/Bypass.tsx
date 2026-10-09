@@ -3,12 +3,13 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { Plus, Truck, Factory, Download, Printer, HandCoins, ArrowLeft, Ban } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Empty, ErrorBox, Field, Loading, Modal, Stat, useAction } from "../components/ui";
-import { PRODUCTS, activeProducts, dt, num, pkr, pkrShort } from "../lib/format";
+import { PRODUCTS, activeProducts, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { supplierOpts } from "../components/SupplierSelect";
 import { FleetPicker, fleetBody } from "../components/WholesaleFleet";
+import { challanPages, printPages, tripSheetPage } from "../components/TripPrint";
 
 const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 
@@ -20,6 +21,7 @@ export function BypassPanel() {
   const stock = useApi<any>("/bypass/stock");
   const monthly = useApi<any[]>("/bypass/monthly?months=6");
   const [openSup, setOpenSup] = useState<number | null>(null);
+  const [voucher, setVoucher] = useState<number | null>(null);
   const refresh = () => { sups.reload(); dels.reload(); stock.reload(); monthly.reload(); };
   const owedTotal = (sups.data ?? []).reduce((a, s) => a + (s.bypass_owed > 0 ? s.bypass_owed : 0), 0);
   const stockLines = (stock.data?.by_product ?? []) as any[];
@@ -64,10 +66,14 @@ export function BypassPanel() {
           <ul className="divide-y divide-slate-100 text-sm">
             {(dels.data ?? []).map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <div className="min-w-0"><div className="font-medium">#{d.id} · {num(d.drop_litres || d.litres)} L</div><div className="flex flex-wrap items-center gap-1 text-xs text-slate-400">{dt(d.txn_date)}{d.vehicle_no ? ` · ${d.vehicle_no}` : ""}{d.note ? ` · ${d.note}` : ""}<ProofThumbs ids={d.proof_ids} onChanged={() => dels.reload()} /></div></div>
-                <div className="shrink-0 text-right tabular-nums">
-                  <div className={`font-semibold ${d.margin > 0 ? "text-emerald-600" : d.margin < 0 ? "text-rose-600" : "text-slate-500"}`}>munafa {pkr(d.margin)}</div>
-                  <div className="text-xs text-slate-400">{pkr(d.billed)} − cost {pkr(d.sold_cost)}</div>
+                <button className="min-w-0 flex-1 text-left" onClick={() => setVoucher(d.id)}><div className="font-medium">#{d.id} · {num(d.drop_litres || d.litres)} L {d.drop_litres > 0 && <span className="text-xs font-normal text-brand-700">· voucher</span>}</div><div className="flex flex-wrap items-center gap-1 text-xs text-slate-400">{dt(d.txn_date)}{d.vehicle_no ? ` · ${d.vehicle_no}` : ""}{d.note ? ` · ${d.note}` : ""}</div></button>
+                <div className="flex shrink-0 items-center gap-3">
+                  <ProofThumbs ids={d.proof_ids} onChanged={() => dels.reload()} />
+                  <div className="text-right tabular-nums">
+                    <div className={`font-semibold ${d.margin > 0 ? "text-emerald-600" : d.margin < 0 ? "text-rose-600" : "text-slate-500"}`}>munafa {pkr(d.margin)}</div>
+                    <div className="text-xs text-slate-400">{pkr(d.billed)} − cost {pkr(d.sold_cost)}</div>
+                  </div>
+                  {d.drop_litres > 0 && <button className="btn-secondary !px-2 !py-1.5" title="Open voucher / challan" onClick={() => setVoucher(d.id)}><Printer size={15} /></button>}
                 </div>
               </li>
             ))}
@@ -76,7 +82,66 @@ export function BypassPanel() {
       </div>
 
       {openSup && <SupplierStatement id={openSup} onClose={() => setOpenSup(null)} onChanged={refresh} />}
+      {voucher != null && <BypassVoucher id={voucher} onClose={() => setVoucher(null)} />}
     </div>
+  );
+}
+
+/** Printable voucher + delivery challan for one bypass delivery. Each client's line shows the per-litre
+ *  rate from that client's own rate card (the rate the CEO set) and the amount billed to their khata. */
+export function BypassVoucher({ id, onClose }: { id: number; onClose: () => void }) {
+  const { data, error, reload } = useApi<any>(`/bypass/deliveries/${id}`);
+  const vehicle = data ? [data.vehicle_no ? `🚛 ${data.vehicle_no}` : "", data.driver_name ? `👤 ${data.driver_name}${data.driver_phone ? ` · ${phone(data.driver_phone)}` : ""}` : ""].filter(Boolean).join(" · ") || "—" : "—";
+  return (
+    <Modal open onClose={onClose} title={`Bypass delivery #${id} · voucher`} wide>
+      {error ? (
+        <div className="space-y-3 py-4 text-center text-sm"><p className="text-red-600">Could not open this delivery: {error}</p><button className="btn-secondary" onClick={reload}>Try again</button></div>
+      ) : !data ? <Loading /> : (
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div><b>{dt(data.trip_date)}</b> · 🏭 depot se seedha client ko{data.supplier_name ? <> · from <b>{data.supplier_name}</b></> : ""}{data.depot_ref ? ` (${data.depot_ref})` : ""} · {data.station_name}'s books</div>
+            <div>{vehicle}</div>
+          </div>
+
+          {/* phone: one card per drop */}
+          <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200 sm:hidden print:hidden">
+            {data.drops.map((x: any, i: number) => (
+              <li key={x.id} className={`space-y-0.5 p-3 ${x.voided ? "text-slate-400 line-through" : ""}`}>
+                <div className="flex justify-between gap-2"><b className="min-w-0">{i + 1}. {x.client_name}</b><b className="shrink-0 tabular-nums">{pkr(x.amount)}</b></div>
+                <div className="flex justify-between gap-2 text-xs text-slate-600"><span>{PRODUCTS[x.product]} · {num(x.litres, 2)} L × Rs {x.rate}/L</span><span className="shrink-0">{x.ref ?? ""}</span></div>
+                {x.balance != null && <div className="text-xs text-slate-500">Khata balance ab: {pkr(x.balance)}</div>}
+                {!x.voided && <button className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs font-medium text-brand-700 underline" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id), data.business?.color)}><Printer size={13} /> Client voucher</button>}
+              </li>
+            ))}
+            <li className="flex justify-between p-3 font-semibold"><span>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</span><span className="text-right tabular-nums">{num(data.delivered_l, 2)} L<span className="block">{pkr(data.billed)}</span></span></li>
+          </ul>
+
+          {/* desktop / print: full table */}
+          <div className="hidden overflow-x-auto sm:block print:block"><table className="w-full min-w-[640px]">
+            <thead><tr><th className="th">#</th><th className="th">Client</th><th className="th">Fuel</th><th className="th text-right">Litres</th><th className="th text-right">Rate (Rs/L)</th><th className="th text-right">Amount</th><th className="th text-right">Khata balance</th><th className="th print:hidden"></th></tr></thead>
+            <tbody>{data.drops.map((x: any, i: number) => (
+              <tr key={x.id} className={x.voided ? "text-slate-400 line-through" : ""}>
+                <td className="td">{i + 1}</td><td className="td">{x.client_name}{x.phone ? <div className="text-xs text-slate-500">{phone(x.phone)}</div> : null}</td>
+                <td className="td">{PRODUCTS[x.product]}</td><td className="td text-right tabular-nums">{num(x.litres, 2)}</td><td className="td text-right tabular-nums font-medium">{x.rate}</td>
+                <td className="td text-right tabular-nums">{pkr(x.amount)}</td><td className="td text-right tabular-nums text-slate-500">{x.balance != null ? pkr(x.balance) : "—"}</td>
+                <td className="td print:hidden">{!x.voided && <button className="text-brand-700 underline" title="Print this client's voucher" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id), data.business?.color)}>voucher</button>}</td>
+              </tr>
+            ))}</tbody>
+            <tfoot><tr className="font-semibold"><td className="td" colSpan={3}>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</td><td className="td text-right tabular-nums">{num(data.delivered_l, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(data.billed)}</td><td className="td" colSpan={2} /></tr></tfoot>
+          </table></div>
+
+          <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Har client ka rate uske apne rate card (jo CEO ne set kiya) se liya gaya hai — litre × rate = amount, aur yeh us client ke khata me chadh gaya. <Ur className="block">ہر کلائنٹ کا اپنا ریٹ · CEO کا مقرر کردہ</Ur></p>
+          {data.note && <p className="text-slate-600">Note: {data.note}</p>}
+          {data.proof_ids && <div className="flex items-center gap-2 text-slate-600">Photos: <ProofThumbs ids={data.proof_ids} /></div>}
+
+          <div className="flex flex-wrap justify-end gap-2 print:hidden">
+            <button className="btn-secondary" onClick={() => printPages(`Bypass ${data.id} sheet`, tripSheetPage(data), data.business?.color)}><Printer size={15} /> Delivery sheet (driver)</button>
+            <button className="btn-primary" disabled={!data.drops.some((x: any) => !x.voided)} onClick={() => printPages(`Bypass ${data.id} vouchers`, challanPages(data), data.business?.color)}><Printer size={15} /> Print client vouchers · چالان</button>
+          </div>
+          <p className="text-xs text-slate-500 print:hidden">Client voucher: har client ke liye ek page — upar wali copy client rakhta hai, neeche wali signed wapas aati hai. Humari cost aur munafa client ko kabhi print nahi hota.</p>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -105,7 +170,7 @@ function MonthlyProfitChart({ data }: { data: any[] }) {
 }
 
 /** The bypass delivery form body (no Modal wrapper) — shown inside the "New trip" form's Depot-bypass mode. */
-export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; onDone: (r?: any) => void }) {
   const { can } = useAuth();
   const suppliers = useApi<any[]>("/bypass/suppliers");
   const clients = useApi<any[]>("/wholesale/clients");
@@ -147,7 +212,8 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), amount: Number(b.amount) })),
           drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), order_id: d.order_id ?? null, location: d.location || null })),
         };
-        if (await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Bought ${pkr(r.bought)}, billed ${pkr(r.billed)}, munafa ${pkr(r.margin)}`)) onDone();
+        const saved = await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Bought ${pkr(r.bought)}, billed ${pkr(r.billed)}, munafa ${pkr(r.margin)}`);
+        if (saved) onDone(saved);
       }}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Station (books under) *"><select className="input" required value={station} onChange={(e) => setStation(e.target.value)}>

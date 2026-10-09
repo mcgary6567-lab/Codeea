@@ -130,7 +130,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
             className={`rounded-lg px-3 py-2 text-left text-sm ring-1 ${mode === k ? "bg-brand-50 font-semibold text-brand-800 ring-brand-500" : "bg-white text-slate-600 ring-slate-200"}`}>
             {l}<span lang="ur" className="block font-urdu text-xs font-normal">{u}</span></button>))}</div>
       </div>
-      {mode === "bypass" ? <BypassDeliveryForm onClose={onClose} onDone={() => onDone(null)} /> : (
+      {mode === "bypass" ? <BypassDeliveryForm onClose={onClose} onDone={(r) => onDone(r?.id ? { id: r.id, bypass: true } : null)} /> : (
       <form onSubmit={submit} className="space-y-4">
         {depot && (
           <div className="space-y-3 rounded-lg bg-sky-50 p-3 ring-1 ring-sky-200">

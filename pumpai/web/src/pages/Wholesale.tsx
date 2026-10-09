@@ -12,7 +12,7 @@ import { PortalCard } from "../components/PortalCard";
 import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
 import { ChequeForm, ClientDeskCard, CollectTab, OrderForm, OrdersTab, PromiseForm } from "../components/WholesaleDesk";
 import { WholesaleVoice } from "../components/WholesaleVoice";
-import { BypassPanel } from "./Bypass";
+import { BypassPanel, BypassVoucher } from "./Bypass";
 const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 
 const TYPE: Record<string, { label: string; tone: string }> = {
@@ -67,7 +67,7 @@ function ClientList() {
       </>}
       {action === "trip" && <TripForm onClose={clearAction} onDone={(t) => { clearAction(); summary.reload(); setTripsKey((k) => k + 1); setSheet(t); }} />}
       {action === "rate" && <ClientPicker title="Change rate — which client?" onClose={clearAction} onPick={(c) => nav(`/wholesale/${c.id}?do=rates`)} />}
-      {sheet && <TripSheet id={sheet.id} initial={sheet} onClose={() => setSheet(null)} />}
+      {sheet && (sheet.bypass ? <BypassVoucher id={sheet.id} onClose={() => setSheet(null)} /> : <TripSheet id={sheet.id} initial={sheet} onClose={() => setSheet(null)} />)}
       {action === "add-client" && <ClientForm onClose={clearAction} onSaved={(c) => nav(`/wholesale/${c.id}`)} />}
     </div>
   );
