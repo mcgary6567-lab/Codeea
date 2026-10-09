@@ -246,11 +246,8 @@ wholesale.get("/wholesale/dashboard", h((req) => {
     for (const m of c.margins) if (m.margin < 1)
       sug.push({ level: m.margin < 0 ? "critical" : "warning", title: `${c.name}: ${PRODUCTS[m.product]} margin only Rs ${m.margin.toFixed(2)}/L`, ur: `${c.name}: منافع صرف ${m.margin.toFixed(2)} روپے فی لیٹر — ریٹ دیکھیں`, detail: `Their rate Rs ${m.rate} vs our last purchase cost. Review the rate.`, action: { kind: "rates", client_id: c.id, label: "Review rate" } });
   }
-  for (const c of clients) {
-    const fixed = Object.entries(rateCard(c.id)).filter(([, r]) => r.mode === "fixed").map(([p]) => PRODUCTS[p]);
-    if (fixed.length && c.month_l > 0)
-      sug.push({ level: "info", title: `${c.name}: fixed rate for ${fixed.join(", ")}`, ur: "پمپ ریٹ کے ساتھ چلنے والا ریٹ لگائیں تاکہ منافع ایک جیسا رہے", detail: "A pump-linked rate (pump price − Rs X) changes by itself with every OGRA price change, so your margin stays the same.", action: { kind: "rates", client_id: c.id, label: "Change rate" } });
-  }
+  // Note: the CEO/admin sets each wholesale client's rate separately, so we don't
+  // nudge switching fixed rates to pump-linked ones here.
   const top = [...clients].sort((a, b) => b.month_l - a.month_l)[0];
   if (top?.month_l) sug.push({ level: "good", title: `Top client this month: ${top.name}`, ur: `اس مہینے سب سے بڑا کلائنٹ: ${top.name}`, detail: `${top.month_l.toLocaleString()} L so far. Keep them happy — a thank-you call or a small discount on big loads.`, action: { kind: "open", client_id: top.id, label: "Open client" } });
   // stock for the next 3 days of wholesale
