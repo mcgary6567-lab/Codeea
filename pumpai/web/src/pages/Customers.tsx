@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Search, MessageCircle, Wallet, BellRing, Car, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
-import { ago, d, dt, num, phone, pkr, useProducts } from "../lib/format";
+import { ago, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { useLookups } from "../lib/lookups";
 import KhataStatement from "../components/KhataStatement";
@@ -108,33 +108,6 @@ function RiskBar({ v }: { v: number }) {
   );
 }
 
-/** CEO sets this khata account's own fuel rate (112, police, govt…). Blank = the normal pump rate. */
-function KhataRatesCard({ c, onSaved }: { c: any; onSaved: () => void }) {
-  const products = useProducts();
-  const [f, setF] = useState<Record<string, string>>(() => Object.fromEntries(products.map((p) => [p.code, c.rates?.[p.code] != null ? String(c.rates[p.code]) : ""])));
-  const { busy, run } = useAction();
-  const save = async () => {
-    const rates: Record<string, number | null> = {};
-    for (const p of products) rates[p.code] = f[p.code]?.trim() ? Number(f[p.code]) : null;
-    if (await run(() => api(`/customers/${c.id}/rates`, { method: "PUT", body: { rates } }), "Special rates saved")) onSaved();
-  };
-  return (
-    <div className="rounded-lg bg-violet-50 p-3 ring-1 ring-violet-200">
-      <div className="mb-1 text-sm font-semibold text-violet-900">Special fuel rate for this account · <Ur>خاص ریٹ</Ur></div>
-      <p className="mb-2 text-xs text-violet-800">CEO ka diya hua per-litre rate (112, police, govt…). Khaali = normal pump rate. POS khud isi rate par bill karega.</p>
-      <div className="flex flex-wrap items-end gap-2">
-        {products.map((p) => (
-          <label key={p.code} className="block">
-            <span className="block text-xs font-medium text-slate-600">{p.name} (Rs/L)</span>
-            <input className="input w-28 tabular-nums" type="number" min={0} step="0.01" placeholder="pump" value={f[p.code] ?? ""} onChange={(e) => setF({ ...f, [p.code]: e.target.value })} />
-          </label>
-        ))}
-        <button className="btn-primary" disabled={busy} onClick={save}>Save rates</button>
-      </div>
-    </div>
-  );
-}
-
 function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onClose: () => void; onSaved: (c: any) => void; initial?: any }) {
   const { can } = useAuth();
   const types = useLookups("customer_type");
@@ -218,7 +191,6 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
               <button className="btn-primary" disabled={busy || (pay === "credit" && method === "Cheque" && !photos.length)}>Save · محفوظ کریں</button><button type="button" className="btn-secondary" onClick={() => setPay(null)}>Cancel · منسوخ</button>
             </form>
           )}
-          {can("prices.update") && c.credit_limit > 0 && <KhataRatesCard c={c} onSaved={refresh} />}
           {can("whatsapp.inbox") && <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/whatsapp/send", { body: { customer_id: c.id, text: msg } }), "Sent on WhatsApp")) { setMsg(""); refresh(); } }}>
             <input className="input" placeholder="Send a WhatsApp message…" value={msg} onChange={(e) => setMsg(e.target.value)} />
             <button className="btn-primary" disabled={busy || !msg}>Send</button>

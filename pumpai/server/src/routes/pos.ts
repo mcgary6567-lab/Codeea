@@ -23,8 +23,6 @@ function khataItem(c: Row, showBalance: boolean) {
     is_new: Date.now() - Date.parse(c.created_at) < 3 * 86_400_000,
     status: c.khata_blocked ? "full" : used >= 1 ? "full" : used >= 0.9 ? "near" : "ok", blocked: Boolean(c.khata_blocked),
     ...(showBalance ? { balance: c.balance, credit_limit: c.credit_limit, available: Math.max(0, c.credit_limit - c.balance) } : {}),
-    // the CEO's own fuel rate for this account (112, police, govt…): the POS bills at this, not the pump rate
-    rates: Object.fromEntries(all("SELECT product, rate FROM customer_rates WHERE customer_id=?", c.id).map((r) => [r.product, r.rate])),
     vehicles: all("SELECT plate_no FROM vehicles WHERE customer_id=? ORDER BY plate_no", c.id).map((v) => v.plate_no),
   };
 }

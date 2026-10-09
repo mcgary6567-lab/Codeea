@@ -102,9 +102,7 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     const dup = get("SELECT * FROM sales WHERE client_uid=? AND station_id=?", s.client_uid, s.station_id);
     if (dup) return { ...dup, duplicate: true };
   }
-  // a khata account (112, police, govt…) the CEO gave its own fuel rate: that rate, unless an explicit one was passed
-  const special = s.customer_id ? (get("SELECT rate FROM customer_rates WHERE customer_id=? AND product=? AND tenant_id=?", s.customer_id, s.product, tenantId)?.rate as number | undefined) : undefined;
-  const rate = s.rate ?? special ?? priceOf(tenantId, s.product, s.created_at);
+  const rate = s.rate ?? priceOf(tenantId, s.product, s.created_at);
   // a prepaid coupon pays for exactly its value of fuel, once
   const coupon = s.payment_method === "coupon" ? get("SELECT * FROM fuel_coupons WHERE tenant_id=? AND code=?", tenantId, (s.coupon_code ?? "").toUpperCase().replace(/^PUMPAI-/, "").trim()) : null;
   if (s.payment_method === "coupon") {
