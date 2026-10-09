@@ -52,6 +52,7 @@ import CardPending from "./pages/CardPending";
 import OwnerReport from "./pages/OwnerReport";
 import DiscountReport from "./pages/DiscountReport";
 import Margins from "./pages/Margins";
+import Roster from "./pages/Roster";
 import Kiosk from "./pages/Kiosk";
 import { loadBranding } from "./lib/brand";
 
@@ -167,6 +168,7 @@ export default function App() {
               <Route path="lists" element={<Need perm="settings.manage"><Lists /></Need>} />
               <Route path="staff" element={<Need perm="staff.manage"><Staff /></Need>} />
               <Route path="kiosk" element={<Need perm="staff.manage|sales.create"><Kiosk /></Need>} />
+              <Route path="roster" element={<Need perm="staff.manage"><Roster /></Need>} />
               <Route path="my-account" element={<MyAccount />} />
               <Route path="cash" element={<Need perm="expenses.view|cash.book"><Cash /></Need>} />
               <Route path="cashier" element={<Need perm="cashier.desk"><Cashier /></Need>} />

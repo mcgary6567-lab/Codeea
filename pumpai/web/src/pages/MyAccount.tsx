@@ -60,6 +60,8 @@ export default function MyAccount() {
             </div>
             <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-600">
               <span>Present <b>{a.month.present}</b></span><span>Late <b>{a.month.late}</b></span><span>Absent <b className="text-red-600">{a.month.absent}</b></span><span>Leave <b>{a.month.paid_leave + a.month.unpaid_leave}</b></span>
+              {a.month.overtime_hours > 0 && <span>Overtime <b>{a.month.overtime_hours} h</b></span>}
+              {a.month.leave_balance && <span>Paid leave left <b className={a.month.leave_balance.left <= 0 ? "text-red-600" : "text-emerald-700"}>{a.month.leave_balance.left}</b> / {a.month.leave_balance.quota}</span>}
               {a.month.salary_cut > 0 && <span className="text-red-600">Salary cut so far {pkr(a.month.salary_cut)}</span>}
             </div>
           </>

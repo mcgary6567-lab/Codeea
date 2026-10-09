@@ -351,6 +351,11 @@ export function migrate() {
   addColumn("users", "duty_start", "TEXT"); // "08:00"
   addColumn("users", "job_title", "TEXT"); // e.g. "Chowkidar (night)", "Cleaner" — shown in payroll
   addColumn("users", "weekly_off", "INTEGER"); // 0 = Sunday … 6 = Saturday
+  addColumn("users", "leave_quota", "INTEGER"); // annual paid-leave days (null = tenant default)
+  // weekly duty roster: who works which shift slot on which weekday, at which station
+  db.exec(`CREATE TABLE IF NOT EXISTS roster (
+    tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, weekday INTEGER NOT NULL, station_id INTEGER, slot TEXT,
+    updated_at TEXT NOT NULL, PRIMARY KEY (tenant_id, user_id, weekday))`);
   db.exec(`CREATE TABLE IF NOT EXISTS attendance (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, station_id INTEGER, day TEXT NOT NULL,
     check_in TEXT NOT NULL, check_out TEXT, in_photo_id INTEGER, out_photo_id INTEGER, in_lat REAL, in_lng REAL, away_m REAL,

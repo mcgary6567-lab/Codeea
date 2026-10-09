@@ -261,7 +261,7 @@ compliance.post("/attendance/kiosk/check-out", requireAny("staff.manage", "sales
 
 /** Month summary for one person: present, late, leave, weekly off and unpaid absent days so far. */
 export function attendanceMonth(t: number, userId: number, month = pkDate().slice(0, 7)) {
-  const u = get("SELECT id, name, duty_start, weekly_off, salary, created_at FROM users WHERE id=? AND tenant_id=?", userId, t)!;
+  const u = get("SELECT id, name, duty_start, weekly_off, salary, leave_quota, created_at FROM users WHERE id=? AND tenant_id=?", userId, t)!;
   const rows = all("SELECT * FROM attendance WHERE user_id=? AND day LIKE ? ORDER BY day", userId, `${month}-%`);
   const leaves = all("SELECT * FROM leaves WHERE user_id=? AND status='approved' AND from_day <= ? AND to_day >= ?", userId, `${month}-31`, `${month}-01`);
   const today = pkDate();
@@ -282,11 +282,28 @@ export function attendanceMonth(t: number, userId: number, month = pkDate().slic
   }
   const count = (s: string) => days.filter((d) => d.status === s).length;
   const unpaid = count("absent") + count("leave_unpaid");
+  // overtime: hours worked beyond the daily threshold (default 12h), summed for the month
+  const otAfter = Number(getSetting(t, "overtime_after_hours", "12"));
+  let overtime = 0;
+  for (const a of rows) if (a.check_in && a.check_out) {
+    const hrs = (Date.parse(a.check_out) - Date.parse(a.check_in)) / 3_600_000;
+    if (hrs > otAfter) overtime += hrs - otAfter;
+  }
+  // paid-leave balance for the year: quota (per-person, else tenant default) − approved paid/sick leave days taken
+  const year = month.slice(0, 4), yStart = `${year}-01-01`, yEnd = `${year}-12-31`;
+  const quota = u.leave_quota ?? Number(getSetting(t, "leave_quota_days", "14"));
+  let taken = 0;
+  for (const l of all("SELECT from_day, to_day FROM leaves WHERE user_id=? AND status='approved' AND type IN ('paid','sick') AND to_day >= ? AND from_day <= ?", userId, yStart, yEnd)) {
+    const f = l.from_day < yStart ? yStart : l.from_day, to = l.to_day > yEnd ? yEnd : l.to_day;
+    taken += Math.floor((Date.parse(to) - Date.parse(f)) / DAY) + 1;
+  }
   return {
     user: { id: u.id, name: u.name, duty_start: u.duty_start, weekly_off: u.weekly_off }, month, days, tracked: Boolean(u.duty_start),
     present: count("present") + count("late"), late: count("late"), absent: count("absent"), off: count("off"),
     paid_leave: count("leave_paid") + count("leave_sick"), unpaid_leave: count("leave_unpaid"),
     unpaid_days: unpaid, salary_cut: u.salary ? round2((u.salary / 30) * unpaid) : 0,
+    overtime_hours: round2(overtime),
+    leave_balance: { quota, taken, left: Math.max(0, quota - taken) },
   };
 }
 
@@ -350,12 +367,43 @@ compliance.get("/attendance/calendar", requirePerm("staff.manage"), h((req) => {
   return { month, today, days: dayList, staff };
 }));
 compliance.patch("/staff/:id/duty", requirePerm("staff.manage"), h((req) => {
-  const b = parse(z.object({ duty_start: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(), weekly_off: z.number().int().min(0).max(6).nullable().optional() }), req.body);
+  const b = parse(z.object({ duty_start: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(), weekly_off: z.number().int().min(0).max(6).nullable().optional(), leave_quota: z.number().int().min(0).max(60).nullable().optional() }), req.body);
   const u = get("SELECT id FROM users WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!u) throw new AppError(404, "Staff member not found");
   if (b.duty_start !== undefined) run("UPDATE users SET duty_start=? WHERE id=?", b.duty_start, u.id);
   if (b.weekly_off !== undefined) run("UPDATE users SET weekly_off=? WHERE id=?", b.weekly_off, u.id);
+  if (b.leave_quota !== undefined) run("UPDATE users SET leave_quota=? WHERE id=?", b.leave_quota, u.id);
   return attendanceMonth(tid(req), u.id);
+}));
+
+/* ---------------- Weekly duty roster ---------------- */
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+compliance.get("/roster", requirePerm("staff.manage"), h((req) => {
+  const t = tid(req);
+  const staff = all(`SELECT id, name, role, job_title FROM users WHERE tenant_id=? AND active=1 AND role IN ${ATTENDANCE_ROLES} ORDER BY CASE role WHEN 'salesman' THEN 0 ELSE 1 END, name`, t);
+  const stations = all("SELECT id, name FROM stations WHERE tenant_id=? ORDER BY id", t);
+  const rows = all("SELECT * FROM roster WHERE tenant_id=?", t);
+  return { weekdays: WEEKDAYS, staff, stations, roster: rows };
+}));
+compliance.put("/roster", requirePerm("staff.manage"), h((req) => {
+  const b = parse(z.object({ user_id: z.number().int(), weekday: z.number().int().min(0).max(6), station_id: z.number().int().nullable().optional(), slot: z.string().max(40).nullable().optional() }), req.body);
+  const t = tid(req);
+  if (!get(`SELECT id FROM users WHERE id=? AND tenant_id=? AND role IN ${ATTENDANCE_ROLES}`, b.user_id, t)) throw new AppError(404, "Staff member not found");
+  run(`INSERT INTO roster (tenant_id,user_id,weekday,station_id,slot,updated_at) VALUES (?,?,?,?,?,?)
+    ON CONFLICT(tenant_id,user_id,weekday) DO UPDATE SET station_id=excluded.station_id, slot=excluded.slot, updated_at=excluded.updated_at`,
+    t, b.user_id, b.weekday, b.station_id ?? null, b.slot ?? null, now());
+  return { ok: true };
+}));
+compliance.delete("/roster/:userId/:weekday", requirePerm("staff.manage"), h((req) => {
+  run("DELETE FROM roster WHERE tenant_id=? AND user_id=? AND weekday=?", tid(req), Number(req.params.userId), Number(req.params.weekday));
+  return { ok: true };
+}));
+/** Who is rostered for today and whether they have checked in. */
+compliance.get("/roster/today", requirePerm("staff.manage"), h((req) => {
+  const t = tid(req), today = pkDate(), dow = new Date(`${today}T12:00:00+05:00`).getUTCDay();
+  const rows = all(`SELECT r.*, u.name, u.role, s.name station_name FROM roster r JOIN users u ON u.id=r.user_id LEFT JOIN stations s ON s.id=r.station_id
+    WHERE r.tenant_id=? AND r.weekday=? AND u.active=1 ORDER BY u.name`, t, dow);
+  return { weekday: WEEKDAYS[dow], rostered: rows.map((r) => ({ ...r, present: Boolean(get("SELECT id FROM attendance WHERE user_id=? AND day=?", r.user_id, today)) })) };
 }));
 
 compliance.post("/leaves", h(async (req) => {
@@ -384,10 +432,16 @@ compliance.post("/leaves/:id/:decision(approve|reject)", requirePerm("staff.mana
 /** Day starts: who has not checked in by an hour after duty start. */
 export async function attendanceWatch(t: number) {
   const nowMs = Date.now();
-  const missing = all(`SELECT id, name, duty_start, weekly_off FROM users WHERE tenant_id=? AND active=1 AND duty_start IS NOT NULL AND role IN ${ATTENDANCE_ROLES}`, t)
-    .filter((u) => lateBy(u.duty_start, nowMs) >= 60 && u.weekly_off !== new Date(nowMs + 5 * 3600_000).getUTCDay()
-      && !get("SELECT id FROM attendance WHERE user_id=? AND day=?", u.id, pkDate())
-      && !get("SELECT id FROM leaves WHERE user_id=? AND status='approved' AND from_day <= ? AND to_day >= ?", u.id, pkDate(), pkDate()));
+  const today = pkDate(), dow = new Date(nowMs + 5 * 3600_000).getUTCDay();
+  const notYet = (id: number) => !get("SELECT id FROM attendance WHERE user_id=? AND day=?", id, today)
+    && !get("SELECT id FROM leaves WHERE user_id=? AND status='approved' AND from_day <= ? AND to_day >= ?", id, today, today);
+  const byDuty = all(`SELECT id, name, duty_start, weekly_off FROM users WHERE tenant_id=? AND active=1 AND duty_start IS NOT NULL AND role IN ${ATTENDANCE_ROLES}`, t)
+    .filter((u) => lateBy(u.duty_start, nowMs) >= 60 && u.weekly_off !== dow && notYet(u.id));
+  // anyone rostered for today who has not come in (even if they have no fixed duty_start)
+  const byRoster = all(`SELECT u.id, u.name FROM roster r JOIN users u ON u.id=r.user_id WHERE r.tenant_id=? AND r.weekday=? AND u.active=1 AND u.role IN ${ATTENDANCE_ROLES}`, t, dow)
+    .filter((u) => notYet(u.id));
+  const seen = new Set<number>();
+  const missing = [...byDuty, ...byRoster].filter((u) => !seen.has(u.id) && seen.add(u.id));
   if (!missing.length) return 0;
   const a = createAlert(t, { type: "attendance_missing", severity: "warning", title: `Not checked in: ${missing.map((u) => u.name).join(", ")}`, dedupe_key: `att-${pkDate()}-${missing.map((u) => u.id).join(",")}` });
   if (a) await notify(t, staff(t, ["manager"]), { type: "attendance_missing", title: a.title, body: "More than an hour after duty start." });

@@ -28,7 +28,33 @@ function Licences() {
   const [edit, setEdit] = useState<any>(null);
   if (!data) return <Loading />;
   const tone = (n: number) => (n < 0 ? "red" : n <= 7 ? "red" : n <= 30 ? "amber" : "green");
+  // compliance calendar: group by urgency so the owner sees at a glance what needs renewing
+  const groups: [string, string, (n: number) => boolean][] = [
+    ["Expired", "bg-red-100 text-red-800", (n) => n < 0],
+    ["This month (≤30 din)", "bg-amber-100 text-amber-800", (n) => n >= 0 && n <= 30],
+    ["Next 90 din", "bg-blue-50 text-blue-800", (n) => n > 30 && n <= 90],
+    ["Later", "bg-slate-100 text-slate-700", (n) => n > 90],
+  ];
   return (
+    <>
+    <div className="card mb-4 p-4">
+      <h2 className="mb-2 font-semibold">Compliance calendar · <Ur>تجدید کیلنڈر</Ur></h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {groups.map(([label, cls, test]) => {
+          const items = data.filter((l) => test(l.days_left));
+          return (
+            <div key={label} className={`rounded-xl p-3 ${cls}`}>
+              <div className="flex items-center justify-between text-sm font-semibold">{label}<span className="tabular-nums">{items.length}</span></div>
+              <ul className="mt-1 space-y-0.5 text-xs">
+                {items.slice(0, 6).map((l) => <li key={l.id} className="flex justify-between gap-2"><span className="truncate">{l.name}</span><span className="shrink-0 tabular-nums">{l.days_left < 0 ? `${-l.days_left}d ago` : `${l.days_left}d`}</span></li>)}
+                {!items.length && <li className="opacity-60">—</li>}
+                {items.length > 6 && <li className="opacity-70">+{items.length - 6} more</li>}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
     <div className="card">
       <div className="flex items-center justify-between p-4 pb-2"><h2 className="font-semibold">Licences & certificates</h2><button className="btn-primary" onClick={() => setEdit({})}><Plus size={15} /> Add</button></div>
       {/* phone: one card per licence */}
@@ -63,6 +89,7 @@ function Licences() {
       </div>
       {edit && <LicenceForm l={edit} stations={stations.data ?? []} onClose={() => setEdit(null)} onDone={() => { setEdit(null); reload(); }} />}
     </div>
+    </>
   );
 }
 
