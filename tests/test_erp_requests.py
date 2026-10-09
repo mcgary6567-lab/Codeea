@@ -46,11 +46,15 @@ def _schema():
     # up duplicate leaves on the seeded students (they showed on the student journey timeline).
     s = SessionLocal()
     start_id = s.query(func.max(Leave.id)).scalar() or 0
+    start_case = s.query(func.max(Case.id)).scalar() or 0
     s.close()
     yield
+    from tests.conftest import purge_cases
     s = SessionLocal()
     s.query(Leave).filter(Leave.id > start_id, Leave.person_type == "student",
                           Leave.reason.in_(["Family travelling for a wedding.", "Half term abroad."])).delete(synchronize_session=False)
+    purge_cases(s, [i for (i,) in s.query(Case.id).filter(Case.id > start_case,
+                                                          Case.title.in_(["Automated test complaint", "Audio drops every class"]))])
     s.commit()
     s.close()
 

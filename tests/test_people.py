@@ -205,12 +205,15 @@ def test_parent_cannot_request_leave_for_another_child(parent, db):
     assert r.status_code == 404
 
 
-def test_parent_can_open_a_case(parent):
+def test_parent_can_open_a_case(parent, db):
     r = parent.post("/portal/cases", data={"case_type": "request", "title": "Please move the class to 6pm",
                                            "description": "School finishes late on Tuesdays."},
                     follow_redirects=False)
     assert r.status_code == 303
     assert r.headers["location"].startswith("/portal/cases/")
+    from tests.conftest import purge_cases
+    purge_cases(db, [int(r.headers["location"].rsplit("/", 1)[1])])  # leave nothing behind for the next run
+    db.commit()
 
 
 def test_parent_can_update_profile(parent):
