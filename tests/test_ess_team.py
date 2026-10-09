@@ -97,6 +97,14 @@ def _purge():
             s.query(TaskComment).filter(TaskComment.task_id.in_(task_ids)).delete(synchronize_session=False)
         s.query(TaskComment).filter(TaskComment.text.ilike(like)).delete(synchronize_session=False)
         s.query(Task).filter(Task.title.ilike(like)).delete(synchronize_session=False)
+        # ledger lines first: SQLite reuses freed ids, and a stale line would attach itself to the next bonus or fine
+        from app.models.hr_erp import EmployeeLedgerEntry
+        v_ids = [i for (i,) in s.query(Violation.id).filter(Violation.remarks.ilike(like))]
+        b_ids = [i for (i,) in s.query(Bonus.id).filter(Bonus.reason.ilike(like))]
+        s.query(EmployeeLedgerEntry).filter(EmployeeLedgerEntry.reference_type == "violation",
+                                            EmployeeLedgerEntry.reference_id.in_(v_ids or [-1])).delete(synchronize_session=False)
+        s.query(EmployeeLedgerEntry).filter(EmployeeLedgerEntry.reference_type == "bonus",
+                                            EmployeeLedgerEntry.reference_id.in_(b_ids or [-1])).delete(synchronize_session=False)
         s.query(Violation).filter(Violation.remarks.ilike(like)).delete(synchronize_session=False)
         s.query(Bonus).filter(Bonus.reason.ilike(like)).delete(synchronize_session=False)
         s.query(ProgressNote).filter(ProgressNote.detail.ilike(like)).delete(synchronize_session=False)

@@ -71,6 +71,14 @@ def _purge():
         like = f"%{TAG}%"
         s.query(EmployeeRequest).filter(EmployeeRequest.description.ilike(like)).delete(synchronize_session=False)
         s.query(StaffComplaint).filter(StaffComplaint.title.ilike(like)).delete(synchronize_session=False)
+        # ledger lines first: SQLite reuses freed ids, and a stale line would attach itself to the next bonus or fine
+        from app.models.hr_erp import EmployeeLedgerEntry
+        v_ids = [i for (i,) in s.query(Violation.id).filter(Violation.remarks.ilike(like))]
+        b_ids = [i for (i,) in s.query(Bonus.id).filter(Bonus.reason.ilike(like))]
+        s.query(EmployeeLedgerEntry).filter(EmployeeLedgerEntry.reference_type == "violation",
+                                            EmployeeLedgerEntry.reference_id.in_(v_ids or [-1])).delete(synchronize_session=False)
+        s.query(EmployeeLedgerEntry).filter(EmployeeLedgerEntry.reference_type == "bonus",
+                                            EmployeeLedgerEntry.reference_id.in_(b_ids or [-1])).delete(synchronize_session=False)
         s.query(Violation).filter(Violation.remarks.ilike(like)).delete(synchronize_session=False)
         s.query(Bonus).filter(Bonus.reason.ilike(like)).delete(synchronize_session=False)
         s.query(SalaryAdvance).filter(SalaryAdvance.reason.ilike(like)).delete(synchronize_session=False)

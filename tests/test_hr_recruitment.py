@@ -18,6 +18,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///./data/oqc_hrC.db")
 from datetime import date, datetime, timedelta  # noqa: E402
 
 import pytest  # noqa: E402
+from sqlalchemy import or_  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
@@ -485,6 +486,20 @@ def test_grade_create_and_assignment_fills_the_salary_structure(admin, db):
 # --------------------------------------------------------------------------- payroll
 def test_payroll_run_lifecycle(admin, db):
     """Create -> generate (approved violation deducted, approved bonus added) -> post (locked)."""
+    # Remove what earlier runs left behind: each run used a new future period, and the pending violations piled up
+    # until they filled the first page of the People & Culture violations queue.
+    from app.models.hr_erp import EmployeeLedgerEntry
+    old_v = [i for (i,) in db.query(Violation.id).filter(or_(Violation.description.like("Test pending %"),
+                                                             Violation.description.like("Test deduction %")))]
+    old_b = [i for (i,) in db.query(Bonus.id).filter(Bonus.reason.like("Test bonus %"))]
+    # their ledger lines go too: SQLite reuses freed ids, and a stale line would attach itself to the next bonus
+    db.query(EmployeeLedgerEntry).filter(EmployeeLedgerEntry.reference_type == "violation",
+                                         EmployeeLedgerEntry.reference_id.in_(old_v or [-1])).delete(synchronize_session=False)
+    db.query(EmployeeLedgerEntry).filter(EmployeeLedgerEntry.reference_type == "bonus",
+                                         EmployeeLedgerEntry.reference_id.in_(old_b or [-1])).delete(synchronize_session=False)
+    db.query(Violation).filter(Violation.id.in_(old_v or [-1])).delete(synchronize_session=False)
+    db.query(Bonus).filter(Bonus.id.in_(old_b or [-1])).delete(synchronize_session=False)
+    db.commit()
     period = _free_period(db)
     start = date.fromisoformat(period + "-01")
     emp = db.query(Employee).filter(Employee.status.in_(["active", "probation"]),
