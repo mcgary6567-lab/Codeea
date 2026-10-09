@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Needs attention{% endblock %}
+{% block content %}
+{% call ui.page_header('Needs attention', 'Found by the daily check across attendance, progress, assessments, complaints, follow-ups, parent conversations and referrals. Every item says why; nothing happens until someone decides.') %}
+  {% if can_decide %}<form method="post" action="/attention/run" class="inline">{{ ui.button('Check now', icon='scan-search', size='sm', variant='secondary') }}</form>{% endif %}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat('Open', stats.open, icon='siren', color='rose') }}
+  {{ ui.stat('High', stats.high, icon='alert-triangle', color='orange', href='/attention?level=high') }}
+  {{ ui.stat('Students', stats.students, icon='graduation-cap', color='sky', href='/attention?tab=students') }}
+  {{ ui.stat('Teachers', stats.teachers, icon='user-check', color='indigo', href='/attention?tab=teachers') }}
+  {{ ui.stat('Referral opportunities', stats.opportunities, icon='gift', color='emerald', href='/attention?tab=opportunities') }}
+  {{ ui.stat('Actions approved', stats.actioned, icon='check-circle-2', color='violet', href='/attention?tab=decided') }}
+</div>
+
+<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+  <div class="flex flex-wrap gap-1 border-b border-slate-200">
+    {% for k, l in tabs %}<a href="/attention?tab={{ k }}" class="-mb-px border-b-2 px-3 py-2 text-sm {{ 'border-brand-600 font-semibold text-brand-700' if tab == k else 'border-transparent text-slate-600 hover:text-slate-900' }}">{{ l }}</a>{% endfor %}
+  </div>
+  <form method="get" action="/attention" class="flex flex-wrap items-end gap-2">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <div class="w-32">{{ ui.select('level', None, [('high','High'),('medium','Medium'),('low','Low')], level, placeholder='Any level') }}</div>
+    <div class="w-60">{{ ui.select('signal', None, signal_keys, signal, placeholder='Any finding') }}</div>
+    {{ ui.button('Filter', size='sm', variant='secondary') }}
+  </form>
+</div>
+{% if last_run %}<p class="mb-3 text-xs text-slate-500">Last checked {{ last_run.at[:16]|replace('T', ' ') }} UTC.</p>{% endif %}
+
+<div class="space-y-4">
+{% for i in items %}
+{% set subj = subjects[i.id] %}
+<div class="rounded border {{ 'border-rose-200' if i.level == 'high' else ('border-amber-200' if i.level == 'medium' else 'border-slate-200') }} bg-white p-4"
+     x-data="{ open: false }">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="{{ subj.url }}" class="text-base font-semibold text-slate-900 hover:text-brand-700">{{ subj.name }}</a>
+        {{ ui.badge({'high':'urgent','medium':'high','low':'low'}[i.level] if i.kind == 'concern' else 'completed', ('Opportunity' if i.kind == 'opportunity' else i.level|titleize)) }}
+        {% if i.status != 'open' %}{{ ui.badge(i.status, i.status|titleize ~ (' until ' ~ (i.snoozed_until|date) if i.status == 'snoozed' else '')) }}{% endif %}
+        <span class="text-xs text-slate-500">{{ subj.meta }}</span>
+      </div>
+      <p class="mt-1 text-sm text-slate-700">{{ i.summary }}</p>
+      <p class="mt-1 text-[11px] text-slate-400">{{ 'Written by AI from the findings' if i.summary_source == 'ai' else 'Put together from the findings' }} · first seen {{ i.first_detected_at|date }} · score {{ i.score|int }}</p>
+    </div>
+    <button type="button" @click="open = !open" class="text-xs text-brand-700 hover:underline" x-text="open ? 'Hide details' : 'Why, and what to do'"></button>
+  </div>
+
+  <div x-show="open" x-cloak class="mt-3 grid gap-4 border-t border-slate-100 pt-3 lg:grid-cols-2">
+    <div>
+      <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Findings</div>
+      <ul class="space-y-1.5 text-sm">
+        {% for sg in i.signals %}<li><span class="font-medium">{{ sg.label }}</span><span class="block text-xs text-slate-500">{{ sg.detail }}</span></li>{% endfor %}
+      </ul>
+      {% if i.decision_note %}<p class="mt-3 rounded bg-slate-50 p-2 text-xs text-slate-600">{{ i.decided_by.full_name if i.decided_by else '' }} {{ i.decided_at|date if i.decided_at else '' }}: {{ i.decision_note }}</p>{% endif %}
+    </div>
+    <div>
+      {% if can_decide and i.status in ('open', 'snoozed') %}
+      <form method="post" action="/attention/{{ i.id }}/approve" class="space-y-2">
+        <input type="hidden" name="next" value="/attention?tab={{ tab }}">
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended actions</div>
+        {% for a in i.recommended %}
+        <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="actions" value="{{ a.key }}" checked class="mt-0.5 h-4 w-4 rounded border-slate-300">
+          <span>{{ a.label }}<span class="block text-[11px] text-slate-500">{{ a.owner|replace('_', ' ')|titleize }} · within {{ a.due_days }} day(s) · {{ a.priority }} priority</span></span></label>
+        {% endfor %}
+        {{ ui.input('note', None, '', placeholder='Note for the people assigned (optional)') }}
+        {{ ui.button('Approve and assign', icon='check', size='sm', variant='success') }}
+      </form>
+      <div class="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+        <form method="post" action="/attention/{{ i.id }}/snooze" class="flex items-center gap-1">
+          <input type="hidden" name="next" value="/attention?tab={{ tab }}">
+          <select name="days" class="rounded border border-slate-300 bg-white px-2 py-1 text-xs"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option></select>
+          {{ ui.button('Snooze', size='sm', variant='secondary') }}
+        </form>
+        <form method="post" action="/attention/{{ i.id }}/dismiss" class="flex items-center gap-1">
+          <input type="hidden" name="next" value="/attention?tab={{ tab }}">
+          <input name="reason" required placeholder="Why it needs nothing" class="w-48 rounded border border-slate-300 px-2 py-1 text-xs">
+          {{ ui.button('Dismiss', size='sm', variant='ghost') }}
+        </form>
+      </div>
+      {% elif i.task_ids %}
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Actions created</div>
+      <ul class="mt-1 text-sm">{% for tid in i.task_ids %}<li><a class="text-brand-700 hover:underline" href="/tasks/{{ tid }}">Task #{{ tid }}</a></li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% else %}
+{% call ui.card() %}<p class="py-6 text-center text-sm text-slate-400">Nothing needs attention here.</p>{% endcall %}
+{% endfor %}
+{% if total > 200 %}<p class="text-xs text-slate-500">Showing the first 200 of {{ total }}. Filter by level or finding to see the rest.</p>{% endif %}
+</div>
+{% endblock %}

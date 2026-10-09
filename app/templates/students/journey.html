@@ -7,6 +7,12 @@
   {% if view == 'summary' %}<button type="button" onclick="window.print()" class="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"><i data-lucide="printer" class="h-4 w-4"></i>Print</button>{% endif %}
 {% endcall %}
 
+{% if attention %}
+<div class="mb-4 rounded border {{ 'border-rose-200 bg-rose-50' if attention.level == 'high' else 'border-amber-200 bg-amber-50' }} px-4 py-3 text-sm print:hidden">
+  <b>Needs attention.</b> {{ attention.summary }}
+  <a href="/attention?tab=students" class="ml-1 font-medium text-brand-700 hover:underline">Review and assign</a>
+</div>
+{% endif %}
 <div class="mb-4 flex flex-wrap gap-1 border-b border-slate-200 print:hidden">
   {% for k, l in views %}
   <a href="/students/{{ s.id }}/journey?view={{ k }}&{{ query }}" class="-mb-px border-b-2 px-3 py-2 text-sm {{ 'border-brand-600 font-semibold text-brand-700' if view == k else 'border-transparent text-slate-600 hover:text-slate-900' }}">{{ l }}</a>

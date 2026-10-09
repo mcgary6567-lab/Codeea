@@ -45,6 +45,7 @@ MODULES = {
     "cases": "Complaints & Cases",
     "complaint_history": "Complaint history on staff profiles (confidential)",
     "parent_contacts": "Parent contact log (calls, messages, meetings with families)",
+    "attention": "Needs Attention (students, families and teachers flagged by the daily check)",
     "retention": "Retention & Churn",
     "trials": "Trial Management",
     "registration": "Online Registration",
@@ -121,11 +122,11 @@ _ACADEMIC = ["courses.*", "packages.view", "curriculum.*", "lesson_plans.*", "ev
              "classes.*", "attendance.*", "leaves.*", "qa.view", "ai_monitoring.view", "kpis.*", "tasks.*",
              "decisions.*", "daily_reports.*", "dashboard.*", "reports.*", "notifications.*", "cases.*", "supervisor.*",
              "requests.*", "dashboards.*", "academic_config.*", "subscriptions.*", "trials.*", "feedback.view",
-             "complaint_history.view", "parent_contacts.*"]
+             "complaint_history.view", "parent_contacts.*", "attention.*"]
 _QA = ["qa.*", "ai_monitoring.*", "recordings.*", "classes.view", "teachers.view", "students.view", "teacher_dev.*",
        "cases.*", "feedback.*", "kpis.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view",
        "reports.*", "notifications.*", "safeguarding.view", "safeguarding.add", "safeguarding.update", "monthly_tests.view", "evaluations.view", "dashboards.view",
-       "requests.view", "complaint_history.view", "parent_contacts.view"]
+       "requests.view", "complaint_history.view", "parent_contacts.view", "attention.view"]
 _MARKETING = ["leads.*", "campaigns.*", "marketing.*", "inbox.*", "sequences.*", "automations.*", "tags.*", "referrals.*", "trials.*",
               "registration.*", "clients.view", "clients.add", "students.view", "feedback.view", "kpis.*", "tasks.*",
               "decisions.*", "daily_reports.*", "dashboard.view", "reports.*", "notifications.*", "calling.*"]
@@ -146,7 +147,7 @@ ROLE_DEFINITIONS: dict[str, dict] = {
         "reports.*", "notifications.*", "referrals.*", "retention.*", "feedback.view", "qa.view",
         "ai_monitoring.view", "lesson_plans.view", "evaluations.view", "monthly_tests.view", "calling.*", "leads.view",
         "requests.*", "dashboards.view", "academic_config.view", "payments.view", "billing.add", "billing.update",
-        "ledger.add", "registration.*", "complaint_history.view", "parent_contacts.*"]},
+        "ledger.add", "registration.*", "complaint_history.view", "parent_contacts.*", "attention.*"]},
     # Created 9 Oct 2026 for the complaint lifecycle (docs/COMPLAINTS.md). The Head of Admissions takes the family's
     # complaint and opens the ticket; the Academy Manager (also called the PDM Manager) runs the academic side and is
     # the first step of the escalation ladder.
@@ -157,21 +158,22 @@ ROLE_DEFINITIONS: dict[str, dict] = {
         "discounts.add", "teachers.view", "schedules.view", "classes.view", "attendance.view", "evaluations.view",
         "monthly_tests.view", "qa.view", "cases.*", "complaint_history.view", "referrals.*", "feedback.view",
         "feedback.add", "retention.view", "calling.*", "requests.*", "tasks.*", "daily_reports.*", "kpis.view",
-        "reports.view", "reports.export", "notifications.*", "marketing.view", "parent_contacts.*"]},
+        "reports.view", "reports.export", "notifications.*", "marketing.view", "parent_contacts.*", "attention.view",
+        "attention.update"]},
     "academy_manager": {"name": "Academy Manager (PDM)", "portal": "admin", "permissions": [
         "dashboard.*", "dashboards.view", "students.*", "clients.view", "clients.update", "teachers.view", "teacher_dev.view",
         "schedules.*", "classes.*", "attendance.*", "supervisor.*", "leaves.*", "curriculum.view", "lesson_plans.view",
         "evaluations.*", "monthly_tests.*", "certificates.view", "qa.view", "ai_monitoring.view", "recordings.view",
         "cases.*", "complaint_history.view", "feedback.view", "retention.*", "referrals.view", "referrals.add",
         "calling.*", "inbox.view", "requests.*", "trials.view", "subscriptions.view", "academic_config.view",
-        "tasks.*", "daily_reports.*", "kpis.*", "reports.*", "notifications.*", "parent_contacts.*"]},
+        "tasks.*", "daily_reports.*", "kpis.*", "reports.*", "notifications.*", "parent_contacts.*", "attention.*"]},
     "supervisor": {"name": "Supervisor", "portal": "admin", "permissions": [
         "dashboard.*", "supervisor.*", "classes.*", "attendance.*", "schedules.view", "schedules.update",
         "students.view", "teachers.view", "clients.view", "leaves.view", "leaves.add", "cases.view", "cases.add",
         "cases.update", "referrals.*", "tasks.*", "daily_reports.*", "notifications.*", "recordings.view",
         "lesson_plans.view", "calling.*", "kpis.view", "retention.view", "trials.view", "trials.update",
         "requests.view", "requests.update", "requests.approve", "dashboards.view", "subscriptions.view", "qa.view",
-        "parent_contacts.view", "parent_contacts.add", "parent_contacts.update"]},
+        "parent_contacts.view", "parent_contacts.add", "parent_contacts.update", "attention.view", "attention.update"]},
     "teacher": {"name": "Teacher", "portal": "teacher", "permissions": [
         "portal_teacher.*", "classes.view", "classes.execute", "classes.update", "attendance.add", "attendance.view",
         "lesson_plans.*", "evaluations.add", "evaluations.view", "evaluations.update", "monthly_tests.view",

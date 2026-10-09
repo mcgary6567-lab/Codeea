@@ -323,6 +323,7 @@ ADMIN_NAV = [
     ]},
     {"slug": "operations", "label": "Operations", "icon": "list-checks", "blurb": "Tasks, KPIs, governance, reports", "items": [
         _i("Supervisor Live", "/supervisor", "radio", "supervisor.view"),
+        _i("Needs Attention", "/attention", "siren", "attention.view"),
         _i("Alerts", "/alerts", "bell-ring", "dashboard.view"),
         _i("Tasks & Projects", "/tasks", "list-checks", "tasks.view"),
         _i("KPIs", "/kpis", "target", "kpis.view"),

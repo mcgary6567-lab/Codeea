@@ -66,6 +66,9 @@ def journey(id: int, request: Request, view: str = "timeline", period: str = "cu
     elif view == "assessments":
         ctx["evaluations"] = svc.assessments(db, s, win["start"], win["end"])
         ctx["answer_summary"] = svc.answer_summary
+    from app.services import attention as attention_svc
+    from app.core import rbac as _rbac
+    ctx["attention"] = attention_svc.for_student(db, s.id) if _rbac.has_permission(user, "attention.view") else None
     ctx["recent_recommendations"] = (db.query(StudentRecommendation).filter(StudentRecommendation.student_id == s.id)
                                      .order_by(StudentRecommendation.created_at.desc()).limit(6).all())
     db.commit()  # history reconstruction on first view

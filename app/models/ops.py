@@ -96,6 +96,38 @@ class TaskComment(Base, PKMixin):
     user = relationship("User")
 
 
+ATTENTION_STATUSES = ["open", "actioned", "snoozed", "dismissed", "resolved"]
+
+
+class AttentionItem(Base, PKMixin, TimestampMixin):
+    """Something that needs a person's attention, found by the daily attention check (docs/ATTENTION.md).
+
+    One live item per student, family or teacher. ``signals`` are the rule-based findings with their evidence;
+    ``recommended`` the actions staff may approve. Nothing is acted on without a person deciding."""
+    __tablename__ = "attention_items"
+    subject_type: Mapped[str] = mapped_column(String(20), index=True)  # student | family | teacher
+    subject_id: Mapped[int] = mapped_column(Integer, index=True)
+    kind: Mapped[str] = mapped_column(String(20), default="concern")  # concern | opportunity
+    level: Mapped[str] = mapped_column(String(10), default="medium", index=True)  # high | medium | low
+    score: Mapped[float] = mapped_column(Float, default=0)
+    signals: Mapped[list] = mapped_column(JSON, default=list)  # [{"key", "label", "detail", "weight"}]
+    summary: Mapped[Optional[str]] = mapped_column(Text)
+    summary_source: Mapped[str] = mapped_column(String(10), default="rules")  # rules | ai
+    recommended: Mapped[list] = mapped_column(JSON, default=list)  # [{"key", "label", "owner", "due_days", "priority"}]
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)
+    snoozed_until: Mapped[Optional[date]] = mapped_column(Date)
+    decided_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    decision_note: Mapped[Optional[str]] = mapped_column(Text)
+    task_ids: Mapped[list] = mapped_column(JSON, default=list)
+    first_detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    ai_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("ai_model_runs.id", ondelete="SET NULL"))
+
+    decided_by = relationship("User")
+
+
 class KPI(Base, PKMixin, TimestampMixin):
     __tablename__ = "kpis"
     name: Mapped[str] = mapped_column(String(150))

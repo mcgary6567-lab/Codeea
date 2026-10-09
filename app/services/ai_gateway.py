@@ -24,7 +24,7 @@ from app.models.core import AIModelRun
 PROMPT_VERSIONS = {
     "class_monitoring": "2.1", "lead_scoring": "1.3", "churn": "1.2", "complaint_classification": "1.1",
     "lesson_recommendation": "1.4", "insights": "1.0", "qa_recommendation": "1.1", "transcription": "1.0",
-    "anomaly": "1.0", "sentiment": "1.0", "complaint_summary": "1.0",
+    "anomaly": "1.0", "sentiment": "1.0", "complaint_summary": "1.0", "attention_summary": "1.0",
 }
 
 
@@ -158,6 +158,27 @@ def _sim_insights(p: dict) -> dict:
     return {"insights": items}
 
 
+def _sim_attention_summary(p: dict) -> dict:
+    """One sentence from the findings only, e.g. "Attendance has declined for two consecutive months (92% -> 81% -> 70%),
+    the syllabus is behind the expected pace (34% completed, 55% expected by now), and follow-ups are overdue (...)"."""
+    parts = []
+    for s in p.get("signals") or []:
+        label = (s.get("label") or "").strip()
+        if not label:
+            continue
+        text = label[0].lower() + label[1:] if parts else label
+        parts.append(f"{text} ({s['detail']})" if s.get("detail") else text)
+    if not parts:
+        return {"summary": "Nothing needs attention."}
+    if len(parts) == 1:
+        sentence = parts[0]
+    elif len(parts) == 2:
+        sentence = f"{parts[0]} and {parts[1]}"
+    else:
+        sentence = ", ".join(parts[:-1]) + ", and " + parts[-1]
+    return {"summary": sentence.rstrip(".") + "."}
+
+
 def _sim_complaint_summary(p: dict) -> dict:
     """Plain-language management summary built only from the figures passed in (no invented facts)."""
     points = []
@@ -190,7 +211,7 @@ _SIM = {
     "class_monitoring": _sim_class_monitoring, "lead_scoring": _sim_lead_scoring, "churn": _sim_churn,
     "complaint_classification": _sim_complaint, "lesson_recommendation": _sim_lesson_recommendation,
     "sentiment": _sim_sentiment, "insights": _sim_insights, "qa_recommendation": _sim_class_monitoring,
-    "complaint_summary": _sim_complaint_summary,
+    "complaint_summary": _sim_complaint_summary, "attention_summary": _sim_attention_summary,
     "anomaly": lambda p: {"anomalies": []}, "transcription": lambda p: {"transcript": "[simulated transcript — configure AI_PROVIDER for real transcription]"},
 }
 
