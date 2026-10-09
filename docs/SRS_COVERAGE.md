@@ -44,14 +44,14 @@ classes, supervisors only their assigned teachers, parents only their own family
 | 2 | Academic Home Dashboard | Built | `/dashboard` |
 | 3 | CRM & Lead Management | Built | `/crm/leads` |
 | 4 | Client / Parent Management | Built | `/clients` |
-| 5 | Student Management | Built | `/students` |
+| 5 | Student Management | Built | `/students`; academic journey with period selector, teacher and class-time history, monthly summary board (docs/STUDENT_JOURNEY.md) |
 | 6 | Online Registration | Built | `/register` (public), `/registrations` |
 | 7 | Trial Management | Built | `/trials` |
 | 8 | Class & Scheduling | Built | `/schedules`, `/classes` |
 | 9 | Subscription & Package Management | Built | `/finance/subscriptions` |
 | 10 | Curriculum & Academic Management | Built | `/academics/curriculum` |
 | 11 | Lesson Planning | Built | `/academics/lesson-plans` |
-| 12 | Student Evaluation | Built | `/academics/evaluations` |
+| 12 | Student Evaluation | Built | `/academics/evaluations`: question-by-question evidence, recommendations that create follow-ups |
 | 13 | Teacher Portal | Built | `/teacher` |
 | 14 | Student / Parent Portal | Built | `/portal`, `/student` |
 | 15 | Supervisor Portal | Built | `/supervisor` |

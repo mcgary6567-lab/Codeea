@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Monthly student summary{% endblock %}
+{% block content %}
+{{ ui.page_header('Monthly student summary · ' ~ label, 'Every student on one page: classes, absences, late arrivals, lessons completed, class content recorded, assessments and open follow-ups. Students needing attention come first.') }}
+
+{% call ui.filter_bar('/academics/student-summary') %}
+  <div class="w-40">{{ ui.input('month', 'Month', period, type='month') }}</div>
+  <div class="w-52">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
+  <div class="w-44">{{ ui.input('q', 'Student', q, placeholder='Name or code') }}</div>
+  <div class="flex items-end pb-1.5"><label class="flex items-center gap-2 text-sm"><input type="checkbox" name="flagged" value="1" {% if flagged %}checked{% endif %} class="h-4 w-4 rounded border-slate-300"> Needing attention only</label></div>
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+  {{ ui.stat('Students', totals.students, icon='graduation-cap', color='sky') }}
+  {{ ui.stat('Need attention', totals.flagged, icon='alert-triangle', color='rose', href='/academics/student-summary?month=' ~ period ~ '&flagged=1&teacher=' ~ teacher) }}
+  {{ ui.stat('Classes held', totals.held, icon='video', color='indigo') }}
+  {{ ui.stat('Attended', totals.attended, icon='check-circle-2', color='emerald') }}
+  {{ ui.stat('Absences', totals.absent, icon='x-circle', color='orange') }}
+  {{ ui.stat('Late arrivals', totals.late, icon='alarm-clock', color='amber') }}
+  {{ ui.stat('Lessons completed', totals.lessons, icon='book-open-check', color='violet') }}
+</div>
+
+{{ ui.table_start(['Student', 'Teacher', 'Held', 'Attended', 'Absent', 'Late', 'Leave', 'Attendance', 'Lessons done', 'Classes with content', 'Assessment', 'Follow-ups', 'Needs attention', '']) }}
+{% for r in rows %}
+<tr class="{{ 'bg-rose-50/40' if r.flags }}">
+  <td class="px-3 py-2"><a href="/students/{{ r.s.id }}/journey?view=summary&period=month&month={{ period }}" class="font-medium text-slate-900 hover:text-brand-700">{{ r.s.full_name }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ r.s.student_code }} · {{ r.s.course.name if r.s.course else '' }}</div></td>
+  <td class="px-3 py-2 text-xs">{{ r.s.teacher.full_name if r.s.teacher else '—' }}</td>
+  <td class="px-3 py-2 text-sm">{{ r.stats.held }}</td>
+  <td class="px-3 py-2 text-sm">{{ r.stats.attended }}</td>
+  <td class="px-3 py-2 text-sm {{ 'font-semibold text-rose-600' if r.stats.absent >= 3 }}">{{ r.stats.absent }}</td>
+  <td class="px-3 py-2 text-sm {{ 'font-semibold text-amber-600' if r.stats.late >= 3 }}">{{ r.stats.late }}</td>
+  <td class="px-3 py-2 text-sm">{{ r.stats.on_leave }}</td>
+  <td class="px-3 py-2 text-sm">{{ (r.stats.attendance_pct ~ '%') if r.stats.attendance_pct is not none else '—' }}</td>
+  <td class="px-3 py-2 text-sm">{{ r.lessons_done }}</td>
+  <td class="px-3 py-2 text-sm">{{ r.taught }}</td>
+  <td class="px-3 py-2 text-xs">{% for e in r.evaluations[:2] %}{{ e.score if e.score is not none else '—' }}/{{ e.max_score|int }} {{ ui.badge(e.result) }} {% endfor %}
+    {% if r.test and r.test.percentage is not none %}<div>Test {{ r.test.percentage }}%</div>{% endif %}
+    {% if not r.evaluations and not (r.test and r.test.percentage is not none) %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ r.open_tasks }} open{% if r.recommendations %} · {{ r.recommendations }} rec.{% endif %}</td>
+  <td class="px-3 py-2 text-xs text-rose-700">{{ r.flags|join(' · ') or '—' }}</td>
+  <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/students/' ~ r.s.id ~ '/journey?view=summary&period=month&month=' ~ period, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No students match these filters.', 14, 'graduation-cap') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

@@ -1,0 +1,78 @@
+{# Evidence for a formal assessment (docs/STUDENT_JOURNEY.md): question -> student's answer -> result, the judgement,
+   and recommendations that create their own follow-up. Expects ``question_bank`` (list of dicts), ``answer_results``,
+   ``recommendation_kinds``; optional ``ev`` (an Evaluation being edited) and ``assessment_field`` (the name of the
+   assessment select whose questions the picker offers). #}
+<script>
+  window.oqcEvidence = window.oqcEvidence || function (bank, rows, field) {
+    return {
+      bank: bank || [], rows: rows || [], pick: '', field: field || 'assessment_id',
+      offered() {
+        const sel = document.querySelector(`[name="${this.field}"]`);
+        const a = sel ? sel.value : '';
+        return this.bank.filter(q => !a || String(q.assessment_id) === String(a));
+      },
+      blank() { this.rows.push({id: '', text: '', expected: '', answer: '', result: 'correct', marks: '', max: ''}); },
+      fromBank() {
+        const q = this.bank.find(x => String(x.id) === String(this.pick));
+        if (q) this.rows.push({id: q.id, text: q.question, expected: q.answer || '', answer: '', result: 'correct', marks: '', max: q.marks || ''});
+        this.pick = '';
+      },
+    };
+  };
+</script>
+{% set existing = [] %}
+{% if ev is defined and ev %}{% for a in ev.answers %}{% set _ = existing.append({'id': a.question_id or '', 'text': a.question, 'expected': a.expected_answer or '', 'answer': a.student_answer or '', 'result': a.result, 'marks': a.marks_awarded if a.marks_awarded is not none else '', 'max': a.max_marks if a.max_marks is not none else ''}) %}{% endfor %}{% endif %}
+<div class="sm:col-span-2 space-y-3 rounded border border-slate-200 p-3"
+     x-data='oqcEvidence({{ question_bank|tojson }}, {{ existing|tojson }}, "{{ assessment_field|default("assessment_id") }}")'>
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Questions asked and the student's answers</div>
+      <p class="text-[11px] text-slate-500">The evidence behind the result. With marks entered, the score is worked out from them.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <select x-model="pick" @change="fromBank()" class="rounded border border-slate-300 bg-white px-2 py-1 text-xs">
+        <option value="">Add from question bank…</option>
+        <template x-for="q in offered()" :key="q.id"><option :value="q.id" x-text="q.question.slice(0, 70)"></option></template>
+      </select>
+      <button type="button" @click="blank()" class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">+ Question</button>
+    </div>
+  </div>
+  <template x-for="(r, i) in rows" :key="i">
+    <div class="grid gap-2 rounded bg-slate-50 p-2 sm:grid-cols-12">
+      <input type="hidden" name="q_id" :value="r.id">
+      <div class="sm:col-span-12 flex items-start gap-2">
+        <span class="mt-1.5 text-xs font-semibold text-slate-500" x-text="(i + 1) + '.'"></span>
+        <textarea name="q_text" x-model="r.text" rows="1" placeholder="Question asked" class="w-full rounded border border-slate-300 px-2 py-1 text-sm"></textarea>
+        <button type="button" @click="rows.splice(i, 1)" class="mt-1 text-slate-400 hover:text-rose-600" title="Remove">&times;</button>
+      </div>
+      <input name="q_expected" x-model="r.expected" placeholder="Expected answer" class="sm:col-span-4 rounded border border-slate-300 px-2 py-1 text-xs">
+      <input name="q_answer" x-model="r.answer" placeholder="Student's answer" class="sm:col-span-4 rounded border border-slate-300 px-2 py-1 text-xs">
+      <select name="q_result" x-model="r.result" class="sm:col-span-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs">
+        {% for v, l in answer_results %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+      </select>
+      <div class="sm:col-span-2 flex gap-1">
+        <input name="q_marks" x-model="r.marks" type="number" step="0.5" min="0" placeholder="Marks" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs">
+        <input name="q_max" x-model="r.max" type="number" step="0.5" min="0" placeholder="of" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs">
+      </div>
+    </div>
+  </template>
+  <p x-show="!rows.length" class="text-xs text-slate-400">No questions recorded yet.</p>
+
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('stage', 'Current stage', (ev.stage if ev is defined and ev else '') or (stage_hint|default('')), placeholder='e.g. Nazra, Juz 3, Surah Al-Imran 1-50') }}</div>
+    {{ ui.textarea('strengths', 'Strengths', (ev.strengths if ev is defined and ev else ''), rows=2) }}
+    {{ ui.textarea('weaknesses', 'Weaknesses', (ev.weaknesses if ev is defined and ev else ''), rows=2) }}
+    {{ ui.textarea('recommendations', 'Teacher recommendations', (ev.recommendations if ev is defined and ev else ''), rows=2) }}
+    {{ ui.textarea('parent_observations', 'Parent-related observations', (ev.parent_observations if ev is defined and ev else ''), rows=2) }}
+    <div class="sm:col-span-2">{{ ui.input('follow_up', 'Required follow-up', (ev.follow_up if ev is defined and ev else ''), placeholder='What must happen next, and by whom') }}</div>
+  </div>
+  <div>
+    <div class="mb-1 text-xs font-semibold text-slate-600">Recommendations that need action</div>
+    <div class="grid gap-1.5 sm:grid-cols-2">
+      {% for v, l in recommendation_kinds %}
+      <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="rec_kind" value="{{ v }}" class="h-3.5 w-3.5 rounded border-slate-300"> {{ l }}</label>
+      {% endfor %}
+    </div>
+    <p class="mt-1 text-[11px] text-slate-500">Each ticked item creates a follow-up for the right person (a task with a due date, an alert when urgent). Recorded on the student's timeline.</p>
+  </div>
+</div>

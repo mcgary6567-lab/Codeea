@@ -18,7 +18,7 @@
 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
   <td class="px-4 py-2 font-mono text-xs text-brand-700 dark:text-brand-300">{{ r.s.student_code }}</td>
   <td class="px-4 py-2"><div class="flex items-center gap-2">{{ ui.avatar(r.s.full_name, 'sm') }}
-    <div><div class="font-medium text-slate-900 dark:text-white">{{ r.s.full_name }}</div>
+    <div><a href="/students/{{ r.s.id }}/journey" class="font-medium text-slate-900 hover:text-brand-700 dark:text-white">{{ r.s.full_name }}</a>
       <div class="text-xs text-slate-500">{{ r.s.gender|titleize }}{% if r.s.age %} · {{ r.s.age }}y{% endif %} · {{ r.s.timezone }}</div></div></div></td>
   <td class="px-4 py-2 text-xs">{{ r.s.course.name if r.s.course else '—' }}<div class="text-slate-500">{{ r.s.level or '—' }}</div></td>
   <td class="px-4 py-2 w-40">{{ ui.progress(r.progress, 'brand') }}<div class="mt-0.5 text-[11px] text-slate-500">{{ r.progress }}%</div></td>

@@ -23,6 +23,7 @@ from app.models.people import Student, Teacher, Leave, HRAttendance, TrainingAss
 from app.models.scheduling import (ClassSession, Schedule, Attendance, QAReview, CorrectiveAction, AIClassAnalysis, Trial)
 from app.services import people as svc
 from app.services.classes import set_status, mark_join, teacher_stats, student_attendance_pct
+from app.services import journey as journey_svc
 
 router = APIRouter(prefix="/teacher", dependencies=[Depends(csrf_protect)])
 
@@ -296,7 +297,7 @@ def evaluations(request: Request, page: int = 1, db: Session = Depends(get_db),
     return render(request, "teacher_portal/evaluations.html", {
         "user": user, "t": t, "page": pg, "today_d": date.today(),
         "student_options": [(s.id, f"{s.student_code} — {s.full_name}") for s in my_students],
-        "base_url": "/teacher/evaluations"})
+        "base_url": "/teacher/evaluations", **journey_svc.evidence_context(db)})
 
 
 @router.post("/evaluations", include_in_schema=False)
@@ -313,13 +314,17 @@ async def create_evaluation(request: Request, db: Session = Depends(get_db),
                     teacher_comment=form.get("teacher_comment") or None)
     db.add(ev)
     db.flush()
+    recs = journey_svc.apply_evidence_form(db, ev, form, user, request=request)
+    if ev.answers and ev.score is not None:
+        score, ev.result = ev.score, ("pass" if ev.score >= 50 else "fail")
     log_action(db, user, "create", "evaluations", entity=ev, request=request,
                description=f"Evaluation for {s.student_code} ({ev.evaluation_type}) score {score}")
     if s.client and s.client.user_id:
         notify(db, s.client.user_id, f"New evaluation for {s.full_name}",
                f"{ev.evaluation_type.title()} evaluation scored {score}/100.", event_type="evaluation", link="/portal/progress")
     db.commit()
-    return redirect("/teacher/evaluations", "Evaluation recorded and the parent notified.")
+    return redirect("/teacher/evaluations", "Evaluation recorded and the parent notified."
+                    + (f" {len(recs)} follow-up(s) created." if recs else ""))
 
 
 # --------------------------------------------------------------------------- monthly tests

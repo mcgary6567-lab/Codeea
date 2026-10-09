@@ -401,7 +401,8 @@ def subscription_detail(id: int, request: Request, db: Session = Depends(get_db)
     books = db.query(Book).filter(Book.id.in_([int(b) for b in (s.books or [])] or [-1])).all()
     course_books = db.query(Book).filter(Book.course_id == s.course_id).order_by(Book.order).all() if s.course_id else []
     trial_end = (s.start_date + timedelta(days=s.trial_days or 3)) if s.start_date else None
-    return render(request, "subscriptions/detail.html", {
+    from app.models.academic import TEACHER_CHANGE_REASONS
+    return render(request, "subscriptions/detail.html", {"teacher_change_reasons": TEACHER_CHANGE_REASONS,
         "user": user, "s": s, "sch": sch, "upcoming": upcoming, "recent": recent, "counts": counts, "events": events, "books": books,
         "course_books": course_books, "trial_end": trial_end, "base": _base(db),
         "verified_teacher_options": [(t.id, t.full_name) for t in db.query(Teacher).filter(Teacher.status == "active", Teacher.is_verified.is_(True)).order_by(Teacher.full_name)],
@@ -532,6 +533,7 @@ async def change_teacher(id: int, request: Request, db: Session = Depends(get_db
     if s.slot and s.days_of_week and sched.teacher_slot_busy(db, teacher.id, [int(d) for d in s.days_of_week], s.slot, exclude_schedule_id=sch.id if sch else None):
         return redirect(f"/subscriptions/{s.id}", f"{teacher.full_name} already has a class in {s.slot.label} on those days.", "error")
     before = {"teacher_id": s.teacher_id}
+    previous_student_teacher = s.student.teacher_id if s.student else None
     s.teacher_id = teacher.id
     s.supervisor_id = teacher.supervisor_id or s.supervisor_id
     if s.student:
@@ -543,6 +545,10 @@ async def change_teacher(id: int, request: Request, db: Session = Depends(get_db
     except ValueError as exc:
         db.rollback()
         return redirect(f"/subscriptions/{s.id}", str(exc), "error")
+    if s.student:
+        from app.services import journey
+        journey.record_assignment(db, s.student, teacher.id, user, "teacher_change", reason_category=form.get("reason_category") or "other",
+                                  reason=reason, previous_teacher_id=previous_student_teacher)
     log_action(db, user, "assign", "subscriptions", entity=s, description=f"{s.subscription_code} teacher changed {old.full_name if old else '-'} -> {teacher.full_name}",
                rationale=reason, before=before, after={"teacher_id": teacher.id}, request=request, consequential=True)
     for t in (old, teacher):
@@ -571,6 +577,9 @@ async def change_slot(id: int, request: Request, db: Session = Depends(get_db), 
     if sched.teacher_slot_busy(db, s.teacher_id, days, slot, exclude_schedule_id=sch.id if sch else None):
         return redirect(f"/subscriptions/{s.id}", f"{s.teacher.full_name if s.teacher else 'The teacher'} already has a class in {slot.label} on those days.", "error")
     before = {"slot": s.slot.label if s.slot else None, "days": s.days_of_week}
+    from app.services import journey
+    if s.student:
+        journey.ensure_history(db, s.student)  # before the schedule moves, so the old time is kept
     s.slot_id = slot.id
     s.days_of_week = days
     s.sessions_per_week = len(days)
@@ -581,6 +590,9 @@ async def change_slot(id: int, request: Request, db: Session = Depends(get_db), 
     except ValueError as exc:
         db.rollback()
         return redirect(f"/subscriptions/{s.id}", str(exc), "error")
+    if s.student:
+        journey.record_assignment(db, s.student, s.student.teacher_id, user, "time_change",
+                                  reason_category=form.get("reason_category") or "schedule_change", reason=reason)
     log_action(db, user, "schedule_change", "subscriptions", entity=s, description=f"{s.subscription_code} moved to {slot.label} on {sched.day_label(days)}",
                rationale=reason, before=before, after={"slot": slot.label, "days": days}, request=request, consequential=True)
     _notify_parties(db, s, "Class time changed", f"{s.student.full_name if s.student else 'Your student'}'s classes move to {slot.label} PKT on {sched.day_label(days)}. {reason}")

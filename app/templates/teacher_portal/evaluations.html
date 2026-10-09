@@ -17,6 +17,7 @@
           {{ ui.input('attitude', 'Attitude /10', '', type='number', min=0, max=10, step='0.5') }}
         </div>
         {{ ui.textarea('teacher_comment', 'Comment for the parent', '', rows=3, placeholder='Strengths, what to practise at home…') }}
+        {% include "academics/_evidence_fields.html" %}
         <div class="flex gap-2">{{ ui.button('Save evaluation', icon='clipboard-check') }}</div>
       </form>
     {% endcall %}

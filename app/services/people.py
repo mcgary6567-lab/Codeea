@@ -161,10 +161,14 @@ def _serialise_ranked(ranked: list[dict]) -> list[dict]:
 
 
 def assign_teacher(db: Session, student: Student, teacher: Optional[Teacher], user: Optional[User], reason: Optional[str] = None,
-                   overridden: bool = False, ranked: Optional[list[dict]] = None, request=None) -> TeacherMatch:
-    """Record a TeacherMatch decision and set the student's teacher. Unverified teachers are rejected."""
+                   overridden: bool = False, ranked: Optional[list[dict]] = None, request=None,
+                   reason_category: Optional[str] = None) -> TeacherMatch:
+    """Record a TeacherMatch decision and set the student's teacher. Unverified teachers are rejected.
+    The change is added to the student's teacher history (app.services.journey), never overwriting it."""
     if teacher is not None and not teacher.is_verified:
         raise ValueError("Teacher is not verified: cannot be assigned live classes (safeguarding gate).")
+    from app.services import journey
+    journey.ensure_history(db, student)
     if ranked is None:
         ranked = recommend_teachers(db, student.course.code if student.course else None, student.gender, student.age, student.timezone)
     top = ranked[0] if ranked else None
@@ -180,6 +184,7 @@ def assign_teacher(db: Session, student: Student, teacher: Optional[Teacher], us
     before = {"teacher_id": student.teacher_id}
     student.teacher_id = chosen_id
     db.flush()
+    journey.record_assignment(db, student, chosen_id, user, "teacher_change", reason_category=reason_category, reason=reason)
     log_action(db, user, "override" if overridden else "assign", "students", entity=student,
                description=f"Teacher assigned: {teacher.full_name if teacher else 'none'} (recommended #{1 if top and top['teacher_id']==chosen_id else '-'})",
                rationale=reason, before=before, after={"teacher_id": chosen_id, "match_id": match.id}, request=request, consequential=overridden)

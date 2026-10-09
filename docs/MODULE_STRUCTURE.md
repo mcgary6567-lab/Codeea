@@ -8,7 +8,7 @@ so staff find it where their job is, and Configuration holds only settings that 
 | **Human Resource** | Employees and their records, attendance, leave, recruitment, payroll, benefits, attachments; **Users & Access** (staff sign-ins, roles, the permissions overview, account provisioning); HR configuration (departments, shifts, holidays, violation and bonus types, **Confido Agents**) |
 | **Accounts** | Chart of accounts, vouchers, statements; **Currency Rates** and **Payment Gateways** under Setup |
 | **Billing Management** | Families' money: clients, invoices, receipts, ledgers, subscriptions, discounts |
-| **Online Academics** | Students, classes, evaluation, quality; **Teachers** and **Ustaadh Lab** (teacher development) under Teacher Portal |
+| **Online Academics** | Students (with the academic journey and the Monthly Student Summary), classes, evaluation, quality; **Teachers** and **Ustaadh Lab** (teacher development) under Teacher Portal |
 | **Employee Self Portal** | What each employee checks about themselves |
 | **CRM & Growth** | Leads, WhatsApp inbox, campaigns, automations, tags; **Cases & Complaints**, Complaint Intelligence and Complaint Settings (docs/COMPLAINTS.md) |
 | **Operations** | Tasks, KPIs, governance, reports — work that is not one department's |

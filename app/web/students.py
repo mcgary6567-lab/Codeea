@@ -38,7 +38,7 @@ FAMILY_STATUSES = [("trial", "Trial"), ("active", "Regular"), ("churned", "Drop 
 SHIFTS = [("morning", "Morning"), ("night", "Night")]
 REPORTS = [("primary", "Primary Report"), ("free", "Free Students List")]
 DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-TABS = [("overview", "Student Form"), ("basic", "Basic Detail"), ("subscriptions", "View Subscriptions"), ("schedule", "Schedule & Classes"),
+TABS = [("overview", "Student Form"), ("journey", "Academic Journey"), ("basic", "Basic Detail"), ("subscriptions", "View Subscriptions"), ("schedule", "Schedule & Classes"),
         ("attendance", "Attendance"), ("progress", "Progress"), ("evaluations", "Evaluations & Tests"),
         ("leaves", "Leaves"), ("billing", "Billing"), ("cases", "Cases"), ("certificates", "Certificates"), ("matches", "Teacher match"),
         ("retention", "Retention"), ("audit", "Audit")]
@@ -343,8 +343,10 @@ def student_detail(id: int, request: Request, tab: str = "overview", db: Session
     s = _get(db, id)
     if tab == "basic":
         return redirect(f"/students/{s.id}/edit")
+    if tab == "journey":
+        return redirect(f"/students/{s.id}/journey")
     today = date.today()
-    ctx: dict = {"user": user, "s": s, "tab": tab, "tabs": [(k, l, f"/students/{s.id}/edit" if k == "basic" else f"/students/{s.id}?tab={k}") for k, l in TABS],
+    ctx: dict = {"user": user, "s": s, "tab": tab, "tabs": [(k, l, {"basic": f"/students/{s.id}/edit", "journey": f"/students/{s.id}/journey"}.get(k, f"/students/{s.id}?tab={k}")) for k, l in TABS],
                  "attendance_pct": student_attendance_pct(db, s.id, 30), "statuses": [(x, status_label(x, "student")) for x in STATUSES],
                  "show_contact": rbac.has_permission(user, "clients.update") or rbac.is_management(user),
                  "change_log_url": f"/admin/audit/entity/Student/{s.id}" if rbac.has_permission(user, "audit.view") else f"/students/{s.id}?tab=audit",
@@ -522,7 +524,8 @@ async def change_status(id: int, request: Request, db: Session = Depends(get_db)
 def change_teacher_page(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.assign", "students.update", any_of=True))):
     s = _get(db, id)
     ranked = svc.recommend_teachers(db, s.course.code if s.course else None, s.gender, s.age, s.timezone, exclude_ids=[s.teacher_id] if s.teacher_id else ())
-    return render(request, "students/change_teacher.html", {"user": user, "s": s, "ranked": ranked})
+    from app.models.academic import TEACHER_CHANGE_REASONS
+    return render(request, "students/change_teacher.html", {"user": user, "s": s, "ranked": ranked, "reasons": TEACHER_CHANGE_REASONS})
 
 
 @router.post("/{id}/change-teacher", include_in_schema=False)
@@ -540,7 +543,8 @@ async def change_teacher(id: int, request: Request, db: Session = Depends(get_db
     old = s.teacher
     ranked = svc.recommend_teachers(db, s.course.code if s.course else None, s.gender, s.age, s.timezone, exclude_ids=[s.teacher_id] if s.teacher_id else ())
     try:
-        svc.assign_teacher(db, s, teacher, user, reason=reason, ranked=ranked, request=request)
+        svc.assign_teacher(db, s, teacher, user, reason=reason, ranked=ranked, request=request,
+                           reason_category=form.get("reason_category") or "other")
     except ValueError as exc:
         return redirect(f"/students/{s.id}/change-teacher", str(exc), "error")
     changed = svc.propagate_teacher_change(db, s, old, teacher, user, reason)

@@ -18,12 +18,13 @@ from app.core.deps import csrf_protect, get_current_user, get_user_context, requ
 from app.core.templating import render
 from app.core.utils import paginate, parse_bool, parse_date, parse_float, parse_int, redirect
 from app.database import get_db
-from app.models.academic import (Book, Certificate, Chapter, Course, CurriculumVersion, Division, DorSchedule,
+from app.models.academic import (StudentRecommendation, Book, Certificate, Chapter, Course, CurriculumVersion, Division, DorSchedule,
                                  Evaluation, Lesson, LessonAnnotation, LessonPlan, MonthlyTest, Package,
                                  StudentProgress)
 from app.models.core import AuditEvent, User
 from app.models.people import Student, Teacher
 from app.services import academic as svc
+from app.services import journey as journey_svc
 
 router = APIRouter(prefix="/academics", dependencies=[Depends(csrf_protect)])
 
@@ -792,6 +793,7 @@ def evaluations(request: Request, page: int = 1, student: str = "", teacher: str
         "user": user, "page": pg, "stats": stats, "types": EVAL_TYPES, "results": ["pass", "fail", "pending"],
         "student": student, "teacher": teacher, "type": type, "result": result, "base_url": base,
         "tab": tab, "assessment": assessment, "assessment_options": _assessment_options(db),
+        **journey_svc.evidence_context(db),
         "tabs": [("evaluations", "Evaluations", "/academics/evaluations?tab=evaluations"),
                  ("manual", "Manual Evaluations", "/academics/evaluations?tab=manual")],
         "criteria": svc.EVAL_CRITERIA, "student_options": _student_options(db, scope),
@@ -832,6 +834,11 @@ async def evaluation_create(request: Request, db: Session = Depends(get_db),
                     reviewed_by_id=user.id if form.get("academic_comment") else None)
     db.add(ev)
     db.flush()
+    recs = journey_svc.apply_evidence_form(db, ev, form, user, request=request)
+    if ev.assessment_id and ev.score is not None and not form.get("result"):
+        ev.result = "pass" if ev.score >= float(assessment.passing_marks or 0) else "fail"
+    elif ev.score is not None and not form.get("result") and ev.answers:
+        ev.result = "pass" if ev.score >= (ev.max_score or 100) * 0.55 else "fail"
     log_action(db, user, "create", "evaluations", entity=ev, request=request, after=snapshot(ev),
                description=f"{ev.evaluation_type.replace('_', ' ').title()} evaluation for {student.full_name}: {score}/{max_score} ({result})")
     if ev.evaluation_type == "level_completion" and result == "pass" and rbac.has_permission(user, "certificates.add"):
@@ -843,7 +850,8 @@ async def evaluation_create(request: Request, db: Session = Depends(get_db),
                f"{ev.evaluation_type.replace('_', ' ').title()} evaluation: {score}/{max_score} — {result.upper()}."
                + (f"\n{ev.teacher_comment}" if ev.teacher_comment else ""), event_type="evaluation", link="/portal/progress")
     db.commit()
-    return redirect(f"/academics/evaluations/{ev.id}", "Evaluation recorded and the guardian notified.")
+    return redirect(f"/academics/evaluations/{ev.id}", "Evaluation recorded and the guardian notified."
+                    + (f" {len(recs)} follow-up(s) created from the recommendations." if recs else ""))
 
 
 # NOTE: static path — must stay declared before /evaluations/{eid}.
@@ -900,6 +908,9 @@ def evaluation_detail(eid: int, request: Request, db: Session = Depends(get_db),
     chart = {"labels": [e.date.strftime("%d %b") for e in reversed(history)],
              "scores": [e.score or 0 for e in reversed(history)]}
     return render(request, "academics/evaluation_detail.html", {
+        **journey_svc.evidence_context(db),
+        "answer_counts": journey_svc.answer_summary(ev),
+        "recommendations": db.query(StudentRecommendation).filter(StudentRecommendation.evaluation_id == ev.id).all(),
         "user": user, "ev": ev, "history": history, "chart": chart, "criteria": svc.EVAL_CRITERIA,
         "types": EVAL_TYPES, "progress": svc.student_progress_summary(db, ev.student),
         "can_update": rbac.has_permission(user, "evaluations.update")})
@@ -922,6 +933,7 @@ async def evaluation_edit(eid: int, request: Request, db: Session = Depends(get_
     if form.get("academic_comment"):
         ev.academic_comment = form.get("academic_comment")
         ev.reviewed_by_id = user.id
+    journey_svc.apply_evidence_form(db, ev, form, user, request=request)
     log_action(db, user, "update", "evaluations", entity=ev, before=before, after=snapshot(ev), request=request,
                consequential=True, rationale=form.get("academic_comment") or form.get("teacher_comment"),
                description=f"Evaluation for {ev.student.full_name} updated to {ev.score} ({ev.result})")

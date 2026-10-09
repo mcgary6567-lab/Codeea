@@ -38,6 +38,7 @@ WORKFLOW_TRIGGERS = {
     "course.completed": ("Course completed (certificate issued)", "student"),
     "feedback.submitted": ("Survey / NPS answer submitted", "client"),
     "student.at_risk": ("Student flagged at risk", "student"),
+    "student.recommendation": ("Teacher recorded a recommendation about the student", "student"),
     "student.inactive": ("Student with no attended class for N days (daily check)", "student"),
     "class.student_absent": ("Student absent from a class", "student"),
     "tag.added": ("A tag added to a contact", "any"),

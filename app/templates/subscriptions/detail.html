@@ -125,12 +125,14 @@
         </form>
         <form method="post" action="/subscriptions/{{ s.id }}/change-teacher" x-show="panel === 'teacher'" x-cloak class="space-y-2 border-t border-slate-100 pt-3">
           {{ ui.select('teacher_id', 'New teacher', verified_teacher_options, s.teacher_id, required=True) }}
+          {{ ui.select('reason_category', 'Reason category', teacher_change_reasons, 'parent_request', placeholder=None) }}
           {{ ui.textarea('reason', 'Reason', '', rows=2, required=True) }}
           {{ ui.button('Change teacher', icon='user-cog', size='sm') }}
         </form>
         <form method="post" action="/subscriptions/{{ s.id }}/change-slot" x-show="panel === 'slot'" x-cloak class="space-y-2 border-t border-slate-100 pt-3">
           {{ ui.select('slot_id', 'New session', slot_options_cat, s.slot_id, required=True) }}
           <div class="flex flex-wrap gap-2 text-xs">{% for d in range(7) %}<label class="inline-flex items-center gap-1"><input type="checkbox" name="day_{{ d }}" value="1" {% if d in (s.days_of_week or []) %}checked{% endif %} class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600">{{ day_names[d] }}</label>{% endfor %}</div>
+          {{ ui.select('reason_category', 'Reason category', teacher_change_reasons, 'schedule_change', placeholder=None) }}
           {{ ui.textarea('reason', 'Reason', '', rows=2, required=True) }}
           {{ ui.button('Change session', icon='clock', size='sm') }}
         </form>

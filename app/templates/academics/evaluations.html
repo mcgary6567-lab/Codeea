@@ -62,7 +62,8 @@
   {{ ui.select('result', 'Result', ['pass','fail','pending'], None, placeholder='Automatic (from the assessment pass mark)') }}
   {{ ui.input('due_date', 'Next evaluation due', '', type='date') }}
   <div class="flex items-end pb-1">{{ ui.checkbox('is_manual', 'Manual evaluation', help='Shows under the Manual Evaluations tab.') }}</div>
-  <div class="sm:col-span-2">{{ ui.textarea('teacher_comment', 'Teacher comment', '', rows=2, required=True) }}</div>
+  {% include "academics/_evidence_fields.html" %}
+  <div class="sm:col-span-2">{{ ui.textarea('teacher_comment', 'Teacher observations', '', rows=2, required=True) }}</div>
   <div class="sm:col-span-2">{{ ui.textarea('academic_comment', 'Academic / HOD comment', '', rows=2) }}</div>
   <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save evaluation', icon='check') }}</div>
 </form>

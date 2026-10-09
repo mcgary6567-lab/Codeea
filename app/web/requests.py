@@ -432,6 +432,9 @@ def _apply_time_change(db: Session, user: User, r: TimeChangeRequest, status: st
     r.decision_remarks = remarks or None
     if status == "approved":
         from app.services import scheduling as sched_svc  # lazy: cross-module service
+        from app.services import journey
+        if r.student is not None:
+            journey.ensure_history(db, r.student)  # before the schedule moves, so the old time is kept
         sub = r.subscription
         if sub is not None:
             if r.new_slot_id:
@@ -450,6 +453,9 @@ def _apply_time_change(db: Session, user: User, r: TimeChangeRequest, status: st
                     sched_svc.regenerate_future_sessions(db, sch)
                 except Exception:  # keep the approval even when session regeneration is unavailable
                     pass
+        if r.student is not None:
+            journey.record_assignment(db, r.student, r.student.teacher_id, user, "time_change", reason_category="parent_request",
+                                      reason=r.description or remarks)
     return r.client
 
 
@@ -463,7 +469,11 @@ def _apply_teacher_change(db: Session, user: User, r: TeacherChangeRequest, stat
         if sub is not None:
             sub.teacher_id = r.new_teacher_id
         if r.student is not None:
+            from app.services import journey
+            previous = r.student.teacher_id
             r.student.teacher_id = r.new_teacher_id
+            journey.record_assignment(db, r.student, r.new_teacher_id, user, "teacher_change", reason_category="parent_request",
+                                      reason=r.description or remarks, previous_teacher_id=previous)
         sch = db.get(Schedule, sub.schedule_id) if sub is not None and sub.schedule_id else None
         if sch is not None:
             sch.teacher_id = r.new_teacher_id

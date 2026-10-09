@@ -59,6 +59,7 @@ ACADEMIC_GROUPS = [
     ]},
     {"slug": "students", "label": "Student Management", "icon": "graduation-cap", "blurb": "Students, referrals, leaves", "items": [
         _i("Student List", "/students", "graduation-cap", "students.view"),
+        _i("Monthly Student Summary", "/academics/student-summary", "layout-list", "students.view"),
         _i("Student Referred List", "/students/referred", "share-2", "students.view"),
         _i("Student Leaves", "/leaves/students", "calendar-off", "leaves.view"),
         _i("On Leave Students", "/students/on-leave", "plane", "students.view"),
@@ -357,6 +358,7 @@ TEACHER_NAV = [
         _i("My Schedule", "/teacher/schedule", "calendar-days", "portal_teacher.view"),
         _i("My Classes", "/teacher/classes", "video", "portal_teacher.view"),
         _i("My Students", "/teacher/students", "graduation-cap", "portal_teacher.view"),
+        _i("Monthly Student Summary", "/academics/student-summary", "layout-list", "portal_teacher.view"),
         _i("Lesson Plans", "/teacher/lesson-plans", "notebook-pen", "portal_teacher.view"),
         _i("Evaluations", "/teacher/evaluations", "clipboard-check", "portal_teacher.view"),
         _i("Monthly Tests", "/teacher/monthly-tests", "file-badge", "portal_teacher.view"),

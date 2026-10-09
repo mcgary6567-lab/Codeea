@@ -76,7 +76,37 @@ def dor_quota_refresh(db: Session) -> dict:
     return {"period": period_of(), "blocked_students": blocked}
 
 
+SUMMARY_MARKER_KEY = "job_monthly_student_summary_last_period"
+
+
+def monthly_student_summary_digest(db: Session, today: date | None = None) -> dict:
+    """Early each month, tell the Academy Managers (or, without one, the head of academics) that last month's student
+    summary is ready and how many students need attention. Handled once per month (Setting marker)."""
+    from app.core.notify import notify
+    from app.models.core import Role
+    from app.services import journey
+    from app.services import scheduling as sched_svc
+    today = today or journey.org_today()
+    if today.day > 1 + CATCHUP_DAYS:
+        return {"skipped": "outside the first days of the month"}
+    period = (today.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    if sched_svc.setting_value(db, SUMMARY_MARKER_KEY, None, field="value") == period:
+        return {"skipped": "already sent", "period": period}
+    rows = journey.summary_board(db, period, None)
+    flagged = sum(1 for r in rows if r["flags"])
+    people = (db.query(User).join(Role, Role.id == User.role_id).filter(User.is_active.is_(True), Role.slug == "academy_manager").all()
+              or db.query(User).join(Role, Role.id == User.role_id).filter(User.is_active.is_(True), Role.slug == "hod_academics").all())
+    label = journey.month_bounds(period)[0].strftime("%B %Y")
+    for u in people:
+        notify(db, u, f"Student summary for {label} is ready", f"{len(rows)} students; {flagged} need attention.",
+               event_type="digest", link=f"/academics/student-summary?month={period}&flagged=1")
+    sched_svc.set_setting(db, SUMMARY_MARKER_KEY, {"value": period, "at": datetime.utcnow().isoformat(), "flagged": flagged},
+                          group="jobs", description="Last month the student summary digest was sent for")
+    return {"period": period, "students": len(rows), "flagged": flagged, "notified": len(people)}
+
+
 JOBS = [
+    ("academic_monthly_student_summary", monthly_student_summary_digest, 720),
     ("academic_monthly_test_generation", monthly_test_generation, 720),
     ("academic_auto_deliver_cards", auto_deliver_result_cards, 120),
     ("academic_dor_quota_refresh", dor_quota_refresh, 360),

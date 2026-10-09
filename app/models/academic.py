@@ -177,10 +177,101 @@ class Evaluation(Base, PKMixin, TimestampMixin):
     assessment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("assessment_definitions.id", ondelete="SET NULL"))
     is_manual: Mapped[bool] = mapped_column(Boolean, default=False)  # "Manual Evaluations" tab
     due_date: Mapped[Optional[date]] = mapped_column(Date)  # pending evaluations = past due without a score
+    # Evidence (docs/STUDENT_JOURNEY.md): what was asked and answered is in ``answers``; these record the judgement.
+    stage: Mapped[Optional[str]] = mapped_column(String(150))  # the student's academic stage when assessed
+    strengths: Mapped[Optional[str]] = mapped_column(Text)
+    weaknesses: Mapped[Optional[str]] = mapped_column(Text)
+    recommendations: Mapped[Optional[str]] = mapped_column(Text)
+    parent_observations: Mapped[Optional[str]] = mapped_column(Text)
+    follow_up: Mapped[Optional[str]] = mapped_column(Text)
 
     student = relationship("Student")
     teacher = relationship("Teacher")
     assessment = relationship("AssessmentDefinition")
+    answers = relationship("AssessmentAnswer", back_populates="evaluation", order_by="AssessmentAnswer.order",
+                           cascade="all, delete-orphan")
+
+
+ANSWER_RESULTS = [("correct", "Correct"), ("partly_correct", "Partly correct"), ("incorrect", "Incorrect"),
+                  ("not_attempted", "Not attempted")]
+
+
+class AssessmentAnswer(Base, PKMixin, TimestampMixin):
+    """One question of a formal assessment: what was asked, what the student answered, and how it was judged."""
+    __tablename__ = "assessment_answers"
+    evaluation_id: Mapped[int] = mapped_column(ForeignKey("evaluations.id", ondelete="CASCADE"), index=True)
+    question_id: Mapped[Optional[int]] = mapped_column(ForeignKey("question_bank.id", ondelete="SET NULL"))
+    order: Mapped[int] = mapped_column(Integer, default=0)
+    question: Mapped[str] = mapped_column(Text)
+    expected_answer: Mapped[Optional[str]] = mapped_column(Text)
+    student_answer: Mapped[Optional[str]] = mapped_column(Text)
+    result: Mapped[str] = mapped_column(String(20), default="correct")  # correct | partly_correct | incorrect | not_attempted
+    marks_awarded: Mapped[Optional[float]] = mapped_column(Float)
+    max_marks: Mapped[Optional[float]] = mapped_column(Float)
+    note: Mapped[Optional[str]] = mapped_column(Text)
+
+    evaluation = relationship("Evaluation", back_populates="answers")
+
+
+TEACHER_CHANGE_REASONS = [
+    ("timing_conflict", "Timing conflict"), ("schedule_change", "Timing / schedule change"),
+    ("teacher_availability", "Teacher availability"), ("parent_request", "Parent request"),
+    ("student_request", "Student request"), ("academic_requirement", "Academic requirement"),
+    ("teacher_performance", "Teacher performance"), ("capacity", "Capacity / workload"),
+    ("other", "Other approved reason"),
+]
+
+
+class TeacherAssignment(Base, PKMixin, TimestampMixin):
+    """A period during which a student had one teacher at one class time. Never overwritten: a change of teacher or
+    time closes the open row (end_date) and opens a new one carrying the previous teacher and time and the reason."""
+    __tablename__ = "teacher_assignments"
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), index=True)
+    start_date: Mapped[date] = mapped_column(Date, index=True)
+    end_date: Mapped[Optional[date]] = mapped_column(Date)  # empty = current
+    class_time: Mapped[Optional[str]] = mapped_column(String(10))  # "18:00" in the college's time
+    days: Mapped[list] = mapped_column(JSON, default=list)  # [0..6], Monday = 0
+    previous_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"))
+    previous_time: Mapped[Optional[str]] = mapped_column(String(10))
+    previous_days: Mapped[list] = mapped_column(JSON, default=list)
+    change_type: Mapped[str] = mapped_column(String(20), default="teacher_change")  # enrolment | teacher_change | time_change | recorded
+    reason_category: Mapped[Optional[str]] = mapped_column(String(30))
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+    changed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    student = relationship("Student")
+    teacher = relationship("Teacher", foreign_keys=[teacher_id])
+    previous_teacher = relationship("Teacher", foreign_keys=[previous_teacher_id])
+    changed_by = relationship("User")
+
+
+RECOMMENDATION_KINDS = [
+    ("late_arrivals", "Student frequently arrives late"), ("needs_revision", "Student needs additional revision"),
+    ("attendance", "Attendance requires improvement"), ("parental_support", "Student needs more parental support"),
+    ("progressing_well", "Student is progressing well"), ("more_practice", "Student requires additional practice"),
+    ("contact_parent", "Parent needs to be contacted"), ("other", "Other"),
+]
+
+
+class StudentRecommendation(Base, PKMixin, TimestampMixin):
+    """A teacher's recommendation about a student, and the action the system created for it."""
+    __tablename__ = "student_recommendations"
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"))
+    evaluation_id: Mapped[Optional[int]] = mapped_column(ForeignKey("evaluations.id", ondelete="SET NULL"))
+    session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("class_sessions.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(30), index=True)
+    note: Mapped[Optional[str]] = mapped_column(Text)
+    action: Mapped[str] = mapped_column(String(20), default="none")  # task | alert | escalation | none
+    task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"))
+    alert_id: Mapped[Optional[int]] = mapped_column(ForeignKey("risk_alerts.id", ondelete="SET NULL"))
+    created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    student = relationship("Student")
+    teacher = relationship("Teacher")
+    task = relationship("Task")
+    created_by = relationship("User")
 
 
 class MonthlyTest(Base, PKMixin, TimestampMixin):

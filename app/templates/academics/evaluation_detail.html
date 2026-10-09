@@ -18,10 +18,41 @@
 
 <div class="grid gap-5 lg:grid-cols-3">
   <div class="lg:col-span-2 space-y-5">
-    {% call ui.card('Comments') %}
-    {{ ui.dl([('Teacher comment', ev.teacher_comment), ('Academic / HOD comment', ev.academic_comment),
-              ('Evaluation type', ev.evaluation_type|titleize), ('Result', ev.result|titleize)]) }}
+    {% call ui.card('What was assessed', (ev.answers|length) ~ ' question(s) · ' ~ answer_counts.correct ~ ' correct, ' ~ answer_counts.partly_correct ~ ' partly correct, ' ~ answer_counts.incorrect ~ ' incorrect') %}
+    {% if ev.answers %}
+    {{ ui.table_start(['#', 'Question', 'Expected', "Student's answer", 'Result', 'Marks'], compact=True) }}
+    {% for a in ev.answers %}
+    <tr><td class="px-3 py-1.5 text-xs text-slate-500">{{ loop.index }}</td>
+      <td class="px-3 py-1.5 text-sm">{{ a.question }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-600">{{ a.expected_answer or '—' }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ a.student_answer or '—' }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge({'correct':'completed','partly_correct':'partial','incorrect':'failed','not_attempted':'pending'}[a.result], answer_results|selectattr(0, 'equalto', a.result)|map(attribute=1)|first) }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ (a.marks_awarded|string ~ ' / ' ~ (a.max_marks or '—')) if a.marks_awarded is not none else '—' }}</td></tr>
+    {% endfor %}
+    {{ ui.table_end() }}
+    {% else %}<p class="text-sm text-slate-400">No questions were recorded for this assessment.</p>{% endif %}
+    <div class="mt-4">
+    {{ ui.dl([('Stage when assessed', ev.stage), ('Result', ev.result|titleize), ('Strengths', ev.strengths), ('Weaknesses', ev.weaknesses),
+              ('Teacher observations', ev.teacher_comment), ('Teacher recommendations', ev.recommendations),
+              ('Parent-related observations', ev.parent_observations), ('Required follow-up', ev.follow_up),
+              ('Academic / HOD comment', ev.academic_comment), ('Evaluation type', ev.evaluation_type|titleize)]) }}
+    </div>
+    {% if recommendations %}
+    <div class="mt-4 rounded bg-amber-50 p-3 text-sm">
+      <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-800">Follow-ups created</div>
+      <ul class="space-y-1">{% for r in recommendations %}<li>{{ recommendation_kinds|selectattr(0, 'equalto', r.kind)|map(attribute=1)|first }}{% if r.task %} → {{ r.task.title }} ({{ r.task.assignee.full_name if r.task.assignee else 'unassigned' }}, due {{ r.task.due_date|date }}){% endif %}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
     {% endcall %}
+
+    {% if can_update %}
+    {% call ui.card('Record or correct the evidence') %}
+    <form method="post" action="/academics/evaluations/{{ ev.id }}/edit" class="grid gap-3 sm:grid-cols-2">
+      {% include "academics/_evidence_fields.html" %}
+      <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save evidence', icon='save') }}</div>
+    </form>
+    {% endcall %}
+    {% endif %}
 
     {% if chart.labels|length > 1 %}
     {% call ui.card('Evaluation history', 'Scores over time for this student') %}

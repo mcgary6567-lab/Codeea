@@ -253,6 +253,13 @@ def bulk_teacher_change(db: Session, user: User, from_teacher: Teacher, to_teach
             sch.teacher_id = to_teacher.id
             sch.room_name = class_svc.room_name_for(sch)
             moved_schedules += 1
+            if sch.student is not None and sch.student.teacher_id == from_teacher.id:
+                # a permanent reassignment changes the student's teacher; record it in their history
+                from app.services import journey
+                sch.student.teacher_id = to_teacher.id
+                journey.record_assignment(db, sch.student, to_teacher.id, user, "teacher_change",
+                                          reason_category="teacher_availability", reason=reason, when=start,
+                                          previous_teacher_id=from_teacher.id)
         verb = "take over" if permanent else "cover"
         until = "" if permanent else " to " + end.strftime("%d %b")
         body = (f"{to_teacher.full_name} will {verb} the {sch.start_time.strftime('%H:%M')} class "
@@ -718,6 +725,7 @@ def create_erp_subscription(db: Session, user: Optional[User], *, student, cours
     db.add(sub)
     db.flush()
     # keep the student record aligned with its subscription
+    previous_teacher_id = student.teacher_id
     student.teacher_id = teacher.id
     student.course_id = sub.course_id
     student.preferred_language = sub.language
@@ -729,6 +737,9 @@ def create_erp_subscription(db: Session, user: Optional[User], *, student, cours
     elif student.status in ("trial", "free", "frozen", "cancelled"):
         student.status = "active"
     sch = sync_subscription_schedule(db, user, sub, reason=f"Subscription {sub.subscription_code} created", request=request)
+    from app.services import journey
+    journey.record_assignment(db, student, teacher.id, user, "teacher_change", reason_category="schedule_change",
+                              reason=f"Subscription {sub.subscription_code} created", previous_teacher_id=previous_teacher_id)
     n_sessions = db.query(ClassSession).filter(ClassSession.schedule_id == sch.id).count() if sch else 0
     log_action(db, user, "create", "subscriptions", entity=sub,
                description=(f"Subscription {sub.subscription_code} created for {student.full_name}: {course.name if course else '-'} with "

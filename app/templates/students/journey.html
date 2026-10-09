@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ s.full_name }} · Academic journey{% endblock %}
+{% block content %}
+{% call ui.page_header(s.full_name ~ ' · Academic journey', s.student_code ~ ' · ' ~ (s.course.name if s.course else 'No course') ~ ' · enrolled ' ~ (s.join_date|date) ~ ' · teacher ' ~ (s.teacher.full_name if s.teacher else 'none'), back='/students/' ~ s.id) %}
+  {{ ui.badge(s.status, s.status|label('student')) }}
+  {% if view == 'summary' %}<button type="button" onclick="window.print()" class="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"><i data-lucide="printer" class="h-4 w-4"></i>Print</button>{% endif %}
+{% endcall %}
+
+<div class="mb-4 flex flex-wrap gap-1 border-b border-slate-200 print:hidden">
+  {% for k, l in views %}
+  <a href="/students/{{ s.id }}/journey?view={{ k }}&{{ query }}" class="-mb-px border-b-2 px-3 py-2 text-sm {{ 'border-brand-600 font-semibold text-brand-700' if view == k else 'border-transparent text-slate-600 hover:text-slate-900' }}">{{ l }}</a>
+  {% endfor %}
+</div>
+
+{% if view != 'teachers' %}
+<form method="get" action="/students/{{ s.id }}/journey" class="mb-4 flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-white p-3 print:hidden"
+      x-data="{ p: '{{ win.period }}' }">
+  <input type="hidden" name="view" value="{{ view }}">
+  <div class="w-44">{{ ui.select('period', 'Period', periods if view != 'summary' else periods[:3], win.period, placeholder=None, attrs='x-model="p"') }}</div>
+  <div class="w-40" x-show="p === 'month'" x-cloak>{{ ui.input('month', 'Month', win.month, type='month') }}</div>
+  <div class="w-40" x-show="p === 'range'" x-cloak>{{ ui.input('date_from', 'From', win.start.isoformat(), type='date') }}</div>
+  <div class="w-40" x-show="p === 'range'" x-cloak>{{ ui.input('date_to', 'To', win.end.isoformat(), type='date') }}</div>
+  {% if view == 'timeline' %}
+  <div class="flex flex-wrap items-center gap-3 pb-1.5 text-xs">
+    {% for k, l in kinds %}<label class="flex items-center gap-1"><input type="checkbox" class="kind h-3.5 w-3.5 rounded border-slate-300" value="{{ k }}" {% if k in chosen %}checked{% endif %}> {{ l }}</label>{% endfor %}
+    <input type="hidden" name="kinds" value="{{ chosen|join(',') }}">
+  </div>
+  {% endif %}
+  <div class="pb-0.5">{{ ui.button('Show', icon='filter', size='sm',
+       attrs='onclick="const k=[...this.form.querySelectorAll(\'.kind:checked\')].map(x=>x.value).join(\',\'); if(this.form.kinds) this.form.kinds.value=k;"') }}</div>
+  <div class="ml-auto pb-1.5 text-sm font-semibold text-slate-700">{{ win.label }}</div>
+</form>
+
+<div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+  {% for label, value, color in [('Classes scheduled', stats.scheduled, 'sky'), ('Attended', stats.attended, 'emerald'), ('Absent', stats.absent, 'rose'),
+                                 ('Late arrivals', stats.late, 'amber'), ('On leave', stats.on_leave, 'violet'), ('Holidays', stats.holidays, 'slate'),
+                                 ('Teacher missed', stats.teacher_missed, 'orange'), ('Attendance', (stats.attendance_pct ~ '%') if stats.attendance_pct is not none else '—', 'indigo')] %}
+  <div class="rounded border border-slate-200 bg-white p-3">
+    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{{ label }}</div>
+    <div class="mt-1 text-xl font-semibold text-{{ color }}-700">{{ value }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+<div class="lg:col-span-2 space-y-6">
+
+{% if view == 'timeline' %}
+{% call ui.card('Timeline', events|length ~ ' entries · newest first') %}
+  <ol class="relative space-y-3 border-l border-slate-200 pl-5">
+    {% for e in events[:400] %}
+    <li class="relative">
+      <span class="absolute -left-[27px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-{{ e.color }}-100 ring-2 ring-white"><i data-lucide="{{ e.icon }}" class="h-2.5 w-2.5 text-{{ e.color }}-700"></i></span>
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <div class="text-sm font-medium text-slate-800">{% if e.url %}<a href="{{ e.url }}" class="hover:text-brand-700">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}
+          {% if e.badge %}{{ ui.badge(e.badge) }}{% endif %}</div>
+        <span class="text-[11px] text-slate-500">{{ e.date|date }}</span>
+      </div>
+      {% if e.detail %}<p class="mt-0.5 text-xs text-slate-600">{{ e.detail }}</p>{% endif %}
+    </li>
+    {% else %}<li class="text-sm text-slate-400">Nothing recorded in this period.</li>{% endfor %}
+  </ol>
+  {% if events|length > 400 %}<p class="mt-3 text-xs text-slate-500">Showing the latest 400 entries. Narrow the period or the kinds to see earlier ones.</p>{% endif %}
+{% endcall %}
+
+{% elif view == 'summary' %}
+{% set st = m.stats %}
+{% if m.flags %}
+{{ ui.alert(m.flags|join(' · '), 'warning', 'Needs attention:') }}
+{% else %}
+{{ ui.alert('Nothing needs attention this month.', 'success') }}
+{% endif %}
+{% call ui.card('Attendance and classes · ' ~ m.label) %}
+  {{ ui.dl([('Classes scheduled', st.scheduled), ('Classes held so far', st.held), ('Attended', st.attended), ('Absences', st.absent),
+            ('Late arrivals', st.late), ('On leave (classes)', st.on_leave), ('Leave days', st.leave_days), ('Holidays', st.holidays),
+            ('Missed by the teacher', st.teacher_missed), ('Teacher late', st.teacher_late), ('Attendance', (st.attendance_pct ~ '%') if st.attendance_pct is not none else '—'),
+            ('Upcoming this month', st.upcoming)]) }}
+{% endcall %}
+{% call ui.card('Syllabus') %}
+  {{ ui.dl([('Current academic stage', m.syllabus.stage), ('Lessons completed this month', m.syllabus.completed|length),
+            ('Overall progress', m.syllabus.overall_pct ~ '% (' ~ m.syllabus.done_total ~ ' of ' ~ m.syllabus.total ~ ' lessons)'),
+            ('Remaining', m.syllabus.remaining ~ ' lessons'),
+            ('Expected by now', (m.syllabus.expected_pct ~ '%') if m.syllabus.expected_pct is not none else 'No target set for the course')]) }}
+  {% if m.syllabus.completed %}
+  <ul class="mt-3 space-y-1 text-sm">{% for c in m.syllabus.completed %}<li>✓ {{ c.lesson }} <span class="text-xs text-slate-500">· {{ c.date|date }} · {{ c.teacher }}</span></li>{% endfor %}</ul>
+  {% endif %}
+{% endcall %}
+{% call ui.card('Assessments') %}
+  {% for e in m.evaluations %}
+  <div class="border-b border-slate-100 py-2 text-sm"><a class="font-medium text-brand-700 hover:underline" href="/academics/evaluations/{{ e.id }}">{{ e.evaluation_type|titleize }} · {{ e.date|date }}</a>
+    · {{ e.score if e.score is not none else '—' }}/{{ e.max_score|int }} {{ ui.badge(e.result) }}
+    {% if e.answers %}<span class="text-xs text-slate-500">· {{ e.answers|length }} questions recorded</span>{% endif %}
+    {% if e.weaknesses %}<div class="text-xs text-slate-600">Weaknesses: {{ e.weaknesses }}</div>{% endif %}</div>
+  {% endfor %}
+  {% for t in m.tests %}<div class="py-2 text-sm">Monthly test: {{ t.percentage if t.percentage is not none else 'not scored' }}{{ '%' if t.percentage is not none }} {% if t.grade %}(grade {{ t.grade }}){% endif %}</div>{% endfor %}
+  {% if not m.evaluations and not m.tests %}<p class="text-sm text-slate-400">No assessment this month.</p>{% endif %}
+{% endcall %}
+<div class="grid gap-6 md:grid-cols-2">
+  {% call ui.card('Teacher observations') %}
+    {% for o in m.observations %}<p class="border-b border-slate-100 py-1.5 text-sm text-slate-700">{{ o }}</p>{% else %}<p class="text-sm text-slate-400">None recorded.</p>{% endfor %}
+  {% endcall %}
+  {% call ui.card('Teacher recommendations') %}
+    {% for r in m.recommendations %}<p class="border-b border-slate-100 py-1.5 text-sm">{{ kind_labels.get(r.kind, r.kind) }} {{ ui.badge(recommendation_state(r)) }}{% if r.note %}<span class="block text-xs text-slate-500">{{ r.note }}</span>{% endif %}</p>
+    {% else %}<p class="text-sm text-slate-400">None this month.</p>{% endfor %}
+  {% endcall %}
+  {% call ui.card('Parent concerns') %}
+    {% for c in m.concerns %}<p class="py-1 text-sm"><a class="text-brand-700 hover:underline" href="/cases/{{ c.id }}">{{ c.case_number }}</a> {{ c.title }}</p>{% endfor %}
+    {% for f in m.negative_feedback %}<p class="py-1 text-sm">Negative feedback: {{ f.comment or ('NPS ' ~ f.nps) }}</p>{% endfor %}
+    {% if not m.concerns and not m.negative_feedback %}<p class="text-sm text-slate-400">None raised.</p>{% endif %}
+  {% endcall %}
+  {% call ui.card('Outstanding actions') %}
+    {% for t in m.actions.tasks %}<p class="py-1 text-sm">{{ t.title }} <span class="text-xs text-slate-500">· {{ t.assignee.full_name if t.assignee else 'unassigned' }} · due {{ t.due_date|date }}</span></p>{% endfor %}
+    {% for c in m.actions.cases %}<p class="py-1 text-sm">Open case <a class="text-brand-700 hover:underline" href="/cases/{{ c.id }}">{{ c.case_number }}</a></p>{% endfor %}
+    {% if not m.actions.tasks and not m.actions.cases %}<p class="text-sm text-slate-400">Nothing outstanding.</p>{% endif %}
+  {% endcall %}
+</div>
+
+{% elif view == 'teachers' %}
+{% call ui.card('Teacher and class-time history', 'Every change is kept: nothing is overwritten') %}
+  {{ ui.table_start(['From', 'To', 'Teacher', 'Class time', 'Change', 'Reason', 'By']) }}
+  {% for a in history %}
+  <tr class="{{ 'bg-emerald-50/50' if not a.end_date }}">
+    <td class="px-4 py-2 text-xs whitespace-nowrap">{{ a.start_date|date }}</td>
+    <td class="px-4 py-2 text-xs whitespace-nowrap">{{ a.end_date|date if a.end_date else 'Current' }}</td>
+    <td class="px-4 py-2 text-sm">{{ a.teacher.full_name if a.teacher else '—' }}
+      {% if a.previous_teacher %}<div class="text-[11px] text-slate-500">from {{ a.previous_teacher.full_name }}</div>{% endif %}</td>
+    <td class="px-4 py-2 text-xs">{{ time_label(a.class_time) }} {% if a.days %}<span class="text-slate-500">· {{ days_label(a.days) }}</span>{% endif %}
+      {% if a.previous_time and a.previous_time != a.class_time %}<div class="text-[11px] text-slate-500">was {{ time_label(a.previous_time) }}</div>{% endif %}</td>
+    <td class="px-4 py-2 text-xs">{{ change_labels.get(a.change_type, a.change_type) }}</td>
+    <td class="px-4 py-2 text-xs">{{ reason_labels.get(a.reason_category or '', '') }}{% if a.reason %}<div class="text-slate-500">{{ a.reason }}</div>{% endif %}</td>
+    <td class="px-4 py-2 text-xs">{{ a.changed_by.full_name if a.changed_by else '—' }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No teacher has been assigned yet.', 7) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+
+{% elif view == 'syllabus' %}
+<div class="grid gap-4 sm:grid-cols-4">
+  {{ ui.stat('Overall progress', syl.overall_pct ~ '%', icon='trending-up', color='emerald', hint=syl.done_total ~ ' of ' ~ syl.total ~ ' lessons') }}
+  {{ ui.stat('Completed this period', syl.completed|length, icon='book-open-check', color='sky') }}
+  {{ ui.stat('Remaining', syl.remaining, icon='list-todo', color='amber') }}
+  {{ ui.stat('Expected by now', (syl.expected_pct ~ '%') if syl.expected_pct is not none else '—', icon='target', color=('rose' if syl.behind else 'indigo'), hint=('Behind pace' if syl.behind else None)) }}
+</div>
+{% call ui.card('Current academic stage') %}<p class="text-sm text-slate-700">{{ syl.stage }}</p>{% endcall %}
+{% call ui.card('Lessons completed in the period') %}
+  {{ ui.table_start(['Date', 'Lesson', 'Type', 'Teacher', 'Score'], compact=True) }}
+  {% for c in syl.completed %}
+  <tr><td class="px-3 py-1.5 text-xs">{{ c.date|date }}</td><td class="px-3 py-1.5 text-sm">{{ c.lesson }}</td><td class="px-3 py-1.5 text-xs">{{ c.type|titleize }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ c.teacher }}</td><td class="px-3 py-1.5 text-xs">{{ c.score if c.score is not none else '—' }}</td></tr>
+  {% else %}{{ ui.empty('No lesson completed in this period.', 5) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+{% call ui.card('What was taught, class by class') %}
+  {% for t in syl.taught %}<div class="border-b border-slate-100 py-1.5 text-sm"><span class="text-xs font-semibold text-slate-500">{{ t.date|date }} · {{ t.teacher }}</span><div>{{ t.text }}</div></div>
+  {% else %}<p class="text-sm text-slate-400">No class content recorded in this period.</p>{% endfor %}
+{% endcall %}
+<div class="grid gap-6 md:grid-cols-2">
+  {% call ui.card('Lessons completed per month') %}{{ ui.chart('monthly', 200) }}{% endcall %}
+  {% call ui.card('By teacher (this period)') %}
+    {% for name, n in syl.by_teacher %}<div class="flex justify-between border-b border-slate-100 py-1 text-sm"><span>{{ name }}</span><b>{{ n }}</b></div>
+    {% else %}<p class="text-sm text-slate-400">None.</p>{% endfor %}
+  {% endcall %}
+</div>
+
+{% elif view == 'assessments' %}
+{% for e in evaluations %}
+{% set c = answer_summary(e) %}
+{% call ui.card(e.evaluation_type|titleize ~ ' assessment · ' ~ (e.date|date), (e.teacher.full_name if e.teacher else '') ~ (' · stage: ' ~ e.stage if e.stage else '')) %}
+  <div class="mb-3 flex flex-wrap items-center gap-2 text-sm"><b>{{ e.score if e.score is not none else '—' }}/{{ e.max_score|int }}</b> {{ ui.badge(e.result) }}
+    {% if e.answers %}<span class="text-xs text-slate-500">{{ c.correct }} correct · {{ c.partly_correct }} partly · {{ c.incorrect }} incorrect · {{ c.not_attempted }} not attempted</span>{% endif %}
+    <a href="/academics/evaluations/{{ e.id }}" class="ml-auto text-xs text-brand-700 hover:underline">Open</a></div>
+  {% if e.answers %}
+  {{ ui.table_start(['Question', "Student's answer", 'Result'], compact=True) }}
+  {% for a in e.answers %}<tr><td class="px-3 py-1.5 text-sm">{{ a.question }}</td><td class="px-3 py-1.5 text-xs">{{ a.student_answer or '—' }}</td>
+    <td class="px-3 py-1.5">{{ ui.badge({'correct':'completed','partly_correct':'partial','incorrect':'failed','not_attempted':'pending'}[a.result], result_labels.get(a.result)) }}</td></tr>{% endfor %}
+  {{ ui.table_end() }}
+  {% endif %}
+  <div class="mt-3">{{ ui.dl([('Strengths', e.strengths), ('Weaknesses', e.weaknesses), ('Observations', e.teacher_comment), ('Recommendations', e.recommendations), ('Follow-up', e.follow_up)]) }}</div>
+{% endcall %}
+{% else %}
+{% call ui.card() %}<p class="text-sm text-slate-400">No assessment in this period.</p>{% endcall %}
+{% endfor %}
+{% endif %}
+</div>
+
+<div class="space-y-6 print:hidden">
+  {% if can_recommend %}
+  {% call ui.card('Teacher recommendation', 'Creates the follow-up automatically') %}
+  <form method="post" action="/students/{{ s.id }}/recommendations" class="space-y-3">
+    <input type="hidden" name="next" value="/students/{{ s.id }}/journey?view={{ view }}&{{ query }}">
+    {{ ui.select('kind', 'Recommendation', recommendation_kinds, '', required=True) }}
+    {{ ui.textarea('note', 'Note', '', rows=2, placeholder='What you noticed') }}
+    {{ ui.button('Record', icon='lightbulb', size='sm') }}
+  </form>
+  <p class="mt-2 text-xs text-slate-500">Late arrivals, attendance, parental support and "contact the parent" go to the Academy Manager; revision and practice to the teacher. The same concern raised again while still open is escalated.</p>
+  {% endcall %}
+  {% endif %}
+  {% call ui.card('Recent recommendations') %}
+    {% for r in recent_recommendations %}
+    <div class="border-b border-slate-100 py-2 text-sm">{{ kind_labels.get(r.kind, r.kind) }} {{ ui.badge(recommendation_state(r)) }}
+      <div class="text-[11px] text-slate-500">{{ r.created_at|date }}{% if r.teacher %} · {{ r.teacher.full_name }}{% endif %}{% if r.task %} · {{ r.task.assignee.full_name if r.task.assignee else '' }}, due {{ r.task.due_date|date }}{% endif %}</div></div>
+    {% else %}<p class="text-sm text-slate-400">None yet.</p>{% endfor %}
+  {% endcall %}
+  {% call ui.card('Links') %}
+    <div class="flex flex-wrap gap-2">
+      {{ ui.button('Student record', href='/students/' ~ s.id, icon='user', variant='secondary', size='sm') }}
+      {{ ui.button('Progress & curriculum', href='/academics/progress/' ~ s.id, icon='book-open', variant='secondary', size='sm') }}
+      {{ ui.button('Monthly board', href='/academics/student-summary?month=' ~ win.month, icon='layout-list', variant='ghost', size='sm') }}
+    </div>
+  {% endcall %}
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if view == 'syllabus' %}
+<script>OQC.bar('monthly', {{ syl.monthly|map(attribute=0)|list|tojson }}, [{label: 'Lessons completed', data: {{ syl.monthly|map(attribute=1)|list|tojson }}}]);</script>
+{% endif %}
+{% endblock %}
