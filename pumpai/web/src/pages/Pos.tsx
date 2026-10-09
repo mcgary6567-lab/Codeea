@@ -85,6 +85,26 @@ export default function Pos() {
   const [printW, setPrintW] = useState<string>(() => { try { return localStorage.getItem("pos_print_w") || "58"; } catch { return "58"; } });
   const setWidth = (w: string) => { setPrintW(w); try { localStorage.setItem("pos_print_w", w); } catch { /* ignore */ } };
   const printReceipt = (url: string) => window.open(`${url}${url.includes("?") ? "&" : "?"}print=1&w=${printW}`, "_blank", "noopener,width=420,height=680");
+  // offline sale has no server receipt yet — build the parchi on the tablet from what we saved, so it can still print now
+  const printOffline = (sale: any) => {
+    const mm = Number(printW) || 58, body = mm === 58 ? 52 : 74;
+    const esc = (s: any) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+    const gross = (sale.litres || 0) * (sale.rate || 0);
+    const line = (a: string, b: string, bold = false) => `<tr><td${bold ? " style='font-weight:700'" : ""}>${a}</td><td style="text-align:right${bold ? ";font-weight:700" : ""}">${b}</td></tr>`;
+    const rows = [
+      line(`${esc(fuelOf(sale.product).en)}`, `Rs ${num(gross, 0)}`),
+      `<tr><td colspan=2 style="color:#555;font-size:11px">${num(sale.litres, 2)} L × Rs ${sale.rate}</td></tr>`,
+      sale.discount > 0 ? line("Discount", `− Rs ${num(sale.discount, 0)}`) : "",
+      line("TOTAL", `Rs ${num(sale.amount, 0)}`, true),
+      line("Paid", esc((sale.payment_method || "").toUpperCase()) + (sale.khata_name ? ` — ${esc(sale.khata_name)}` : "")),
+    ].join("");
+    const html = `<!doctype html><meta charset=utf-8><title>Receipt</title><style>@page{size:${mm}mm auto;margin:2mm}body{width:${body}mm;margin:0 auto;font:12px/1.4 system-ui,sans-serif;color:#000}h1{font-size:15px;margin:0 0 2px;text-align:center}table{width:100%;border-collapse:collapse}td{padding:3px 0;border-bottom:1px dashed #bbb}.c{text-align:center;color:#555;font-size:11px}</style>`
+      + `<h1>${esc(d?.station?.name ?? "Fuel")}</h1><div class=c>${new Date().toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })}</div>`
+      + `<table>${rows}</table><div class=c style="margin-top:6px">OFFLINE COPY — net aane par pakki parchi bhi milegi</div><div class=c>Shukriya! 🙏</div>`
+      + `<script>onload=function(){setTimeout(function(){print();},250)};onafterprint=function(){setTimeout(function(){close();},200)}<\/script>`;
+    const win = window.open("", "_blank", "width=420,height=680");
+    if (win) { win.document.write(html); win.document.close(); }
+  };
   const [heard, setHeard] = useState<string | null>(null);
   const [voiceExp, setVoiceExp] = useState<any>(null);
   const [tab, setTab] = useState<"fuel" | "shop">("fuel");
@@ -427,10 +447,10 @@ export default function Pos() {
             <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}${done.pending ? " · CARD PENDING" : ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && isBankPay(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
             {done.pending && !done.training && <div className="mt-1 text-base text-white/90">Card aaye to clear karein — us din ke rate par bill hoga</div>}
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
-            {done.receipt_url && !done.training && (
+            {(done.receipt_url || done.offline) && !done.training && !done.pending && (
               <div className="mt-4" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => printReceipt(done.receipt_url)} className="mx-auto flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-xl font-bold text-emerald-700 shadow active:scale-95">
-                  <Printer size={24} /> Print receipt · <Ur>پرچی پرنٹ</Ur>
+                <button onClick={() => (done.receipt_url ? printReceipt(done.receipt_url) : printOffline(done))} className="mx-auto flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-xl font-bold text-emerald-700 shadow active:scale-95">
+                  <Printer size={24} /> Print receipt{done.offline ? " (offline)" : ""} · <Ur>پرچی پرنٹ</Ur>
                 </button>
                 <div className="mt-2 flex items-center justify-center gap-2 text-sm text-white/90">
                   <span>Printer roll:</span>

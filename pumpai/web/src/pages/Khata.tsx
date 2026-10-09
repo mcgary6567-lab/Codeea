@@ -33,6 +33,7 @@ export default function Khata() {
         <Stat label="Near limit (80%+) · حد کے قریب" value={nearLimit} tone="amber" />
         <Stat label="High credit risk · خطرہ" value={highRisk} tone="red" />
       </div>
+      <AgingCard onOpen={(id) => nav(`/customers/${id}`)} />
       <OpenGovtBills onOpen={setBill} />
       <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         {[["", "All · سب"], ["institution", "🏛️ Police / Govt / Schools · سرکاری"], ["fleet", "🚚 Fleets · گاڑیاں"], ["farmer", "🚜 Farmers · زمیندار"], ["business", "🏢 Businesses · کاروبار"], ["retail", "🚗 Retail · عام"]].map(([k, l]) => (
@@ -86,6 +87,50 @@ export default function Khata() {
         {!rows.length && <Empty>No credit customers · کوئی کھاتہ نہیں</Empty>}
       </div>
       {bill && <KhataStatement customerId={bill} onClose={() => setBill(null)} />}
+    </div>
+  );
+}
+
+/** Khata aging: how much of the outstanding is 0-30 / 31-60 / 61-90 / 90+ days old (oldest charges cleared first). */
+function AgingCard({ onOpen }: { onOpen: (id: number) => void }) {
+  const { data } = useApi<any>("/khata/aging");
+  const [open, setOpen] = useState(false);
+  if (!data || !data.total) return null;
+  const tone = ["text-slate-700", "text-amber-600", "text-orange-600", "text-red-600"];
+  const overdue = (data.list as any[]).filter((c) => c.overdue > 0);
+  return (
+    <div className="card mb-4 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="flex-1 font-semibold">Aging — kitna purana udhaar · <Ur>ادھار کی عمر</Ur></h2>
+        <span className="text-sm text-slate-500">Overdue (31+ din): <b className="text-red-600">{pkr(data.overdue)}</b></span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        {data.buckets.map((b: any, i: number) => (
+          <div key={b.bucket} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+            <div className="text-xs text-slate-500">{b.bucket}</div>
+            <div className={`text-lg font-bold tabular-nums ${tone[i]}`}>{pkr(b.amount)}</div>
+          </div>
+        ))}
+      </div>
+      {overdue.length > 0 && <button className="mt-3 text-sm font-medium text-brand-700 underline" onClick={() => setOpen((x) => !x)}>
+        {open ? "Chhupayein" : `Overdue customers dekhein (${overdue.length}) ·`} <Ur>دیر سے ادائیگی</Ur>
+      </button>}
+      {open && (
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr><th className="th">Customer</th><th className="th text-right">31-60</th><th className="th text-right">61-90</th><th className="th text-right">90+</th><th className="th text-right">Total</th></tr></thead>
+            <tbody>{overdue.map((c) => (
+              <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => onOpen(c.id)}>
+                <td className="td">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</td>
+                <td className="td text-right tabular-nums text-amber-600">{c.buckets[1] ? pkr(c.buckets[1]) : "—"}</td>
+                <td className="td text-right tabular-nums text-orange-600">{c.buckets[2] ? pkr(c.buckets[2]) : "—"}</td>
+                <td className="td text-right tabular-nums font-semibold text-red-600">{c.buckets[3] ? pkr(c.buckets[3]) : "—"}</td>
+                <td className="td text-right font-semibold tabular-nums">{pkr(c.balance)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

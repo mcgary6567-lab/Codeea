@@ -5,7 +5,7 @@ import { all, get, run, tx, now, pkStart, pkEnd, pkDate } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
-import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale, audit } from "../services.js";
+import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale, audit, round2 } from "../services.js";
 import { productSchema } from "../products.js";
 import { assertLookup } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -260,6 +260,44 @@ crm.get("/khata", requirePerm("khata.manage"), h((req) => all(
   `SELECT c.id, c.name, c.phone, c.type, c.balance, c.credit_limit, c.risk_score, c.khata_blocked,
      (SELECT MAX(created_at) FROM khata_ledger k WHERE k.customer_id=c.id AND k.type='credit') last_payment
    FROM customers c WHERE c.tenant_id=? AND (c.balance > 0 OR c.credit_limit > 0) ORDER BY c.balance DESC`, tid(req))));
+
+/**
+ * Khata aging: how old each customer's unpaid balance is. Payments clear the OLDEST charges first (FIFO), so what
+ * is left is aged by the date of the charge it belongs to — true 0-30 / 31-60 / 61-90 / 90+ day buckets, not just
+ * "days since the last payment". Used for the owner's monthly report and vasooli planning.
+ */
+const AGING_BUCKETS = ["0-30 days", "31-60 days", "61-90 days", "90+ days"] as const;
+export function khataAging(t: number) {
+  const now = Date.now();
+  const bucketOf = (days: number) => (days <= 30 ? 0 : days <= 60 ? 1 : days <= 90 ? 2 : 3);
+  const custs = all("SELECT id, name, phone, type, balance, credit_limit FROM customers WHERE tenant_id=? AND balance > 0.009 ORDER BY balance DESC", t);
+  const totals = [0, 0, 0, 0];
+  const list = custs.map((c) => {
+    // walk the ledger oldest-first; each payment eats the oldest open charges
+    const rows = all("SELECT type, amount, created_at FROM khata_ledger WHERE customer_id=? ORDER BY created_at, id", c.id);
+    const open: { at: number; left: number }[] = [];
+    for (const r of rows) {
+      if (r.type === "debit") open.push({ at: Date.parse(r.created_at), left: r.amount });
+      else { let pay = r.amount; for (const o of open) { if (pay <= 0) break; const take = Math.min(o.left, pay); o.left -= take; pay -= take; } }
+    }
+    const buckets = [0, 0, 0, 0];
+    let placed = 0;
+    for (const o of open) if (o.left > 0.009) { buckets[bucketOf(Math.floor((now - o.at) / 86_400_000))] += o.left; placed += o.left; }
+    // any balance the ledger does not explain (e.g. an opening balance) is treated as the oldest
+    const residual = round2(c.balance - placed);
+    if (residual > 0.009) buckets[3] += residual;
+    for (let i = 0; i < 4; i++) { buckets[i] = round2(buckets[i]); totals[i] += buckets[i]; }
+    const overdue = round2(buckets[1] + buckets[2] + buckets[3]);
+    return { id: c.id, name: c.name, phone: c.phone, type: c.type, balance: round2(c.balance), credit_limit: c.credit_limit, buckets, overdue };
+  });
+  return {
+    buckets: AGING_BUCKETS.map((b, i) => ({ bucket: b, amount: round2(totals[i]) })),
+    total: round2(totals.reduce((a, v) => a + v, 0)),
+    overdue: round2(totals[1] + totals[2] + totals[3]),
+    list: list.sort((a, b) => b.overdue - a.overdue || b.balance - a.balance),
+  };
+}
+crm.get("/khata/aging", requirePerm("khata.manage"), h((req) => khataAging(tid(req))));
 
 /* ---------------- Orders (from WhatsApp AI or manual) ---------------- */
 crm.get("/orders", requirePerm("orders.manage"), h((req) => all(
