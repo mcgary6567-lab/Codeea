@@ -250,6 +250,13 @@ wholesale.get("/wholesale/dashboard", h((req) => {
   // nudge switching fixed rates to pump-linked ones here.
   const top = [...clients].sort((a, b) => b.month_l - a.month_l)[0];
   if (top?.month_l) sug.push({ level: "good", title: `Top client this month: ${top.name}`, ur: `اس مہینے سب سے بڑا کلائنٹ: ${top.name}`, detail: `${top.month_l.toLocaleString()} L so far. Keep them happy — a thank-you call or a small discount on big loads.`, action: { kind: "open", client_id: top.id, label: "Open client" } });
+  // bypass stock already bought but not yet delivered — deliver this held fuel first
+  for (const p of Object.keys(PRODUCTS)) {
+    const held = round2((get("SELECT COALESCE(SUM(litres),0) l FROM bypass_purchases WHERE tenant_id=? AND voided=0 AND product=?", t, p)!.l as number)
+      - (get("SELECT COALESCE(SUM(litres),0) l FROM bypass_drops WHERE tenant_id=? AND voided=0 AND product=?", t, p)!.l as number));
+    if (held > 0.01)
+      sug.push({ level: "info", title: `Bypass stock already with us: ${Math.round(held).toLocaleString()} L ${PRODUCTS[p]}`, ur: `بائی پاس کا ${Math.round(held).toLocaleString()} لیٹر ${PRODUCTS[p]} پہلے سے ہمارے پاس ہے — پہلے یہ ڈیلیور کریں`, detail: `${Math.round(held).toLocaleString()} L of ${PRODUCTS[p]} was lifted from a depot but not yet delivered. Deliver this first — in a new Depot-direct trip, leave the purchase blank and just add the client drop.`, action: { kind: "trip", label: "Deliver it" } });
+  }
   // stock for the next 3 days of wholesale
   for (const p of Object.keys(PRODUCTS)) {
     const avg = (get("SELECT COALESCE(SUM(litres),0) l FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='supply' AND product=? AND txn_date >= ?", t, p, new Date(nowMs - 14 * DAYMS).toISOString())!.l as number) / 14;

@@ -34,6 +34,23 @@ const Kpi = ({ label, ur, value, sub, accent }: { label: string; ur?: string; va
   </div>
 );
 
+/** Reminder for the wholesale officer: bypass fuel we already bought but haven't delivered — deliver it first. */
+function BypassHeldBanner({ onDeliver }: { onDeliver?: () => void }) {
+  const { data } = useApi<any>("/bypass/stock");
+  const lines = (data?.by_product ?? []) as any[];
+  if (!lines.length || !(data?.total?.litres > 0)) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-300">
+      <Truck size={20} className="shrink-0 text-amber-700" />
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-amber-900">Pehle se humare paas bypass maal ruka hai — pehle ise deliver karein</div>
+        <div className="text-sm text-amber-800">{lines.map((p) => `${num(p.litres)} L ${PRODUCTS[p.product] ?? p.product}`).join(" · ")} · total {pkr(data.total.value)} (cost par) <Ur className="ml-1">باقی مال پہلے دیں</Ur></div>
+      </div>
+      {onDeliver && <button className="btn-primary !bg-amber-600 shrink-0 hover:!bg-amber-700" onClick={onDeliver}><Truck size={15} /> Deliver karein</button>}
+    </div>
+  );
+}
+
 /** Wholesale home: today's actions, KPIs, suggestions, trends, ageing and client health. */
 export function WholesaleDashboard({ onTrip, onAddClient, onTab }: { onTrip: () => void; onAddClient: () => void; onFleet: () => void; onTab: (t: string) => void }) {
   const { can } = useAuth();
@@ -51,6 +68,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onTab }: { onTrip: () 
   return (
     <div className="space-y-5">
       <WholesaleVoice onDone={reload} />
+      <BypassHeldBanner onDeliver={manage ? onTrip : undefined} />
       {manage && (
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-4 2xl:grid-cols-7">
           {[
