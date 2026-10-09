@@ -264,11 +264,78 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
                 {!c.orders.length && !c.complaints.length && <li className="text-slate-500">None</li>}
               </ul>
             </section>
+            {c.credit_limit > 0 && <section className="min-w-0 sm:col-span-2"><GuaranteeSection customerId={c.id} canEdit={can("khata.manage")} /></section>}
           </div>
           {edit && <CustomerForm open initial={c} onClose={() => setEdit(false)} onSaved={refresh} />}
           {bill && <KhataStatement customerId={c.id} onClose={() => setBill(false)} />}
         </div>
       )}
     </Modal>
+  );
+}
+
+/** Security held against a khata account: post-dated cheques and personal guarantors. */
+function GuaranteeSection({ customerId, canEdit }: { customerId: number; canEdit: boolean }) {
+  const { data, reload } = useApi<any[]>(`/customers/${customerId}/guarantees`);
+  const { busy, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<"cheque" | "guarantor">("cheque");
+  const [f, setF] = useState<any>({});
+  const statusTones: Record<string, string> = { held: "green", returned: "slate", bounced: "red", deposited: "blue" };
+  const submit = async () => {
+    const body = kind === "cheque"
+      ? { kind, bank: f.bank, cheque_no: f.cheque_no, amount: f.amount ? Number(f.amount) : undefined, cheque_date: f.cheque_date || undefined, note: f.note }
+      : { kind, guarantor_name: f.guarantor_name, guarantor_phone: f.guarantor_phone, guarantor_cnic: f.guarantor_cnic, note: f.note };
+    if (await run(() => api(`/customers/${customerId}/guarantees`, { body }), "Saved")) { setF({}); setOpen(false); reload(); }
+  };
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <h3 className="flex-1 text-sm font-semibold">Security — cheque / zamanat · <Ur>ضمانت</Ur></h3>
+        {canEdit && <button className="text-xs font-medium text-brand-700 underline" onClick={() => setOpen((x) => !x)}>{open ? "Cancel" : "+ Add"}</button>}
+      </div>
+      <ul className="space-y-1 text-sm">
+        {(data ?? []).map((g) => (
+          <li key={g.id} className="flex items-center gap-2 rounded-lg bg-slate-50 px-2 py-1.5">
+            <span className="flex-1 min-w-0">
+              {g.kind === "cheque"
+                ? <><b>Cheque {g.cheque_no}</b>{g.bank ? ` · ${g.bank}` : ""}{g.amount ? ` · ${pkr(g.amount)}` : ""}{g.cheque_date ? ` · ${g.cheque_date}` : ""}</>
+                : <><b>{g.guarantor_name}</b>{g.guarantor_phone ? ` · ${g.guarantor_phone}` : ""}{g.guarantor_cnic ? ` · ${g.guarantor_cnic}` : ""}</>}
+              {g.note ? <span className="block text-xs text-slate-500">{g.note}</span> : null}
+            </span>
+            <Badge tone={statusTones[g.status] ?? "slate"}>{g.status}</Badge>
+            {canEdit && g.status === "held" && (
+              <select className="input !min-h-0 w-auto !py-1 text-xs" value="" onChange={(e) => e.target.value && run(() => api(`/guarantees/${g.id}`, { method: "PATCH", body: { status: e.target.value } }), "Updated").then(reload)}>
+                <option value="">Mark…</option><option value="returned">Returned</option><option value="deposited">Deposited</option><option value="bounced">Bounced</option>
+              </select>
+            )}
+          </li>
+        ))}
+        {!(data ?? []).length && <li className="text-slate-500">Koi security nahi.</li>}
+      </ul>
+      {open && canEdit && (
+        <div className="mt-2 rounded-xl bg-slate-50 p-3">
+          <div className="mb-2 flex gap-2">
+            {(["cheque", "guarantor"] as const).map((k) => (
+              <button key={k} onClick={() => setKind(k)} className={`rounded-lg px-3 py-1 text-sm ${kind === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-300"}`}>{k === "cheque" ? "Cheque" : "Guarantor"}</button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {kind === "cheque" ? <>
+              <input className="input" placeholder="Cheque no." value={f.cheque_no ?? ""} onChange={(e) => setF({ ...f, cheque_no: e.target.value })} />
+              <input className="input" placeholder="Bank" value={f.bank ?? ""} onChange={(e) => setF({ ...f, bank: e.target.value })} />
+              <input className="input" type="number" placeholder="Amount (Rs)" value={f.amount ?? ""} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+              <input className="input" type="date" value={f.cheque_date ?? ""} onChange={(e) => setF({ ...f, cheque_date: e.target.value })} />
+            </> : <>
+              <input className="input" placeholder="Guarantor name" value={f.guarantor_name ?? ""} onChange={(e) => setF({ ...f, guarantor_name: e.target.value })} />
+              <input className="input" placeholder="Phone" value={f.guarantor_phone ?? ""} onChange={(e) => setF({ ...f, guarantor_phone: e.target.value })} />
+              <input className="input col-span-2" placeholder="CNIC" value={f.guarantor_cnic ?? ""} onChange={(e) => setF({ ...f, guarantor_cnic: e.target.value })} />
+            </>}
+            <input className="input col-span-2" placeholder="Note (optional)" value={f.note ?? ""} onChange={(e) => setF({ ...f, note: e.target.value })} />
+          </div>
+          <button className="btn-primary mt-2 w-full" disabled={busy} onClick={submit}>Save security</button>
+        </div>
+      )}
+    </div>
   );
 }

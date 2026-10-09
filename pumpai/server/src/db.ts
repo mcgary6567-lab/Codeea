@@ -262,6 +262,20 @@ export function migrate() {
   addColumn("sales", "cleared_at", "TEXT"); // when the pending slip was cleared (billed to the khata)
   // a fixed (lump-sum) discount in rupees given to a khata customer: amount stored = litres*rate − discount (the net billed)
   addColumn("sales", "discount", "REAL NOT NULL DEFAULT 0");
+  // 1 = a manager/CEO allowed this sale over the vehicle's daily litre limit (for the discount & override audit report)
+  addColumn("sales", "over_limit", "INTEGER NOT NULL DEFAULT 0");
+  // khata security: a post-dated cheque or a personal guarantor held against a credit account
+  db.exec(`CREATE TABLE IF NOT EXISTS khata_guarantees (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL REFERENCES customers(id),
+    kind TEXT NOT NULL, bank TEXT, cheque_no TEXT, amount REAL, cheque_date TEXT,
+    guarantor_name TEXT, guarantor_phone TEXT, guarantor_cnic TEXT,
+    note TEXT, status TEXT NOT NULL DEFAULT 'held', photo_id INTEGER, created_by INTEGER, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_guarantee_cust ON khata_guarantees(customer_id)");
+  // competitor pump prices noted by hand, to compare with ours
+  db.exec(`CREATE TABLE IF NOT EXISTS competitor_prices (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, name TEXT NOT NULL, product TEXT NOT NULL,
+    price REAL NOT NULL, noted_on TEXT NOT NULL, created_by INTEGER, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_competitor ON competitor_prices(tenant_id, product, noted_on)");
   db.exec(`CREATE TABLE IF NOT EXISTS photos (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT, mime TEXT NOT NULL, data BLOB NOT NULL,
     ai_result TEXT, created_by INTEGER, created_at TEXT NOT NULL)`); // meter / invoice / receipt photos kept as proof

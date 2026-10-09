@@ -299,6 +299,35 @@ export function khataAging(t: number) {
 }
 crm.get("/khata/aging", requirePerm("khata.manage"), h((req) => khataAging(tid(req))));
 
+/* ---------------- Khata security: post-dated cheques & guarantors ---------------- */
+crm.get("/customers/:id/guarantees", requirePerm("khata.manage"), h((req) =>
+  all("SELECT * FROM khata_guarantees WHERE customer_id=? AND tenant_id=? ORDER BY CASE status WHEN 'held' THEN 0 ELSE 1 END, id DESC", Number(req.params.id), tid(req))));
+crm.post("/customers/:id/guarantees", requirePerm("khata.manage"), h(async (req) => {
+  const t = tid(req), cid = Number(req.params.id);
+  if (!get("SELECT id FROM customers WHERE id=? AND tenant_id=?", cid, t)) throw new AppError(404, "Customer not found");
+  const b = parse(z.object({
+    kind: z.enum(["cheque", "guarantor"]),
+    bank: z.string().max(60).optional().nullable(), cheque_no: z.string().max(40).optional().nullable(), amount: z.number().positive().optional().nullable(),
+    cheque_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+    guarantor_name: z.string().max(80).optional().nullable(), guarantor_phone: z.string().max(20).optional().nullable(), guarantor_cnic: z.string().max(20).optional().nullable(),
+    note: z.string().max(300).optional().nullable(), photo_id: z.number().int().positive().optional().nullable(),
+  }), req.body);
+  if (b.kind === "cheque" && !b.cheque_no) throw new AppError(400, "Cheque number is needed");
+  if (b.kind === "guarantor" && !b.guarantor_name) throw new AppError(400, "Guarantor name is needed");
+  const { id } = run(`INSERT INTO khata_guarantees (tenant_id,customer_id,kind,bank,cheque_no,amount,cheque_date,guarantor_name,guarantor_phone,guarantor_cnic,note,status,photo_id,created_by,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,'held',?,?,?)`,
+    t, cid, b.kind, b.bank ?? null, b.cheque_no ?? null, b.amount ?? null, b.cheque_date ?? null, b.guarantor_name ?? null, b.guarantor_phone ?? null, b.guarantor_cnic ?? null, b.note ?? null, b.photo_id ?? null, req.user!.id, now());
+  if (b.photo_id) linkPhotos(t, [b.photo_id], `guarantee:${id}`);
+  return get("SELECT * FROM khata_guarantees WHERE id=?", id);
+}));
+crm.patch("/guarantees/:id", requirePerm("khata.manage"), h((req) => {
+  const b = parse(z.object({ status: z.enum(["held", "returned", "bounced", "deposited"]), note: z.string().max(300).optional() }), req.body);
+  const g = get("SELECT * FROM khata_guarantees WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
+  if (!g) throw new AppError(404, "Not found");
+  run("UPDATE khata_guarantees SET status=?, note=COALESCE(?,note) WHERE id=?", b.status, b.note ?? null, g.id);
+  return get("SELECT * FROM khata_guarantees WHERE id=?", g.id);
+}));
+
 /* ---------------- Orders (from WhatsApp AI or manual) ---------------- */
 crm.get("/orders", requirePerm("orders.manage"), h((req) => all(
   `SELECT o.*, c.name customer_name, c.phone FROM orders o JOIN customers c ON c.id=o.customer_id WHERE o.tenant_id=? ORDER BY o.id DESC LIMIT 200`, tid(req))));

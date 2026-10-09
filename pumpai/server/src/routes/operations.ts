@@ -261,6 +261,26 @@ registerDecider("price", async (t, id, approve, by) => { await decidePriceReques
 operations.post("/price-requests/:id/:decision(approve|reject)", requirePerm("settings.manage"), h((req) =>
   decidePriceRequest(tid(req), Number(req.params.id), req.params.decision === "approve", req.user!.name)));
 
+/* ---------------- Competitor prices (noted by hand, to compare with ours) ---------------- */
+operations.get("/competitors", requirePerm("prices.view"), h((req) => {
+  const t = tid(req);
+  const latest = all(`SELECT cp.* FROM competitor_prices cp WHERE cp.tenant_id=? AND cp.id = (
+      SELECT id FROM competitor_prices c2 WHERE c2.tenant_id=cp.tenant_id AND c2.name=cp.name AND c2.product=cp.product ORDER BY c2.noted_on DESC, c2.id DESC LIMIT 1)
+    ORDER BY cp.name, cp.product`, t);
+  const ours = Object.fromEntries(Object.entries(currentPrices(t)).map(([k, v]) => [k, v.price]));
+  return { ours, competitors: latest };
+}));
+operations.post("/competitors", requirePerm("prices.update"), h((req) => {
+  const b = parse(z.object({ name: z.string().min(1).max(60), product: productSchema(), price: z.number().positive(), noted_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }), req.body);
+  const { id } = run("INSERT INTO competitor_prices (tenant_id,name,product,price,noted_on,created_by,created_at) VALUES (?,?,?,?,?,?,?)",
+    tid(req), b.name.trim(), b.product, b.price, b.noted_on ?? pkDate(), req.user!.id, now());
+  return get("SELECT * FROM competitor_prices WHERE id=?", id);
+}));
+operations.delete("/competitors/:id", requirePerm("prices.update"), h((req) => {
+  run("DELETE FROM competitor_prices WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
+  return { ok: true };
+}));
+
 /* ---------------- Sales / POS ---------------- */
 operations.get("/sales", requirePerm("sales.view"), h((req) => {
   const limit = Math.min(500, Number(req.query.limit ?? 100));

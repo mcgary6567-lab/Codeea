@@ -336,3 +336,33 @@ reports.get("/reports", h((req) => {
   if (Date.parse(to) - Date.parse(from) > 3 * 366 * DAY) throw new AppError(400, "Maximum report period is 3 years");
   return buildReport(tid(req), from, to);
 }));
+
+/** Discounts & limit-overrides given on sales, by who gave them — a check on the two money "levers" salesmen/managers hold. */
+reports.get("/reports/discounts", h((req) => {
+  const q = parse(z.object({ from: z.string().datetime({ offset: true }).optional(), to: z.string().datetime({ offset: true }).optional() }), req.query);
+  const to = q.to ? new Date(q.to).toISOString() : new Date().toISOString();
+  const from = q.from ? new Date(q.from).toISOString() : new Date(Date.parse(to) - 30 * DAY).toISOString();
+  const t = tid(req);
+  const rows = all(`SELECT s.id, s.created_at, s.product, s.litres, s.rate, s.amount, s.discount, s.over_limit, s.vehicle_no,
+      c.name customer_name, u.name by_name, u.role by_role
+    FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN customers c ON c.id=s.customer_id LEFT JOIN users u ON u.id=s.created_by
+    WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? AND (s.discount > 0 OR s.over_limit = 1)
+    ORDER BY s.id DESC`, t, from, to);
+  const discounts = rows.filter((r) => r.discount > 0);
+  const overrides = rows.filter((r) => r.over_limit === 1);
+  // per-person discount totals
+  const byPerson = new Map<string, { name: string; role: string; count: number; total: number }>();
+  for (const r of discounts) {
+    const k = r.by_name ?? "—";
+    const e = byPerson.get(k) ?? { name: k, role: r.by_role ?? "", count: 0, total: 0 };
+    e.count++; e.total = round2(e.total + r.discount); byPerson.set(k, e);
+  }
+  return {
+    from, to,
+    discount_total: round2(discounts.reduce((a, r) => a + r.discount, 0)),
+    discount_count: discounts.length,
+    override_count: overrides.length,
+    by_person: [...byPerson.values()].sort((a, b) => b.total - a.total),
+    list: rows.slice(0, 300),
+  };
+}));

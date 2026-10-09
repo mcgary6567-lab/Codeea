@@ -55,6 +55,7 @@ export default function Prices() {
           <button className="btn-primary w-full" disabled={busy || !changed.length} onClick={submit}>Update {changed.length || ""} price{changed.length === 1 ? "" : "s"}</button>
         </div>}
         <div className="space-y-5">
+        <CompetitorBoard canEdit={can("prices.update")} />
         <TvBoard canEdit={can("prices.update")} />
         {data.last_change && (
           <div className="card">
@@ -80,6 +81,54 @@ export default function Prices() {
         </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Compare our pump prices with nearby competitors' (noted by hand). */
+function CompetitorBoard({ canEdit }: { canEdit: boolean }) {
+  const { data, reload } = useApi<any>("/competitors");
+  const { busy, run } = useAction();
+  const [f, setF] = useState({ name: "", product: "", price: "" });
+  if (!data) return null;
+  const products = Object.keys(data.ours);
+  const add = async () => {
+    if (!f.name.trim() || !f.product || !(Number(f.price) > 0)) return;
+    const r = await run(() => api("/competitors", { body: { name: f.name.trim(), product: f.product, price: Number(f.price) } }), "Competitor rate saved");
+    if (r) { setF({ name: "", product: "", price: "" }); reload(); }
+  };
+  return (
+    <div className="card p-4">
+      <h2 className="mb-2 font-semibold">Nearby pumps — rate comparison · <span lang="ur" dir="rtl" className="font-urdu">قریبی پمپ</span></h2>
+      {!data.competitors.length ? <p className="text-sm text-slate-500">Koi competitor rate note nahi. Neeche add karein.</p> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr><th className="th">Pump</th><th className="th">Product</th><th className="th text-right">Unka rate</th><th className="th text-right">Hamara</th><th className="th text-right">Farq</th><th className="th">Noted</th>{canEdit && <th className="th" />}</tr></thead>
+            <tbody>{data.competitors.map((c: any) => {
+              const ours = data.ours[c.product] ?? 0; const diff = +(ours - c.price).toFixed(2);
+              return (
+                <tr key={c.id}>
+                  <td className="td">{c.name}</td><td className="td">{PRODUCTS[c.product] ?? c.product}</td>
+                  <td className="td text-right tabular-nums">Rs {c.price.toFixed(2)}</td>
+                  <td className="td text-right tabular-nums">Rs {ours.toFixed(2)}</td>
+                  <td className={`td text-right tabular-nums font-semibold ${diff > 0 ? "text-red-600" : diff < 0 ? "text-emerald-700" : "text-slate-500"}`}>{diff > 0 ? `+${diff}` : diff}</td>
+                  <td className="td text-xs text-slate-500">{dt(c.noted_on)}</td>
+                  {canEdit && <td className="td"><button className="text-xs text-red-600 underline" disabled={busy} onClick={() => run(() => api(`/competitors/${c.id}`, { method: "DELETE" }), "Removed").then(reload)}>Remove</button></td>}
+                </tr>
+              );
+            })}</tbody>
+          </table>
+          <p className="mt-1 text-xs text-slate-500">+ ka matlab hum mehnge, − ka matlab hum saste.</p>
+        </div>
+      )}
+      {canEdit && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <input className="input w-40" placeholder="Pump ka naam" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <select className="input w-auto" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}><option value="">Product</option>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p] ?? p}</option>)}</select>
+          <input className="input w-28" type="number" step="0.01" placeholder="Rate" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
+          <button className="btn-secondary" disabled={busy} onClick={add}>Add</button>
+        </div>
+      )}
     </div>
   );
 }
