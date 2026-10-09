@@ -93,7 +93,7 @@ export default function CardPending() {
                     <span className="font-medium">Rate for the clear day</span>
                     {oneProduct ? (
                       <div className="mt-1 flex items-center gap-1"><span className="text-sm text-slate-500">Rs</span>
-                        <input className="input text-right" type="number" step="0.01" placeholder={String(defaultRate ?? "")} value={rate} onChange={(e) => setRate(e.target.value)} /></div>
+                        <input className="input text-right" type="number" step="0.01" min={0} placeholder={String(defaultRate ?? "")} value={rate} onChange={(e) => setRate(e.target.value)} /></div>
                     ) : (
                       <p className="mt-1 text-xs text-slate-500">Mixed fuels selected — each is billed at its own current pump price.</p>
                     )}

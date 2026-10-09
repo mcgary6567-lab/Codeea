@@ -61,7 +61,7 @@ export default function Prices() {
           {Object.keys(PRODUCTS).map((p) => (
             <label key={p} className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium">{PRODUCTS[p]} <span className="text-xs text-slate-500">({p})</span></span>
-              <div className="flex items-center gap-1"><span className="text-sm text-slate-500">Rs</span><input className="input w-32 text-right" type="number" step="0.01" value={vals[p] ?? ""} onChange={(e) => setVals({ ...vals, [p]: e.target.value })} /></div>
+              <div className="flex items-center gap-1"><span className="text-sm text-slate-500">Rs</span><input className="input w-32 text-right" type="number" step="0.01" min={0} value={vals[p] ?? ""} onChange={(e) => setVals({ ...vals, [p]: e.target.value })} /></div>
             </label>
           ))}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={broadcast} onChange={(e) => setBroadcast(e.target.checked)} /> Broadcast new prices on WhatsApp to opted-in customers</label>
@@ -147,7 +147,7 @@ function CompetitorBoard({ canEdit }: { canEdit: boolean }) {
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <input className="input w-40" placeholder="Pump ka naam" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
           <select className="input w-auto" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}><option value="">Product</option>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p] ?? p}</option>)}</select>
-          <input className="input w-28" type="number" step="0.01" placeholder="Rate" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
+          <input className="input w-28" type="number" step="0.01" min={0} placeholder="Rate" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
           <button className="btn-secondary" disabled={busy} onClick={add}>Add</button>
         </div>
       )}

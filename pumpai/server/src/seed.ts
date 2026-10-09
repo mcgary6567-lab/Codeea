@@ -683,6 +683,8 @@ function seedBanks(tenantId: number) {
   run(`UPDATE expenses SET account_id=? WHERE tenant_id=? AND status='approved' AND ${nonCash("method")}`, mzn, tenantId);
   run(`UPDATE wallet_ledger SET account_id=? WHERE tenant_id=? AND type IN ('deposit','refund') AND ${nonCash("method")}`, mzn, tenantId);
   setSetting(tenantId, "bank_pos_map", JSON.stringify({ card: hbl, raast: mzn, easypaisa: ep, jazzcash: ep }));
+  run("UPDATE bank_accounts SET card_fee_pct=1.8 WHERE id=?", hbl); // bank keeps 1.8% MDR on every card sale settling into HBL
+
   // every week the owner takes out the surplus (or tops up), so the balance moves smoothly to today's
   const opening: Record<number, number> = { [hbl]: 1_500_000, [mzn]: 400_000, [ep]: 25_000 };
   const target: Record<number, number> = { [hbl]: 4_850_000, [mzn]: 1_265_000, [ep]: 86_500 };

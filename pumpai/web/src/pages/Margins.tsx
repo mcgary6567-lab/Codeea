@@ -63,7 +63,7 @@ function TargetCard({ month, data, onSaved }: { month: string; data: any; onSave
           return (
             <div key={k} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
               <div className="text-sm font-medium">{label}</div>
-              <input className="input mt-1" type="number" placeholder="Target set karein" value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
+              <input className="input mt-1" type="number" min={0} placeholder="Target set karein" value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
               <div className="mt-2 text-xs text-slate-500">Actual: <b className="tabular-nums text-slate-700">{fmt(actual)}</b></div>
               {target > 0 && <>
                 <div className="mt-1 h-2 rounded-full bg-slate-200"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 100 ? "#1baf7a" : pct >= 60 ? "#2a78d6" : "#e0a106" }} /></div>

@@ -445,7 +445,7 @@ export default function Pos() {
       }} />}
       {pickWallet && <WalletPicker onClose={() => { setPickWallet(false); if (!walletAcct) setPay(null); }} onPick={(a) => { setWalletAcct(a); setPickWallet(false); }} />}
       {pickPoints && <PointsPicker onClose={() => { setPickPoints(false); if (!pointsCust) setPay(null); }} onPick={(c) => { setPointsCust(c); setPickPoints(false); }} />}
-      {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} discountMax={d.discount_max ?? null} fuel />}
+      {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} discountMax={d.discount_max ?? null} fuelAmount={amount} fuel />}
       {pickBank && <BankPosPicker accounts={bankAccounts} onClose={() => setPickBank(false)} onPick={(a) => { setCardBank(a); setPickBank(false); }} />}
       {done && (
         <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.training ? "bg-amber-500/95" : done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => setDone(null)}>
@@ -595,7 +595,7 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
   );
 }
 
-function KhataPicker({ initial, onClose, onPick, discountMax = null, fuel = false }: { initial: any; onClose: () => void; onPick: (k: { account: any; vehicle: string; slip: string; photo_id?: number | null; pending?: boolean; discount?: number }) => void; discountMax?: number | null; fuel?: boolean }) {
+function KhataPicker({ initial, onClose, onPick, discountMax = null, fuelAmount = 0, fuel = false }: { initial: any; onClose: () => void; onPick: (k: { account: any; vehicle: string; slip: string; photo_id?: number | null; pending?: boolean; discount?: number }) => void; discountMax?: number | null; fuelAmount?: number; fuel?: boolean }) {
   const { data: live } = useApi<any[]>("/pos/khata-accounts");
   useEffect(() => { if (live) cacheSet("khata_accounts", live); }, [live]);
   const data = live ?? cacheGet<any[]>("khata_accounts");
@@ -609,6 +609,7 @@ function KhataPicker({ initial, onClose, onPick, discountMax = null, fuel = fals
   const [discount, setDiscount] = useState<string>(initial?.discount ? String(initial.discount) : "");
   const discNum = Number(discount) || 0;
   const overLimit = discountMax != null && discNum > discountMax; // salesman's per-sale limit (null = manager/CEO, no cap)
+  const discTooBig = fuelAmount > 0 && discNum >= fuelAmount; // discount can never equal/exceed the fuel amount (net would be ≤ 0)
   const list = useMemo(() => (data ?? []).filter((a) => (!type || (type === "institution" ? ["police", "school", "government", "hospital"].includes(a.type) : a.type === type)) && a.name.toLowerCase().includes(q.toLowerCase())), [data, q, type]);
   const institution = account && ["police", "school", "government", "hospital"].includes(account.type);
 
@@ -690,9 +691,10 @@ function KhataPicker({ initial, onClose, onPick, discountMax = null, fuel = fals
             {fuel && !pending && (
               <div>
                 <div className="mb-2 text-lg font-semibold">Discount (Rs) · <Ur>رعایت</Ur> <span className="text-sm font-normal text-slate-500">(optional)</span></div>
-                <input className="input py-3 text-2xl" inputMode="numeric" placeholder="e.g. 500" value={discount} onChange={(e) => setDiscount(e.target.value.replace(/[^0-9.]/g, ""))} />
-                {discountMax != null && <p className={`mt-1 text-sm ${overLimit ? "font-semibold text-red-600" : "text-slate-500"}`}>{overLimit ? `Rs ${discountMax} se zyada discount manager / CEO hi de sakta hai.` : `Aap Rs ${discountMax} tak discount de sakte hain.`}</p>}
-                {discNum > 0 && !overLimit && <p className="mt-1 text-sm text-amber-700">Khate mein net amount chargega (petrol ki keemat − Rs {discNum}).</p>}
+                <input className="input py-3 text-2xl" inputMode="decimal" placeholder="e.g. 500" value={discount} onChange={(e) => setDiscount(e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1"))} />
+                {discTooBig && <p className="mt-1 text-sm font-semibold text-red-600">Discount petrol ki keemat (Rs {Math.round(fuelAmount)}) se kam hona chahiye.</p>}
+                {discountMax != null && !discTooBig && <p className={`mt-1 text-sm ${overLimit ? "font-semibold text-red-600" : "text-slate-500"}`}>{overLimit ? `Rs ${discountMax} se zyada discount manager / CEO hi de sakta hai.` : `Aap Rs ${discountMax} tak discount de sakte hain.`}</p>}
+                {discNum > 0 && !overLimit && !discTooBig && <p className="mt-1 text-sm text-amber-700">Khate mein net amount chargega (petrol ki keemat − Rs {discNum}).</p>}
               </div>
             )}
             {/* card-pending: fuel out now, card comes later → bill on the day it arrives, at that day's rate (fuel only) */}
@@ -707,7 +709,7 @@ function KhataPicker({ initial, onClose, onPick, discountMax = null, fuel = fals
             <p className="text-sm text-slate-500">{pending
               ? "Pending hold: abhi koi udhaar nahi chartha. Owner/cashier/manager card aane par clear karenge us din ke rate par."
               : "Today's rate is saved with this entry, so the bill always shows the price on that day."}</p>
-            <button disabled={overLimit} className={`w-full rounded-xl py-4 text-2xl font-bold text-white active:scale-95 disabled:bg-slate-300 ${pending ? "bg-violet-600" : "bg-emerald-600"}`} onClick={() => onPick({ account, vehicle: vehicle.trim(), slip: slip.trim(), photo_id: photo, pending, discount: pending ? 0 : discNum })}>
+            <button disabled={overLimit || discTooBig} className={`w-full rounded-xl py-4 text-2xl font-bold text-white active:scale-95 disabled:bg-slate-300 ${pending ? "bg-violet-600" : "bg-emerald-600"}`} onClick={() => onPick({ account, vehicle: vehicle.trim(), slip: slip.trim(), photo_id: photo, pending, discount: pending ? 0 : discNum })}>
               <Check className="inline" size={26} /> {pending ? <>Hold pending · <Ur>پینڈنگ</Ur></> : <>Done · <Ur>ٹھیک ہے</Ur></>}
             </button>
           </div>

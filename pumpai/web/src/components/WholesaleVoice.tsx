@@ -111,8 +111,8 @@ function Result({ r, onClose, onSaved }: { r: any; onClose: () => void; onSaved:
           <option value="">— choose —</option>{(clients.data ?? []).filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
         {["supply", "return", "order", "trip"].includes(r.intent) && <Field label="Fuel · تیل"><select className="input" value={f.product} onChange={(e) => set("product", e.target.value)}>
           {Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>}
-        {["supply", "return", "order"].includes(r.intent) && <Field label="Litres · لیٹر"><input className="input text-lg" type="number" value={f.litres} onChange={(e) => set("litres", e.target.value)} /></Field>}
-        {["payment", "promise", "cheque"].includes(r.intent) && <Field label="Amount (Rs) · رقم"><input className="input text-lg" type="number" value={f.amount} onChange={(e) => set("amount", e.target.value)} /></Field>}
+        {["supply", "return", "order"].includes(r.intent) && <Field label="Litres · لیٹر"><input className="input text-lg" type="number" min={0} step="0.01" value={f.litres} onChange={(e) => set("litres", e.target.value)} /></Field>}
+        {["payment", "promise", "cheque"].includes(r.intent) && <Field label="Amount (Rs) · رقم"><input className="input text-lg" type="number" min={0} value={f.amount} onChange={(e) => set("amount", e.target.value)} /></Field>}
         {r.intent === "payment" && <Field label="Method · طریقہ"><select className="input" value={f.method} onChange={(e) => set("method", e.target.value)}>{METHODS.map((m) => <option key={m}>{m}</option>)}</select></Field>}
         {r.intent === "cheque" && <Field label="Cheque no. · چیک نمبر"><input className="input" value={f.cheque_no} onChange={(e) => set("cheque_no", e.target.value)} /></Field>}
         <Field label={r.intent === "order" ? "Deliver on · کب" : r.intent === "promise" ? "Will pay on · کب" : r.intent === "cheque" ? "Cheque date · تاریخ" : "Date · تاریخ"}>
@@ -122,7 +122,7 @@ function Result({ r, onClose, onSaved }: { r: any; onClose: () => void; onSaved:
           <Field label="Driver · ڈرائیور"><select className="input" value={f.driver_id} onChange={(e) => set("driver_id", e.target.value)}><option value="">— tanker's driver —</option>{(fleet.data?.drivers ?? []).filter((d: any) => d.active).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
         </>}
         {(r.intent === "supply" || r.intent === "order") && <Field label="Drop location · جگہ"><input className="input" value={f.location} onChange={(e) => set("location", e.target.value)} /></Field>}
-        {r.intent === "supply" && can("wholesale.rates") && <Field label="Rate (blank = rate card)"><input className="input" type="number" step="0.01" placeholder={client?.rates?.[f.product] ? String(client.rates[f.product]) : ""} value={f.rate} onChange={(e) => set("rate", e.target.value)} /></Field>}
+        {r.intent === "supply" && can("wholesale.rates") && <Field label="Rate (blank = rate card)"><input className="input" type="number" step="0.01" min={0} placeholder={client?.rates?.[f.product] ? String(client.rates[f.product]) : ""} value={f.rate} onChange={(e) => set("rate", e.target.value)} /></Field>}
       </div>
       {r.intent === "cheque" && <div><span className="label">Bank on the cheque · بینک</span>
         {f.bank ? <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2"><BankLogo name={f.bank} size={32} /><b className="flex-1">{f.bank}</b><button className="text-sm text-brand-700 underline" onClick={() => set("bank", "")}>Change</button></div>
@@ -136,7 +136,7 @@ function Result({ r, onClose, onSaved }: { r: any; onClose: () => void; onSaved:
             return (
               <div key={i} className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0">
                 <span className="flex-1 font-medium">{d.client_name}</span>
-                <input className="input w-28 text-right" type="number" value={d.litres} onChange={(e) => setF({ ...f, drops: f.drops.map((x: any, j: number) => (j === i ? { ...x, litres: e.target.value } : x)) })} /> L
+                <input className="input w-28 text-right" type="number" min={0} step="0.01" value={d.litres} onChange={(e) => setF({ ...f, drops: f.drops.map((x: any, j: number) => (j === i ? { ...x, litres: e.target.value } : x)) })} /> L
                 <span className="w-28 text-right text-sm tabular-nums text-slate-600">{pr?.rate ? pkr(pr.rate * Number(d.litres)) : "no rate"}</span>
                 <button className="text-slate-400 hover:text-red-600" onClick={() => setF({ ...f, drops: f.drops.filter((_: any, j: number) => j !== i) })} aria-label="Remove"><X size={15} /></button>
               </div>

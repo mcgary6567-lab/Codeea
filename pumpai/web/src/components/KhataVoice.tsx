@@ -79,7 +79,7 @@ function Result({ r, onClose, onSaved }: { r: any; onClose: () => void; onSaved:
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Customer · گاہک"><select className="input" value={f.customer_id} onChange={(e) => set("customer_id", e.target.value)}>
           <option value="">— choose —</option>{(customers.data ?? []).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-        {money && <Field label="Amount (Rs) · رقم"><input className="input text-lg" type="number" value={f.amount} onChange={(e) => set("amount", e.target.value)} /></Field>}
+        {money && <Field label="Amount (Rs) · رقم"><input className="input text-lg" type="number" min={0} value={f.amount} onChange={(e) => set("amount", e.target.value)} /></Field>}
         {r.intent === "payment" && <Field label="Method · طریقہ"><select className="input" value={f.method} onChange={(e) => set("method", e.target.value)}>{METHODS.map((m) => <option key={m}>{m}</option>)}</select></Field>}
         {r.intent === "charge" && <Field label="For what · کس چیز کا"><input className="input" value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>}
       </div>

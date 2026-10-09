@@ -594,7 +594,7 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
           </div>
         </div>
         <Field label="Kitne litre? · لیٹر"><input autoFocus className="input py-3 text-2xl" type="number" step="0.01" min={1} inputMode="decimal" value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
-        {can("wholesale.rates") && <Field label="Rate (Rs/L) — khaali = client ka rate card"><input className="input" type="number" step="0.01" placeholder={client.rates[f.product] ? String(client.rates[f.product]) : "no rate set"} value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} /></Field>}
+        {can("wholesale.rates") && <Field label="Rate (Rs/L) — khaali = client ka rate card"><input className="input" type="number" step="0.01" min={0} placeholder={client.rates[f.product] ? String(client.rates[f.product]) : "no rate set"} value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} /></Field>}
         {Number(f.litres) > 0 && rate > 0 && <div className="rounded-xl bg-emerald-50 p-3 text-center ring-1 ring-emerald-200"><div className="text-sm text-emerald-700">{num(Number(f.litres), 2)} L × Rs {rate}</div><div className="text-2xl font-bold text-emerald-800">{pkr(amount)}</div></div>}
         {!step1ok && Number(f.litres) > 0 && rate <= 0 && <p className="text-sm text-rose-600">Is client ka {PRODUCTS[f.product]} rate card nahi — pehle rate set karein.</p>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="btn-primary" disabled={!step1ok} onClick={() => setStep(2)}>Aage →</button></div>

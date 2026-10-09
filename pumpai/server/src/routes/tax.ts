@@ -8,7 +8,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, now, pkDate, pkStart, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { otherMoney } from "./banks.js";
+import { otherMoney, cardFees } from "./banks.js";
 import { AppError, round2 } from "../services.js";
 import { lookupKeys } from "./lookups.js";
 import { PRODUCTS } from "../config.js";
@@ -101,8 +101,11 @@ export function taxReport(t: number, month: string) {
     .map((r) => ({ product: r.product, name: PRODUCTS[r.product] ?? r.product, litres: round2(r.litres), sales: round2(r.amount), ...splitTax(r.amount, s.fuel_gst_pct, true) }));
   const wht = all("SELECT * FROM tax_withholdings WHERE tenant_id=? AND txn_date >= ? AND txn_date < ? ORDER BY txn_date", t, from, to);
   const sum = <T,>(a: T[], f: (x: T) => number) => round2(a.reduce((x, y) => x + f(y), 0));
+  // Bank card/POS merchant fee (MDR) the bank kept on this month's card sales
+  const feeRows = cardFees(t).filter((f) => f.day.slice(0, 7) === month);
+  const card_fee = { sales: sum(feeRows, (x) => x.sales), fee: sum(feeRows, (x) => x.fee), pct: feeRows[0]?.pct ?? 0 };
   return {
-    month, settings: s,
+    month, settings: s, card_fee,
     shop, shop_total: { sales: sum(shop, (x) => x.sales), value: sum(shop, (x) => x.value), tax: sum(shop, (x) => x.tax) },
     fuel, fuel_total: { sales: sum(fuel, (x) => x.sales), tax: sum(fuel, (x) => x.tax) },
     withholding: wht, wht_total: { amount: sum(wht, (x) => x.amount), deposited: sum(wht.filter((x) => x.cpr_no), (x) => x.amount), pending: sum(wht.filter((x) => !x.cpr_no), (x) => x.amount) },

@@ -121,9 +121,11 @@ test("a card sale can name its own bank's POS machine (credits that account, not
   assert.ok(posList.some((a: any) => a.id === hblId), "HBL is offered as a POS machine");
   const bankBal = async (id: number) => ok(await call("admin", "GET", "/api/bank/accounts"), "accts").accounts.find((a: any) => a.id === id).balance;
   const before = await bankBal(hblId);
+  const feePct = db.get("SELECT card_fee_pct FROM bank_accounts WHERE id=?", hblId)!.card_fee_pct as number;
   const sale = ok(await call("salesman", "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 1500, payment_method: "card", account_id: hblId }), "tagged card sale");
   assert.equal(sale.account_id, hblId);
-  near((await bankBal(hblId)) - before, 1500, "the chosen bank POS was credited");
+  // the POS credits the account 1500, but the bank keeps its MDR fee (if any) the same day, so the balance nets up by 1500 − fee
+  near((await bankBal(hblId)) - before, 1500 * (1 - feePct / 100), "the chosen bank POS was credited (net of card fee)");
   // the cashier/owner bank view shows today's POS receipts for that bank
   const acct = ok(await call("admin", "GET", "/api/bank/accounts"), "accts").accounts.find((a: any) => a.id === hblId);
   assert.ok(acct.pos_today >= 1500, `POS today shown on the bank: ${acct.pos_today}`);

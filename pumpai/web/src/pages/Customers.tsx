@@ -324,7 +324,7 @@ function GuaranteeSection({ customerId, canEdit }: { customerId: number; canEdit
             {kind === "cheque" ? <>
               <input className="input" placeholder="Cheque no." value={f.cheque_no ?? ""} onChange={(e) => setF({ ...f, cheque_no: e.target.value })} />
               <input className="input" placeholder="Bank" value={f.bank ?? ""} onChange={(e) => setF({ ...f, bank: e.target.value })} />
-              <input className="input" type="number" placeholder="Amount (Rs)" value={f.amount ?? ""} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+              <input className="input" type="number" min={1} placeholder="Amount (Rs)" value={f.amount ?? ""} onChange={(e) => setF({ ...f, amount: e.target.value })} />
               <input className="input" type="date" value={f.cheque_date ?? ""} onChange={(e) => setF({ ...f, cheque_date: e.target.value })} />
             </> : <>
               <input className="input" placeholder="Guarantor name" value={f.guarantor_name ?? ""} onChange={(e) => setF({ ...f, guarantor_name: e.target.value })} />

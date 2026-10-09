@@ -189,7 +189,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
                 <div className="grid grid-cols-2 gap-2">
                   <select className="input" aria-label={`Drop ${i + 1} fuel`} value={fuel} onChange={(e) => setDrop(i, { product: e.target.value, rate: "", order_id: undefined })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
                   <input className="input text-right tabular-nums" type="number" inputMode="decimal" min={1} step="0.01" placeholder="Litres" aria-label={`Drop ${i + 1} litres`} value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} />
-                  <input className="input text-right tabular-nums" type="number" inputMode="decimal" step="0.01" disabled={!admin} aria-label={`Drop ${i + 1} rate`} placeholder={card ? `Rate ${card}` : c ? "no rate" : "Rate"} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
+                  <input className="input text-right tabular-nums" type="number" inputMode="decimal" step="0.01" min={0} disabled={!admin} aria-label={`Drop ${i + 1} rate`} placeholder={card ? `Rate ${card}` : c ? "no rate" : "Rate"} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
                   <input className="input" placeholder="Slip / ref" aria-label={`Drop ${i + 1} slip`} value={x.ref} onChange={(e) => setDrop(i, { ref: e.target.value })} />
                 </div>
                 <div className="flex justify-between text-sm">{c && !card ? <span className="text-xs text-red-600">No {PRODUCTS[fuel]} rate</span> : <span />}
@@ -217,7 +217,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
                     {x.location && <div className="mt-0.5 truncate text-[11px] text-slate-500">📍 {x.location}</div>}</td>
                   <td className="td"><select className="input min-w-[120px]" aria-label={`Drop ${i + 1} fuel`} value={fuel} onChange={(e) => setDrop(i, { product: e.target.value, rate: "", order_id: undefined })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
                                     <td className="td"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} /></td>
-                  <td className="td"><input className="input text-right tabular-nums" type="number" step="0.01" disabled={!admin} placeholder={card ? String(card) : c ? "no rate" : ""} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
+                  <td className="td"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} disabled={!admin} placeholder={card ? String(card) : c ? "no rate" : ""} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
                     {c && !card && <div className="text-[11px] text-red-600">No {PRODUCTS[fuel]} rate</div>}</td>
                   <td className="td text-right text-sm tabular-nums">{Number(x.litres) > 0 && rateOf(x) ? pkr(Number(x.litres) * rateOf(x)) : "—"}</td>
                   <td className="td"><input className="input w-24" value={x.ref} onChange={(e) => setDrop(i, { ref: e.target.value })} /></td>

@@ -213,6 +213,7 @@ function Tax() {
         <Stat label={`Sales tax (GST ${data.settings.gst_pct}%)`} value={pkr(data.shop_total.tax)} tone="blue" hint="On shop / lubricant sales" />
         <Stat label="Tax withheld this month" value={pkr(data.wht_total.amount)} tone="amber" hint={`${pkr(data.wht_total.pending)} not deposited yet`} />
         <Stat label="All withholding to deposit" value={pkr(data.wht_pending_all.v)} tone={data.wht_pending_all.v ? "red" : "slate"} hint={`${data.wht_pending_all.n} entries without a CPR`} />
+        {data.card_fee?.fee > 0 && <Stat label={`Bank card commission (${data.card_fee.pct}%)`} value={pkr(data.card_fee.fee)} tone="amber" hint={`POS/MDR on ${pkr(data.card_fee.sales)} card sales`} />}
       </div>
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="card p-4">
