@@ -6,6 +6,7 @@ import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./cap
 import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale, audit } from "../services.js";
+import { productSchema } from "../products.js";
 import { assertLookup } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { billLink, sendKhataBill, prevMonth } from "../billing.js";
@@ -54,7 +55,7 @@ const customerBody = z.object({
   city: z.string().optional().nullable(), credit_limit: z.number().min(0).default(0), opt_in: z.boolean().default(true), notes: z.string().optional().nullable(),
 });
 
-const vehicleBody = z.object({ plate_no: z.string().min(3).max(40), fuel: z.enum(["PMG", "HOBC", "HSD"]).optional().nullable(), daily_limit_l: z.number().positive().optional().nullable() });
+const vehicleBody = z.object({ plate_no: z.string().min(3).max(40), fuel: productSchema().optional().nullable(), daily_limit_l: z.number().positive().optional().nullable() });
 
 /** Add a customer or a khata (credit) account, optionally with its vehicles, and tell the team. */
 crm.post("/customers", requirePerm("customers.create"), h(async (req) => {

@@ -383,6 +383,10 @@ export function migrate() {
   addColumn("suppliers", "depot_id", "INTEGER");       // which depot this contact belongs to (null = standalone)
   addColumn("suppliers", "company", "TEXT");           // oil company he represents: Shell / PSO / Total …
   // what each role may do, changed per pump from Users & Roles (laid over the built-in defaults)
+  // fuel products the admin manages (add/rename/recolour/hide/delete) — see products.ts
+  db.exec(`CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, code TEXT NOT NULL, name TEXT NOT NULL,
+    short TEXT, colour TEXT, ur TEXT, sort INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, UNIQUE (tenant_id, code))`);
   // lists the admin manages from the app (customer types, machine types, shop categories…) — see routes/lookups.ts
   db.exec(`CREATE TABLE IF NOT EXISTS lookups (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, label TEXT NOT NULL,

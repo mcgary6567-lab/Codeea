@@ -11,6 +11,7 @@ import { all, get, run, now, pkDate, tx, type Row } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { bankAccountFor, accountIdField, otherMoney } from "./banks.js";
 import { AppError, round2, pkr, audit } from "../services.js";
+import { productSchema } from "../products.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 
@@ -46,7 +47,7 @@ prepaid.get("/coupons/batch/:batch", requirePerm("khata.manage"), h((req) => {
 prepaid.post("/coupons", requirePerm("khata.manage"), h((req) => {
   const t = tid(req);
   const b = parse(z.object({
-    count: z.number().int().min(1).max(500), value: z.number().min(100).max(1_000_000), product: z.enum(Object.keys(PRODUCTS) as [string, ...string[]]).optional().nullable(),
+    count: z.number().int().min(1).max(500), value: z.number().min(100).max(1_000_000), product: productSchema().optional().nullable(),
     buyer: z.string().max(80).optional().nullable(), customer_id: z.number().optional().nullable(), method: z.enum(METHODS).default("cash"),
     expires_on: dateStr.optional().nullable(), account_id: accountIdField,
   }), req.body);

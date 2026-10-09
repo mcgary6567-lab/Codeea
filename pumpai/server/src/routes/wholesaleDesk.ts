@@ -11,6 +11,7 @@ import { z } from "zod";
 import { all, get, run, tx, now, pkDate, pkStart, pkEnd, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, requireRole } from "../auth.js";
 import { AppError, createAlert, round2, pkr } from "../services.js";
+import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
@@ -22,7 +23,7 @@ export const wholesaleDesk = Router();
 wholesaleDesk.use("/wholesale", requirePerm("wholesale.view"));
 const DAY = 86_400_000;
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const product = z.enum(["PMG", "HOBC", "HSD"]);
+const product = productSchema();
 const own = (t: number, id: number) => {
   const c = get("SELECT * FROM wholesale_clients WHERE id=? AND tenant_id=?", id, t);
   if (!c) throw new AppError(404, "Wholesale client not found");

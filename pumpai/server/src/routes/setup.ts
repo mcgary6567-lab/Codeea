@@ -16,6 +16,7 @@ import { AppError, normalizePhone, audit } from "../services.js";
 import { ensureCategories } from "./expenses.js";
 import { ensureAutomations } from "../automation/scheduler.js";
 import { addDefaultChecklist } from "./compliance.js";
+import { ensureProducts, refreshProducts, productSchema } from "../products.js";
 
 export const setupPublic = Router(); // no login
 export const business = Router(); // logged in
@@ -69,7 +70,7 @@ setupPublic.get("/branding", h(() => {
 /* ================= Setup wizard ================= */
 setupPublic.get("/setup/status", h(() => ({ needed: !firstTenant(), needs_code: Boolean(config.setupToken), version: APP_VERSION, vendor: config.vendor, products: PRODUCTS })));
 
-const product = z.enum(Object.keys(PRODUCTS) as [string, ...string[]]);
+const product = productSchema();
 /** One dispenser meter (nozzle) on a tank: its number on the forecourt, a name, and the reading on it right now. */
 const meter = z.object({
   meter_no: z.number().int().min(1).max(99).optional(), label: z.string().trim().max(30).optional(),
@@ -133,10 +134,12 @@ setupPublic.post("/setup", h((req) => {
     ensureCategories(tenantId);
     ensureAutomations(tenantId);
     addDefaultChecklist(tenantId);
+    ensureProducts(tenantId);
     setSetting(tenantId, "installed_at", ts);
     return { tenantId, adminId };
   });
   audit(tenantId, { id: adminId, name: b.admin.name }, "setup", "tenant", { business: b.business.name, stations: b.stations.length });
+  refreshProducts(); // the new pump's products become the live dictionary
   const user = get("SELECT id, tenant_id, name, email, role, station_id FROM users WHERE id=?", adminId)!;
   return { token: signToken(user), user };
 }));

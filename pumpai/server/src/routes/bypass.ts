@@ -13,6 +13,7 @@ import { z } from "zod";
 import { all, get, run, tx, now, pkDate } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2 } from "../services.js";
+import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
@@ -23,7 +24,7 @@ import { deliverOrder } from "./wholesaleDesk.js";
 export const bypass = Router();
 bypass.use("/bypass", requirePerm("wholesale.view"));
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const product = z.enum(["PMG", "HOBC", "HSD"]);
+const product = productSchema();
 
 /** What we still owe a supplier on bypass dealings (purchases − payments), kept separate from the pump-stock payable. */
 export function bypassOwed(supplierId: number, before?: string): number {

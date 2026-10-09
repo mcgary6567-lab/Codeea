@@ -21,6 +21,7 @@ import Automations from "./pages/Automations";
 import SettingsPage from "./pages/Settings";
 import Lists from "./pages/Lists";
 import { loadLookups } from "./lib/lookups";
+import { loadProducts } from "./lib/format";
 import Users from "./pages/Users";
 import Wholesale from "./pages/Wholesale";
 import Expenses from "./pages/Expenses";
@@ -67,6 +68,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const me = await api("/me");
       setMediaToken(me.media_token);
       loadLookups().catch(() => {}); // admin-managed lists for every dropdown
+      loadProducts().catch(() => {}); // admin-managed fuel products
       setState({ user: me.user, tenant: me.tenant, permissions: me.permissions, ready: true });
     } catch {
       setState(empty);

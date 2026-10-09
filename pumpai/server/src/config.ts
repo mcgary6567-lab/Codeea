@@ -72,8 +72,21 @@ export const APP_VERSION = "1.0.0";
 export const aiEnabled = () => Boolean(config.anthropicKey);
 export const waLive = () => Boolean(config.wa.token && config.wa.phoneNumberId);
 
+/**
+ * Fuel products. Code → full name. This object is the single dictionary the whole app reads for
+ * labels, iteration and reports; it holds EVERY product ever set up (active or hidden) so history and
+ * the tally never lose one. The admin manages the list in Settings → Lists → Fuel products, and
+ * products.ts rebuilds this object (and PRODUCT_META) in place whenever it changes. New records are
+ * validated against the ACTIVE products only (see productSchema in products.ts).
+ */
 export const PRODUCTS: Record<string, string> = {
   PMG: "Petrol (Super)",
   HOBC: "Hi-Octane",
   HSD: "Diesel (HSD)",
+};
+/** Per-product short label, board colour and Urdu name — mutated in place alongside PRODUCTS. */
+export const PRODUCT_META: Record<string, { short: string; colour: string; ur: string }> = {
+  PMG: { short: "Petrol", colour: "#2a78d6", ur: "پیٹرول" },
+  HOBC: { short: "Hi-Octane", colour: "#eb6834", ur: "ہائی آکٹین" },
+  HSD: { short: "Diesel", colour: "#1baf7a", ur: "ڈیزل" },
 };

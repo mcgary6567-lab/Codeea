@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
 import { Loading, useAction, useToast } from "../components/ui";
 import { newUid, isOffline, queueSale, dropQueued, dismissFailed, useOfflineQueue, cacheGet, cacheSet } from "../lib/offline";
-import { num, pkr } from "../lib/format";
+import { num, pkr, PRODUCTS, PRODUCT_COLORS, PRODUCT_UR, activeProducts } from "../lib/format";
 import { iconMap, labelMap, useLookups, type LookupEntry } from "../lib/lookups";
 import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
@@ -17,11 +17,11 @@ import { CardScanner } from "../components/CardScanner";
 
 /* Big, colourful, bilingual (English + Urdu) point of sale designed for one-hand use on a tablet. */
 
-const FUEL: Record<string, { en: string; ur: string; bg: string; ring: string }> = {
-  PMG: { en: "Petrol", ur: "پیٹرول", bg: "bg-[#2a78d6]", ring: "ring-[#2a78d6]" },
-  HOBC: { en: "Hi-Octane", ur: "ہائی آکٹین", bg: "bg-[#eb6834]", ring: "ring-[#eb6834]" },
-  HSD: { en: "Diesel", ur: "ڈیزل", bg: "bg-[#1baf7a]", ring: "ring-[#1baf7a]" },
-};
+// label + colour for any fuel code, from the admin's products (so a custom fuel shows correctly)
+function fuelOf(code: string) {
+  const p = activeProducts.find((x) => x.code === code);
+  return { en: p?.short ?? PRODUCTS[code] ?? code, ur: p?.ur ?? PRODUCT_UR[code] ?? "", color: PRODUCT_COLORS[code] ?? "#334155" };
+}
 
 type PayOpt = { key: string; en: string; ur: string; icon: any; cls: string; emoji?: string };
 // styling for the standard money methods; custom brands get a generic look + their emoji
@@ -130,7 +130,7 @@ export default function Pos() {
     } else setKhata(null);
     setHeard(v.heard);
     // say back what was understood, in Urdu
-    const what = [v.litres ? `${v.litres} لیٹر` : v.amount ? `${Math.round(v.amount)} روپے` : "", v.product ? FUEL[v.product]?.ur : "", v.payment_method ? PAY.find((x) => x.key === v.payment_method)?.ur : "", v.customer_name ?? ""].filter(Boolean).join("، ");
+    const what = [v.litres ? `${v.litres} لیٹر` : v.amount ? `${Math.round(v.amount)} روپے` : "", v.product ? fuelOf(v.product).ur : "", v.payment_method ? PAY.find((x) => x.key === v.payment_method)?.ur : "", v.customer_name ?? ""].filter(Boolean).join("، ");
     if (what) speak(`${what}۔ ٹھیک ہے تو محفوظ کریں`);
   };
 
@@ -161,7 +161,7 @@ export default function Pos() {
       if (!isOffline(e)) { toast("err", e.message); return; }
       if (ONLINE_ONLY.includes(pay!)) { toast("err", "Points, coupons and wallets need internet · انٹرنیٹ ضروری ہے"); return; }
       // no internet: keep it on the tablet, it uploads by itself when the connection is back
-      queueSale(body, `${FUEL[product!].en} ${num(litres, 2)} L · ${pkr(amount)} · ${pay}`);
+      queueSale(body, `${fuelOf(product!).en} ${num(litres, 2)} L · ${pkr(amount)} · ${pay}`);
       setDone({ ...shown, offline: true });
     } finally { setSaving(false); }
     reset();
@@ -240,11 +240,11 @@ export default function Pos() {
           <Step n={1} en="Choose fuel" ur="تیل چنیں">
             <div className="grid grid-cols-3 gap-3">
               {d.products.map((p: string) => (
-                <button key={p} aria-pressed={product === p} onClick={() => setProduct(p)}
-                  className={`flex flex-col items-center justify-center rounded-2xl p-4 text-white shadow transition active:scale-95 ${FUEL[p].bg} ${product === p ? `ring-4 ring-offset-2 ${FUEL[p].ring} scale-[1.02]` : product ? "opacity-50" : ""}`}>
+                <button key={p} aria-pressed={product === p} onClick={() => setProduct(p)} style={{ background: fuelOf(p).color, boxShadow: product === p ? `0 0 0 4px #fff, 0 0 0 7px ${fuelOf(p).color}` : undefined }}
+                  className={`flex flex-col items-center justify-center rounded-2xl p-4 text-white shadow transition active:scale-95 ${product === p ? "scale-[1.02]" : product ? "opacity-50" : ""}`}>
                   <Fuel size={34} />
-                  <span className="mt-1 text-xl font-bold sm:text-2xl">{FUEL[p].en}</span>
-                  <Ur className="text-lg leading-loose">{FUEL[p].ur}</Ur>
+                  <span className="mt-1 text-xl font-bold sm:text-2xl">{fuelOf(p).en}</span>
+                  <Ur className="text-lg leading-loose">{fuelOf(p).ur}</Ur>
                   <span className="rounded-lg bg-white/20 px-3 py-0.5 text-lg font-semibold tabular-nums">Rs {d.prices[p]?.toFixed(2)}</span>
                 </button>
               ))}
@@ -320,7 +320,7 @@ export default function Pos() {
             )}
             {pay === "coupon" && coupon && (
               <button onClick={() => setScanCoupon(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-orange-50 p-3 text-left ring-1 ring-orange-300">
-                <Ticket className="text-orange-600" /><span className="flex-1"><b>Coupon {coupon.code}</b><span className="block text-sm text-slate-600">Worth {pkr(coupon.value)}{coupon.product ? ` · ${FUEL[coupon.product]?.en} only` : ""} · one time</span></span>
+                <Ticket className="text-orange-600" /><span className="flex-1"><b>Coupon {coupon.code}</b><span className="block text-sm text-slate-600">Worth {pkr(coupon.value)}{coupon.product ? ` · ${fuelOf(coupon.product).en} only` : ""} · one time</span></span>
                 <span className="text-sm text-orange-700 underline">Change</span>
               </button>
             )}
@@ -354,7 +354,7 @@ export default function Pos() {
             {product && value > 0 ? (
               <div className="mb-2 grid grid-cols-1 gap-2 sm:mb-3 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-lg">
-                  <span className={`rounded-lg px-2 py-0.5 font-bold sm:px-3 sm:py-1 text-white ${FUEL[product].bg}`}>⛽ {FUEL[product].en} · <Ur>{FUEL[product].ur}</Ur></span>
+                  <span className="rounded-lg px-2 py-0.5 font-bold text-white sm:px-3 sm:py-1" style={{ background: fuelOf(product).color }}>⛽ {fuelOf(product).en} · <Ur>{fuelOf(product).ur}</Ur></span>
                   <span className="font-semibold tabular-nums">{num(litres, 2)} L × Rs {rate}</span>
                   {pay && <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-semibold sm:px-3 sm:py-1">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : cardBank && isBankPay(pay) ? ` — ${cardBank.name}` : ""}</span>}
                 </div>
@@ -415,7 +415,7 @@ export default function Pos() {
             {done.offline && <div className="mt-1 text-lg">No internet — it will upload by itself</div>}
             {done.shop
               ? <div className="mt-2 text-xl">{done.lines.map((l: any) => `${num(l.qty)} × ${l.name}`).join(", ")}</div>
-              : <div className="mt-2 text-2xl">{FUEL[done.product].en} {num(done.litres, 2)} L × Rs {done.rate}</div>}
+              : <div className="mt-2 text-2xl">{fuelOf(done.product).en} {num(done.litres, 2)} L × Rs {done.rate}</div>}
             <div className="text-5xl font-bold tabular-nums">{pkr(done.shop ? done.total : done.amount)}</div>
             <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && isBankPay(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
@@ -519,8 +519,8 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
         <ul className="divide-y divide-slate-100">
           {d.recent.map((r: any) => (
             <li key={r.id} className="flex items-center gap-2 py-2 text-sm">
-              <span className={`h-3 w-3 shrink-0 rounded-full ${FUEL[r.product]?.bg}`} />
-              <span className="flex-1"><b>{num(r.litres, 2)} L</b> {FUEL[r.product]?.en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.bank_name ? `${r.payment_method} · ${r.bank_name}` : r.payment_method}</span></span>
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: fuelOf(r.product).color }} />
+              <span className="flex-1"><b>{num(r.litres, 2)} L</b> {fuelOf(r.product).en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.bank_name ? `${r.payment_method} · ${r.bank_name}` : r.payment_method}</span></span>
               <span className="font-semibold tabular-nums">{pkr(r.amount)}</span>
               {r.payment_method === "khata" && (r.photo_id
                 ? <PhotoThumb id={r.photo_id} size={8} />

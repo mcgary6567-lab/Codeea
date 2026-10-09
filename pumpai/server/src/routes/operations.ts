@@ -8,6 +8,7 @@ import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, METER, meterNam
 import { meterSales } from "./reports.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
+import { productSchema } from "../products.js";
 import { moneyMethods, SPECIAL_METHODS } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
@@ -21,7 +22,7 @@ import { settleShift, shiftReadings, shiftSummary, shiftReport, shiftFuels } fro
 import { notify, staff, announce } from "../notifications.js";
 
 export const operations = Router();
-const product = z.enum(["PMG", "HOBC", "HSD"]);
+const product = productSchema();
 
 function ownStation(tenantId: number, stationId: number) {
   const s = get("SELECT * FROM stations WHERE id=? AND tenant_id=?", stationId, tenantId);

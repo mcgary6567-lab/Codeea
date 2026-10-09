@@ -14,6 +14,7 @@ import { z } from "zod";
 import { all, get, run, tx, now, pkDate } from "../db.js";
 import { h, parse, tid, requirePerm, requireRole } from "../auth.js";
 import { AppError, createAlert, round2, pkr } from "../services.js";
+import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
@@ -23,7 +24,7 @@ import { notify, staff } from "../notifications.js";
 export const carriage = Router();
 carriage.use("/carriage", requirePerm("carriage.view"));
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const product = z.enum(["PMG", "HOBC", "HSD"]);
+const product = productSchema();
 
 const own = (t: number, id: number) => {
   const k = get("SELECT * FROM thekedars WHERE id=? AND tenant_id=?", id, t);

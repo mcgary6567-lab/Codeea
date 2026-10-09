@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Search, Truck, Send, ArrowLeft, Ban, HandCoins, Download, Printer } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
-import { PRODUCTS, dt, num, pkr, pkrShort } from "../lib/format";
+import { PRODUCTS, activeProducts, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
@@ -234,7 +234,7 @@ function CarriageEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: 
           <span className="label">Fuel lifted (for the record) · <Ur>کتنا تیل</Ur></span>
           {lines.map((l, i) => (
             <div key={i} className="flex gap-2">
-              <select className="input" value={l.product} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([key, v]) => <option key={key} value={key}>{v}</option>)}</select>
+              <select className="input" value={l.product} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{activeProducts.map((pr) => <option key={pr.code} value={pr.code}>{pr.name}</option>)}</select>
               <input className="input" type="number" min={0} placeholder="litres" value={l.litres} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
               {lines.length > 1 && <button type="button" className="min-h-10 px-2 text-red-600" aria-label="Remove" onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>}
             </div>

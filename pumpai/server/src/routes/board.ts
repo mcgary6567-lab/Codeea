@@ -6,16 +6,15 @@ import { Router } from "express";
 import { logoTag } from "./setup.js";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
-import { config, PRODUCTS } from "../config.js";
+import { config, PRODUCTS, PRODUCT_META } from "../config.js";
 import { get, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { currentPrices, AppError } from "../services.js";
 
 export const board = Router();
 
-const EN: Record<string, string> = { PMG: "Petrol", HOBC: "Hi-Octane", HSD: "Diesel" };
-const URDU: Record<string, string> = { PMG: "پیٹرول", HOBC: "ہائی آکٹین", HSD: "ڈیزل" };
-const COLOR: Record<string, string> = { PMG: "#2a78d6", HOBC: "#eb6834", HSD: "#1baf7a" };
+// labels, colours and Urdu come from the admin's fuel products (config.PRODUCT_META), with these as a fallback
+const meta = (k: string) => PRODUCT_META[k] ?? {};
 
 const boardUrl = (t: number, stationId: number | null) =>
   `${config.publicUrl}/board/${jwt.sign({ board: t, st: stationId }, config.jwtSecret, { expiresIn: "3650d" })}`;
@@ -35,7 +34,7 @@ export function boardData(token: string) {
   const products = p.st ? new Set((get("SELECT GROUP_CONCAT(DISTINCT product) v FROM tanks WHERE station_id=?", p.st)?.v ?? "").split(",")) : null;
   return {
     name: station?.name ?? get("SELECT name FROM tenants WHERE id=?", p.board)?.name ?? "PumpAI",
-    prices: Object.entries(prices).filter(([k]) => !products || products.has(k)).map(([k, v]) => ({ product: k, en: EN[k] ?? PRODUCTS[k] ?? k, ur: URDU[k] ?? "", color: COLOR[k] ?? "#334155", price: v.price, since: v.effective_from })),
+    prices: Object.entries(prices).filter(([k]) => !products || products.has(k)).map(([k, v]) => ({ product: k, en: meta(k).short ?? PRODUCTS[k] ?? k, ur: meta(k).ur ?? "", color: meta(k).colour ?? "#334155", price: v.price, since: v.effective_from })),
     offers: getSetting(p.board, "board_offers").split("\n").map((s) => s.trim()).filter(Boolean),
     updated_at: new Date().toISOString(),
   };

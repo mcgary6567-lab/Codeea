@@ -8,6 +8,7 @@ import { z } from "zod";
 import { all, get, run, tx, now, pkDayStart, pkDate, pkStart, pkEnd, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } from "../services.js";
+import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
@@ -24,7 +25,7 @@ import { deliverOrder, deskSuggestions, openOrders, promises, cheques } from "./
 export const wholesale = Router();
 wholesale.use("/wholesale", requirePerm("wholesale.view"));
 
-const product = z.enum(["PMG", "HOBC", "HSD"]);
+const product = productSchema();
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional();
 
 /** Signed effect of a ledger row on the amount the client owes us. */

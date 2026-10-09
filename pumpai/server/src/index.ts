@@ -56,12 +56,14 @@ import { setupPublic, business, applyStoredConfig } from "./routes/setup.js";
 import { auditTrail, auditRouter } from "./routes/auditTrail.js";
 import { machines } from "./routes/machines.js";
 import { lookupsRouter } from "./routes/lookups.js";
+import { productsRouter, refreshProducts } from "./products.js";
 import { getSetting } from "./db.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
 migrate();
 applyStoredConfig();
+refreshProducts(); // load the admin's fuel products into config.PRODUCTS / PRODUCT_META
 if (!get("SELECT id FROM tenants LIMIT 1")) {
   if (config.demoData) {
     console.log("[db] empty database — loading demo data");
@@ -227,6 +229,7 @@ api.use(business);
 api.use(auditRouter);
 api.use(machines);
 api.use(lookupsRouter);
+api.use(productsRouter);
 app.use("/api", api);
 
 // Serve the built dashboard in production
