@@ -2,7 +2,7 @@
 from datetime import datetime, date, time
 from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Date, Time, Text, ForeignKey, JSON, Float
+from sqlalchemy import BigInteger, String, Integer, Boolean, DateTime, Date, Time, Text, ForeignKey, JSON, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, PKMixin, TimestampMixin
@@ -125,7 +125,7 @@ class Recording(Base, PKMixin, TimestampMixin):
     external_url: Mapped[Optional[str]] = mapped_column(String(500))
     source: Mapped[str] = mapped_column(String(20), default="platform")  # platform | zoom | upload
     duration_seconds: Mapped[int] = mapped_column(Integer, default=0)
-    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0)  # 64-bit: recordings and backups pass 2 GB
     status: Mapped[str] = mapped_column(String(20), default="available")  # processing | available | analysed | expired | deleted
     retention_until: Mapped[Optional[date]] = mapped_column(Date)
     transcript: Mapped[Optional[str]] = mapped_column(Text)

@@ -12,7 +12,7 @@ roles, so nothing that belongs in the confidential channel becomes readable by a
 from datetime import datetime, date, time
 from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Date, Time, Text, ForeignKey, JSON, Float, Numeric
+from sqlalchemy import BigInteger, String, Integer, Boolean, DateTime, Date, Time, Text, ForeignKey, JSON, Float, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, PKMixin, TimestampMixin
@@ -104,7 +104,7 @@ class Attachment(Base, PKMixin, TimestampMixin):
     file_path: Mapped[Optional[str]] = mapped_column(String(300))
     link: Mapped[Optional[str]] = mapped_column(String(500))
     content_type: Mapped[Optional[str]] = mapped_column(String(80))
-    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0)  # 64-bit: recordings and backups pass 2 GB
     uploaded_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     status: Mapped[str] = mapped_column(String(20), default="active")
 

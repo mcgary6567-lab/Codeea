@@ -49,7 +49,10 @@ def ingest_recording(db: Session, session: ClassSession, user: Optional[User] = 
         return session.recording
     if session.status != "done":
         raise ValueError("Only completed (done) sessions can have recordings ingested.")
-    duration = int((session.actual_duration_minutes or session.duration_minutes or 30) * 60)
+    # A class left running (the teacher forgot to end it) records hours of "actual" time; a recording is never
+    # longer than the scheduled class plus an hour.
+    scheduled = session.duration_minutes or 30
+    duration = int(min(session.actual_duration_minutes or scheduled, scheduled + 60) * 60)
     rec = Recording(session_id=session.id, source=source,
                     file_path=f"storage/recordings/{session.date.isoformat()}/{session.room_name or 'room'}-{session.id}.mp4",
                     duration_seconds=duration, size_bytes=duration * 180_000, status="available",

@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, JSON, Float, Numeric
+from sqlalchemy import BigInteger, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON, Float, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, PKMixin, TimestampMixin
@@ -248,7 +248,7 @@ class FileAsset(Base, PKMixin, TimestampMixin):
     filename: Mapped[str] = mapped_column(String(255))
     path: Mapped[str] = mapped_column(String(500))
     mime_type: Mapped[Optional[str]] = mapped_column(String(100))
-    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0)  # 64-bit: recordings and backups pass 2 GB
     owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     entity_type: Mapped[Optional[str]] = mapped_column(String(60))
     entity_id: Mapped[Optional[int]] = mapped_column(Integer)
@@ -273,7 +273,7 @@ class BackupRecord(Base, PKMixin):
     __tablename__ = "backup_records"
     filename: Mapped[str] = mapped_column(String(255))
     path: Mapped[str] = mapped_column(String(500))
-    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0)  # 64-bit: recordings and backups pass 2 GB
     backup_type: Mapped[str] = mapped_column(String(20), default="manual")  # manual | scheduled
     status: Mapped[str] = mapped_column(String(20), default="completed")
     restore_tested: Mapped[bool] = mapped_column(Boolean, default=False)
