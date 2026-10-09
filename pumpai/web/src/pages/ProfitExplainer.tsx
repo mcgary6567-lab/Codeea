@@ -64,7 +64,7 @@ export default function ProfitExplainer() {
         </>)} />
 
         {p.cost_of_sales.shop > 0 && <Row id="shopcost" sign="−" label="Cost of shop items" ur="دکان کی لاگت" amount={p.cost_of_sales.shop} tone="red" />}
-        {p.cost_of_sales.stock_gain_loss !== 0 && <Row id="dip" sign={p.cost_of_sales.stock_gain_loss > 0 ? "−" : "+"} label="Stock gain / loss (dip)" ur="اسٹاک کمی/زیادتی" amount={Math.abs(p.cost_of_sales.stock_gain_loss)} tone={p.cost_of_sales.stock_gain_loss > 0 ? "red" : "green"} detail={<p className="text-slate-600">Dip aur book stock ka farq (chori / evaporation / zyadti), avg cost par value hoke munafe par asar.</p>} />}
+        {p.cost_of_sales.stock_gain_loss !== 0 && <Row id="dip" sign={p.cost_of_sales.stock_gain_loss >= 0 ? "+" : "−"} label={p.cost_of_sales.stock_gain_loss >= 0 ? "Stock gain (dip)" : "Stock loss (dip)"} ur="اسٹاک کمی/زیادتی" amount={Math.abs(p.cost_of_sales.stock_gain_loss)} tone={p.cost_of_sales.stock_gain_loss >= 0 ? "green" : "red"} detail={<p className="text-slate-600">Dip aur book stock ka farq (zyada = gain, kam = chori/evaporation ka loss), avg cost par value hoke munafe par asar.</p>} />}
 
         <Row id="gross" sign="=" label="Gross profit" ur="مجموعی منافع" amount={p.gross_profit} tone={p.gross_profit >= 0 ? "green" : "red"} />
 
