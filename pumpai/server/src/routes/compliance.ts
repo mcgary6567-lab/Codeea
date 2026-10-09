@@ -7,7 +7,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, now, pkDate } from "../db.js";
-import { h, parse, tid, requirePerm, can, scopedStation } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny, can, scopedStation } from "../auth.js";
 import { AppError, round2, createAlert } from "../services.js";
 import { notify, staff } from "../notifications.js";
 import { linkPhotos } from "./capture.js";
@@ -206,6 +206,50 @@ compliance.post("/attendance/check-out", h((req) => {
   liveSelfie(tid(req), req.user!.id, b.photo_id);
   const r = checkOut(req.user!.id, b.photo_id, tid(req), b);
   if (!r) throw new AppError(400, "You have not checked in");
+  return r;
+}));
+
+/**
+ * Attendance kiosk: on the shared pump tablet, whoever is signed in (salesman or manager) marks
+ * attendance for ANY person at the pump — helper, cleaner, driver, guard, or a salesman — with a
+ * live selfie + location, check-in and check-out both. The selfie is taken on this device now
+ * (so it is the operator's upload), aimed at the person, and kept on the record for review.
+ */
+function liveSelfieBy(t: number, operatorId: number, photoId: number) {
+  const p = get("SELECT * FROM photos WHERE id=? AND tenant_id=?", photoId, t);
+  if (!p || p.kind !== "selfie" || p.created_by !== operatorId) throw new AppError(400, "Take a live selfie on this device · اسی ڈیوائس سے سیلفی لیں");
+  if (p.ref) throw new AppError(400, "This selfie was already used — take a new one · نئی سیلفی لیں");
+  if (Date.now() - Date.parse(p.created_at) > SELFIE_MAX_AGE_MS) throw new AppError(400, "Selfie is too old — take a new one · نئی سیلفی لیں");
+}
+compliance.get("/attendance/kiosk", requireAny("staff.manage", "sales.create"), h((req) => {
+  const t = tid(req), today = pkDate();
+  const people = all("SELECT id, name, role, job_title, duty_start, station_id FROM users WHERE tenant_id=? AND active=1 AND role<>'admin' ORDER BY CASE role WHEN 'salesman' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, name", t);
+  return people.map((u) => {
+    const a = get("SELECT check_in, check_out FROM attendance WHERE user_id=? AND day=?", u.id, today);
+    return { id: u.id, name: u.name, role: u.role, job_title: u.job_title, duty_start: u.duty_start,
+      checked_in: Boolean(a?.check_in), checked_out: Boolean(a?.check_out), check_in: a?.check_in ?? null, check_out: a?.check_out ?? null };
+  });
+}));
+const kioskProof = proof.extend({ user_id: z.number().int() });
+function kioskTarget(t: number, userId: number) {
+  const u = get("SELECT id, name, role, station_id FROM users WHERE id=? AND tenant_id=? AND active=1 AND role<>'admin'", userId, t);
+  if (!u) throw new AppError(400, "Staff member not found");
+  return u;
+}
+compliance.post("/attendance/kiosk/check-in", requireAny("staff.manage", "sales.create"), h((req) => {
+  const b = parse(kioskProof, req.body);
+  const t = tid(req);
+  liveSelfieBy(t, req.user!.id, b.photo_id);
+  const u = kioskTarget(t, b.user_id);
+  return checkIn(t, u, { station_id: u.station_id, photo_id: b.photo_id, lat: b.lat, lng: b.lng, accuracy: b.accuracy, source: "kiosk" });
+}));
+compliance.post("/attendance/kiosk/check-out", requireAny("staff.manage", "sales.create"), h((req) => {
+  const b = parse(kioskProof, req.body);
+  const t = tid(req);
+  liveSelfieBy(t, req.user!.id, b.photo_id);
+  const u = kioskTarget(t, b.user_id);
+  const r = checkOut(u.id, b.photo_id, t, b);
+  if (!r) throw new AppError(400, `${u.name} ne abhi check-in nahi kiya`);
   return r;
 }));
 

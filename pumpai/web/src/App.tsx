@@ -48,6 +48,7 @@ import Audit from "./pages/Audit";
 import Machines from "./pages/Machines";
 import Cashier from "./pages/Cashier";
 import Suggestions from "./pages/Suggestions";
+import Kiosk from "./pages/Kiosk";
 import { loadBranding } from "./lib/brand";
 
 loadBranding().catch(() => {});
@@ -158,6 +159,7 @@ export default function App() {
               <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />
               <Route path="lists" element={<Need perm="settings.manage"><Lists /></Need>} />
               <Route path="staff" element={<Need perm="staff.manage"><Staff /></Need>} />
+              <Route path="kiosk" element={<Need perm="staff.manage|sales.create"><Kiosk /></Need>} />
               <Route path="my-account" element={<MyAccount />} />
               <Route path="cash" element={<Need perm="expenses.view|cash.book"><Cash /></Need>} />
               <Route path="cashier" element={<Need perm="cashier.desk"><Cashier /></Need>} />

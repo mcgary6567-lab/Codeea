@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText,
-  Building2, ListChecks, Lightbulb,
+  Building2, ListChecks, Lightbulb, UserCheck,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -44,7 +44,7 @@ const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
   { key: "wholesale", label: "Wholesale", icon: Container, items: ["/wholesale", "/carriage"] },
   { key: "stock", label: "Stock & prices", icon: Droplets, items: ["/stock", "/register", "/prices", "/shop"] },
   { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers", "/property"] },
-  { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/team", "/my-account"] },
+  { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/kiosk", "/team", "/my-account"] },
   { key: "safety", label: "Safety", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines", "/alerts"] },
   { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/lists", "/settings"] },
 ];
@@ -145,6 +145,7 @@ const NAV = [
   { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts", perm: "alerts.view" },
   { to: "/automations", label: "AI Automations", icon: Bot, perm: "automations.manage" },
   { to: "/staff", label: "Staff accounts", icon: Wallet, perm: "staff.manage" },
+  { to: "/kiosk", label: "Staff attendance", icon: UserCheck, perm: "staff.manage|sales.create" },
   { to: "/team", label: "Ratings & commission", icon: Star, perm: "staff.manage" },
   { to: "/checklist", label: "Daily checks", icon: ClipboardCheck, perm: "sales.create", only: ["salesman"] },
   { to: "/compliance", label: "Licences & checklist", icon: ShieldCheck, perm: "alerts.view" },
