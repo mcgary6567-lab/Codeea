@@ -49,7 +49,8 @@ def main() -> None:
             Base.metadata.drop_all(bind=engine)
             print("Dropped all tables")
     init_db()
-    print(f"Schema ready ({len(Base.metadata.tables)} tables) on {settings.DATABASE_URL}")
+    # Never print the URL itself: on a server it carries the database password into the deploy log.
+    print(f"Schema ready ({len(Base.metadata.tables)} tables) on {engine.url.render_as_string(hide_password=True)}")
     modules = ["core"] if "--core" in args else SEED_MODULES
     db = SessionLocal()
     try:
