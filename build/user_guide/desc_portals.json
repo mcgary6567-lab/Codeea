@@ -124,18 +124,21 @@
   ]
  },
  "admin:/cases": {
-  "purpose": "Cases & Complaints is the register of every complaint, request and question from families. Each case has an owner, a priority and a response deadline (SLA).",
+  "purpose": "Cases & Complaints is the register of every complaint, request and question from families. Each case has an owner, a priority, a response deadline (SLA) and, for complaints, an investigation and a confirmation call with the family.",
   "steps": [
    "Press a tile (**Open**, **SLA breached**, **Urgent**, **Assigned to me**) to filter the list to those cases.",
    "Search by title, number or text, filter by **Type**, **Status**, **Priority**, **Department** or **Assignee**, then press **Go**.",
    "Press **New case** to raise one for a family: choose the type, the family, the student, then write a title and description.",
    "Press **Open** on a row to comment, assign, escalate, change the status or create a task from the case.",
-   "Press **Trends** for cases by category and month."
+   "On a complaint, write **What the investigation found** and press **Save finding**, then press **Resolve and ask the family**.",
+   "Under **Parent confirmation** record the call with the family. Satisfied closes the case; not satisfied reopens it and moves it one step up the escalation ladder.",
+   "Press **Intelligence** for causes, trends and repeat complaints, or **Settings** for the escalation ladder."
   ],
   "notes": [
    "This page is an addition to the original ERP.",
    "When a case is opened the AI suggests a category, priority and department, and the SLA clock starts. The SLA column turns amber below four hours and red when breached.",
-   "Statuses are open, in progress, waiting, escalated, resolved and closed."
+   "Statuses are open, in progress, waiting, escalated, awaiting family, resolved and closed.",
+   "The person a complaint is about never sees it."
   ]
  },
  "admin:/feedback": {
@@ -394,12 +397,14 @@
   "steps": [
    "Under **New evaluation** choose the **Student**, **Type** and **Date**.",
    "Score **Tajweed /10**, **Fluency /10**, **Memorisation /10** and **Attitude /10**, and write a **Comment for the parent**.",
+   "Fill the evidence: **Questions asked and the student's answers**, **Strengths**, **Weaknesses**, **Current stage**, **Teacher recommendations** and **Required follow-up**.",
    "Press **Save evaluation**. The list shows the score, criteria, result and comment."
   ],
   "notes": [
    "This page is an addition to the original ERP.",
    "The score out of 100 is the average of the four criteria times ten. 50 or more is a pass.",
-   "The parent sees the evaluation on the Progress page of the family portal."
+   "The parent sees the evaluation on the Progress page of the family portal.",
+   "Recommendations that need action are sent to the academic manager to decide."
   ]
  },
  "teacher:/teacher/monthly-tests": {

@@ -257,7 +257,8 @@
   ],
   "notes": [
    "Family Status is the status of the client, which may differ from the student's own status.",
-   "Trial Days is how many free trial classes the student was given."
+   "Trial Days is how many free trial classes the student was given.",
+   "Open a student and press **Academic Journey** for attendance, teacher history, syllabus, assessments, recommendations and parent conversations on one page."
   ]
  },
  "admin:/students/referred": {
@@ -581,12 +582,14 @@
    "Read the tiles **Evaluations**, **Passed**, **Failed**, **Pending** and **Average score**. Press **Passed**, **Failed** or **Pending** to filter.",
    "Filter by **Student**, **Teacher**, **Type**, **Result** or **Assessment** and press **Go**. Use the tabs **Evaluations** and **Manual Evaluations** to switch lists.",
    "Press **Create**. Choose the **Student** and **Date**, score **Tajweed**, **Fluency**, **Memorisation** and **Understanding**, write a **Teacher comment** and press **Save evaluation**. Leave **Score** blank to use the average of the four criteria.",
+   "Fill the evidence: **Questions asked and the student's answers**, **Strengths**, **Weaknesses**, **Current stage**, **Teacher recommendations** and **Required follow-up**.",
    "Tick **Manual evaluation** to place it under the Manual Evaluations tab. Press **Open** on a row to read or edit one evaluation."
   ],
   "notes": [
    "If an assessment is chosen, its passing marks decide pass or fail. Otherwise the pass mark is 55 percent.",
    "Passing a level-completion evaluation issues a certificate automatically when you hold the certificate permission.",
-   "Failed rows are highlighted."
+   "Failed rows are highlighted.",
+   "Recommendations that need action go to the academic manager, who can accept them and assign the work."
   ]
  },
  "admin:/academics/evaluations/pending": {

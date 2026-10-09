@@ -1,0 +1,106 @@
+{
+ "admin:/cases/trends": {
+  "purpose": "Complaint Intelligence shows where complaints come from, what causes them and which ones need management now. Managers use it to find root causes and stop the same problem coming back.",
+  "steps": [
+   "Read the tiles **Complaints**, **Being worked**, **Awaiting family**, **Reopened**, **Repeat** and **Avg to resolve**.",
+   "Read **Summary for management** for a short written overview of the month. It is refreshed once a day.",
+   "Read **Needs management attention** for escalated, reopened and overdue complaints. Press a case number to open it.",
+   "Read **Rising this month** for complaint types growing against last month, and **People with recurring complaints** for teachers or staff named in more than one complaint.",
+   "Read **Response deadlines** and **Confirmation calls overdue** to chase cases that are late or still waiting for the family's answer.",
+   "Read **Complaints received and closed by month** to see whether the backlog is growing or shrinking."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "The person a complaint is about never sees it here or anywhere else.",
+   "Complaint history for a named employee is only shown to the people allowed to see it, and every look is recorded in the audit log."
+  ]
+ },
+ "admin:/cases/settings": {
+  "purpose": "Complaint Settings holds the escalation ladder and the parent-confirmation rules. Senior management uses it to decide who a complaint goes to next and when a case may close without the family's answer.",
+  "steps": [
+   "Under **Escalation ladder** put the roles in order, from the first person who handles a complaint to the last. The default is Academy Manager, Head of Admissions, Head of People, then Super Admin.",
+   "Under **Parent confirmation** set **Days to confirm with the family** and **Unanswered attempts before a manager may close**.",
+   "Write a **Rationale** for the change and press **Save settings**."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "A resolved complaint goes to the family for confirmation. If the family is not satisfied, the case reopens and moves one step up the ladder.",
+   "Every change is recorded in the audit log with its rationale."
+  ]
+ },
+ "admin:/academics/student-summary": {
+  "purpose": "The Monthly Student Summary shows every student on one page for one month: classes, absences, late arrivals, lessons completed, class content, assessments and open follow-ups. Students needing attention come first.",
+  "steps": [
+   "Choose the **Month**, and if you want, a **Teacher** or a **Student** name, then press **Go**.",
+   "Read the tiles **Students**, **Classes held**, **Attended**, **Absences**, **Late arrivals**, **Lessons completed** and **Need attention**.",
+   "Read the flags on each row, for example **No progress recorded** or many absences.",
+   "Press a student name or **Open** to see that student's Academic Journey for the month."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "No progress recorded means no lesson was marked complete and no class content was written in the month.",
+   "Academic managers receive this summary by email at the start of each month."
+  ]
+ },
+ "teacher:/academics/student-summary": {
+  "purpose": "The Monthly Student Summary shows your own students for one month: classes, absences, late arrivals, lessons completed, class content, assessments and open follow-ups.",
+  "steps": [
+   "Choose the **Month** and press **Go**.",
+   "Read the tiles and the flags on each row. Students needing attention are at the top.",
+   "Press a student name or **Open** to see the student's Academic Journey for the month."
+  ],
+  "notes": [
+   "You only see the students you teach.",
+   "If a student shows **No progress recorded**, write the class content and mark lessons complete after each class."
+  ]
+ },
+ "admin:/parent-contacts": {
+  "purpose": "The Parent Contact Log records every conversation with a family: what was said, what was agreed, who follows up and by when. Academic and admissions staff use it so nothing a parent says is lost.",
+  "steps": [
+   "Read the tiles **This month**, **Follow-ups open**, **Mine to do**, **Overdue**, **Issues identified** and **Referrals mentioned**. Press a tile to filter.",
+   "Filter by **Search**, **About**, **Staff**, **Follow-up**, **From** or **To** and press **Go**.",
+   "Press **Record a conversation**. Fill **Who and when**, **What was said** and **Issue and follow-up**. Attach a recording or paste a transcript if you have one.",
+   "If the family mentioned someone who may want to join, fill **Referral**. A new lead is created for the admissions team.",
+   "Press **Save the conversation**. Press **Open** on a row to read it, complete the follow-up or raise a complaint from it."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "A follow-up becomes a task for the person named. They are reminded on the due date and their manager is told when it is overdue.",
+   "If the family is upset or concerned, the conversation can be turned into a complaint in one step.",
+   "Referral rewards are given as credit only, and only after a person approves them."
+  ]
+ },
+ "admin:/attention": {
+  "purpose": "Needs Attention brings together the students, teachers and families that a daily check has flagged. Every item says why it was flagged, and nothing happens until a person decides.",
+  "steps": [
+   "Read the tiles **Open**, **High**, **Students**, **Teachers**, **Referral opportunities** and **Actions approved**. Press a tile to filter.",
+   "Use the tabs **Students**, **Teachers**, **Referral opportunities**, **Decided** and **Resolved**. Filter by level or by finding and press **Filter**.",
+   "Read the one-line summary on each item. Press **Why, and what to do** to see the findings and the recommended actions.",
+   "Tick the actions you agree with, add a note if needed, and press **Approve and assign**. Each action becomes a task for its owner with a due date.",
+   "Or choose a number of days and press **Snooze**, or write why nothing is needed and press **Dismiss**.",
+   "Press **Check now** to run the check again straight away."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "The check looks at attendance, absences, late arrivals, progress, syllabus pace, teacher changes, complaints, assessments, overdue follow-ups, parent calls and retention risk.",
+   "A dismissed item only comes back if something new is found. An item resolves itself when its findings clear.",
+   "A supervisor sees only the students and teachers they supervise. Teacher items are for management only."
+  ]
+ },
+ "admin:/admin/integrations/ghl/sync": {
+  "purpose": "GoHighLevel Sync shows what moves between GoHighLevel and the ERP. GHL runs leads, marketing and the sales pipeline; the ERP owns families, students and academics.",
+  "steps": [
+   "Under **Connection** check whether sync is on. Press **Turn sync on** or **Turn sync off**.",
+   "Read the tiles **Waiting to send**, **Sent (24h)**, **Received (24h)**, **Retrying**, **Failed for good** and **Conflicts to review**.",
+   "Filter the list by **Search**, **Direction**, **Record** or **Status** and press **Go**. Press **Retry** on a failed row, or **Retry everything that failed**.",
+   "Press **Send due changes now** to send waiting changes straight away.",
+   "Under **Conflicts to review** compare **In the ERP** with **From GHL**, write a **Rationale**, then press **Keep the ERP values (update GHL)** or **Take the GHL values**.",
+   "Read **Pipeline stages** to match each ERP stage to its GHL stage id, and **Webhooks to add in GHL** for the addresses GHL must call."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Sync is off until it is turned on here. Without GHL credentials on the server, changes are simulated and nothing leaves the server.",
+   "A failed change is retried six times over about 18 hours. After that it is marked failed for good and an alert is raised."
+  ]
+ }
+}

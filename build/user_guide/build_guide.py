@@ -753,7 +753,7 @@ def appendices(story, pages, desc):
 
     story.append(PageBreak())
     story.append(heading("H2", "B. Roles and what they see", "shield-check"))
-    story.append(P("Your role decides which areas and pages you may open, and what you may change. A system administrator assigns roles on the Users page in Configuration."))
+    story.append(P("Your role decides which areas and pages you may open, and what you may change. A system administrator assigns roles on the Users page in Human Resource › Users & Access."))
     roles = [
         ("Super Admin / CEO", "Everything, including the CEO Command Center and confidential grievances."),
         ("System Administrator", "Everything technical: users, roles, settings, integrations, security, backups, audit log."),
@@ -764,7 +764,9 @@ def appendices(story, pages, desc):
         ("HOD — QA", "Quality Management: call reviews, feedback, teacher QA performance, monitoring."),
         ("HOD — Marketing", "CRM & Growth: leads, campaigns, WhatsApp inbox, marketing analytics."),
         ("HOD — Technology", "Configuration and integrations."),
-        ("Supervisor", "Live monitoring, class schedules, arrangements and queries."),
+        ("Academy Manager (PDM)", "First owner of complaints; student journeys, parent contact log, monthly student summary and Needs Attention."),
+        ("Head of Admissions", "Leads, trials and registrations; second step of the complaint ladder; referrals, ambassadors and the parent contact log."),
+        ("Supervisor", "Live monitoring, class schedules, arrangements and queries; Needs Attention for their own teachers and students."),
         ("Academic Coordinator", "Client and student records, subscriptions, class schedules, requests."),
         ("Billing Representative", "Client lists, invoices, receipts, ledgers for the families assigned to them."),
         ("Accountant", "Accounts: vouchers, journal, reports."),
@@ -825,7 +827,7 @@ def appendices(story, pages, desc):
     story.append(heading("H3", "Getting help"))
     story.append(bullets([
         "Ask your head of department first; most questions are about a process, not the system.",
-        "For sign-in, roles and permissions, ask the system administrator (Configuration › Users).",
+        "For sign-in, roles and permissions, ask the system administrator (Human Resource › Users & Access).",
         "For a fault in the system, open <b>Configuration › Support Ticket</b> and describe what you did, what you expected, and what happened. Add a screenshot.",
         "The footer of every page shows the release number. Quote it when you report a problem.",
     ]))
