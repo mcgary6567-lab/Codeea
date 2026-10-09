@@ -28,7 +28,7 @@ export default function Kiosk() {
   };
   return (
     <div className="space-y-4">
-      <PageHeader title="Staff attendance · حاضری" subtitle="Har bande ki selfie + location se haaziri — aana (check-in) aur jaana (check-out) dono" />
+      <PageHeader title="Staff attendance · حاضری" subtitle="Manager har salesman aur staff (helper, cleaner, driver, guard) ki selfie + location se haaziri lagaye — aana aur jaana dono. Cashier, wholesale aur manager khud shaamil nahi." />
       {!data ? <Loading /> : !data.length ? <Empty>Koi staff nahi. Staff page se add karein.</Empty> : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {data.map((u) => (

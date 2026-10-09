@@ -16,6 +16,10 @@ import { getSetting } from "../db.js";
 
 export const compliance = Router();
 const DAY = 86_400_000;
+// Selfie + location attendance applies only to on-the-ground staff: salesmen and non-login workers
+// (helper, cleaner, driver, guard — role 'staff'). The owner (admin), manager, cashier and wholesale
+// officer are exempt — they are not clocked in this way. The manager marks everyone else's attendance.
+const ATTENDANCE_ROLES = "('salesman','staff')";
 const daysLeft = (d: string) => Math.ceil((Date.parse(`${d}T00:00:00+05:00`) - Date.parse(`${pkDate()}T00:00:00+05:00`)) / DAY);
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -197,6 +201,8 @@ function liveSelfie(t: number, userId: number, photoId: number) {
   if (Date.now() - Date.parse(p.created_at) > SELFIE_MAX_AGE_MS) throw new AppError(400, "Selfie is too old — take a new one · نئی سیلفی لیں");
 }
 compliance.post("/attendance/check-in", h((req) => {
+  // self check-in is only for on-the-ground staff; the manager, cashier and wholesale officer are exempt
+  if (!["salesman", "staff"].includes(req.user!.role)) throw new AppError(403, "Attendance check-in is for salesmen and staff only");
   const b = parse(proof, req.body);
   liveSelfie(tid(req), req.user!.id, b.photo_id);
   return checkIn(tid(req), req.user!, { ...b, station_id: req.user!.station_id, source: "app" });
@@ -223,7 +229,7 @@ function liveSelfieBy(t: number, operatorId: number, photoId: number) {
 }
 compliance.get("/attendance/kiosk", requireAny("staff.manage", "sales.create"), h((req) => {
   const t = tid(req), today = pkDate();
-  const people = all("SELECT id, name, role, job_title, duty_start, station_id FROM users WHERE tenant_id=? AND active=1 AND role<>'admin' ORDER BY CASE role WHEN 'salesman' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, name", t);
+  const people = all(`SELECT id, name, role, job_title, duty_start, station_id FROM users WHERE tenant_id=? AND active=1 AND role IN ${ATTENDANCE_ROLES} ORDER BY CASE role WHEN 'salesman' THEN 0 ELSE 1 END, name`, t);
   return people.map((u) => {
     const a = get("SELECT check_in, check_out FROM attendance WHERE user_id=? AND day=?", u.id, today);
     return { id: u.id, name: u.name, role: u.role, job_title: u.job_title, duty_start: u.duty_start,
@@ -232,8 +238,8 @@ compliance.get("/attendance/kiosk", requireAny("staff.manage", "sales.create"), 
 }));
 const kioskProof = proof.extend({ user_id: z.number().int() });
 function kioskTarget(t: number, userId: number) {
-  const u = get("SELECT id, name, role, station_id FROM users WHERE id=? AND tenant_id=? AND active=1 AND role<>'admin'", userId, t);
-  if (!u) throw new AppError(400, "Staff member not found");
+  const u = get(`SELECT id, name, role, station_id FROM users WHERE id=? AND tenant_id=? AND active=1 AND role IN ${ATTENDANCE_ROLES}`, userId, t);
+  if (!u) throw new AppError(400, "Attendance is only marked for salesmen and other staff (not the manager, cashier or wholesale officer)");
   return u;
 }
 compliance.post("/attendance/kiosk/check-in", requireAny("staff.manage", "sales.create"), h((req) => {
@@ -293,8 +299,8 @@ compliance.get("/attendance/me", h((req) => ({
 compliance.post("/attendance/mark", requirePerm("staff.manage"), h((req) => {
   const b = parse(z.object({ user_id: z.number(), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), present: z.boolean().default(true) }), req.body);
   const t = tid(req);
-  const u = get("SELECT id, station_id, duty_start FROM users WHERE id=? AND tenant_id=?", b.user_id, t);
-  if (!u) throw new AppError(404, "Staff not found");
+  const u = get(`SELECT id, station_id, duty_start FROM users WHERE id=? AND tenant_id=? AND role IN ${ATTENDANCE_ROLES}`, b.user_id, t);
+  if (!u) throw new AppError(404, "Attendance is only marked for salesmen and other staff (not the manager, cashier or wholesale officer)");
   const day = b.day ?? pkDate();
   const existing = get("SELECT id FROM attendance WHERE user_id=? AND day=?", u.id, day);
   if (!b.present) { if (existing) run("DELETE FROM attendance WHERE id=?", existing.id); return { day, present: false }; }
@@ -307,7 +313,7 @@ compliance.get("/attendance", requirePerm("staff.manage"), h((req) => {
   const month = String(req.query.month ?? pkDate().slice(0, 7));
   return {
     month, today: pkDate(),
-    staff: all("SELECT id FROM users WHERE tenant_id=? AND active=1 AND role<>'admin' ORDER BY name", tid(req)).map((u) => attendanceMonth(tid(req), u.id, month)),
+    staff: all(`SELECT id FROM users WHERE tenant_id=? AND active=1 AND role IN ${ATTENDANCE_ROLES} ORDER BY name`, tid(req)).map((u) => attendanceMonth(tid(req), u.id, month)),
     present_today: all(`SELECT a.*, u.name FROM attendance a JOIN users u ON u.id=a.user_id WHERE a.tenant_id=? AND a.day=? ORDER BY a.check_in`, tid(req), pkDate()),
     leaves: all("SELECT l.*, u.name FROM leaves l JOIN users u ON u.id=l.user_id WHERE l.tenant_id=? ORDER BY CASE l.status WHEN 'pending' THEN 0 ELSE 1 END, l.id DESC LIMIT 40", tid(req)),
   };
@@ -320,7 +326,7 @@ compliance.get("/attendance/calendar", requirePerm("staff.manage"), h((req) => {
   const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
   const dayList = Array.from({ length: last }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
   const onlyNonLogin = String(req.query.all ?? "") !== "1"; // default: only the hand-marked, non-login staff
-  const staff = all(`SELECT id, name, job_title, role, weekly_off, salary, created_at FROM users WHERE tenant_id=? AND active=1 AND role<>'admin'${onlyNonLogin ? " AND role='staff'" : ""} ORDER BY name`, t).map((u) => {
+  const staff = all(`SELECT id, name, job_title, role, weekly_off, salary, created_at FROM users WHERE tenant_id=? AND active=1 AND role IN ${ATTENDANCE_ROLES}${onlyNonLogin ? " AND role='staff'" : ""} ORDER BY name`, t).map((u) => {
     const rows = all("SELECT day, late_minutes FROM attendance WHERE user_id=? AND day LIKE ?", u.id, `${month}-%`);
     const leaves = all("SELECT from_day, to_day, type FROM leaves WHERE user_id=? AND status='approved' AND from_day <= ? AND to_day >= ?", u.id, `${month}-31`, `${month}-01`);
     const joined = u.created_at.slice(0, 10);
@@ -378,7 +384,7 @@ compliance.post("/leaves/:id/:decision(approve|reject)", requirePerm("staff.mana
 /** Day starts: who has not checked in by an hour after duty start. */
 export async function attendanceWatch(t: number) {
   const nowMs = Date.now();
-  const missing = all("SELECT id, name, duty_start, weekly_off FROM users WHERE tenant_id=? AND active=1 AND duty_start IS NOT NULL AND role<>'admin'", t)
+  const missing = all(`SELECT id, name, duty_start, weekly_off FROM users WHERE tenant_id=? AND active=1 AND duty_start IS NOT NULL AND role IN ${ATTENDANCE_ROLES}`, t)
     .filter((u) => lateBy(u.duty_start, nowMs) >= 60 && u.weekly_off !== new Date(nowMs + 5 * 3600_000).getUTCDay()
       && !get("SELECT id FROM attendance WHERE user_id=? AND day=?", u.id, pkDate())
       && !get("SELECT id FROM leaves WHERE user_id=? AND status='approved' AND from_day <= ? AND to_day >= ?", u.id, pkDate(), pkDate()));

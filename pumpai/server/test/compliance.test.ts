@@ -100,17 +100,15 @@ test("attendance: live selfie + live location are mandatory; lateness; leave; sa
   assert.match((await call("salesman", "POST", "/api/attendance/check-out", { lat: 31.6, lng: 74.4 })).data.error, /selfie/i);
   const out = ok(await call("salesman", "POST", "/api/attendance/check-out", { photo_id: await selfie("salesman"), lat: 31.6, lng: 74.4 }), "check out");
   assert.ok(out.check_out); assert.ok(out.out_photo_id); assert.equal(out.out_lat, 31.6);
-  // manager checks in and out with selfies and location
-  ok(await call("manager", "POST", "/api/attendance/check-in", { photo_id: await selfie("manager"), lat: 31.60, lng: 74.40 }), "manager in");
-  const co = ok(await call("manager", "POST", "/api/attendance/check-out", { photo_id: await selfie("manager"), lat: 31.61, lng: 74.41 }), "manager out");
-  assert.ok(co.out_photo_id); assert.equal(co.out_lat, 31.61);
+  // the manager is exempt from selfie-location attendance — self check-in is refused
+  assert.equal((await call("manager", "POST", "/api/attendance/check-in", { photo_id: await selfie("manager"), lat: 31.60, lng: 74.40 })).status, 403);
   // leave request and approval
   const tomorrow = db.pkDate(Date.now() + 86_400_000);
   const lv = ok(await call("salesman", "POST", "/api/leaves", { from_day: tomorrow, to_day: tomorrow, type: "unpaid", reason: "sick child" }), "leave");
   assert.equal(lv.status, "pending");
   ok(await call("manager", "POST", `/api/leaves/${lv.id}/approve`, {}), "approve");
   const board = ok(await call("manager", "GET", "/api/attendance"), "board");
-  assert.ok(board.present_today.length >= 2);
+  assert.ok(board.present_today.length >= 1);
   assert.equal((await call("salesman", "GET", "/api/attendance")).status, 403);
   // an absent day is cut from the salary
   const yesterday = db.pkDate(Date.now() - 86_400_000);
