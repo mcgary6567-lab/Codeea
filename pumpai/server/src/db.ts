@@ -501,6 +501,7 @@ export function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS bank_accounts (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, bank TEXT NOT NULL, branch TEXT, title TEXT, account_no TEXT, kind TEXT NOT NULL DEFAULT 'current',
     opening_balance REAL NOT NULL DEFAULT 0, opening_date TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, note TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
+  addColumn("bank_accounts", "card_fee_pct", "REAL NOT NULL DEFAULT 0"); // bank's card/POS merchant fee % (MDR) deducted on card sales into this account
   // money that moves only in the bank: cash taken out, transfers, charges, profit, owner money in / out
   db.exec(`CREATE TABLE IF NOT EXISTS bank_txns (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, account_id INTEGER NOT NULL, kind TEXT NOT NULL, amount REAL NOT NULL,

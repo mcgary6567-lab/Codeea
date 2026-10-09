@@ -8,7 +8,7 @@ import { h, tid, requirePerm } from "../auth.js";
 import { AppError, round2 } from "../services.js";
 import { taxSettings, splitTax } from "./tax.js";
 import { PRODUCTS } from "../config.js";
-import { posMap, DEPOT_PAY, BYPASS_PAY } from "./banks.js";
+import { posMap, cardFees, DEPOT_PAY, BYPASS_PAY } from "./banks.js";
 import { cashPosition } from "./backoffice.js";
 import { digitalMethods } from "./lookups.js";
 
@@ -139,6 +139,9 @@ export function journal(t: number, fromDay: string, toDay: string) {
     add(day(r.txn_date), r.kind === "withdraw" ? "Contra" : r.amount > 0 ? "Receipt" : "Payment", `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}`,
       r.amount > 0 ? [dr(BANK, v), cr(other, v)] : [dr(other, v), cr(BANK, v)]);
   }
+  // bank card/POS fee (MDR) on each day's card sales — same figures the bank module nets off the balance
+  for (const f of cardFees(t)) if (f.day >= fromDay && f.day <= toDay)
+    add(f.day, "Payment", `Bank card charges ${f.day} (${f.pct}% of ${Math.round(f.sales).toLocaleString()})`, [dr("Expense: Card charges", f.fee), cr(BANK, f.fee)]);
   for (const r of all(`SELECT batch, method, account_id, MIN(sold_at) sold_at, SUM(value) v, COUNT(*) n, buyer FROM fuel_coupons WHERE tenant_id=? AND sold_at >= ? AND sold_at < ? GROUP BY batch, account_id`, ...P))
     add(day(r.sold_at), "Receipt", `Fuel coupons sold — ${r.n} (${r.batch})${r.buyer ? ` to ${r.buyer}` : ""}`, [dr(via(r.method, r.account_id), r.v), cr("Fuel coupons (unused)", r.v)]);
   for (const r of all(`SELECT w.*, c.name FROM wallet_ledger w JOIN customers c ON c.id=w.customer_id WHERE w.tenant_id=? AND w.type IN ('deposit','refund') AND w.created_at >= ? AND w.created_at < ?`, ...P))

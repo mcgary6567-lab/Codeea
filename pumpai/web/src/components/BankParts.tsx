@@ -222,13 +222,13 @@ export function BankAccounts({ cashInHand, onChanged }: { cashInHand: number; on
 
 function AccountForm({ acc, onClose, onDone }: { acc?: any; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ bank: acc?.bank ?? "", branch: acc?.branch ?? "", title: acc?.title ?? "", account_no: acc?.account_no ?? "", kind: acc?.kind ?? "current",
-    opening_balance: acc ? String(acc.opening_balance) : "", opening_date: acc?.opening_date ?? today(), note: acc?.note ?? "", active: acc ? Boolean(acc.active) : true });
+    opening_balance: acc ? String(acc.opening_balance) : "", opening_date: acc?.opening_date ?? today(), card_fee_pct: acc ? String(acc.card_fee_pct ?? 0) : "0", note: acc?.note ?? "", active: acc ? Boolean(acc.active) : true });
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={acc ? `Edit ${acc.bank}` : "Add bank account · بینک اکاؤنٹ"}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        const body = { ...f, opening_balance: Number(f.opening_balance || 0), branch: f.branch || null, title: f.title || null, account_no: f.account_no || null, note: f.note || null };
+        const body = { ...f, opening_balance: Number(f.opening_balance || 0), card_fee_pct: Number(f.card_fee_pct || 0), branch: f.branch || null, title: f.title || null, account_no: f.account_no || null, note: f.note || null };
         const r = await run(() => acc ? api(`/bank/accounts/${acc.id}`, { method: "PATCH", body }) : api("/bank/accounts", { body }), acc ? "Account saved" : "Bank account added");
         if (r) onDone();
       }}>
@@ -240,8 +240,10 @@ function AccountForm({ acc, onClose, onDone }: { acc?: any; onClose: () => void;
           <Field label="Type"><select className="input" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="current">Current</option><option value="savings">Savings</option><option value="wallet">Mobile wallet</option></select></Field>
           <Field label="Balance in the bank (Rs)"><input className="input py-2.5 text-xl" type="number" step="0.01" required value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
           <Field label="…at the start of this day"><input className="input" type="date" required value={f.opening_date} onChange={(e) => setF({ ...f, opening_date: e.target.value })} /></Field>
+          <Field label="Card machine (POS) fee % · کارڈ فیس"><input className="input" type="number" min={0} max={10} step="0.01" value={f.card_fee_pct} onChange={(e) => setF({ ...f, card_fee_pct: e.target.value })} /></Field>
         </div>
         <p className="text-xs text-slate-500">Write the balance from the bank statement / app for the start of that day. From then on, deposits, payments and POS card / Raast sales linked to this account are added by themselves.</p>
+        <p className="text-xs text-slate-500">Card machine (POS) fee: the % the bank keeps on every card sale (e.g. 1.8). It is deducted by itself so the bank balance matches the statement and the ledger tallies. Raast / Easypaisa / JazzCash are not charged. 0 = no fee.</p>
         {acc && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Account in use (untick when the account is closed)</label>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>

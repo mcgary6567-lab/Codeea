@@ -88,6 +88,36 @@ export function chequeToRegister(t: number, c: { direction: "in" | "out"; party_
 }
 
 /** Every movement of money in the owner's accounts (one account, or all of them). */
+/**
+ * Bank card/POS merchant fee (MDR): the bank keeps a % of every CARD sale that settles into an
+ * account. Per account (that has card_fee_pct > 0) and per day: fee = pct% × that day's card sales
+ * into the account. Derived (not stored) so it always matches the sales, exactly like the POS rows.
+ * The same helper feeds the bank statement and the ledger, so the books tally.
+ */
+export function cardFees(t: number, accountId?: number | null): { account_id: number; day: string; sales: number; pct: number; fee: number }[] {
+  const map = posMap(t);
+  const mapped = map["card"] ?? null;
+  const explicit = all("SELECT DISTINCT s.account_id id FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.payment_method='card' AND s.account_id IS NOT NULL", t).map((r) => r.id as number);
+  const accts = [...new Set([...(mapped ? [mapped] : []), ...explicit])];
+  const out: { account_id: number; day: string; sales: number; pct: number; fee: number }[] = [];
+  for (const id of accts) {
+    if (accountId && id !== accountId) continue;
+    const a = get("SELECT opening_date, card_fee_pct FROM bank_accounts WHERE id=? AND tenant_id=?", id, t);
+    if (!a || !(a.card_fee_pct > 0)) continue;
+    const pct = a.card_fee_pct as number;
+    const since = pkStart(a.opening_date);
+    const isDefault = id === mapped;
+    const saleCond = isDefault ? "(s.account_id=? OR s.account_id IS NULL)" : "s.account_id=?";
+    const rowsFor = all(`SELECT date(s.created_at, '+5 hours') day, SUM(s.amount) v FROM sales s JOIN stations st ON st.id=s.station_id
+      WHERE st.tenant_id=? AND s.payment_method='card' AND ${saleCond} AND s.created_at >= ? GROUP BY day`, t, id, since);
+    const shopRows = isDefault ? all("SELECT date(created_at, '+5 hours') day, SUM(total) v FROM shop_sales WHERE tenant_id=? AND payment_method='card' AND created_at >= ? GROUP BY day", t, since) : [];
+    const byDay: Record<string, number> = {};
+    for (const r of [...rowsFor, ...shopRows]) byDay[r.day] = (byDay[r.day] ?? 0) + (r.v as number);
+    for (const [day, v] of Object.entries(byDay)) out.push({ account_id: id, day, sales: round2(v), pct, fee: round2(v * pct / 100) });
+  }
+  return out;
+}
+
 export function bankMoves(t: number, accountId?: number | null): Row[] {
   const acc = accountId ? " AND x.account_id=?" : " AND x.account_id IS NOT NULL";
   const A = accountId ? [accountId] : [];
@@ -144,6 +174,9 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
         rows.push({ account_id: id, at: dayEnd(day), amount: round2(agg.v), kind: "pos", text: `POS ${posLabel(m)} sales ${day} (${agg.n})`, who: null, ref: `pos:${m}:${id}:${day}` });
     }
   }
+  // the bank's card/POS fee (MDR) on each day's card sales — so the bank's net matches the statement
+  for (const f of cardFees(t, accountId))
+    rows.push({ account_id: f.account_id, at: dayEnd(f.day), amount: -f.fee, kind: "card_fee", text: `Bank card charges ${f.day} (${f.pct}% of ${Math.round(f.sales).toLocaleString()})`, who: null, ref: `cardfee:${f.account_id}:${f.day}` });
   return rows.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 }
 
@@ -203,6 +236,7 @@ const accountBody = z.object({
   bank: z.string().trim().min(2).max(80), branch: z.string().trim().max(80).optional().nullable(), title: z.string().trim().max(80).optional().nullable(),
   account_no: z.string().trim().max(40).optional().nullable(), kind: z.enum(["current", "savings", "wallet"]).default("current"),
   opening_balance: z.number().min(-1_000_000_000).max(10_000_000_000).default(0), opening_date: day.optional(), note: z.string().max(200).optional().nullable(),
+  card_fee_pct: z.number().min(0).max(10).optional(), // bank's card/POS merchant fee % on card sales into this account
 });
 
 /** Names only, for the "which bank?" picker on payment forms (anyone who records money can pick). */
@@ -219,8 +253,8 @@ banks.get("/bank/accounts", requirePerm("bank.view"), h(async (req) => {
 
 banks.post("/bank/accounts", requirePerm("bank.manage"), h((req) => {
   const b = parse(accountBody, req.body);
-  const { id } = run(`INSERT INTO bank_accounts (tenant_id,bank,branch,title,account_no,kind,opening_balance,opening_date,note,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    tid(req), b.bank, b.branch ?? null, b.title ?? null, b.account_no ?? null, b.kind, b.opening_balance, b.opening_date ?? pkDate(), b.note ?? null, req.user!.name, now());
+  const { id } = run(`INSERT INTO bank_accounts (tenant_id,bank,branch,title,account_no,kind,opening_balance,opening_date,note,card_fee_pct,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    tid(req), b.bank, b.branch ?? null, b.title ?? null, b.account_no ?? null, b.kind, b.opening_balance, b.opening_date ?? pkDate(), b.note ?? null, b.card_fee_pct ?? 0, req.user!.name, now());
   return bankAccounts(tid(req)).accounts.find((a) => a.id === id);
 }));
 
@@ -228,8 +262,8 @@ banks.patch("/bank/accounts/:id", requirePerm("bank.manage"), h((req) => {
   const a = ownAccount(tid(req), Number(req.params.id));
   const b = parse(accountBody.partial().extend({ active: z.boolean().optional() }), req.body);
   const m = { ...a, ...b, active: b.active === undefined ? a.active : b.active ? 1 : 0 };
-  run("UPDATE bank_accounts SET bank=?, branch=?, title=?, account_no=?, kind=?, opening_balance=?, opening_date=?, note=?, active=? WHERE id=?",
-    m.bank, m.branch ?? null, m.title ?? null, m.account_no ?? null, m.kind, m.opening_balance, m.opening_date, m.note ?? null, m.active, a.id);
+  run("UPDATE bank_accounts SET bank=?, branch=?, title=?, account_no=?, kind=?, opening_balance=?, opening_date=?, note=?, card_fee_pct=?, active=? WHERE id=?",
+    m.bank, m.branch ?? null, m.title ?? null, m.account_no ?? null, m.kind, m.opening_balance, m.opening_date, m.note ?? null, m.card_fee_pct ?? 0, m.active, a.id);
   return bankAccounts(tid(req)).accounts.find((x) => x.id === a.id);
 }));
 
