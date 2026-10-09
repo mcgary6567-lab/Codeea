@@ -122,6 +122,7 @@ const NAV = [
   { to: "/owner-report", label: "Monthly report (PDF)", icon: FileBarChart, perm: "reports.view" },
   { to: "/discounts-report", label: "Discounts & overrides", icon: Tag, perm: "reports.view" },
   { to: "/margins", label: "Margins & targets", icon: Calculator, perm: "reports.view" },
+  { to: "/profit", label: "Profit explainer", icon: Lightbulb, perm: "reports.view" },
   { to: "/suggestions", label: "Suggestions", icon: Lightbulb, perm: "dashboard.view|wholesale.view" },
   { to: "/inbox", label: "WhatsApp", icon: MessageCircle, badge: "unread", perm: "whatsapp.inbox" },
   { to: "/pos", label: "Sales / POS", icon: Fuel, perm: "sales.create" },
