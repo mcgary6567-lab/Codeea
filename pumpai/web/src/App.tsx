@@ -4,6 +4,7 @@ import { api, getToken, setToken, setMediaToken } from "./lib/api";
 import { ToastProvider, Loading } from "./components/ui";
 import Layout from "./components/Layout";
 import { LightboxHost } from "./components/Capture";
+import { UpdateBanner } from "./components/UpdateBanner";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inbox from "./pages/Inbox";
@@ -123,6 +124,7 @@ export default function App() {
   return (
     <ToastProvider>
       <AuthProvider>
+        <UpdateBanner />
         <LightboxHost />
         <BrowserRouter>
           <Routes>
