@@ -44,6 +44,36 @@ export function BypassPanel() {
           hint={stock.data?.month?.year ? `is saal · bika ${pkrShort(stock.data.month.year.billed)} − cost ${pkrShort(stock.data.month.year.cost)}` : "—"} />
       </div>
 
+      {/* Bacha hua maal: supplier se jitna liya − client ko jitna diya = jo abhi humare paas ruka hai */}
+      <div className="card overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-4">
+          <h2 className="flex items-center gap-2 font-semibold"><Truck size={16} className="text-slate-500" /> Bacha hua maal (ruka hua stock) · <Ur>باقی مال</Ur></h2>
+          <span className="text-sm font-semibold tabular-nums text-slate-700">{num(stock.data?.total?.litres ?? 0)} L · {pkr(stock.data?.total?.value ?? 0)}</span>
+        </div>
+        {!stockLines.length ? (
+          <Empty>Koi maal ruka hua nahi — supplier se jitna liya utna client ko de diya.</Empty>
+        ) : (
+          <>
+            <table className="w-full text-sm">
+              <thead><tr><th className="th">Fuel</th><th className="th text-right">Ruke litre</th><th className="th text-right">Average cost (Rs/L)</th><th className="th text-right">Value (cost par)</th></tr></thead>
+              <tbody className="tabular-nums">
+                {stockLines.map((p) => (
+                  <tr key={p.product} className="border-t border-slate-100">
+                    <td className="td font-medium">{PRODUCTS[p.product] ?? p.product}</td>
+                    <td className="td text-right font-semibold">{num(p.litres)} L</td>
+                    <td className="td text-right">Rs {num(p.avg_cost, 2)}</td>
+                    <td className="td text-right">{pkr(p.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="border-t border-slate-100 bg-sky-50 px-4 py-2.5 text-xs text-sky-900">
+              Yeh maal supplier se liya ja chuka hai (uska bill chadh gaya) par abhi kisi client ko nahi diya — humare paas ruka hai. Jab rate upar jaye, <b>New trip → Depot direct</b> kholein aur <b>upar khareed (supplier) khaali chhod kar</b> sirf client drop daalein — yeh isi ruke stock se chala jayega aur munafa = us din ka rate − yeh average cost. <Ur className="block mt-0.5">ریٹ بڑھنے پر خریداری خالی چھوڑ کر صرف ڈراپ کریں — یہ رُکے اسٹاک سے جائے گا</Ur>
+            </p>
+          </>
+        )}
+      </div>
+
       <MonthlyProfitChart data={monthly.data ?? []} />
 
       <div className="card overflow-hidden">
