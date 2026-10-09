@@ -51,8 +51,12 @@ test("shop: scan a barcode, sell, stock goes down, cash goes in the shift bag, l
   ok(await call("manager", "POST", `/api/shop/items/${oil.id}/adjust`, { counted: 7, reason: "count" }), "adjust");
   ok(await call("salesman", "POST", "/api/shop/sales", { station_id: 1, payment_method: "easypaisa", lines: [{ item_id: oil.id, qty: 1 }] }), "sale 2");
   assert.ok(db.get("SELECT id FROM alerts WHERE type='shop_low_stock'"), "low-stock alert");
-  const html = await (await fetch(sale.receipt_url.replace(/^https?:\/\/[^/]+/, base))).text();
+  const path = sale.receipt_url.replace(/^https?:\/\/[^/]+/, base);
+  const html = await (await fetch(path)).text();
   assert.match(html, /Shell Helix/); assert.match(html, /Total/);
+  // thermal print: narrow 58 mm roll + auto-open the printer
+  const thermal = await (await fetch(`${path}?print=1&w=58`)).text();
+  assert.match(thermal, /58mm auto/); assert.match(thermal, /window\.print\(\)/);
 });
 
 test("shop: stock-in updates average cost; undo returns stock; khata sale goes on the ledger; profit in reports", async () => {

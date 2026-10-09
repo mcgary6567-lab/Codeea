@@ -184,7 +184,7 @@ ${brandFoot(p.t)}
 export const receiptUrl = (tenantId: number, kind: "f" | "s", id: number) =>
   `${config.publicUrl}/r/${jwt.sign({ r: kind, t: tenantId, id }, config.jwtSecret, { expiresIn: "400d" })}`;
 
-export function renderReceipt(token: string): string | null {
+export function renderReceipt(token: string, opts: { print?: boolean; width?: number } = {}): string | null {
   let p: { r: "f" | "s"; t: number; id: number };
   try { p = jwt.verify(token, config.jwtSecret) as typeof p; } catch { return null; }
   if (p.r !== "f" && p.r !== "s") return null; // only receipt links, never another kind of signed link
@@ -214,17 +214,24 @@ export function renderReceipt(token: string): string | null {
     if ((tx.ntn && tx.ntn !== head.ntn) || (tx.strn && tx.strn !== head.strn)) taxLine += `<tr><td colspan=2 class=muted>${tx.ntn ? `NTN ${esc(tx.ntn)}` : ""}${tx.ntn && tx.strn ? " · " : ""}${tx.strn ? `STRN ${esc(tx.strn)}` : ""}</td></tr>`;
   }
   const review = getSetting(p.t, "google_review_url", "");
+  // thermal roll layout (58 / 80 mm): narrow page, bigger-contrast text, no coloured buttons
+  const mm = opts.width;
+  const thermalCss = mm ? `@page{size:${mm}mm auto;margin:2mm}body{background:#fff}.card{width:${mm === 58 ? 52 : 74}mm;max-width:none;margin:0 auto;padding:0;font-size:12px}
+.card h1{font-size:15px}.muted{font-size:11px}td{padding:4px 0}.total{font-size:15px}.btn{display:none}@media screen{body{background:#f1f5f9}.card{margin:10px auto;background:#fff;padding:10px;border-radius:10px}}` : "";
+  // ?print=1 : open the device's printer straight away (small thermal printer shared over USB / Wi-Fi / the phone), then close
+  const autoPrint = opts.print ? `<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},300);});window.addEventListener('afterprint',function(){setTimeout(function(){window.close();},200);});</script>` : "";
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt — ${esc(tenant.name)}</title>
 <style>:root{color-scheme:light}body{font:15px/1.45 system-ui,sans-serif;margin:0;background:#f1f5f9;color:#0f172a}.card{max-width:420px;margin:16px auto;background:#fff;border-radius:14px;padding:20px}
 h1{font-size:19px;margin:0}.muted{color:#64748b;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:12px}td{padding:8px 0;border-bottom:1px dashed #cbd5e1}.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:10px}
 .total{font-size:22px;font-weight:700}.btn{display:block;box-sizing:border-box;width:100%;text-align:center;margin-top:10px;padding:11px;border:0;border-radius:10px;text-decoration:none;font:600 15px system-ui,sans-serif;cursor:pointer}.g{background:#064e3b;color:#fff}.w{background:#dcfce7;color:#14532d}.p{background:#0f172a;color:#fff}
 ${BRAND_CSS}.lh{flex-direction:column;align-items:flex-start}.lh .ct{text-align:left}@media(max-width:452px){.card{margin:12px}}
-@page{margin:12mm}@media print{.btn{display:none}body{background:#fff}.card{margin:0 auto;padding:0}}</style></head>
+@page{margin:12mm}@media print{.btn{display:none}body{background:#fff}.card{margin:0 auto;padding:0}}
+${thermalCss}</style></head>
 <body><div class=card>${brandHead(p.t, "Receipt")}<div class=muted>${esc(station)} · ${esc(new Date(when).toLocaleString("en-PK", { timeZone: "Asia/Karachi", dateStyle: "medium", timeStyle: "short" }))}</div>
 <table>${rows}${taxLine}<tr><td class=total>Total</td><td class="r total">Rs ${n2(total)}</td></tr></table>
 <div class=muted style="margin-top:6px">Paid: ${esc(pay.charAt(0).toUpperCase() + pay.slice(1))} · Receipt ${p.r === "f" ? "F" : "S"}-${p.id}</div>
 <button class="btn p" onclick="print()">🖨 Print / Save as PDF</button>
 ${review ? `<a class="btn g" href="${esc(review)}">⭐ Rate us on Google</a>` : ""}
 ${tenant.owner_phone ? `<a class="btn w" href="https://wa.me/${esc(tenant.owner_phone)}">WhatsApp us</a>` : ""}
-${getSetting(p.t, "receipt_footer", "") ? "" : `<div class=muted style="text-align:center;margin-top:12px">Shukriya! Phir tashreef layein 🙏</div>`}${brandFoot(p.t)}</div></body></html>`;
+${getSetting(p.t, "receipt_footer", "") ? "" : `<div class=muted style="text-align:center;margin-top:12px">Shukriya! Phir tashreef layein 🙏</div>`}${brandFoot(p.t)}</div>${autoPrint}</body></html>`;
 }

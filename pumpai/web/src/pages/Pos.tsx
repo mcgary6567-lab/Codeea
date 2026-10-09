@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera } from "lucide-react";
+import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera, Printer } from "lucide-react";
 import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
 import { Loading, useAction, useToast } from "../components/ui";
@@ -81,6 +81,10 @@ export default function Pos() {
   const [pickKhata, setPickKhata] = useState(false);
   const [scan, setScan] = useState(false);
   const [done, setDone] = useState<any>(null);
+  // small thermal printer: remember the roll width (58 or 80 mm) the pump uses
+  const [printW, setPrintW] = useState<string>(() => { try { return localStorage.getItem("pos_print_w") || "58"; } catch { return "58"; } });
+  const setWidth = (w: string) => { setPrintW(w); try { localStorage.setItem("pos_print_w", w); } catch { /* ignore */ } };
+  const printReceipt = (url: string) => window.open(`${url}${url.includes("?") ? "&" : "?"}print=1&w=${printW}`, "_blank", "noopener,width=420,height=680");
   const [heard, setHeard] = useState<string | null>(null);
   const [voiceExp, setVoiceExp] = useState<any>(null);
   const [tab, setTab] = useState<"fuel" | "shop">("fuel");
@@ -423,6 +427,20 @@ export default function Pos() {
             <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}${done.pending ? " · CARD PENDING" : ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && isBankPay(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
             {done.pending && !done.training && <div className="mt-1 text-base text-white/90">Card aaye to clear karein — us din ke rate par bill hoga</div>}
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
+            {done.receipt_url && !done.training && (
+              <div className="mt-4" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => printReceipt(done.receipt_url)} className="mx-auto flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-xl font-bold text-emerald-700 shadow active:scale-95">
+                  <Printer size={24} /> Print receipt · <Ur>پرچی پرنٹ</Ur>
+                </button>
+                <div className="mt-2 flex items-center justify-center gap-2 text-sm text-white/90">
+                  <span>Printer roll:</span>
+                  {["58", "80"].map((w) => (
+                    <button key={w} onClick={() => setWidth(w)} aria-pressed={printW === w}
+                      className={`rounded-lg px-3 py-1 font-semibold ${printW === w ? "bg-white text-emerald-700" : "bg-white/20 text-white ring-1 ring-white/50"}`}>{w} mm</button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-6 flex justify-center gap-3">
               {!done.training && <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
                 <Undo2 size={24} /> Undo · <Ur>واپس</Ur>

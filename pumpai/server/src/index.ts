@@ -134,7 +134,9 @@ app.get("/privacy", (_req, res) => res.type("html").send(privacyPage()));
 app.get("/terms", (_req, res) => res.type("html").send(termsPage()));
 // digital receipt for walk-in customers (QR on the POS)
 app.get("/r/:token", (req, res) => {
-  const html = renderReceipt(req.params.token);
+  // ?print=1 auto-opens the printer; ?w=58 / ?w=80 lays it out for a small thermal roll
+  const width = Number(req.query.w);
+  const html = renderReceipt(req.params.token, { print: req.query.print === "1", width: width === 58 || width === 80 ? width : undefined });
   res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>Receipt not found.</p>");
 });
 // wholesale client's own khata (short link + PIN)
