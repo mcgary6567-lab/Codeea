@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText,
-  Building2, ListChecks, Lightbulb, UserCheck,
+  Building2, ListChecks, Lightbulb, UserCheck, Hourglass,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -126,6 +126,7 @@ const NAV = [
   { to: "/customers", label: "Customers", icon: Users, perm: "customers.view" },
   { to: "/khata", label: "Khata (Credit)", icon: BookOpen, perm: "khata.manage" },
   { to: "/prepaid", label: "Coupons & wallets", icon: Ticket, perm: "khata.manage" },
+  { to: "/card-pending", label: "Card pending (khata)", icon: Hourglass, perm: "khata.clear_pending" },
   { to: "/wholesale", label: "Wholesale Supply", icon: Container, perm: "wholesale.view" },
   { to: "/carriage", label: "Carriage / kiraya", icon: Truck, perm: "carriage.view" },
   { to: "/cashier", label: "Cashier desk", icon: Banknote, perm: "cashier.desk" },

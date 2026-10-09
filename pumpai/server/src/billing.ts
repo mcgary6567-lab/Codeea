@@ -35,7 +35,8 @@ export const billLink = (tenantId: number, kind: Kind, id: number, month: string
 
 /* ---------------- Receipts ---------------- */
 export async function khataFillReceipt(tenantId: number, sale: Row) {
-  if (!on(tenantId, "khata_receipts") || sale.payment_method !== "khata" || !sale.customer_id) return;
+  // a card-pending hold raises no bill yet, so no "you owe" receipt goes out until it is cleared
+  if (!on(tenantId, "khata_receipts") || sale.payment_method !== "khata" || !sale.customer_id || sale.pending) return;
   const c = get("SELECT * FROM customers WHERE id=? AND tenant_id=?", sale.customer_id, tenantId);
   if (!c?.phone) return;
   const st = get("SELECT name FROM stations WHERE id=?", sale.station_id);

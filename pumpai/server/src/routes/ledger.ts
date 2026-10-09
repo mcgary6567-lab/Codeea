@@ -58,15 +58,30 @@ export function journal(t: number, fromDay: string, toDay: string) {
   const posFrom: Record<string, string> = Object.fromEntries(Object.entries(posBank).map(([m, id]) => [m, get("SELECT opening_date d FROM bank_accounts WHERE id=? AND tenant_id=?", id, t)?.d ?? "9999-12-31"]));
   const sold = (m: string | null | undefined, d: string) => (m && posBank[m.toLowerCase()] && d >= posFrom[m.toLowerCase()] ? BANK : payAccount(t, m));
 
-  // fuel sales: one voucher per day, money side by payment method
+  // fuel sales: one voucher per day, money side by payment method (card-pending khata holds are handled on their own below)
   const fuel = all(`SELECT date(datetime(s.created_at,'+5 hours')) d, s.payment_method m, SUM(s.amount) a, SUM(s.litres) l FROM sales s JOIN stations st ON st.id=s.station_id
-    WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? GROUP BY d, m`, ...P);
+    WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? AND NOT (COALESCE(s.pending,0)=1 OR s.cleared_at IS NOT NULL) GROUP BY d, m`, ...P);
   for (const d of [...new Set(fuel.map((r) => r.d))]) {
     const rows = fuel.filter((r) => r.d === d);
     const total = rows.reduce((a, r) => a + r.a, 0);
     const split = splitTax(total, tax.fuel_gst_pct, true);
     add(d, "Sales", `Fuel sales ${d} (${Math.round(rows.reduce((a, r) => a + r.l, 0)).toLocaleString()} L)`,
       [...rows.map((r) => dr(sold(r.m, d), r.a)), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
+  }
+  // khata "card pending": on the fill day the fuel is sold into an asset (not yet billed) at the meter rate; when the
+  // card is brought in it is billed to the khata at that day's rate, and the rate difference lands on the clear day.
+  const UNBILLED = "Unbilled fuel (card pending)";
+  for (const r of all(`SELECT date(datetime(s.created_at,'+5 hours')) d, SUM(s.amount) a, SUM(s.litres) l FROM sales s JOIN stations st ON st.id=s.station_id
+    WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? AND (COALESCE(s.pending,0)=1 OR s.cleared_at IS NOT NULL) GROUP BY d`, ...P)) {
+    const split = splitTax(r.a, tax.fuel_gst_pct, true);
+    add(r.d, "Sales", `Fuel sales — card pending ${r.d} (${Math.round(r.l).toLocaleString()} L)`,
+      [dr(UNBILLED, r.a), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
+  }
+  for (const r of all(`SELECT date(datetime(s.cleared_at,'+5 hours')) d, SUM(s.amount) prov, SUM(round(s.litres*s.clear_rate,2)) fin FROM sales s JOIN stations st ON st.id=s.station_id
+    WHERE st.tenant_id=? AND s.cleared_at >= ? AND s.cleared_at < ? GROUP BY d`, ...P)) {
+    const split = splitTax(round2(r.fin - r.prov), tax.fuel_gst_pct, true);
+    add(r.d, "Journal", `Card pending cleared ${r.d} — billed to khata`,
+      [dr("Khata receivable", round2(r.fin)), cr(UNBILLED, round2(r.prov)), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
   }
   // shop sales (sales tax split out)
   const shop = all(`SELECT date(datetime(ss.created_at,'+5 hours')) d, ss.payment_method m, SUM(ss.total) a FROM shop_sales ss WHERE ss.tenant_id=? AND ss.created_at >= ? AND ss.created_at < ? GROUP BY d, m`, ...P);

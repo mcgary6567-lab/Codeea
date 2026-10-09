@@ -282,6 +282,8 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     /** which bank's POS machine a card / digital sale went to */
     account_id: z.number().int().positive().nullable().optional(),
     client_uid: z.string().min(8).max(64).nullable().optional(),
+    /** khata "card pending": fuel out now at the meter rate, billed to the khata only when the card is brought in (at that day's rate) */
+    pending: z.boolean().optional(),
     /** when the sale was made on a tablet without internet; billed at the price in force then */
     offline_at: z.string().datetime({ offset: true }).nullable().optional(),
   }), req.body);
@@ -349,6 +351,64 @@ operations.post("/sales/:id/undo", requirePerm("sales.create"), h((req) => {
   undoSale(sale);
   audit(tid(req), req.user!, "sale_undo", `SALE-${sale.id}`, { product: sale.product, litres: sale.litres, amount: sale.amount, payment: sale.payment_method, customer_id: sale.customer_id });
   return { ok: true, undone: sale.id, summary: sale.shift_id ? shiftSummary(sale.shift_id) : null };
+}));
+
+/* ---------------- Khata "card pending" holds ---------------- */
+/**
+ * Fuel given to a khata customer on trust: no rate is locked and no debt is raised until the card / parchi is
+ * brought in (6–10 days later), when it is billed at that day's pump rate. These endpoints list what is still
+ * waiting and clear one or many at once. Owner / manager / cashier only.
+ */
+operations.get("/sales/pending", requirePerm("khata.clear_pending"), h((req) => {
+  const t = tid(req);
+  const prices = currentPrices(t);
+  const rows = all(`SELECT s.id, s.customer_id, s.product, s.litres, s.rate, s.amount, s.vehicle_no, s.slip_no, s.photo_id, s.station_id, s.created_at,
+      c.name customer_name, c.phone customer_phone, st.name station_name
+    FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN customers c ON c.id=s.customer_id
+    WHERE st.tenant_id=? AND s.pending=1 ORDER BY s.created_at`, t);
+  return rows.map((r) => {
+    const cur = prices[r.product]?.price ?? r.rate; // the rate it would be billed at if cleared today
+    return { ...r, current_rate: cur, projected_amount: round2(r.litres * cur),
+      days_pending: Math.floor((Date.now() - Date.parse(r.created_at)) / 86_400_000) };
+  });
+}));
+
+operations.post("/sales/clear", requirePerm("khata.clear_pending"), h((req) => {
+  const b = parse(z.object({
+    ids: z.array(z.number().int().positive()).min(1).max(100),
+    /** override rate applied to every selected slip; when omitted each is billed at the current pump price of its product */
+    rate: z.number().positive().optional(),
+    /** photo of the card / parchi the customer handed over (proof on the khata statement) */
+    photo_id: z.number().int().positive().nullable().optional(),
+  }), req.body);
+  const t = tid(req);
+  if (b.photo_id && !get("SELECT id FROM photos WHERE id=? AND tenant_id=?", b.photo_id, t)) throw new AppError(404, "Photo not found");
+  const prices = currentPrices(t);
+  const ts = now();
+  const cleared: { id: number; customer_id: number; customer_name: string; product: string; litres: number; rate: number; amount: number }[] = [];
+  tx(() => {
+    for (const id of b.ids) {
+      const s = get(`SELECT s.* FROM sales s JOIN stations st ON st.id=s.station_id WHERE s.id=? AND st.tenant_id=? AND s.pending=1`, id, t);
+      if (!s) throw new AppError(404, `Pending hold #${id} not found — it may already be cleared`);
+      if (!s.customer_id) throw new AppError(400, `Hold #${id} has no khata customer`);
+      const rate = b.rate ?? prices[s.product]?.price;
+      if (!(rate > 0)) throw new AppError(400, `No current price set for ${PRODUCTS[s.product] ?? s.product}`);
+      const amount = round2(s.litres * rate);
+      const c = get("SELECT * FROM customers WHERE id=?", s.customer_id)!;
+      // the fuel is already out, so this must be billed — lock the clear-day rate on the sale and raise the khata debit
+      run("UPDATE sales SET pending=0, clear_rate=?, cleared_at=? WHERE id=?", rate, ts, id);
+      const k = run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,product,litres,rate,vehicle_no,slip_no,station_id,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        c.id, "debit", amount, `SALE-${id}`, `${round2(s.litres)}L ${s.product} @ Rs ${rate} (card pending from ${String(s.created_at).slice(0, 10)})`,
+        s.product, round2(s.litres), rate, s.vehicle_no ?? null, s.slip_no ?? null, s.station_id, ts);
+      run("UPDATE customers SET balance = balance + ?, loyalty_points = loyalty_points + ? WHERE id=?", amount, Math.floor(amount / 100), c.id);
+      // the card / parchi photo rides the first slip's khata entry as proof
+      if (b.photo_id) run("UPDATE photos SET ref=? WHERE id=? AND ref IS NULL", `khata:${k.id}`, b.photo_id);
+      cleared.push({ id, customer_id: c.id, customer_name: c.name, product: s.product, litres: round2(s.litres), rate, amount });
+    }
+  });
+  audit(t, req.user!, "sale_clear_pending", b.ids.map((i) => `SALE-${i}`).join(","), { cleared });
+  return { ok: true, cleared, total: round2(cleared.reduce((a, x) => a + x.amount, 0)) };
 }));
 
 /* ---------------- Shifts ---------------- */

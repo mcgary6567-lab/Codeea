@@ -38,6 +38,7 @@ export const PERMISSIONS = {
   "customers.edit": MGMT,
   "credit.set_limit": ADMIN,
   "khata.manage": MGMT,
+  "khata.clear_pending": ["admin", "manager", "cashier"], // clear a card-pending fuel hold and bill it to the khata (owner / manager / cashier)
   "whatsapp.inbox": MGMT,
   "orders.manage": MGMT,
   "complaints.manage": MGMT,

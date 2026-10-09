@@ -255,6 +255,11 @@ export function migrate() {
   addColumn("sales", "source", "TEXT"); // pos | meter (litres on the meter not entered on the POS) // id from the POS so an offline sale synced twice is saved once
   addColumn("sales", "account_id", "INTEGER"); // which bank's POS machine a card/digital sale went to (overrides the pos-map default)
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_uid ON sales(client_uid)");
+  // khata "card pending": fuel filled now, the card/parchi comes days later and is billed at that day's rate.
+  // pending=1 means no rate is locked and no khata debit has been raised yet (stock & meter litres still count).
+  addColumn("sales", "pending", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("sales", "clear_rate", "REAL"); // the current pump rate applied on the day the card was brought in
+  addColumn("sales", "cleared_at", "TEXT"); // when the pending slip was cleared (billed to the khata)
   db.exec(`CREATE TABLE IF NOT EXISTS photos (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT, mime TEXT NOT NULL, data BLOB NOT NULL,
     ai_result TEXT, created_by INTEGER, created_at TEXT NOT NULL)`); // meter / invoice / receipt photos kept as proof

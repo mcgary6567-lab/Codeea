@@ -93,6 +93,9 @@ export interface SaleInput {
   account_id?: number | null;
   /** Internal only: bill at this rate (e.g. litres pumped before a price change). Never taken from user input. */
   rate?: number;
+  /** Khata "card pending": fuel goes out now at the meter rate, but no rate is locked and no debt is raised —
+   * it is billed to the khata only when the card / parchi is brought in, at that day's rate. */
+  pending?: boolean;
 }
 
 export function recordSale(tenantId: number, s: SaleInput): Row {
@@ -115,10 +118,13 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   if (!(litres > 0)) throw new AppError(400, "Litres or amount required");
   const amount = Math.round(litres * rate * 100) / 100;
   const customer = s.customer_id ? get("SELECT * FROM customers WHERE id=? AND tenant_id=?", s.customer_id, tenantId) : undefined;
+  const pending = Boolean(s.pending);
+  if (pending && s.payment_method !== "khata") throw new AppError(400, "Card-pending holds are only for khata accounts");
   if (s.payment_method === "khata") {
     if (!customer) throw new AppError(400, "Khata sale needs a customer");
     if (customer.khata_blocked) throw new AppError(400, `${customer.name}: khata is on hold because payment is overdue. Ask the manager.`);
-    if (customer.balance + amount > customer.credit_limit)
+    // a card-pending fill locks no rate and raises no debt yet, so the credit limit is only checked when it is cleared
+    if (!pending && customer.balance + amount > customer.credit_limit)
       throw new AppError(400, `Credit limit exceeded: balance ${pkr(customer.balance)}, limit ${pkr(customer.credit_limit)}`);
   }
   if (s.payment_method === "wallet") {
@@ -149,10 +155,10 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     // a bank account only applies to a card / digital (POS machine) sale — never cash / khata / coupon etc.
     const accountId = s.account_id && digitalMethods(tenantId).includes(s.payment_method) ? s.account_id : null;
     const { id } = run(
-      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,photo_id,at_close,account_id,created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,photo_id,at_close,account_id,pending,created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       s.station_id, s.shift_id ?? null, customer?.id ?? null, s.nozzle_id ?? null, s.product,
-      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), coupon?.id ?? null, photoId, s.at_close ? 1 : null, accountId, ts,
+      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), coupon?.id ?? null, photoId, s.at_close ? 1 : null, accountId, pending ? 1 : 0, ts,
     );
     if (coupon && run("UPDATE fuel_coupons SET status='used', sale_id=?, used_at=?, used_by=? WHERE id=? AND status='active'", id, ts, String(s.created_by ?? ""), coupon.id).changes !== 1)
       throw new AppError(409, `Coupon ${coupon.code} was just used`);
@@ -163,7 +169,12 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     }
     run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", litres, tank.id);
     if (s.nozzle_id) run("UPDATE nozzles SET totalizer = totalizer + ? WHERE id=?", litres, s.nozzle_id);
-    if (customer) {
+    if (customer && pending) {
+      // card-pending: fuel is out (stock & meter already moved) but nothing is billed yet; just record the visit
+      run("UPDATE customers SET last_visit_at=? WHERE id=?", ts, customer.id);
+      // keep the slip photo (parchi) linked to the sale as proof until it is cleared
+      if (photoId) run("UPDATE photos SET ref=? WHERE id=? AND ref IS NULL", `sale:${id}`, photoId);
+    } else if (customer) {
       run("UPDATE customers SET last_visit_at=?, loyalty_points = loyalty_points + ? WHERE id=?",
         ts, points ? -points : Math.floor(amount / 100), customer.id);
       if (points) run("INSERT INTO loyalty_redemptions (tenant_id,customer_id,points,sale_id,created_at) VALUES (?,?,?,?,?)", tenantId, customer.id, points, id, ts);
@@ -198,9 +209,11 @@ export function undoSale(sale: Row) {
         run("UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id=?", r?.points ?? Math.ceil(sale.amount), sale.customer_id);
         run("DELETE FROM loyalty_redemptions WHERE sale_id=?", sale.id);
       } else run("UPDATE customers SET loyalty_points = MAX(0, loyalty_points - ?) WHERE id=?", Math.floor(sale.amount / 100), sale.customer_id);
-      if (sale.payment_method === "khata") {
+      // a still-pending card hold raised no khata debit, so there is nothing to reverse; a cleared one was billed at its clear rate
+      if (sale.payment_method === "khata" && !sale.pending) {
+        const billed = sale.cleared_at ? round2(sale.litres * sale.clear_rate) : sale.amount;
         run("DELETE FROM khata_ledger WHERE customer_id=? AND ref=?", sale.customer_id, `SALE-${sale.id}`);
-        run("UPDATE customers SET balance = balance - ? WHERE id=?", sale.amount, sale.customer_id);
+        run("UPDATE customers SET balance = balance - ? WHERE id=?", billed, sale.customer_id);
       }
     }
     if (sale.coupon_id) run("UPDATE fuel_coupons SET status='active', sale_id=NULL, used_at=NULL, used_by=NULL WHERE id=?", sale.coupon_id);

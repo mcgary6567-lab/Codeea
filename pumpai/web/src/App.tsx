@@ -48,6 +48,7 @@ import Audit from "./pages/Audit";
 import Machines from "./pages/Machines";
 import Cashier from "./pages/Cashier";
 import Suggestions from "./pages/Suggestions";
+import CardPending from "./pages/CardPending";
 import Kiosk from "./pages/Kiosk";
 import { loadBranding } from "./lib/brand";
 
@@ -171,6 +172,7 @@ export default function App() {
               <Route path="bookings" element={<Need perm="sales.create"><Bookings /></Need>} />
               <Route path="register" element={<Need perm="stock.manage"><Register /></Need>} />
               <Route path="prepaid" element={<Need perm="khata.manage"><Prepaid /></Need>} />
+              <Route path="card-pending" element={<Need perm="khata.clear_pending"><CardPending /></Need>} />
               <Route path="team" element={<Need perm="staff.manage"><Team /></Need>} />
               <Route path="accounts" element={<Need perm="reports.view"><Accounts /></Need>} />
               <Route path="audit" element={<Need perm="audit.view"><Audit /></Need>} />

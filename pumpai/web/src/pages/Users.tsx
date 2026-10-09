@@ -20,7 +20,7 @@ const roleInfo = (r: string) => ROLE_INFO[r] ?? { icon: UserCog, tone: "slate", 
 const PERM_LABEL: Record<string, string> = {
   "dashboard.view": "Dashboard & reports", "ai.ask": "Ask AI / daily brief", "sales.create": "Record sales (POS)", "sales.view": "View sales",
   "shifts.manage": "Open / close shifts", "shifts.view_all": "See all staff shifts", "customers.view": "View customers", "customers.create": "Add customers",
-  "customers.edit": "Edit customers", "credit.set_limit": "Give / change khata credit limits", "khata.manage": "Khata payments & reminders",
+  "customers.edit": "Edit customers", "credit.set_limit": "Give / change khata credit limits", "khata.manage": "Khata payments & reminders", "khata.clear_pending": "Clear card-pending fuel holds (bill to khata)",
   "whatsapp.inbox": "WhatsApp inbox", "orders.manage": "Fuel orders", "complaints.manage": "Complaints", "campaigns.manage": "WhatsApp campaigns",
   "stock.manage": "Tanks, dips & deliveries", "prices.view": "View prices", "prices.update": "Change prices", "alerts.view": "Alerts",
   "automations.manage": "AI automations", "stations.manage": "Add stations", "settings.manage": "Business settings", "users.manage": "Users & roles",

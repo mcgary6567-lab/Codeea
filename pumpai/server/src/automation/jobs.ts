@@ -1,7 +1,8 @@
 /** Fully automated background jobs. Each returns a short human-readable result for the Automations page. */
 import { all, get, getSetting, pkDate, pkDayStart, type Row } from "../db.js";
 import { scoreCustomers, detectAnomalies, tankOutlook, kpis, insights, sensitivity } from "../ai/analytics.js";
-import { createAlert, paymentLink, pkr } from "../services.js";
+import { createAlert, paymentLink, pkr, round2 } from "../services.js";
+import { PRODUCTS } from "../config.js";
 import { sendWhatsApp, sendToPhone } from "../whatsapp/cloud.js";
 import { askBusiness, writeCampaign } from "../ai/agent.js";
 import { aiEnabled } from "../config.js";
@@ -111,6 +112,30 @@ export const JOBS: Job[] = [
         sent++;
       }
       return `${sent} reminders sent (${due.length} customers with dues)`;
+    },
+  },
+  {
+    key: "pending_card_watch",
+    name: "Card-pending fuel holds",
+    description: "Reminds the owner / cashier about khata fuel given on trust where the card / parchi has not come in within 3 days, so it can be cleared and billed at today's rate.",
+    cron: "0 10 * * *",
+    run: async (t) => {
+      const cutoff = new Date(Date.now() - 3 * 86_400_000).toISOString();
+      const rows = all(`SELECT s.id, s.product, s.litres, s.created_at, s.station_id, c.name customer_name, st.name station_name
+        FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN customers c ON c.id=s.customer_id
+        WHERE st.tenant_id=? AND s.pending=1 AND s.created_at <= ? ORDER BY s.created_at`, t, cutoff);
+      let n = 0;
+      for (const r of rows) {
+        const days = Math.floor((Date.now() - Date.parse(r.created_at)) / 86_400_000);
+        const a = createAlert(t, {
+          station_id: r.station_id, type: "card_pending", severity: days >= 7 ? "critical" : "warning",
+          title: `Card pending ${days} days: ${r.customer_name ?? "khata"} — ${round2(r.litres)}L ${PRODUCTS[r.product] ?? r.product}`,
+          body: `Fuel given on ${String(r.created_at).slice(0, 10)} at ${r.station_name}. Card/parchi not brought in yet — clear it to bill at today's rate.`,
+          dedupe_key: `card-pending-${r.id}`,
+        });
+        if (a) n++;
+      }
+      return `${rows.length} holds past 3 days, ${n} new alerts`;
     },
   },
   {

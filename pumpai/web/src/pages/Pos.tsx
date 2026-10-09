@@ -77,7 +77,7 @@ export default function Pos() {
   const [mode, setMode] = useState<"amount" | "litres">("amount");
   const [entry, setEntry] = useState("");
   const [pay, setPay] = useState<string | null>(null);
-  const [khata, setKhata] = useState<{ account: any; vehicle: string; slip: string; photo_id?: number | null } | null>(null);
+  const [khata, setKhata] = useState<{ account: any; vehicle: string; slip: string; photo_id?: number | null; pending?: boolean } | null>(null);
   const [pickKhata, setPickKhata] = useState(false);
   const [scan, setScan] = useState(false);
   const [done, setDone] = useState<any>(null);
@@ -145,12 +145,12 @@ export default function Pos() {
   const save = async () => {
     if (!ready || !d || saving) return;
     const body: any = { station_id: d.station.id, product, payment_method: pay, [mode]: value, client_uid: newUid() };
-    if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null, photo_id: khata.photo_id ?? null });
+    if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null, photo_id: khata.photo_id ?? null, ...(khata.pending ? { pending: true } : {}) });
     if (pay === "loyalty" && pointsCust) body.customer_id = pointsCust.id;
     if (pay === "coupon" && coupon) body.coupon_code = coupon.code;
     if (pay === "wallet" && walletAcct) body.customer_id = walletAcct.id;
     if (pay && isBankPay(pay) && cardBank) body.account_id = cardBank.id;
-    const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name ?? walletAcct?.name, bank_name: cardBank?.name, client_uid: body.client_uid };
+    const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name ?? walletAcct?.name, bank_name: cardBank?.name, pending: khata?.pending, client_uid: body.client_uid };
     if (training) { setDone({ ...shown, training: true }); reset(); return; }
     setSaving(true);
     try {
@@ -342,7 +342,7 @@ export default function Pos() {
             {pay === "khata" && khata && (
               <button onClick={() => setPickKhata(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-amber-50 p-3 text-left ring-1 ring-amber-300">
                 <span className="text-3xl">{TYPE_ICON[khata.account.type] ?? "📒"}</span>
-                <span className="flex-1"><span className="block text-lg font-semibold">{khata.account.name}</span>
+                <span className="flex-1"><span className="block text-lg font-semibold">{khata.account.name} {khata.pending && <span className="ml-1 rounded-full bg-violet-600 px-2 py-0.5 align-middle text-xs font-bold text-white">CARD PENDING</span>}</span>
                   <span className="text-sm text-slate-600">{[khata.vehicle && `Vehicle ${khata.vehicle}`, khata.slip && `Slip ${khata.slip}`, khata.photo_id && "📷 photo"].filter(Boolean).join(" · ") || "No vehicle / slip"}</span></span>
                 <span className="text-sm text-amber-700 underline">Change</span>
               </button>
@@ -359,7 +359,7 @@ export default function Pos() {
                   {pay && <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-semibold sm:px-3 sm:py-1">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : cardBank && isBankPay(pay) ? ` — ${cardBank.name}` : ""}</span>}
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-1.5 ring-1 ring-emerald-200 sm:block sm:py-2 sm:text-right">
-                  <div className="text-sm text-emerald-800">{pay === "khata" ? <>Add to khata · <Ur>کھاتے میں</Ur></> : <>Collect · <Ur>وصول کریں</Ur></>}</div>
+                  <div className="text-sm text-emerald-800">{pay === "khata" && khata?.pending ? <>Pending — bill later · <Ur>بعد میں</Ur></> : pay === "khata" ? <>Add to khata · <Ur>کھاتے میں</Ur></> : <>Collect · <Ur>وصول کریں</Ur></>}</div>
                   <div className="text-2xl font-extrabold tabular-nums text-emerald-800 sm:text-3xl">{pkr(amount)}</div>
                 </div>
               </div>
@@ -417,7 +417,8 @@ export default function Pos() {
               ? <div className="mt-2 text-xl">{done.lines.map((l: any) => `${num(l.qty)} × ${l.name}`).join(", ")}</div>
               : <div className="mt-2 text-2xl">{fuelOf(done.product).en} {num(done.litres, 2)} L × Rs {done.rate}</div>}
             <div className="text-5xl font-bold tabular-nums">{pkr(done.shop ? done.total : done.amount)}</div>
-            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && isBankPay(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
+            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}${done.pending ? " · CARD PENDING" : ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && isBankPay(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
+            {done.pending && !done.training && <div className="mt-1 text-base text-white/90">Card aaye to clear karein — us din ke rate par bill hoga</div>}
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
             <div className="mt-6 flex justify-center gap-3">
               {!done.training && <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
@@ -539,7 +540,7 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
   );
 }
 
-function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () => void; onPick: (k: { account: any; vehicle: string; slip: string; photo_id?: number | null }) => void }) {
+function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () => void; onPick: (k: { account: any; vehicle: string; slip: string; photo_id?: number | null; pending?: boolean }) => void }) {
   const { data: live } = useApi<any[]>("/pos/khata-accounts");
   useEffect(() => { if (live) cacheSet("khata_accounts", live); }, [live]);
   const data = live ?? cacheGet<any[]>("khata_accounts");
@@ -549,6 +550,7 @@ function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () =
   const [vehicle, setVehicle] = useState(initial?.vehicle ?? "");
   const [slip, setSlip] = useState(initial?.slip ?? "");
   const [photo, setPhoto] = useState<number | null>(initial?.photo_id ?? null);
+  const [pending, setPending] = useState<boolean>(initial?.pending ?? false);
   const list = useMemo(() => (data ?? []).filter((a) => (!type || (type === "institution" ? ["police", "school", "government", "hospital"].includes(a.type) : a.type === type)) && a.name.toLowerCase().includes(q.toLowerCase())), [data, q, type]);
   const institution = account && ["police", "school", "government", "hospital"].includes(account.type);
 
@@ -626,9 +628,20 @@ function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () =
                   }} />
               )}
             </div>
-            <p className="text-sm text-slate-500">Today's rate is saved with this entry, so the bill always shows the price on that day.</p>
-            <button className="w-full rounded-xl bg-emerald-600 py-4 text-2xl font-bold text-white active:scale-95" onClick={() => onPick({ account, vehicle: vehicle.trim(), slip: slip.trim(), photo_id: photo })}>
-              <Check className="inline" size={26} /> Done · <Ur>ٹھیک ہے</Ur>
+            {/* card-pending: fuel out now, card comes later → bill on the day it arrives, at that day's rate */}
+            <button type="button" onClick={() => setPending((x) => !x)} aria-pressed={pending}
+              className={`flex w-full items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${pending ? "bg-violet-50 ring-violet-400" : "bg-white ring-slate-200"}`}>
+              <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md ring-2 ${pending ? "bg-violet-600 text-white ring-violet-600" : "ring-slate-300"}`}>{pending && <Check size={16} strokeWidth={3} />}</span>
+              <span className="flex-1">
+                <span className="block text-lg font-semibold">Card abhi nahi aaya — pending rakho · <Ur>کارڈ بعد میں</Ur></span>
+                <span className="text-sm text-slate-600">Tel abhi dein. Jab card/parchi aaye ga us din ke rate par khate mein charge hoga — abhi koi rate lock nahi hota.</span>
+              </span>
+            </button>
+            <p className="text-sm text-slate-500">{pending
+              ? "Pending hold: abhi koi udhaar nahi chartha. Owner/cashier/manager card aane par clear karenge us din ke rate par."
+              : "Today's rate is saved with this entry, so the bill always shows the price on that day."}</p>
+            <button className={`w-full rounded-xl py-4 text-2xl font-bold text-white active:scale-95 ${pending ? "bg-violet-600" : "bg-emerald-600"}`} onClick={() => onPick({ account, vehicle: vehicle.trim(), slip: slip.trim(), photo_id: photo, pending })}>
+              <Check className="inline" size={26} /> {pending ? <>Hold pending · <Ur>پینڈنگ</Ur></> : <>Done · <Ur>ٹھیک ہے</Ur></>}
             </button>
           </div>
         )}
