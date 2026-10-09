@@ -51,6 +51,7 @@ import Suggestions from "./pages/Suggestions";
 import CardPending from "./pages/CardPending";
 import OwnerReport from "./pages/OwnerReport";
 import DiscountReport from "./pages/DiscountReport";
+import Margins from "./pages/Margins";
 import Kiosk from "./pages/Kiosk";
 import { loadBranding } from "./lib/brand";
 
@@ -159,6 +160,7 @@ export default function App() {
               <Route path="reports" element={<Need perm="reports.view"><Reports /></Need>} />
               <Route path="owner-report" element={<Need perm="reports.view"><OwnerReport /></Need>} />
               <Route path="discounts-report" element={<Need perm="reports.view"><DiscountReport /></Need>} />
+              <Route path="margins" element={<Need perm="reports.view"><Margins /></Need>} />
               <Route path="suppliers" element={<Need perm="suppliers.manage"><Suppliers /></Need>} />
               <Route path="users" element={<Need perm="users.manage"><Users /></Need>} />
               <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />

@@ -271,6 +271,15 @@ export function migrate() {
     guarantor_name TEXT, guarantor_phone TEXT, guarantor_cnic TEXT,
     note TEXT, status TEXT NOT NULL DEFAULT 'held', photo_id INTEGER, created_by INTEGER, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_guarantee_cust ON khata_guarantees(customer_id)");
+  // a price change set now to take effect later (e.g. the government's new rate from midnight); a job applies it when due
+  db.exec(`CREATE TABLE IF NOT EXISTS scheduled_prices (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, prices TEXT NOT NULL, broadcast INTEGER NOT NULL DEFAULT 0, note TEXT,
+    effective_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created_by TEXT, created_at TEXT NOT NULL, applied_at TEXT)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_sched_price ON scheduled_prices(tenant_id, status, effective_at)");
+  // monthly owner targets (sale litres, revenue, net profit) to track actual-vs-target
+  db.exec(`CREATE TABLE IF NOT EXISTS targets (
+    tenant_id INTEGER NOT NULL, month TEXT NOT NULL, sales_litres REAL, revenue REAL, net_profit REAL,
+    updated_at TEXT NOT NULL, PRIMARY KEY (tenant_id, month))`);
   // competitor pump prices noted by hand, to compare with ours
   db.exec(`CREATE TABLE IF NOT EXISTS competitor_prices (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, name TEXT NOT NULL, product TEXT NOT NULL,

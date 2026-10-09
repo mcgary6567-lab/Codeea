@@ -246,6 +246,32 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
 
 operations.get("/price-requests", requirePerm("prices.update"), h((req) =>
   all("SELECT * FROM price_requests WHERE tenant_id=? ORDER BY id DESC LIMIT 20", tid(req)).map((r) => ({ ...r, prices: JSON.parse(r.prices) }))));
+
+/* ---------------- Scheduled (future) price changes ---------------- */
+operations.get("/prices/scheduled", requirePerm("prices.update"), h((req) =>
+  all("SELECT * FROM scheduled_prices WHERE tenant_id=? AND status='pending' ORDER BY effective_at", tid(req)).map((r) => ({ ...r, prices: JSON.parse(r.prices) }))));
+operations.post("/prices/schedule", requirePerm("prices.update"), h((req) => {
+  const b = parse(priceBody.extend({ effective_at: z.string().datetime({ offset: true }) }), req.body);
+  if (Date.parse(b.effective_at) < Date.now() + 60_000) throw new AppError(400, "Choose a future time for the price to take effect");
+  const { id } = run("INSERT INTO scheduled_prices (tenant_id,prices,broadcast,note,effective_at,status,created_by,created_at) VALUES (?,?,?,?,?,'pending',?,?)",
+    tid(req), JSON.stringify(b.prices), b.broadcast ? 1 : 0, b.note ?? null, new Date(b.effective_at).toISOString(), req.user!.name, now());
+  return get("SELECT * FROM scheduled_prices WHERE id=?", id);
+}));
+operations.delete("/prices/scheduled/:id", requirePerm("prices.update"), h((req) => {
+  run("UPDATE scheduled_prices SET status='cancelled' WHERE id=? AND tenant_id=? AND status='pending'", Number(req.params.id), tid(req));
+  return { ok: true };
+}));
+/** Apply every scheduled price change that is now due (called by the automation job). */
+export async function applyDuePrices(t: number) {
+  const due = all("SELECT * FROM scheduled_prices WHERE tenant_id=? AND status='pending' AND effective_at <= ? ORDER BY effective_at", t, now());
+  let n = 0;
+  for (const s of due) {
+    await applyPrices(t, { id: 0, name: `Scheduled (${s.created_by ?? "owner"})` }, { prices: JSON.parse(s.prices), broadcast: Boolean(s.broadcast), note: s.note ?? undefined });
+    run("UPDATE scheduled_prices SET status='applied', applied_at=? WHERE id=?", now(), s.id);
+    n++;
+  }
+  return n;
+}
 /** Approve or reject a manager's price change (from the app, or the owner's "1" on WhatsApp). */
 export async function decidePriceRequest(t: number, id: number, approve: boolean, by: string) {
   const r = get("SELECT * FROM price_requests WHERE id=? AND tenant_id=?", id, t);

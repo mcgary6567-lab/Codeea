@@ -4,7 +4,7 @@
  */
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, pkDate, pkStart, pkEnd, getSetting } from "../db.js";
+import { all, get, run, now, pkDate, pkStart, pkEnd, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, pkr, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
@@ -257,6 +257,49 @@ analysis.get("/analysis/dip-trend", h((req) => {
       worst_pct: dips.length ? r0(Math.min(...dips.map((d) => d.variance_pct))) : 0,
       loss_days: losses.length };
   });
+}));
+
+/* ================= Product-wise margin & monthly targets ================= */
+/** Per fuel: litres sold, average sale rate, average purchase cost (this month) and the margin/profit. */
+export function productMargins(t: number, month: string) {
+  const from = pkStart(`${month}-01`);
+  const lastDay = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+  const to = pkEnd(`${month}-${String(lastDay).padStart(2, "0")}`);
+  const sales = all(`SELECT s.product, SUM(s.litres) l, SUM(s.amount) rev FROM sales s JOIN stations st ON st.id=s.station_id
+    WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? GROUP BY s.product`, t, from, to);
+  const prices = currentPrices(t);
+  return sales.filter((r) => r.l > 0).map((r) => {
+    // weighted average purchase cost this month, else the latest purchase rate, else current pump price
+    const wp = get(`SELECT SUM(litres*rate) v, SUM(litres) l FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? AND created_at >= ? AND created_at < ?`, t, r.product, from, to);
+    const cost = wp?.l ? wp.v / wp.l : (get("SELECT rate FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? ORDER BY txn_date DESC LIMIT 1", t, r.product)?.rate ?? prices[r.product]?.price ?? 0);
+    const avgSale = r.rev / r.l;
+    const marginL = round2(avgSale - cost);
+    return { product: r.product, name: PRODUCTS[r.product] ?? r.product, litres: round2(r.l), revenue: round2(r.rev),
+      avg_sale_rate: round2(avgSale), avg_cost: round2(cost), margin_per_l: marginL, profit: round2(marginL * r.l) };
+  }).sort((a, b) => b.profit - a.profit);
+}
+analysis.get("/analysis/margins", h((req) => {
+  const month = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() }), req.query).month ?? pkDate().slice(0, 7);
+  const rows = productMargins(tid(req), month);
+  return { month, products: rows, total: { litres: round2(rows.reduce((a, r) => a + r.litres, 0)), revenue: round2(rows.reduce((a, r) => a + r.revenue, 0)), profit: round2(rows.reduce((a, r) => a + r.profit, 0)) } };
+}));
+
+analysis.get("/analysis/targets", h((req) => {
+  const month = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() }), req.query).month ?? pkDate().slice(0, 7);
+  const t = tid(req);
+  const target = get("SELECT sales_litres, revenue, net_profit FROM targets WHERE tenant_id=? AND month=?", t, month) ?? { sales_litres: null, revenue: null, net_profit: null };
+  const pl = profitAndLoss(t, month);
+  const actual = { sales_litres: round2(pl.litres.retail + pl.litres.wholesale), revenue: pl.income.total, net_profit: pl.net_profit };
+  return { month, target, actual };
+}));
+analysis.put("/analysis/targets", requirePerm("reports.view"), h((req) => {
+  const b = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/),
+    sales_litres: z.number().min(0).nullable().optional(), revenue: z.number().min(0).nullable().optional(), net_profit: z.number().nullable().optional() }), req.body);
+  const t = tid(req);
+  run(`INSERT INTO targets (tenant_id,month,sales_litres,revenue,net_profit,updated_at) VALUES (?,?,?,?,?,?)
+    ON CONFLICT(tenant_id,month) DO UPDATE SET sales_litres=excluded.sales_litres, revenue=excluded.revenue, net_profit=excluded.net_profit, updated_at=excluded.updated_at`,
+    t, b.month, b.sales_litres ?? null, b.revenue ?? null, b.net_profit ?? null, now());
+  return { ok: true };
 }));
 
 /* ================= Pump health score ================= */

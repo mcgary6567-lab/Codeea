@@ -3,6 +3,7 @@ import { all, get, getSetting, pkDate, pkDayStart, type Row } from "../db.js";
 import { scoreCustomers, detectAnomalies, tankOutlook, kpis, insights, sensitivity } from "../ai/analytics.js";
 import { createAlert, paymentLink, pkr, round2 } from "../services.js";
 import { PRODUCTS } from "../config.js";
+import { applyDuePrices } from "../routes/operations.js";
 import { sendWhatsApp, sendToPhone } from "../whatsapp/cloud.js";
 import { askBusiness, writeCampaign } from "../ai/agent.js";
 import { aiEnabled } from "../config.js";
@@ -113,6 +114,13 @@ export const JOBS: Job[] = [
       }
       return `${sent} reminders sent (${due.length} customers with dues)`;
     },
+  },
+  {
+    key: "scheduled_prices",
+    name: "Scheduled price changes",
+    description: "Applies a price change set for a future time (e.g. the government's new rate from midnight) when it is due — then alerts salesmen and broadcasts like a normal change.",
+    cron: "*/15 * * * *",
+    run: async (t) => `${await applyDuePrices(t)} scheduled price change(s) applied`,
   },
   {
     key: "pending_card_watch",

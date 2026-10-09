@@ -13,6 +13,8 @@ export default function Prices() {
   const [vals, setVals] = useState<Record<string, string>>({});
   const [broadcast, setBroadcast] = useState(true);
   const [note, setNote] = useState("");
+  const [schedAt, setSchedAt] = useState("");
+  const scheduled = useApi<any[]>(can("prices.update") ? "/prices/scheduled" : null);
   useEffect(() => { if (data) setVals(Object.fromEntries(Object.entries(data.current).map(([k, v]: any) => [k, String(v.price)]))); }, [data]);
   if (!data) return <Loading />;
 
@@ -21,6 +23,12 @@ export default function Prices() {
     const r: any = await run(() => api("/prices", { body: { prices: Object.fromEntries(changed.map(([k, v]) => [k, Number(v)])), broadcast, note: note || undefined } }),
       (x: any) => x.pending ? "Sent to the admin for approval — prices change when the admin approves" : `Prices updated. ${x.salesmen_notified} salesmen notified to change the dispenser. Stock revaluation ${pkr(x.stock_revaluation)}${x.wholesale_rates_updated ? ` · ${x.wholesale_rates_updated} wholesale rates moved with the pump price` : ""}${x.broadcast_queued ? ` · broadcasting to ${x.broadcast_queued} customers` : ""}`);
     if (r) { setNote(""); reload(); requests.reload(); }
+  };
+  const schedule = async () => {
+    if (!changed.length || !schedAt) return;
+    const r: any = await run(() => api("/prices/schedule", { body: { prices: Object.fromEntries(changed.map(([k, v]) => [k, Number(v)])), broadcast, note: note || undefined, effective_at: new Date(schedAt).toISOString() } }),
+      "Price change scheduled — it will apply by itself at the chosen time");
+    if (r) { setSchedAt(""); setNote(""); scheduled.reload(); }
   };
 
   return (
@@ -33,6 +41,12 @@ export default function Prices() {
             <button className="btn-primary" disabled={busy} onClick={() => run(() => api(`/price-requests/${r.id}/approve`, { body: {} }), "Approved — prices are now live").then(() => { reload(); requests.reload(); })}>Approve</button>
             <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/price-requests/${r.id}/reject`, { body: {} }), "Rejected").then(() => requests.reload())}>Reject</button>
           </>}
+        </div>
+      ))}
+      {(scheduled.data ?? []).map((s) => (
+        <div key={s.id} className="card mb-4 flex flex-wrap items-center gap-3 border-l-4 border-l-violet-500 p-4">
+          <span className="flex-1 text-sm">⏰ <b>Scheduled price</b> — {Object.entries(s.prices).map(([p, v]: any) => `${PRODUCTS[p]} Rs ${v}`).join(", ")} · lagu hoga {dt(s.effective_at)}{s.note ? ` · ${s.note}` : ""}</span>
+          <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/prices/scheduled/${s.id}`, { method: "DELETE" }), "Cancelled").then(() => scheduled.reload())}>Cancel</button>
         </div>
       ))}
       <div className={`grid gap-5 ${can("prices.update") ? "lg:grid-cols-[420px_1fr]" : ""}`}>
@@ -52,7 +66,15 @@ export default function Prices() {
           ))}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={broadcast} onChange={(e) => setBroadcast(e.target.checked)} /> Broadcast new prices on WhatsApp to opted-in customers</label>
           {broadcast && <input className="input" placeholder="Optional note, e.g. 'Raat 12 baje se laagu'" value={note} onChange={(e) => setNote(e.target.value)} />}
-          <button className="btn-primary w-full" disabled={busy || !changed.length} onClick={submit}>Update {changed.length || ""} price{changed.length === 1 ? "" : "s"}</button>
+          <button className="btn-primary w-full" disabled={busy || !changed.length} onClick={submit}>Update {changed.length || ""} price{changed.length === 1 ? "" : "s"} now</button>
+          <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+            <div className="mb-1 text-sm font-medium">…ya baad ke liye schedule karein <span className="text-xs font-normal text-slate-500">(e.g. raat 12 baje se)</span></div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input className="input w-auto flex-1" type="datetime-local" value={schedAt} onChange={(e) => setSchedAt(e.target.value)} />
+              <button className="btn-secondary" disabled={busy || !changed.length || !schedAt} onClick={schedule}>Schedule</button>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Upar jo rate change kiya hai wohi us waqt khud lagu ho jayega (salesman alert + broadcast bhi).</p>
+          </div>
         </div>}
         <div className="space-y-5">
         <CompetitorBoard canEdit={can("prices.update")} />
