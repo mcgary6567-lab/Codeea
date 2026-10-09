@@ -161,9 +161,9 @@ test("admin renames, switches off and deletes expense categories; limits are set
   const unused = (await call("admin", "POST", "/api/expense-categories", { name: "Typo catgory" })).data;
   assert.equal((await call("admin", "DELETE", `/api/expense-categories/${unused.id}`)).status, 200);
   // limits
-  assert.equal((await call("admin", "PUT", "/api/settings", { limits: { test_limit_l: 25, shortage_min: 250, shortage_tolerance_pct: 0.5, utility_alert_pct: 20, pin_admin: true } })).status, 200);
+  assert.equal((await call("admin", "PUT", "/api/settings", { limits: { test_limit_l: 25, shortage_min: 250, shortage_tolerance_pct: 0.5, utility_alert_pct: 20, shift_hours: 12, pin_admin: true } })).status, 200);
   const l = (await call("admin", "GET", "/api/settings")).data.limits;
-  assert.deepEqual(l, { test_limit_l: 25, shortage_min: 250, utility_alert_pct: 20, shortage_tolerance_pct: 0.5, pin_admin: true });
+  assert.deepEqual(l, { test_limit_l: 25, shortage_min: 250, utility_alert_pct: 20, shortage_tolerance_pct: 0.5, shift_hours: 12, pin_admin: true });
   assert.equal((await call("admin", "GET", "/api/claims")).data.tolerance_pct, 0.5, "claims read the same setting");
 });
 

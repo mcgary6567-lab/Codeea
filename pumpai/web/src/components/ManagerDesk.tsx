@@ -70,7 +70,7 @@ export function ManagerDesk({ k }: { k: any }) {
               <table className="w-full"><thead><tr><th className="th">Salesman</th><th className="th">Open for</th><th className="th text-right">Litres</th><th className="th text-right">Sales</th><th className="th text-right">Cash in bag</th></tr></thead>
                 <tbody>{data.shifts.map((s: any) => (
                   <tr key={s.id}><td className="td"><div className="font-medium">{s.attendant}</div><div className="text-xs text-slate-500">{s.station.replace(/^Al-Madina /, "")}</div></td>
-                    <td className={`td text-sm ${s.hours >= 12 ? "font-semibold text-red-600" : ""}`}>{Math.floor(s.hours)}h {Math.round((s.hours % 1) * 60)}m</td>
+                    <td className={`td text-sm ${s.hours >= (data.shift_hours ?? 24) ? "font-semibold text-red-600" : ""}`}>{Math.floor(s.hours)}h {Math.round((s.hours % 1) * 60)}m</td>
                     <td className="td text-right tabular-nums">{num(s.litres)} L</td><td className="td text-right tabular-nums">{pkr(s.amount)}</td><td className="td text-right font-medium tabular-nums">{pkr(s.cash_expected)}</td></tr>
                 ))}</tbody></table>
             ) : <p className="px-4 pb-4 text-sm text-slate-500">No shift is open right now.</p>}

@@ -3,7 +3,7 @@
  * suggestions for today — each one says what to do and links to the screen that does it.
  */
 import { Router } from "express";
-import { all, get, pkDate, pkDayStart } from "../db.js";
+import { all, get, pkDate, pkDayStart, getSetting } from "../db.js";
 import { h, tid, requirePerm } from "../auth.js";
 import { pkr } from "../services.js";
 import { PRODUCTS } from "../config.js";
@@ -19,6 +19,8 @@ type Sug = { level: "critical" | "warning" | "info" | "good"; title: string; det
 managerDesk.get("/dashboard/desk", requirePerm("dashboard.view"), h((req) => {
   const t = tid(req), nowMs = Date.now(), today = pkDate(), dayStart = pkDayStart();
   const pkHour = new Date(nowMs + 5 * 3600_000).getUTCHours();
+  // a forecourt shift usually runs a full 24 hours (e.g. 8am→8am); the owner can tune it
+  const shiftHours = Number(getSetting(t, "shift_hours", "24")) || 24;
   const sug: Sug[] = [];
 
   /* ---- live shifts ---- */
@@ -27,8 +29,8 @@ managerDesk.get("/dashboard/desk", requirePerm("dashboard.view"), h((req) => {
     return { id: sh.id, attendant: sh.attendant, station: sh.station_name, opened_at: sh.opened_at, hours: Math.round(((nowMs - Date.parse(sh.opened_at)) / 3600_000) * 10) / 10,
       litres: sum.litres, amount: sum.amount, cash_expected: sum.cash_expected };
   });
-  for (const s of shifts) if (s.hours >= 12)
-    sug.push({ level: "warning", title: `${s.attendant}'s shift has been open ${Math.floor(s.hours)} hours`, detail: `${s.station}. Close it with the meter readings and cash count, then start the next one.`, to: "/shifts", label: "Shifts" });
+  for (const s of shifts) if (s.hours >= shiftHours)
+    sug.push({ level: "warning", title: `${s.attendant}'s shift has been open ${Math.floor(s.hours)} hours`, detail: `${s.station}. The ${shiftHours}-hour shift is over — close it with the meter readings and cash count, then start the next one.`, to: "/shifts", label: "Shifts" });
 
   /* ---- staff on duty today ---- */
   const weekday = new Date(Date.parse(today + "T12:00:00+05:00")).getUTCDay();
@@ -119,7 +121,7 @@ managerDesk.get("/dashboard/desk", requirePerm("dashboard.view"), h((req) => {
   const order = { critical: 0, warning: 1, info: 2, good: 3 };
   sug.sort((a, b) => order[a.level] - order[b.level]);
   return {
-    shifts, staff, pending: pend,
+    shifts, staff, pending: pend, shift_hours: shiftHours,
     // today's online money (card / JazzCash / Easypaisa / Raast): same figures as the owner's and the cashier's view
     online: onlineToday(tid(req)),
     staff_summary: { on_duty: staff.filter((s) => s.status === "present" || s.status === "late").length, late: staff.filter((s) => s.status === "late").length, missing: missing.length, total: staff.length },

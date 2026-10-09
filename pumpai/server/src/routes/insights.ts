@@ -92,7 +92,7 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
     khata_rules: { block_days: Number(getSetting(t, "khata_block_days", "60")), block_institutions: getSetting(t, "khata_block_institutions", "0") === "1", late_fee_pct: Number(getSetting(t, "khata_late_fee_pct", "0")) },
     // operating limits the owner can tune (defaults match what the code assumed before they were settings)
     limits: { test_limit_l: Number(getSetting(t, "test_limit_l", "10")), shortage_min: Number(getSetting(t, "shortage_min", "100")), utility_alert_pct: Number(getSetting(t, "utility_alert_pct", "15")),
-      shortage_tolerance_pct: Number(getSetting(t, "shortage_tolerance_pct", "0.2")), pin_admin: getSetting(t, "pin_admin", "0") === "1" },
+      shortage_tolerance_pct: Number(getSetting(t, "shortage_tolerance_pct", "0.2")), shift_hours: Number(getSetting(t, "shift_hours", "24")), pin_admin: getSetting(t, "pin_admin", "0") === "1" },
     sensitivity: sensitivity(t),
     integrations: {
       claude: { connected: aiEnabled(), model: config.aiModel, effort: config.aiEffort },
@@ -106,13 +106,13 @@ insightsRouter.put("/settings", requirePerm("settings.manage"), h((req) => {
     automation: z.record(z.enum(AUTO_SETTINGS), z.boolean()).optional(), google_review_url: z.string().url().or(z.literal("")).optional(),
     khata_rules: z.object({ block_days: z.number().int().min(15).max(365).optional(), block_institutions: z.boolean().optional(), late_fee_pct: z.number().min(0).max(5).optional() }).optional(),
     limits: z.object({ test_limit_l: z.number().min(0).max(500).optional(), shortage_min: z.number().min(0).max(100_000).optional(), utility_alert_pct: z.number().min(0).max(500).optional(),
-      shortage_tolerance_pct: z.number().min(0).max(2).optional(), pin_admin: z.boolean().optional() }).optional(),
+      shortage_tolerance_pct: z.number().min(0).max(2).optional(), shift_hours: z.number().min(1).max(72).optional(), pin_admin: z.boolean().optional() }).optional(),
     sensitivity: z.object({ dip_var_warn: z.number().min(0).max(20).optional(), dip_var_crit: z.number().min(0).max(20).optional(), delivery_short_warn: z.number().min(0).max(20).optional(), delivery_short_crit: z.number().min(0).max(20).optional(),
       cash_short_warn: z.number().min(0).max(1_000_000).optional(), cash_short_crit: z.number().min(0).max(1_000_000).optional(), sales_drop_pct: z.number().min(0).max(100).optional(), low_stock_days: z.number().min(0).max(30).optional() }).optional() }), req.body);
   if (b.sensitivity) for (const [k, v] of Object.entries(b.sensitivity)) if (v !== undefined) setSetting(tid(req), `sens_${k}`, String(v));
   if (b.google_review_url !== undefined) setSetting(tid(req), "google_review_url", b.google_review_url);
   if (b.limits) {
-    for (const k of ["test_limit_l", "shortage_min", "utility_alert_pct", "shortage_tolerance_pct"] as const) if (b.limits[k] !== undefined) setSetting(tid(req), k, String(b.limits[k]));
+    for (const k of ["test_limit_l", "shortage_min", "utility_alert_pct", "shortage_tolerance_pct", "shift_hours"] as const) if (b.limits[k] !== undefined) setSetting(tid(req), k, String(b.limits[k]));
     if (b.limits.pin_admin !== undefined) setSetting(tid(req), "pin_admin", b.limits.pin_admin ? "1" : "0");
   }
   if (b.khata_rules) {

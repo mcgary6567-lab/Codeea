@@ -108,10 +108,11 @@ test("bad meter readings are rejected without changing anything", async () => {
   assert.equal(after.shift.status, "open");
 });
 
-test("12-hour reminder to the salesman, overdue alert to managers", async () => {
+test("shift-over reminder to the salesman, overdue alert to managers (default 24h shift)", async () => {
   const { run } = await import("../src/db.js");
   const sh = (await call("salesman", "GET", "/api/shifts")).data.find((s: any) => s.status === "open");
-  run("UPDATE shifts SET opened_at=? WHERE id=?", new Date(Date.now() - 13.5 * 3600_000).toISOString(), sh.id);
+  // a 24h shift that is now 25.5h old: salesman is reminded (>=24h) and managers alerted (>=25h)
+  run("UPDATE shifts SET opened_at=? WHERE id=?", new Date(Date.now() - 25.5 * 3600_000).toISOString(), sh.id);
   const r = (await call("admin", "POST", "/api/automations/shift_watch/run")).data;
   assert.match(r.result, /1 reminders sent/);
   const n = (await call("salesman", "GET", "/api/notifications")).data;
