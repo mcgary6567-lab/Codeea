@@ -156,7 +156,18 @@ function Limits({ l, onSaved }: { l?: Record<string, any>; onSaved: () => void }
   return (
     <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { limits: { test_limit_l: Number(f.test_limit_l), shortage_min: Number(f.shortage_min), utility_alert_pct: Number(f.utility_alert_pct), shortage_tolerance_pct: Number(f.shortage_tolerance_pct), shift_hours: Number(f.shift_hours), pin_admin: f.pin_admin } } }), "Limits saved").then(onSaved); }}>
       <h2 className="font-semibold sm:col-span-2">Limits & tolerances</h2>
-      <label className="block"><span className="label">Shift length (hours) — e.g. 24 for a subah 8 se subah 8 shift; reminder to close fires after this</span><input className="input" type="number" min={1} max={72} value={f.shift_hours} onChange={(e) => setF({ ...f, shift_hours: e.target.value })} /></label>
+      <div className="sm:col-span-2">
+        <span className="label">Shift length — reminder to close fires after this. Set it to how long one salesman's shift runs.</span>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <input className="input w-28" type="number" min={1} max={72} value={f.shift_hours} onChange={(e) => setF({ ...f, shift_hours: e.target.value })} />
+          <span className="text-sm text-slate-500">hours</span>
+          {[["1 shift · 24h", 24], ["2 shifts · 12h", 12], ["3 shifts · 8h", 8]].map(([lbl, h]) => (
+            <button key={h as number} type="button" onClick={() => setF({ ...f, shift_hours: String(h) })}
+              className={`rounded-lg px-3 py-1.5 text-sm ring-1 ${Number(f.shift_hours) === h ? "bg-brand-50 font-semibold text-brand-800 ring-brand-500" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"}`}>{lbl as string}</button>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-slate-500">Ek 24-ghante shift ho to 24; din-raat 2 shift ho to 12; 3 shift ho to 8. Har salesman ki shift alag track hoti hai, chahe ek ho ya kai — bas har bande ki duty time Staff page pe set kar dein.</p>
+      </div>
       <label className="block"><span className="label">Test litres allowed per shift (returned to the tank)</span><input className="input" type="number" min={0} max={500} value={f.test_limit_l} onChange={(e) => setF({ ...f, test_limit_l: e.target.value })} /></label>
       <label className="block"><span className="label">Cash shortage below this (Rs) is ignored, not charged to the salesman</span><input className="input" type="number" min={0} value={f.shortage_min} onChange={(e) => setF({ ...f, shortage_min: e.target.value })} /></label>
       <label className="block"><span className="label">Tanker transit loss allowed (% of invoice) before a claim</span><input className="input" type="number" min={0} max={2} step="0.05" value={f.shortage_tolerance_pct} onChange={(e) => setF({ ...f, shortage_tolerance_pct: e.target.value })} /></label>
