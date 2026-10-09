@@ -105,6 +105,17 @@ def test_change_teacher_logs_match_and_notifies(admin, db):
     match = db.query(TeacherMatch).filter(TeacherMatch.student_id == s.id).order_by(TeacherMatch.id.desc()).first()
     assert match is not None and match.chosen_teacher_id == other.id
     assert match.ranked_candidates, "the ranked shortlist must be preserved for audit"
+    # the change is kept in the student's teacher history, with the reason and the previous teacher
+    from app.models.academic import TeacherAssignment
+    row = (db.query(TeacherAssignment).filter(TeacherAssignment.student_id == s.id, TeacherAssignment.end_date.is_(None))
+           .order_by(TeacherAssignment.id.desc()).first())
+    assert row is not None and row.teacher_id == other.id and row.previous_teacher_id == before
+    # put the seeded student back: teacher, schedules and classes, and drop the rows this test wrote
+    s2.teacher_id = before
+    svc.propagate_teacher_change(db, s2, db.get(Teacher, other.id), db.get(Teacher, before), None, "test cleanup")
+    db.query(TeacherMatch).filter(TeacherMatch.id == match.id).delete(synchronize_session=False)
+    db.query(TeacherAssignment).filter(TeacherAssignment.student_id == s.id).delete(synchronize_session=False)
+    db.commit()
 
 
 def test_student_status_change_requires_reason(admin, db):
@@ -178,6 +189,11 @@ def test_parent_can_request_leave(parent, db):
                                             "start_date": "2026-12-01", "end_date": "2026-12-05",
                                             "reason": "Family travel"}, follow_redirects=False)
     assert r.status_code == 303
+    from app.models.people import Leave
+    lv = db.query(Leave).filter(Leave.student_id == child.id, Leave.reason == "Family travel").order_by(Leave.id.desc()).first()
+    assert lv is not None
+    db.delete(lv)  # leave nothing behind for the next run
+    db.commit()
 
 
 def test_parent_cannot_request_leave_for_another_child(parent, db):

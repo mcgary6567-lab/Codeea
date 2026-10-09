@@ -23,6 +23,7 @@ except Exception:  # pragma: no cover
     pass
 
 import pytest  # noqa: E402
+from sqlalchemy import func  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.database import SessionLocal, init_db  # noqa: E402
@@ -41,6 +42,17 @@ STATUSES = ["pending", "approved", "rejected", "cancelled"]
 @pytest.fixture(scope="module", autouse=True)
 def _schema():
     init_db()
+    # The leave tests below create a family leave on every run; remove them afterwards, so repeated runs do not pile
+    # up duplicate leaves on the seeded students (they showed on the student journey timeline).
+    s = SessionLocal()
+    start_id = s.query(func.max(Leave.id)).scalar() or 0
+    s.close()
+    yield
+    s = SessionLocal()
+    s.query(Leave).filter(Leave.id > start_id, Leave.person_type == "student",
+                          Leave.reason.in_(["Family travelling for a wedding.", "Half term abroad."])).delete(synchronize_session=False)
+    s.commit()
+    s.close()
 
 
 @pytest.fixture(scope="module")
