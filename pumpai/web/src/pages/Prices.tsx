@@ -4,6 +4,33 @@ import { Tv, ExternalLink } from "lucide-react";
 import { Loading, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS, dt, pkr } from "../lib/format";
 import { useAuth } from "../App";
+import { Ur } from "../components/VoiceShell";
+
+/** When the pump rate moves, shift every khata account's own special rate by the same +/− in one go. */
+function KhataRatesShift() {
+  const { data, reload } = useApi<any[]>("/customers/rates");
+  const [delta, setDelta] = useState("");
+  const { busy, run } = useAction();
+  const count = data?.length ?? 0;
+  const apply = async (sign: 1 | -1) => {
+    const v = sign * Math.abs(Number(delta) || 0);
+    if (!v) return;
+    if (await run(() => api("/customers/rates/shift", { body: { delta: v } }), (r: any) => `${r.shifted} khata rates moved by ${r.delta >= 0 ? "+" : ""}${r.delta}`)) { setDelta(""); reload(); }
+  };
+  return (
+    <div className="card p-4">
+      <h2 className="font-semibold">Khata special rates · <Ur>خاص کھاتہ ریٹ</Ur></h2>
+      <p className="mt-0.5 text-xs text-slate-500">{count} account{count === 1 ? "" : "s"} (112, police, govt…) ka apna rate hai. Pump rate upar/neeche ho to yahan +/− daal kar sab par ek saath apply karein.</p>
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-sm text-slate-500">Rs</span>
+        <input className="input w-24 text-right tabular-nums" type="number" step="0.01" min={0} placeholder="2" value={delta} onChange={(e) => setDelta(e.target.value)} />
+        <button className="btn-secondary !px-3" disabled={busy || !Number(delta) || !count} onClick={() => apply(-1)}>− Down</button>
+        <button className="btn-primary !px-3" disabled={busy || !Number(delta) || !count} onClick={() => apply(1)}>+ Up</button>
+      </div>
+      {count > 0 && <p className="mt-1 text-xs text-slate-400">Example: 2 daal kar "+ Up" = har khata rate Rs 2 barh jayega.</p>}
+    </div>
+  );
+}
 
 export default function Prices() {
   const { data, reload } = useApi<any>("/prices");
@@ -55,6 +82,7 @@ export default function Prices() {
           <button className="btn-primary w-full" disabled={busy || !changed.length} onClick={submit}>Update {changed.length || ""} price{changed.length === 1 ? "" : "s"}</button>
         </div>}
         <div className="space-y-5">
+        {can("prices.update") && <KhataRatesShift />}
         <TvBoard canEdit={can("prices.update")} />
         {data.last_change && (
           <div className="card">

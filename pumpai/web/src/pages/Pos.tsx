@@ -101,7 +101,9 @@ export default function Pos() {
   useEffect(() => { if (bankPos.data?.accounts) cacheSet("pos_bank_accounts", bankPos.data.accounts); }, [bankPos.data]);
 
   const d = today.data ?? cacheGet<any>(cacheKey);
-  const rate = product && d ? d.prices[product] : 0;
+  // a khata account the CEO gave its own fuel rate (112, police, govt…) bills at that, not the pump rate
+  const specialRate = pay === "khata" && product && khata?.account?.rates?.[product] ? Number(khata.account.rates[product]) : 0;
+  const rate = product ? (specialRate || (d ? d.prices[product] : 0)) : 0;
   const value = Number(entry) || 0;
   const litres = mode === "litres" ? value : rate ? value / rate : 0;
   const amount = mode === "amount" ? value : value * rate;
@@ -356,6 +358,7 @@ export default function Pos() {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-lg">
                   <span className="rounded-lg px-2 py-0.5 font-bold text-white sm:px-3 sm:py-1" style={{ background: fuelOf(product).color }}>⛽ {fuelOf(product).en} · <Ur>{fuelOf(product).ur}</Ur></span>
                   <span className="font-semibold tabular-nums">{num(litres, 2)} L × Rs {rate}</span>
+                  {specialRate > 0 && <span className="rounded-lg bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">special rate · <Ur>خاص ریٹ</Ur></span>}
                   {pay && <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-semibold sm:px-3 sm:py-1">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : cardBank && isBankPay(pay) ? ` — ${cardBank.name}` : ""}</span>}
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-1.5 ring-1 ring-emerald-200 sm:block sm:py-2 sm:text-right">

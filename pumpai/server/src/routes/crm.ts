@@ -5,7 +5,7 @@ import { all, get, run, tx, now, pkStart, pkEnd, pkDate } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
-import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale, audit } from "../services.js";
+import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale, audit, round2 } from "../services.js";
 import { productSchema } from "../products.js";
 import { assertLookup } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -98,10 +98,15 @@ crm.patch("/customers/:id", requirePerm("customers.edit"), h(async (req) => {
   return get("SELECT * FROM customers WHERE id=?", c.id);
 }));
 
+/** The special per-product fuel rates set for one khata account (112, police, govt…), as a map. */
+export const custRates = (customerId: number): Record<string, number> =>
+  Object.fromEntries(all("SELECT product, rate FROM customer_rates WHERE customer_id=?", customerId).map((r) => [r.product, r.rate]));
+
 crm.get("/customers/:id", requirePerm("customers.view"), h((req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   return {
     ...c,
+    rates: custRates(c.id),
     vehicles: all("SELECT * FROM vehicles WHERE customer_id=?", c.id),
     ledger: all(`SELECT k.*, ${proofCol("'khata:'||k.id")} FROM khata_ledger k WHERE k.customer_id=? ORDER BY k.id DESC LIMIT 100`, c.id),
     sales: all("SELECT s.*, st.name station_name FROM sales s JOIN stations st ON st.id=s.station_id WHERE customer_id=? ORDER BY s.id DESC LIMIT 50", c.id),
@@ -109,6 +114,45 @@ crm.get("/customers/:id", requirePerm("customers.view"), h((req) => {
     complaints: all("SELECT * FROM complaints WHERE customer_id=? ORDER BY id DESC LIMIT 20", c.id),
     conversation: get("SELECT * FROM conversations WHERE customer_id=?", c.id) ?? null,
   };
+}));
+
+// set / clear a khata account's own fuel rates (CEO gives 112, police, govt… their own per-litre rate)
+crm.put("/customers/:id/rates", requirePerm("prices.update"), h((req) => {
+  const t = tid(req), c = ownCustomer(t, Number(req.params.id));
+  const b = parse(z.object({ rates: z.record(productSchema(), z.number().positive().max(100_000).nullable()) }), req.body);
+  const before = custRates(c.id);
+  for (const [product, rate] of Object.entries(b.rates)) {
+    if (rate == null) run("DELETE FROM customer_rates WHERE customer_id=? AND product=?", c.id, product);
+    else run(`INSERT INTO customer_rates (tenant_id,customer_id,product,rate,updated_by,updated_at) VALUES (?,?,?,?,?,?)
+      ON CONFLICT(customer_id,product) DO UPDATE SET rate=excluded.rate, updated_by=excluded.updated_by, updated_at=excluded.updated_at`,
+      t, c.id, product, round2(rate), req.user!.name, now());
+  }
+  const after = custRates(c.id);
+  audit(t, req.user!, `rate:Set khata rate — ${c.name}`, "customer_rates", { changes: Object.keys({ ...before, ...after }).filter((p) => before[p] !== after[p]).map((p) => ({ field: p, from: before[p] ?? null, to: after[p] ?? null })) });
+  return { rates: after };
+}));
+
+// bulk: when the pump rate moves, the CEO enters +2 / −2 and every khata account's special rate shifts
+crm.post("/customers/rates/shift", requirePerm("prices.update"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({ delta: z.number().min(-1000).max(1000), product: productSchema().optional() }), req.body);
+  if (!b.delta) throw new AppError(400, "Enter how much to move the rate (e.g. 2 or -2)");
+  const rows = all(`SELECT cr.id, cr.rate FROM customer_rates cr JOIN customers c ON c.id=cr.customer_id WHERE cr.tenant_id=? AND c.active=1 ${b.product ? "AND cr.product=?" : ""}`, ...(b.product ? [t, b.product] : [t]));
+  let n = 0;
+  for (const r of rows) {
+    const next = round2(Math.max(0.01, (r.rate as number) + b.delta));
+    run("UPDATE customer_rates SET rate=?, updated_by=?, updated_at=? WHERE id=?", next, req.user!.name, now(), r.id);
+    n++;
+  }
+  audit(t, req.user!, `rate:Khata rates ${b.delta >= 0 ? "+" : ""}${b.delta}${b.product ? ` (${b.product})` : ""}`, "customer_rates", { changes: [{ field: "delta", from: null, to: b.delta }] });
+  return { shifted: n, delta: b.delta };
+}));
+
+// every khata account that has its own special rate (for the bulk rate screen)
+crm.get("/customers/rates", requirePerm("khata.manage"), h((req) => {
+  const t = tid(req);
+  return all(`SELECT c.id, c.name, c.type FROM customers c WHERE c.tenant_id=? AND c.active=1 AND EXISTS (SELECT 1 FROM customer_rates cr WHERE cr.customer_id=c.id) ORDER BY c.name`, t)
+    .map((c) => ({ ...c, rates: custRates(c.id as number) }));
 }));
 
 crm.post("/customers/:id/vehicles", requirePerm("customers.create"), h(async (req) => {

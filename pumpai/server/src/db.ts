@@ -665,6 +665,10 @@ export function migrate() {
   addColumn("nozzles", "active", "INTEGER NOT NULL DEFAULT 1");
   addColumn("expense_categories", "active", "INTEGER NOT NULL DEFAULT 1");
   addColumn("customers", "active", "INTEGER NOT NULL DEFAULT 1"); // archive a dead / duplicate customer — history stays
+  // special per-customer fuel rate (112, police, govt khata accounts the CEO gives their own rate)
+  db.exec(`CREATE TABLE IF NOT EXISTS customer_rates (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, product TEXT NOT NULL,
+    rate REAL NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL, UNIQUE (customer_id, product))`);
   // one-time: existing salesmen get a default 8:00 AM duty start so the 24-hour shift attendance tracks them
   // (guarded so it never re-sets a duty time the owner later clears on purpose)
   if (!get("SELECT value FROM settings WHERE tenant_id=0 AND key='mig_salesman_duty8'")) {
