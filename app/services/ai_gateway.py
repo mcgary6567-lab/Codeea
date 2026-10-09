@@ -24,7 +24,7 @@ from app.models.core import AIModelRun
 PROMPT_VERSIONS = {
     "class_monitoring": "2.1", "lead_scoring": "1.3", "churn": "1.2", "complaint_classification": "1.1",
     "lesson_recommendation": "1.4", "insights": "1.0", "qa_recommendation": "1.1", "transcription": "1.0",
-    "anomaly": "1.0", "sentiment": "1.0",
+    "anomaly": "1.0", "sentiment": "1.0", "complaint_summary": "1.0",
 }
 
 
@@ -158,10 +158,39 @@ def _sim_insights(p: dict) -> dict:
     return {"insights": items}
 
 
+def _sim_complaint_summary(p: dict) -> dict:
+    """Plain-language management summary built only from the figures passed in (no invented facts)."""
+    points = []
+    if p.get("open"):
+        points.append(f"{p['open']} complaint(s) are still being worked"
+                      + (f", {p['high_risk_open']} of them at high risk of escalation" if p.get("high_risk_open") else "") + ".")
+    if p.get("pending_confirmation"):
+        points.append(f"{p['pending_confirmation']} resolved complaint(s) are waiting for the family to confirm"
+                      + (f"; {p['overdue_confirmation']} confirmation call(s) are overdue" if p.get("overdue_confirmation") else "") + ".")
+    for r in p.get("rising") or []:
+        points.append(f"{r['category']} complaints rose from {r['previous']} to {r['latest']} this month.")
+    for person in p.get("recurring_people") or []:
+        points.append(f"{person['name']} has {person['total']} complaints on record ({person['open']} open): review the pattern.")
+    if p.get("reopened"):
+        points.append(f"{p['reopened']} complaint(s) were reopened after the family disagreed with the resolution.")
+    if p.get("repeat"):
+        points.append(f"{p['repeat']} complaint(s) repeat an earlier complaint from the same family.")
+    causes = p.get("top_root_causes") or []
+    if causes:
+        points.append("Most common root causes: " + ", ".join(f"{c} ({n})" for c, n in causes) + ".")
+    if p.get("avg_resolution_hours") is not None:
+        points.append(f"Average time to resolve: {p['avg_resolution_hours']} hours.")
+    if not points:
+        points.append("No complaints recorded in this period.")
+    lead = points[0]
+    return {"summary": lead + (" " + " ".join(points[1:3]) if len(points) > 1 else ""), "points": points}
+
+
 _SIM = {
     "class_monitoring": _sim_class_monitoring, "lead_scoring": _sim_lead_scoring, "churn": _sim_churn,
     "complaint_classification": _sim_complaint, "lesson_recommendation": _sim_lesson_recommendation,
     "sentiment": _sim_sentiment, "insights": _sim_insights, "qa_recommendation": _sim_class_monitoring,
+    "complaint_summary": _sim_complaint_summary,
     "anomaly": lambda p: {"anomalies": []}, "transcription": lambda p: {"transcript": "[simulated transcript — configure AI_PROVIDER for real transcription]"},
 }
 

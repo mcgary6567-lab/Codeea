@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Complaint settings{% endblock %}
+{% block content %}
+{{ ui.page_header('Complaint settings', 'The escalation ladder and the parent-confirmation rules', back='/cases') }}
+<form method="post" action="/cases/settings" class="max-w-3xl space-y-6">
+  {% call ui.card('Escalation ladder', 'A complaint climbs one step at a time: when someone escalates it, when its response deadline passes, or when the family is not satisfied. Every step can see every complaint, except one about themselves.') %}
+  <ol class="space-y-3">
+    {% for i in range(1, 7) %}
+    {% set current = steps[i-1] if steps|length >= i else '' %}
+    <li class="grid items-center gap-3 sm:grid-cols-[3rem_1fr_1fr]">
+      <span class="text-sm font-semibold text-slate-500">Step {{ i }}</span>
+      <select name="step_{{ i }}" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+        <option value="">{{ '— none —' if i > 1 else '— choose —' }}</option>
+        {% for r in roles %}<option value="{{ r.slug }}" {% if r.slug == current %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+      </select>
+      <span class="text-xs text-slate-500">
+        {% if current %}{% set people = holders.get(current, []) %}{{ people|map(attribute='full_name')|join(', ') if people else 'Nobody holds this role yet: the step is skipped.' }}{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ol>
+  {% endcall %}
+  {% call ui.card('Parent confirmation') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.input('days', 'Days to confirm with the family', days, type='number', min=1, max=30, help='A follow-up is created for the person responsible, due after this many days.') }}
+    {{ ui.input('attempts', 'Unanswered attempts before a manager may close', attempts, type='number', min=1, max=10, help='Until then the complaint stays open, waiting for the family.') }}
+  </div>
+  {% endcall %}
+  {% call ui.card() %}
+  {% if user.is_superuser %}
+  {{ ui.input('rationale', 'Rationale', '', required=True, help='Recorded in the audit log') }}
+  <div class="mt-3">{{ ui.button('Save settings', icon='save') }}</div>
+  {% else %}
+  <p class="text-sm text-slate-500">Only a superuser can change these settings, because the ladder decides who sees every complaint.</p>
+  {% endif %}
+  {% endcall %}
+</form>
+{% endblock %}

@@ -26,6 +26,7 @@ from app.models.scheduling import ClassSession, QAReview, AIClassAnalysis, Corre
 from app.models.crm import Lead, Campaign, CampaignMetric, Case, Feedback, Referral
 from app.models.finance import Payment, Invoice, Subscription, Expense, Currency
 from app.models.ops import KPI, KPIValue, Task
+from app.services.crm import OPEN_CASE_STATUSES
 
 PERIOD_CHOICES = [("this_month", "This month"), ("last_month", "Last month"), ("quarter", "This quarter"),
                   ("ytd", "Year to date"), ("custom", "Custom range")]
@@ -362,7 +363,7 @@ def case_metrics(db: Session, s: date, e: date, teacher_id: Optional[int] = None
         base = base.filter(Case.teacher_id == teacher_id)
     if department_id:
         base = base.filter(Case.department_id == department_id)
-    open_q = base.filter(Case.status.in_(["open", "in_progress", "waiting", "escalated"]))
+    open_q = base.filter(Case.status.in_(list(OPEN_CASE_STATUSES)))
     opened = base.filter(Case.created_at >= a, Case.created_at <= b)
     complaints = opened.filter(Case.case_type == "complaint").count()
     resolved = base.filter(Case.resolved_at >= a, Case.resolved_at <= b).all()

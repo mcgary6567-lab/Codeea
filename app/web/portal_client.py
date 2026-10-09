@@ -27,6 +27,7 @@ from app.models.scheduling import ClassSession, Attendance, Schedule
 from app.services import billing as billing_svc
 from app.services import people as svc
 from app.services.classes import student_attendance_pct
+from app.services.crm import OPEN_CASE_STATUSES
 
 router = APIRouter(prefix="/portal", dependencies=[Depends(csrf_protect)])
 
@@ -74,7 +75,7 @@ def home(request: Request, db: Session = Depends(get_db), user: User = Depends(r
                       "progress": svc.student_progress_summary(db, s).get("pct", 0)})
     notes = db.query(Notification).filter(Notification.user_id == user.id, Notification.channel == "in_app").order_by(Notification.created_at.desc()).limit(8).all()
     pending_surveys = db.query(func.count(Feedback.id)).filter(Feedback.client_id == c.id, Feedback.status == "pending").scalar() or 0
-    open_cases = db.query(func.count(Case.id)).filter(Case.client_id == c.id, Case.status.in_(["open", "in_progress", "waiting", "escalated"])).scalar() or 0
+    open_cases = db.query(func.count(Case.id)).filter(Case.client_id == c.id, Case.status.in_(list(OPEN_CASE_STATUSES))).scalar() or 0
     return render(request, "portal/home.html", {
         "user": user, "c": c, "cards": cards, "notifications": notes, "balance": svc.client_balance(db, c),
         "pending_surveys": pending_surveys, "open_cases": open_cases,
@@ -377,7 +378,43 @@ def case_detail(cid: int, request: Request, db: Session = Depends(get_db), user:
     if not case:
         raise HTTPException(404, "Case not found")
     comments = db.query(CaseComment).filter(CaseComment.case_id == case.id, CaseComment.is_internal.is_(False)).order_by(CaseComment.created_at).all()
-    return render(request, "portal/case_detail.html", {"user": user, "c": c, "case": case, "comments": comments})
+    from app.services import complaints as complaints_svc
+    return render(request, "portal/case_detail.html", {"user": user, "c": c, "case": case, "comments": comments,
+                                                       "status_label": complaints_svc.status_label(case)})
+
+
+@router.post("/cases/{cid}/confirm", include_in_schema=False)
+async def case_confirm(cid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("portal_client.view")),
+                       ctx: UserContext = Depends(get_user_context)):
+    """The family answers "is this resolved?" themselves. Yes closes the complaint; no reopens and escalates it."""
+    c = me(ctx)
+    case = db.query(Case).filter(Case.id == cid, Case.client_id == c.id).first()
+    if not case:
+        raise HTTPException(404, "Case not found")
+    form = await request.form()
+    answer = form.get("answer")
+    comment = (form.get("comment") or "").strip()
+    if answer not in ("yes", "no"):
+        return redirect(f"/portal/cases/{case.id}", "Please choose an answer.", "error")
+    if answer == "no" and not comment:
+        return redirect(f"/portal/cases/{case.id}", "Please tell us what is still wrong, so we can put it right.", "error")
+    from app.services import complaints as complaints_svc
+    try:
+        pc = complaints_svc.record_contact(db, case, None, {
+            "satisfaction": "satisfied" if answer == "yes" else "not_satisfied", "channel": "portal",
+            "parent_response": comment or "Yes, it is resolved."}, request=request)
+    except ValueError as exc:
+        db.rollback()
+        return redirect(f"/portal/cases/{case.id}", str(exc), "error")
+    log_action(db, user, "update", "cases", entity=case, request=request,
+               description=f"Family answered on {case.case_number}: {'resolved' if answer == 'yes' else 'not resolved'}")
+    if answer == "no" and case.assigned_to_id:
+        notify(db, case.assigned_to_id, f"Family not satisfied: {case.case_number}", comment[:200], event_type="case_reopened",
+               link=f"/cases/{case.id}")
+    db.commit()
+    if pc.outcome == "closed":
+        return redirect(f"/portal/cases/{case.id}", "Thank you for confirming. We have closed your complaint.")
+    return redirect(f"/portal/cases/{case.id}", "Thank you. We have reopened your complaint and a manager will contact you.", "warning")
 
 
 def _sla_hours(db: Session, case_type: str) -> int:

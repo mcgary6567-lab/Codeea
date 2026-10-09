@@ -117,6 +117,10 @@ LOOKUPS: list[tuple[str, str, str, int, list[tuple]]] = [
         ("My local masjid", "My local masjid", None, None),
         ("WhatsApp", "WhatsApp", None, None),
         ("Other", "Other", None, None)]),
+    ("complaint_root_cause", PORTAL, "Complaint Root Causes", 15, [
+        (v, v, None, None) for v in [
+            "Teacher performance", "Teacher punctuality", "Scheduling", "Process gap", "Communication gap",
+            "Training need", "System or technical", "Policy", "Parent expectation", "Other"]]),
     ("family_complaint_type", PORTAL, "Complaint Types", 10, [
         ("Teaching Quality", "Teaching Quality", "معیارِ تدریس", None),
         ("Teacher Punctuality", "Teacher Punctuality", "وقت کی پابندی", None),

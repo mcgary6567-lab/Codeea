@@ -76,7 +76,7 @@
         {{ ui.progress(t.retention_rate or 0, 'indigo', 'Student retention') }}
       </div>
       <dl class="mt-4 space-y-1.5 text-sm">
-        <div class="flex justify-between"><dt class="text-slate-500">Complaints</dt><dd>{{ complaints }}</dd></div>
+        {% if show_complaints %}<div class="flex justify-between"><dt class="text-slate-500">Complaints</dt><dd><a class="text-brand-700 hover:underline" href="/teachers/{{ t.id }}?tab=complaints">{{ complaints }}</a></dd></div>{% endif %}
         <div class="flex justify-between"><dt class="text-slate-500">Parent rating</dt><dd>{{ t.rating|round(1) if t.rating else '—' }}</dd></div>
       </dl>
     {% endcall %}
@@ -132,14 +132,16 @@
 </div>
 {% call ui.card('Delivery over the last 8 weeks') %}{{ ui.chart('perfChart', 240) }}{% endcall %}
 <div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% if show_complaints %}
   {% call ui.card('Complaints & cases') %}
     {{ ui.table_start(['Case', 'Title', 'Priority', 'Status']) }}
     {% for c in complaints %}
-    <tr><td class="px-4 py-2 font-mono text-xs">{{ c.case_number }}</td><td class="px-4 py-2 text-sm">{{ c.title|truncate(50) }}</td>
+    <tr><td class="px-4 py-2 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/cases/{{ c.id }}">{{ c.case_number }}</a></td><td class="px-4 py-2 text-sm">{{ c.title|truncate(50) }}</td>
       <td class="px-4 py-2">{{ ui.badge(c.priority) }}</td><td class="px-4 py-2">{{ ui.badge(c.status) }}</td></tr>
     {% else %}{{ ui.empty('No complaints recorded.', 4) }}{% endfor %}
     {{ ui.table_end() }}
   {% endcall %}
+  {% endif %}
   {% call ui.card('Corrective actions') %}
     {{ ui.table_start(['Description', 'Due', 'Status']) }}
     {% for a in actions %}
@@ -214,6 +216,9 @@
   {% else %}{{ ui.empty('No payslips generated yet.', 7) }}{% endfor %}
   {{ ui.table_end() }}
 {% endcall %}
+
+{% elif tab == 'complaints' %}
+{% include "cases/_complaint_history.html" %}
 
 {% elif tab == 'audit' %}
 {{ ui.table_start(['When', 'Actor', 'Action', 'Description', 'Rationale']) }}

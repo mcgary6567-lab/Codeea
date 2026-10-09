@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action, snapshot
-from app.core.deps import require, csrf_protect
+from app.core.deps import require, csrf_protect, PermissionDenied
 from app.core.notify import notify
 from app.core.templating import render
 from app.core.utils import redirect, Page, parse_int, parse_float, parse_bool, parse_date, month_key, month_bounds
@@ -128,14 +128,19 @@ def teacher_detail(id: int, request: Request, tab: str = "overview", db: Session
                    user: User = Depends(require("teachers.view"))):
     t = _get(db, id)
     today = date.today()
-    ctx: dict = {"user": user, "t": t, "tab": tab, "tabs": [(k, l, f"/teachers/{t.id}?tab={k}") for k, l in TABS],
+    from app.services import complaints as complaints_svc
+    show_complaints = complaints_svc.can_read_history(user) and t.user_id != user.id
+    tab_list = TABS[:-1] + ([("complaints", "Complaints")] if show_complaints else []) + TABS[-1:]
+    ctx: dict = {"user": user, "t": t, "tab": tab, "tabs": [(k, l, f"/teachers/{t.id}?tab={k}") for k, l in tab_list],
+                 "show_complaints": show_complaints,
                  "can_approve": rbac.has_permission(user, "teachers.approve"), "grades": GRADES, "statuses": STATUSES,
                  "load": db.query(func.count(Student.id)).filter(Student.teacher_id == t.id, Student.status.in_(["active", "trial", "free"])).scalar() or 0,
                  "stats30": teacher_stats(db, t.id, today - timedelta(days=30))}
     if tab == "overview":
         ctx["emp"] = t.employee
         ctx["open_actions"] = db.query(func.count(CorrectiveAction.id)).filter(CorrectiveAction.teacher_id == t.id, CorrectiveAction.status.in_(["open", "in_progress", "overdue"])).scalar() or 0
-        ctx["complaints"] = db.query(func.count(Case.id)).filter(Case.teacher_id == t.id).scalar() or 0
+        ctx["complaints"] = (complaints_svc.visible(db, user, db.query(func.count(Case.id)).filter(Case.teacher_id == t.id)).scalar() or 0
+                             if show_complaints else None)
         ctx["recent_audit"] = db.query(AuditEvent).filter(AuditEvent.entity_type == "Teacher", AuditEvent.entity_id == t.id).order_by(AuditEvent.created_at.desc()).limit(6).all()
         ctx["matches"] = db.query(func.count(TeacherMatch.id)).filter(TeacherMatch.chosen_teacher_id == t.id).scalar() or 0
     elif tab == "students":
@@ -158,7 +163,8 @@ def teacher_detail(id: int, request: Request, tab: str = "overview", db: Session
         ctx["chart"] = {"labels": labels, "done": done, "missed": missed}
         ai_rows = db.query(func.avg(AIClassAnalysis.overall_score)).filter(AIClassAnalysis.teacher_id == t.id).scalar()
         ctx["ai_score"] = round(float(ai_rows), 1) if ai_rows else None
-        ctx["complaints"] = db.query(Case).filter(Case.teacher_id == t.id).order_by(Case.created_at.desc()).limit(20).all()
+        ctx["complaints"] = (complaints_svc.visible(db, user, db.query(Case).filter(Case.teacher_id == t.id))
+                             .order_by(Case.created_at.desc()).limit(20).all() if show_complaints else None)
         ctx["actions"] = db.query(CorrectiveAction).filter(CorrectiveAction.teacher_id == t.id).order_by(CorrectiveAction.created_at.desc()).limit(20).all()
     elif tab == "qa":
         ctx["reviews"] = db.query(QAReview).filter(QAReview.teacher_id == t.id).order_by(QAReview.created_at.desc()).limit(50).all()
@@ -173,6 +179,12 @@ def teacher_detail(id: int, request: Request, tab: str = "overview", db: Session
         ctx["income"] = {"period": month_key(), "classes": classes_done, "rate": rate, "class_pay": round(classes_done * rate, 2)}
         ctx["structure"] = db.query(SalaryStructure).filter(SalaryStructure.employee_id == t.employee_id).first() if t.employee_id else None
         ctx["payslips"] = db.query(Payslip).filter(Payslip.employee_id == t.employee_id).order_by(Payslip.created_at.desc()).limit(12).all() if t.employee_id else []
+    elif tab == "complaints":
+        if not show_complaints:
+            raise PermissionDenied("complaint_history.view")
+        ctx["h"] = complaints_svc.employee_history(db, user, teacher=t, request=request)
+        ctx["complaint_status_label"] = complaints_svc.status_label
+        db.commit()
     elif tab == "audit":
         ctx["events"] = (db.query(AuditEvent).filter(or_((AuditEvent.entity_type == "Teacher") & (AuditEvent.entity_id == t.id),
                                                          (AuditEvent.entity_type == "Employee") & (AuditEvent.entity_id == (t.employee_id or -1))))

@@ -227,7 +227,9 @@ def test_approve_complaint_stores_the_company_response(admin: TestClient, db):
     assert r.status_code == 303
     db.expire_all()
     k = db.get(Case, k.id)
-    assert k.approval_status == "approved" and k.status == "resolved"
+    # Approving resolves the complaint; a family complaint then waits for the family to confirm (docs/COMPLAINTS.md)
+    expected = "pending_confirmation" if (k.client_id or k.student_id) else "resolved"
+    assert k.approval_status == "approved" and k.status == expected
     assert k.company_response == "We have moved the class and called the family."
     assert k.resolution == k.company_response
 

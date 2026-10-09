@@ -1,0 +1,52 @@
+{# Complaint history on a staff profile. Expects ``h`` from app.services.complaints.employee_history. Confidential:
+   shown only to holders of complaint_history (granted by name), never to the person it is about; every view is audited. #}
+<div class="mb-4 flex items-center gap-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+  <i data-lucide="lock" class="h-3.5 w-3.5"></i>
+  Confidential. Shown to the people who handle complaints; this view has been recorded in the audit log.
+  {% if h.is_self %}Complaints about you are not shown to you.{% endif %}
+</div>
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat('Total', h.total, icon='life-buoy', color='sky') }}
+  {{ ui.stat('Open', h.open, icon='folder-open', color='amber') }}
+  {{ ui.stat('Awaiting family', h.pending_confirmation, icon='phone-call', color='violet') }}
+  {{ ui.stat('Closed', h.closed, icon='check-circle-2', color='emerald', hint=(h.confirmed ~ ' confirmed by the family')) }}
+  {{ ui.stat('Reopened', h.reopened, icon='rotate-ccw', color='orange') }}
+  {{ ui.stat('Repeat', h.repeat, icon='repeat', color='rose') }}
+</div>
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  {% call ui.card('By category') %}
+    {% for k, n in h.by_category %}<div class="flex justify-between border-b border-slate-100 py-1 text-sm"><span>{{ k }}</span><b>{{ n }}</b></div>
+    {% else %}<p class="text-sm text-slate-400">None.</p>{% endfor %}
+  {% endcall %}
+  {% call ui.card('Verified severity') %}
+    {% for k, n in h.by_severity %}<div class="flex justify-between border-b border-slate-100 py-1 text-sm"><span>{{ k|titleize }}</span><b>{{ n }}</b></div>
+    {% else %}<p class="text-sm text-slate-400">No findings recorded.</p>{% endfor %}
+    <p class="mt-3 text-xs text-slate-500">Confirmed by investigation: <b>{{ h.substantiated }}</b> of {{ h.total }}.
+      Average time to resolve: <b>{{ (h.avg_resolution_hours ~ 'h') if h.avg_resolution_hours is not none else '—' }}</b>.</p>
+  {% endcall %}
+  {% call ui.card('Last six months') %}
+    {% set peak = (h.per_month|max) or 1 %}
+    <div class="flex h-28 items-end gap-2">
+      {% for n in h.per_month %}<div class="flex h-full flex-1 flex-col items-center justify-end gap-1" title="{{ n }} complaint(s)">
+        <span class="text-[10px] font-semibold text-slate-600">{{ n if n else '' }}</span>
+        <div class="w-full rounded-t bg-brand-500" style="height: {{ (80 * n / peak)|int }}%; min-height: 2px"></div>
+        <span class="text-[10px] text-slate-500">{{ h.labels[loop.index0][5:] }}</span></div>{% endfor %}
+    </div>
+  {% endcall %}
+</div>
+<div class="mt-6">
+{% call ui.card('Complaints', h.rows|length ~ ' visible to you') %}
+{{ ui.table_start(['Complaint', 'Received', 'Category', 'Finding', 'Severity', 'Status']) }}
+{% for c in h.rows %}
+<tr>
+  <td class="px-4 py-2"><a href="/cases/{{ c.id }}" class="font-medium text-brand-700 hover:underline">{{ c.case_number }}</a><div class="text-xs text-slate-500">{{ c.title|truncate(60) }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ c.created_at|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.complaint_type or (c.category|titleize if c.category else '—') }}</td>
+  <td class="px-4 py-2 text-xs">{{ {'substantiated':'Confirmed','partly_substantiated':'Partly confirmed','not_substantiated':'Not confirmed','inconclusive':'Inconclusive'}.get(c.finding_outcome, 'Not recorded') }}</td>
+  <td class="px-4 py-2">{% if c.severity %}{{ ui.badge(c.severity) }}{% else %}—{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(c.status, complaint_status_label(c)) }}{% if c.reopen_count %}<div class="text-[10px] text-orange-600">reopened {{ c.reopen_count }}x</div>{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No complaints on record.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+</div>

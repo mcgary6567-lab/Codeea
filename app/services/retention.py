@@ -17,7 +17,7 @@ from app.models.academic import MonthlyTest
 from app.models.core import User, RiskAlert
 from app.models.crm import Case, RetentionAction, SequenceEnrollment, Sequence
 
-OPEN_CASE_STATUSES = ("open", "in_progress", "waiting", "escalated")
+from app.services.crm import OPEN_CASE_STATUSES  # noqa: E402
 from app.models.finance import Invoice, Subscription
 from app.models.people import Student
 from app.models.scheduling import ClassSession

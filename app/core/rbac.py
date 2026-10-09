@@ -43,6 +43,7 @@ MODULES = {
     "referrals": "Ambassador Program",
     "feedback": "Feedback & VoC",
     "cases": "Complaints & Cases",
+    "complaint_history": "Complaint history on staff profiles (confidential)",
     "retention": "Retention & Churn",
     "trials": "Trial Management",
     "registration": "Online Registration",
@@ -108,6 +109,7 @@ _TECH = ["users.*", "roles.*", "settings.*", "audit.*", "integrations.*", "api_k
          "security.*", "backups.*", "migration.*", "ai_governance.*", "notifications.*", "reports.*", "dashboard.*"]
 _HR = ["employees.*", "hr_attendance.*", "leaves.*", "recruitment.*", "violations.*", "grievances.*",
        "provisioning.*", "payroll.*", "users.*", "roles.*", "staff_monitoring.*", "teachers.view", "feedback.view", "kpis.*", "tasks.*",
+       "complaint_history.view",
        "decisions.*", "daily_reports.*", "transformation.*", "dashboard.view", "reports.*", "notifications.*"]
 _FINANCE = ["subscriptions.*", "discounts.*", "scholarships.*", "billing.*", "payments.*", "ledger.*", "accounts.*",
             "expenses.*", "currencies.*", "payroll.*", "clients.view", "students.view", "packages.*", "kpis.*",
@@ -117,11 +119,12 @@ _ACADEMIC = ["courses.*", "packages.view", "curriculum.*", "lesson_plans.*", "ev
              "certificates.*", "arabic_view.*", "students.*", "clients.view", "teachers.*", "teacher_dev.*", "schedules.*",
              "classes.*", "attendance.*", "leaves.*", "qa.view", "ai_monitoring.view", "kpis.*", "tasks.*",
              "decisions.*", "daily_reports.*", "dashboard.*", "reports.*", "notifications.*", "cases.*", "supervisor.*",
-             "requests.*", "dashboards.*", "academic_config.*", "subscriptions.*", "trials.*", "feedback.view"]
+             "requests.*", "dashboards.*", "academic_config.*", "subscriptions.*", "trials.*", "feedback.view",
+             "complaint_history.view"]
 _QA = ["qa.*", "ai_monitoring.*", "recordings.*", "classes.view", "teachers.view", "students.view", "teacher_dev.*",
        "cases.*", "feedback.*", "kpis.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view",
        "reports.*", "notifications.*", "safeguarding.view", "safeguarding.add", "safeguarding.update", "monthly_tests.view", "evaluations.view", "dashboards.view",
-       "requests.view"]
+       "requests.view", "complaint_history.view"]
 _MARKETING = ["leads.*", "campaigns.*", "marketing.*", "inbox.*", "sequences.*", "automations.*", "tags.*", "referrals.*", "trials.*",
               "registration.*", "clients.view", "clients.add", "students.view", "feedback.view", "kpis.*", "tasks.*",
               "decisions.*", "daily_reports.*", "dashboard.view", "reports.*", "notifications.*", "calling.*"]
@@ -142,7 +145,25 @@ ROLE_DEFINITIONS: dict[str, dict] = {
         "reports.*", "notifications.*", "referrals.*", "retention.*", "feedback.view", "qa.view",
         "ai_monitoring.view", "lesson_plans.view", "evaluations.view", "monthly_tests.view", "calling.*", "leads.view",
         "requests.*", "dashboards.view", "academic_config.view", "payments.view", "billing.add", "billing.update",
-        "ledger.add", "registration.*"]},
+        "ledger.add", "registration.*", "complaint_history.view"]},
+    # Created 9 Oct 2026 for the complaint lifecycle (docs/COMPLAINTS.md). The Head of Admissions takes the family's
+    # complaint and opens the ticket; the Academy Manager (also called the PDM Manager) runs the academic side and is
+    # the first step of the escalation ladder.
+    "head_of_admissions": {"name": "Head of Admissions", "portal": "admin", "permissions": [
+        "dashboard.view", "dashboards.view", "leads.*", "trials.*", "registration.*", "inbox.*", "sequences.view",
+        "automations.view", "tags.*", "clients.view", "clients.add", "clients.update", "clients.export", "students.view",
+        "students.add", "students.update", "subscriptions.view", "subscriptions.add", "packages.view", "discounts.view",
+        "discounts.add", "teachers.view", "schedules.view", "classes.view", "attendance.view", "evaluations.view",
+        "monthly_tests.view", "qa.view", "cases.*", "complaint_history.view", "referrals.*", "feedback.view",
+        "feedback.add", "retention.view", "calling.*", "requests.*", "tasks.*", "daily_reports.*", "kpis.view",
+        "reports.view", "reports.export", "notifications.*", "marketing.view"]},
+    "academy_manager": {"name": "Academy Manager (PDM)", "portal": "admin", "permissions": [
+        "dashboard.*", "dashboards.view", "students.*", "clients.view", "clients.update", "teachers.view", "teacher_dev.view",
+        "schedules.*", "classes.*", "attendance.*", "supervisor.*", "leaves.*", "curriculum.view", "lesson_plans.view",
+        "evaluations.*", "monthly_tests.*", "certificates.view", "qa.view", "ai_monitoring.view", "recordings.view",
+        "cases.*", "complaint_history.view", "feedback.view", "retention.*", "referrals.view", "referrals.add",
+        "calling.*", "inbox.view", "requests.*", "trials.view", "subscriptions.view", "academic_config.view",
+        "tasks.*", "daily_reports.*", "kpis.*", "reports.*", "notifications.*"]},
     "supervisor": {"name": "Supervisor", "portal": "admin", "permissions": [
         "dashboard.*", "supervisor.*", "classes.*", "attendance.*", "schedules.view", "schedules.update",
         "students.view", "teachers.view", "clients.view", "leaves.view", "leaves.add", "cases.view", "cases.add",
@@ -203,7 +224,8 @@ for _slug, _role in ROLE_DEFINITIONS.items():
 
 # roles allowed to see CEO-only material (anti-poaching, eNPS)
 CEO_ROLES = {"super_admin"}
-MANAGEMENT_ROLES = {"super_admin", "manager", "hod_people", "hod_finance", "hod_academics", "hod_qa", "hod_technology", "hod_marketing", "system_admin"}
+MANAGEMENT_ROLES = {"super_admin", "manager", "hod_people", "hod_finance", "hod_academics", "hod_qa", "hod_technology", "hod_marketing",
+                    "system_admin", "academy_manager", "head_of_admissions"}
 
 
 def _matches(pattern: str, perm: str) -> bool:
@@ -223,6 +245,23 @@ def has_permission(user: "User", perm: str) -> bool:
         return False
     grants: Iterable[str] = list(user.role.permissions if user.role else []) + list(user.extra_permissions or [])
     return any(_matches(p, perm) for p in grants)
+
+
+def has_explicit_permission(user: "User", perm: str) -> bool:
+    """Like has_permission, but a module-wide wildcard such as ``*.view`` does not count.
+
+    For confidential areas (complaint history on staff profiles): roles that read everything for oversight, such
+    as the external auditor, must not read them unless the area is granted by name. Full access (``*``) and
+    superusers still count.
+    """
+    if user is None or not user.is_active:
+        return False
+    if user.is_superuser:
+        return True
+    if any(_matches(p, perm) for p in (user.denied_permissions or [])):
+        return False
+    grants = list(user.role.permissions if user.role else []) + list(user.extra_permissions or [])
+    return any(p == "*" or (not p.startswith("*.") and _matches(p, perm)) for p in grants)
 
 
 def has_any(user: "User", perms: Iterable[str]) -> bool:

@@ -22,6 +22,7 @@ from app.models.finance import Subscription, Invoice, LedgerEntry, Payment
 from app.models.people import Client, Student, Household
 from app.models.scheduling import Trial
 from app.services import people as svc
+from app.services.crm import OPEN_CASE_STATUSES
 
 router = APIRouter(prefix="/clients", dependencies=[Depends(csrf_protect)])
 
@@ -330,7 +331,7 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
         ctx["runs"] = (db.query(WorkflowRun).filter(WorkflowRun.contact_type == "client", WorkflowRun.contact_id == c.id)
                        .order_by(WorkflowRun.started_at.desc(), WorkflowRun.id.desc()).limit(10).all())
         ctx["prefs"] = db.query(CommunicationPreference).filter(CommunicationPreference.client_id == c.id).all()
-        ctx["open_cases"] = db.query(Case).filter(Case.client_id == c.id, Case.status.in_(["open", "in_progress", "waiting", "escalated"])).count()
+        ctx["open_cases"] = db.query(Case).filter(Case.client_id == c.id, Case.status.in_(list(OPEN_CASE_STATUSES))).count()
         ctx["overdue"] = db.query(Invoice).filter(Invoice.client_id == c.id, Invoice.status == "overdue").count()
         ctx["recent_audit"] = db.query(AuditEvent).filter(AuditEvent.entity_type == "Client", AuditEvent.entity_id == c.id).order_by(AuditEvent.created_at.desc()).limit(5).all()
         ctx["contacts"] = db.query(ClientContact).filter(ClientContact.client_id == c.id, ClientContact.status == "active").all()
@@ -345,7 +346,8 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
         ctx["payments"] = db.query(Payment).filter(Payment.client_id == c.id).order_by(Payment.received_at.desc()).limit(20).all()
         ctx["ledger"] = db.query(LedgerEntry).filter(LedgerEntry.client_id == c.id).order_by(LedgerEntry.entry_date.desc(), LedgerEntry.id.desc()).limit(100).all()
     elif tab == "cases":
-        ctx["cases"] = db.query(Case).filter(Case.client_id == c.id).order_by(Case.created_at.desc()).all()
+        from app.services import complaints as complaints_svc
+        ctx["cases"] = complaints_svc.visible(db, user, db.query(Case).filter(Case.client_id == c.id)).order_by(Case.created_at.desc()).all()
     elif tab == "feedback":
         ctx["feedback"] = db.query(Feedback).filter(Feedback.client_id == c.id).order_by(Feedback.created_at.desc()).all()
     elif tab == "conversations":

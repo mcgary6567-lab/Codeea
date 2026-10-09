@@ -30,6 +30,8 @@ All twenty roles exist as seeded system roles with a module × action permission
 | Client / Parent | client | parent1..40@oqc.local |
 | Student | student | student1..N@oqc.local |
 | External Auditor (read-only) | admin | auditor@oqc.local |
+| Head of Admissions (added 9 Oct 2026) | admin | admissions@oqc.local (development only) |
+| Academy Manager / PDM (added 9 Oct 2026) | admin | academy@oqc.local (development only) |
 
 Record-level scoping is enforced in addition to role permissions: teachers see only their own students and
 classes, supervisors only their assigned teachers, parents only their own family, students only themselves.
@@ -69,7 +71,7 @@ classes, supervisors only their assigned teachers, parents only their own family
 | 29 | Task & Project Management | Built | `/tasks` |
 | 30 | Smart Reminders | Built | scheduler jobs |
 | 31 | In-Platform Calling | Partial | call logging with masked numbers; no carrier/VoIP trunk |
-| 32 | Complaints & Case Management | Built | `/cases` |
+| 32 | Complaints & Case Management | Built | `/cases`: investigation finding kept apart from the family's words, escalation ladder, parent confirmation before closing, confidential complaint history on staff profiles, complaint intelligence (docs/COMPLAINTS.md) |
 | 33 | Retention & Churn | Built | `/retention` |
 | 34 | Marketing Analytics | Built | `/crm/marketing` |
 | 35 | Data Migration | Built | `/admin/migration` |

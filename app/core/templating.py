@@ -54,6 +54,9 @@ STATUS_COLORS = {
     "regular": "emerald", "freeze": "violet", "on_leave": "violet", "drop_out": "rose", "black_list": "slate",
     "pass_out": "indigo", "available": "sky", "flagged": "orange", "unmapped": "slate", "mapped": "sky",
     "add": "emerald", "minus": "rose", "forward_to_verifier": "amber",
+    # complaint lifecycle (app.services.complaints)
+    "findings_recorded": "indigo", "pending_confirmation": "violet", "reopened": "orange",
+    "minor": "slate", "moderate": "amber", "serious": "orange",
 }
 
 # Display labels that match the college's existing ERP vocabulary. Use ``{{ value|label('student') }}``.

@@ -412,6 +412,9 @@
 {{ ui.table_end() }}
 {% endcall %}
 
+{% elif tab == 'complaints' %}
+{% include "cases/_complaint_history.html" %}
+
 {% elif tab == 'audit' %}
 {{ ui.table_start(['When', 'Actor', 'Action', 'Description', 'Rationale']) }}
 {% for ev in events %}

@@ -2,26 +2,40 @@
 {% import "macros.html" as ui %}
 {% block title %}New case{% endblock %}
 {% block content %}
-{{ ui.page_header('Open a case', 'AI classifies the category, priority and owning department, then applies the SLA and assigns the department head.', back='/cases') }}
-<form method="post" action="/cases/new" class="max-w-3xl space-y-6">
-  {% call ui.card('Case') %}
+{{ ui.page_header('Open a case', 'Record the family’s complaint in their words. The system suggests a category and priority, sets the response deadline, assigns it and tells the Academy Manager and Head of Admissions.', back='/cases') }}
+<form method="post" action="/cases/new" class="max-w-3xl space-y-6" x-data="{ t: 'complaint' }">
+  {% call ui.card('Complaint or request') %}
   <div class="grid gap-4 sm:grid-cols-2">
-    <div class="sm:col-span-2">{{ ui.input('title', 'Title', '', required=True, placeholder='Teacher was 10 minutes late three times this week') }}</div>
-    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=5, placeholder='What happened, when, and what the family expects…') }}</div>
-    {{ ui.select('case_type', 'Type', types, 'complaint', placeholder=None) }}
-    {{ ui.select('priority', 'Priority', priorities, '', placeholder='Let the AI decide') }}
-    {{ ui.select('source', 'Source', ['portal','whatsapp','phone','staff','feedback'], 'portal', placeholder=None) }}
-    {{ ui.select('department_id', 'Department', department_options, '', placeholder='AI routing') }}
+    {{ ui.select('case_type', 'Type', types, 'complaint', placeholder=None, attrs='x-model="t"') }}
+    <div x-show="t === 'complaint'">{{ ui.select('complaint_type', 'Complaint category', complaint_types, '', placeholder='Choose a category') }}</div>
+    <div class="sm:col-span-2">{{ ui.input('title', 'Short title', '', required=True, placeholder='Teacher did not follow the class schedule') }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'What the family reported', '', rows=5,
+         placeholder='Write it as the family said it: what happened, when, and what they expect. This text is kept as received and is not edited later.') }}</div>
+    {{ ui.input('incident_date', 'When it happened', '', type='date') }}
+    {{ ui.select('source', 'Received by', [('phone','Phone call'),('whatsapp','WhatsApp'),('portal','Parent portal'),('staff','In person / staff'),('feedback','Feedback survey')], 'phone', placeholder=None) }}
+    {{ ui.select('priority', 'Priority', priorities, '', placeholder='Suggest automatically') }}
   </div>
   {% endcall %}
-  {% call ui.card('Who is affected') %}
+  {% call ui.card('Family') %}
   <div class="grid gap-4 sm:grid-cols-2">
     {{ ui.select('client_id', 'Family', client_options, client_id or '', placeholder='Not linked') }}
     {{ ui.select('student_id', 'Student', student_options, student_id or '', placeholder='Not linked') }}
-    {{ ui.select('teacher_id', 'Teacher involved', teacher_options, '', placeholder='Not linked') }}
+  </div>
+  {% endcall %}
+  {% call ui.card('Complaint against', 'Leave blank if it is not about a person. A complaint about a teacher is recorded against that teacher automatically.') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.select('teacher_id', 'Teacher', teacher_options, '', placeholder='Not a teacher') }}
+    {{ ui.select('against_employee_id', 'Employee', employee_options, '', placeholder='Nobody named') }}
+    {{ ui.select('against_department_id', 'Department', department_options, '', placeholder='No department') }}
+    {{ ui.input('against_process', 'Process', '', placeholder='e.g. Admission follow-up, invoicing') }}
+  </div>
+  {% endcall %}
+  {% call ui.card('Handling') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.select('department_id', 'Handling department', department_options, '', placeholder='Route automatically') }}
     {{ ui.select('assigned_to_id', 'Assign to', staff_options, '', placeholder='Department head (default)') }}
   </div>
   {% endcall %}
-  {{ ui.button('Open case', icon='check') }}
+  {{ ui.button('Create ticket', icon='check') }}
 </form>
 {% endblock %}

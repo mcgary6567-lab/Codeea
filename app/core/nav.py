@@ -315,6 +315,8 @@ ADMIN_NAV = [
         _i("Tags", "/crm/tags", "tags", "tags.view"),
         _i("Ambassadors", "/crm/referrals", "gift", "referrals.view"),
         _i("Cases & Complaints", "/cases", "life-buoy", "cases.view"),
+        _i("Complaint Intelligence", "/cases/trends", "bar-chart-3", "cases.view"),
+        _i("Complaint Settings", "/cases/settings", "sliders-horizontal", "cases.configure"),
         _i("Feedback & VoC", "/feedback", "message-square-heart", "feedback.view"),
     ]},
     {"slug": "operations", "label": "Operations", "icon": "list-checks", "blurb": "Tasks, KPIs, governance, reports", "items": [

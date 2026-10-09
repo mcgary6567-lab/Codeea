@@ -10,7 +10,7 @@ so staff find it where their job is, and Configuration holds only settings that 
 | **Billing Management** | Families' money: clients, invoices, receipts, ledgers, subscriptions, discounts |
 | **Online Academics** | Students, classes, evaluation, quality; **Teachers** and **Ustaadh Lab** (teacher development) under Teacher Portal |
 | **Employee Self Portal** | What each employee checks about themselves |
-| **CRM & Growth** | Leads, WhatsApp inbox, campaigns, automations, tags |
+| **CRM & Growth** | Leads, WhatsApp inbox, campaigns, automations, tags; **Cases & Complaints**, Complaint Intelligence and Complaint Settings (docs/COMPLAINTS.md) |
 | **Operations** | Tasks, KPIs, governance, reports — work that is not one department's |
 | **Configuration** | System-wide settings only: lookups, Setup (branch properties), notification templates, support tickets, WhatsApp numbers, OTP, settings, integrations, API, security, backups, data migration, audit log |
 

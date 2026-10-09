@@ -46,7 +46,9 @@ PROVISIONING_SYSTEMS = ["Google Workspace account", "Password vault entry", "Dri
 DESIGNATION_ROLE_HINTS = [  # (substring in designation, role slug)
     ("teacher", "teacher"), ("head of people", "hod_people"), ("head of finance", "hod_finance"),
     ("head of academics", "hod_academics"), ("head of qa", "hod_qa"), ("head of technology", "hod_technology"),
-    ("head of marketing", "hod_marketing"), ("supervisor", "supervisor"), ("manager", "manager"),
+    ("head of marketing", "hod_marketing"), ("head of admission", "head_of_admissions"), ("admission incharge", "head_of_admissions"),
+    ("academy manager", "academy_manager"), ("academic manager", "academy_manager"), ("pdm", "academy_manager"),
+    ("supervisor", "supervisor"), ("manager", "manager"),
     ("billing", "billing_rep"), ("accountant", "accountant"), ("qa officer", "qa_officer"), ("hr officer", "hr_officer"),
     ("coordinator", "academic_coordinator"), ("lead generator", "lead_generator"), ("closer", "lead_closer"),
     ("system admin", "system_admin"),

@@ -30,9 +30,14 @@ from app.models.scheduling import Trial
 from app.services.ai_gateway import ai
 from app.services.integrations import send_whatsapp, ghl_upsert_contact, emit_event
 
-OPEN_CASE_STATUSES = ("open", "in_progress", "waiting", "escalated")
+# Statuses in which a case is still being worked (and its response deadline runs). "pending_confirmation" is not
+# one of them: the work is done and the family is being asked to confirm (app.services.complaints).
+OPEN_CASE_STATUSES = ("open", "investigating", "findings_recorded", "in_progress", "waiting", "escalated", "reopened")
 CASE_TYPES = ["complaint", "request", "feedback", "technical", "billing", "schedule_change", "teacher_change"]
-CASE_STATUSES = ["open", "in_progress", "waiting", "resolved", "closed", "escalated"]
+CASE_STATUSES = ["open", "investigating", "findings_recorded", "in_progress", "waiting", "escalated", "pending_confirmation",
+                 "reopened", "resolved", "closed"]
+# Statuses only the complaint workflow sets (findings form, resolution, family's answer, reopen).
+WORKFLOW_ONLY_STATUSES = ("findings_recorded", "pending_confirmation", "reopened")
 PRIORITIES = ["low", "medium", "high", "urgent"]
 SEQUENCE_TYPES = ["lead_follow_up", "trial_follow_up", "win_back", "pre_leave_offer", "freeze_reactivation", "payment_reminder"]
 SURVEY_TRIGGERS = ["post_ptm", "post_result_card", "tenure_30", "tenure_90", "tenure_180", "staff_enps", "manual"]
@@ -670,8 +675,13 @@ def case_sla_hours(db: Session, case_type: str, priority: str) -> int:
 def open_case(db: Session, case_type: str, title: str, description: Optional[str], client: Optional[Client] = None, student: Optional[Student] = None,
               teacher: Optional[Teacher] = None, raised_by_user: Optional[User] = None, source: str = "portal", priority: Optional[str] = None,
               department_code: Optional[str] = None, assigned_to: Optional[User] = None, actor: Optional[User] = None, created_at: Optional[datetime] = None,
-              request=None) -> Case:
-    """Number the case (CS-), AI-classify (category / priority / department), compute SLA, assign to department HOD, notify."""
+              request=None, against_employee_id: Optional[int] = None, against_department_id: Optional[int] = None,
+              against_process: Optional[str] = None, incident_date: Optional[date] = None, complaint_type: Optional[str] = None) -> Case:
+    """Number the case (CS-), AI-classify (category / priority / department), compute SLA, assign to department HOD, notify.
+
+    A complaint about a teacher is recorded against that teacher's employee record, so it appears in their complaint
+    history; it is never assigned to the person it is about, and repeats from the same family are linked."""
+    from app.services import complaints as complaints_svc
     result, run = ai(db, "complaint_classification", "classify_case", {"text": f"{title}. {description or ''}", "case_type": case_type})
     category = result.get("category") or "general"
     priority = priority or result.get("priority") or "medium"
@@ -688,21 +698,42 @@ def open_case(db: Session, case_type: str, title: str, description: Optional[str
         client = student.client
     if student and not teacher and student.teacher:
         teacher = student.teacher
+    if case_type == "complaint" and not against_employee_id and teacher is not None:
+        against_employee_id = teacher.employee_id
+    if assignee is not None and against_employee_id:
+        subject = db.get(Employee, against_employee_id)
+        if subject is not None and subject.user_id == assignee.id:
+            assignee = user_by_email(db, "manager@oqc.local")
+            if assignee is not None and subject.user_id == assignee.id:
+                assignee = None
     raised_type = "system" if source == "feedback" else ("staff" if source == "staff" else ("student" if student and not client else "client"))
     case = Case(case_number=next_code(db, Case, "case_number", "CS-"), case_type=case_type, title=title.strip()[:200], description=description,
                 raised_by_type=raised_type, raised_by_user_id=raised_by_user.id if raised_by_user else None, client_id=client.id if client else None,
                 student_id=student.id if student else None, teacher_id=teacher.id if teacher else None, department_id=dept.id if dept else None,
                 category=category, priority=priority, status="open", assigned_to_id=assignee.id if assignee else None, sla_hours=hours,
-                sla_due_at=now + timedelta(hours=hours), ai_run_id=run.id, source=source)
+                sla_due_at=now + timedelta(hours=hours), ai_run_id=run.id, source=source,
+                against_employee_id=against_employee_id, against_department_id=against_department_id,
+                against_process=(against_process or "").strip()[:120] or None, incident_date=incident_date,
+                complaint_type=(complaint_type or "").strip()[:60] or None)
     case.created_at = now
     db.add(case)
     db.flush()
+    repeat = complaints_svc.find_repeat(db, case)
+    if repeat is not None:
+        case.repeat_of_id = repeat.id
+        db.add(CaseComment(case_id=case.id, user_id=None, is_internal=True, kind="system", created_at=now,
+                           text=f"Repeat complaint: this family complained about the same subject in {repeat.case_number}."))
     run.entity_type, run.entity_id = "Case", case.id
     db.add(CaseComment(case_id=case.id, user_id=actor.id if actor else None, is_internal=True, created_at=now,
                        text=f"AI classification: {category} / {priority} -> {dept.name if dept else 'Operations'} (confidence {result.get('confidence')}). SLA {hours}h."))
     if assignee:
         notify(db, assignee, f"New {case_type.replace('_', ' ')} assigned: {case.case_number}", f"{title} [{priority}] - SLA {hours}h",
                event_type="case_assigned", link=f"/cases/{case.id}")
+    if case_type == "complaint":
+        for person in complaints_svc.collaborators(db, case):
+            if not assignee or person.id != assignee.id:
+                notify(db, person, f"New complaint {case.case_number}", f"{title} [{priority}]", event_type="case_assigned",
+                       link=f"/cases/{case.id}")
     log_action(db, actor, "create", "cases", entity=case, description=f"Case {case.case_number} opened ({case_type}, {priority})", request=request,
                after={"category": category, "priority": priority, "department": dept_code, "sla_hours": hours})
     emit_event(db, "case.opened", {"case_id": case.id, "case_number": case.case_number, "type": case_type, "priority": priority})
@@ -721,6 +752,21 @@ def change_case_status(db: Session, case: Case, status: str, user: Optional[User
                        note: Optional[str] = None, request=None) -> None:
     if status not in CASE_STATUSES:
         raise ValueError("Invalid status")
+    if status == case.status:
+        raise ValueError(f"The case is already {status.replace('_', ' ')}.")
+    if status in WORKFLOW_ONLY_STATUSES:
+        raise ValueError("Use the findings, resolution or family-confirmation forms for that step.")
+    if case.case_type == "complaint" and case.status in ("pending_confirmation", "closed"):
+        raise ValueError("This complaint is resolved. Record the family's answer, or reopen it with a reason.")
+    if case.case_type == "complaint" and status in ("resolved", "closed"):
+        # Complaints resolve through app.services.complaints: findings first, then the family confirms.
+        from app.services import complaints as complaints_svc
+        if status == "closed" and complaints_svc.has_family(case):
+            raise ValueError("A complaint closes when the family confirms the resolution. Resolve it first.")
+        complaints_svc.resolve(db, case, user, resolution or "", root_cause or "", root_cause=root_cause, request=request)
+        if status == "closed" and case.status == "resolved":
+            case.status, case.closed_at, case.closure_type = "closed", datetime.utcnow(), "internal"
+        return
     if status in ("resolved", "closed") and case.status not in ("resolved", "closed"):
         if not (resolution or "").strip() or not (root_cause or "").strip():
             raise ValueError("Resolution and root cause are required to resolve a case")
@@ -735,7 +781,9 @@ def change_case_status(db: Session, case: Case, status: str, user: Optional[User
     if status == "closed":
         case.closed_at = datetime.utcnow()
         case.resolved_at = case.resolved_at or datetime.utcnow()
-    db.add(CaseComment(case_id=case.id, user_id=user.id if user else None, is_internal=True, text=f"Status {before} -> {status}" + (f": {note}" if note else "")))
+        case.closure_type = case.closure_type or "internal"
+    db.add(CaseComment(case_id=case.id, user_id=user.id if user else None, is_internal=True, kind="status",
+                       text=f"Status {before} -> {status}" + (f": {note}" if note else "")))
     log_action(db, user, "status_change", "cases", entity=case, description=f"{case.case_number} {before} -> {status}", rationale=root_cause or note,
                before={"status": before}, after={"status": status}, request=request, consequential=status in ("resolved", "closed"))
     cu = case_client_user(case)
@@ -750,14 +798,24 @@ def change_case_status(db: Session, case: Case, status: str, user: Optional[User
 
 
 def escalate_case(db: Session, case: Case, user: Optional[User], reason: str, target: Optional[User] = None, request=None) -> None:
-    target = target or (case.department.hod if case.department and case.department.hod else None) or user_by_email(db, "manager@oqc.local")
+    """Record an escalation. Complaints pick their target from the escalation ladder (complaints.escalate) and
+    call this with it; the department head is the fallback, never the person the complaint is about."""
+    from app.services import complaints as complaints_svc
+    subjects = complaints_svc.subject_user_ids(db, case)
+    if target is None:
+        for candidate in ((case.department.hod if case.department and case.department.hod else None), user_by_email(db, "manager@oqc.local")):
+            if candidate is not None and candidate.id not in subjects:
+                target = candidate
+                break
     case.escalated = True
-    case.escalated_to_id = target.id if target else None
-    if case.status in ("open", "in_progress", "waiting"):
+    case.escalated_to_id = target.id if target else case.escalated_to_id
+    if case.status in ("open", "investigating", "findings_recorded", "in_progress", "waiting", "reopened"):
         case.status = "escalated"
     if case.priority in ("low", "medium"):
         case.priority = "high"
-    db.add(CaseComment(case_id=case.id, user_id=user.id if user else None, is_internal=True, text=f"Escalated to {target.full_name if target else 'management'}: {reason}"))
+    step = complaints_svc.ladder_step_name(db, case.escalation_level or 0) if case.case_type == "complaint" and case.escalation_level else None
+    db.add(CaseComment(case_id=case.id, user_id=user.id if user else None, is_internal=True, kind="status",
+                       text=f"Escalated to {target.full_name if target else 'management'}" + (f" ({step})" if step else "") + f": {reason}"))
     db.add(RiskAlert(alert_type="case_escalated", severity="high" if case.priority != "urgent" else "critical", title=f"Case {case.case_number} escalated",
                      message=f"{case.title} - {reason}", entity_type="Case", entity_id=case.id, visibility="management", source="system" if user is None else "manual"))
     if target:
@@ -776,7 +834,8 @@ def case_sla_monitor(db: Session) -> dict:
             if case.assigned_to_id:
                 notify(db, case.assigned_to_id, f"SLA breached: {case.case_number}", case.title, event_type="case_sla", link=f"/cases/{case.id}")
             if not case.escalated:
-                escalate_case(db, case, None, "SLA breached - auto-escalated to department head")
+                from app.services import complaints as complaints_svc
+                complaints_svc.escalate(db, case, None, "Response deadline missed - escalated automatically")
         elif not case.sla_breached and now <= case.sla_due_at <= now + timedelta(hours=2):
             warned += 1
             if case.assigned_to_id:
@@ -789,8 +848,9 @@ def case_sla_monitor(db: Session) -> dict:
     return {"breached": breached, "warned": warned}
 
 
-def case_trends(db: Session, months: int = 6) -> dict:
-    cases = db.query(Case).all()
+def case_trends(db: Session, months: int = 6, cases: Optional[list] = None) -> dict:
+    """Volume, speed and SLA figures. Pass ``cases`` to limit them to what the viewer may see."""
+    cases = db.query(Case).all() if cases is None else cases
     by = lambda key: _count_by(cases, key)
     by_category = by(lambda c: c.category or "general")
     by_department = by(lambda c: c.department.name if c.department else "Unassigned")

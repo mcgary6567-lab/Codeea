@@ -3,10 +3,23 @@
 {% block title %}{{ case.case_number }}{% endblock %}
 {% block content %}
 {% call ui.page_header(case.title, 'Case ' ~ case.case_number ~ ' · opened ' ~ (case.created_at|datetime), back='/portal/cases') %}
-  {{ ui.badge(case.status) }}{{ ui.badge(case.priority) }}
+  {{ ui.badge(case.status, status_label) }}{{ ui.badge(case.priority) }}
 {% endcall %}
 <div class="grid gap-6 lg:grid-cols-3">
   <div class="lg:col-span-2 space-y-6">
+    {% if case.status == 'pending_confirmation' %}
+    {% call ui.card('Is this resolved for you?', 'We will only close your complaint when you are satisfied.') %}
+      {% if case.resolution %}<p class="mb-4 rounded bg-emerald-50 p-3 text-sm text-emerald-900"><b>What we did:</b> {{ case.resolution }}</p>{% endif %}
+      <form method="post" action="/portal/cases/{{ case.id }}/confirm" class="space-y-3" x-data="{ a: '' }">
+        <div class="flex flex-wrap gap-3">
+          <label class="flex items-center gap-2 rounded border border-slate-200 px-3 py-2 text-sm"><input type="radio" name="answer" value="yes" x-model="a"> Yes, it is resolved</label>
+          <label class="flex items-center gap-2 rounded border border-slate-200 px-3 py-2 text-sm"><input type="radio" name="answer" value="no" x-model="a"> No, it is not resolved</label>
+        </div>
+        {{ ui.textarea('comment', 'Anything you would like to add', '', rows=3, placeholder='Tell us what is still wrong, or any other feedback') }}
+        {{ ui.button('Send my answer', icon='send') }}
+      </form>
+    {% endcall %}
+    {% endif %}
     {% call ui.card('Your request') %}
       <p class="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{{ case.description or 'No further detail was provided.' }}</p>
     {% endcall %}
@@ -38,7 +51,7 @@
   <div class="space-y-6">
     {% call ui.card('Case details') %}
       {{ ui.dl([('Reference', case.case_number), ('Type', case.case_type|titleize), ('Priority', case.priority|titleize),
-                ('Status', case.status|titleize), ('Opened', case.created_at|datetime),
+                ('Status', status_label), ('Opened', case.created_at|datetime),
                 ('Response due', case.sla_due_at|datetime if case.sla_due_at else '—'),
                 ('Resolved', case.resolved_at|datetime if case.resolved_at else '—')]) }}
       {% if case.resolution %}

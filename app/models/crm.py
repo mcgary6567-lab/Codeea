@@ -297,13 +297,46 @@ class Case(Base, PKMixin, TimestampMixin):
     complaint_type: Mapped[Optional[str]] = mapped_column(String(60))  # Teacher | Timing | Billing | Technical | Behaviour | Other
     company_response: Mapped[Optional[str]] = mapped_column(Text)
     approval_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending | approved | rejected | cancelled
+    # Complaint lifecycle (docs/COMPLAINTS.md). ``description`` keeps the family's own words and is never edited;
+    # what the investigation verified is recorded separately in ``investigation_finding``.
+    incident_date: Mapped[Optional[date]] = mapped_column(Date)
+    against_employee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"), index=True)
+    against_department_id: Mapped[Optional[int]] = mapped_column(ForeignKey("departments.id", ondelete="SET NULL"))
+    against_process: Mapped[Optional[str]] = mapped_column(String(120))
+    investigation_finding: Mapped[Optional[str]] = mapped_column(Text)
+    finding_outcome: Mapped[Optional[str]] = mapped_column(String(30))  # substantiated | partly_substantiated | not_substantiated | inconclusive
+    severity: Mapped[Optional[str]] = mapped_column(String(20))  # minor | moderate | serious | critical (verified, after investigation)
+    findings_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    findings_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    root_cause_category: Mapped[Optional[str]] = mapped_column(String(60), index=True)
+    corrective_action: Mapped[Optional[str]] = mapped_column(Text)
+    preventive_action: Mapped[Optional[str]] = mapped_column(Text)
+    escalation_level: Mapped[int] = mapped_column(Integer, default=0)  # position reached on the escalation ladder (0 = not escalated)
+    confirmation_due_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    confirmation_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    confirmed_by_parent: Mapped[bool] = mapped_column(Boolean, default=False)
+    closure_type: Mapped[Optional[str]] = mapped_column(String(30))  # confirmed_by_parent | parent_unreachable | without_confirmation | internal
+    reopen_count: Mapped[int] = mapped_column(Integer, default=0)
+    reopened_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    repeat_of_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cases.id", ondelete="SET NULL"))
 
     client = relationship("Client")
     student = relationship("Student")
     teacher = relationship("Teacher")
     assigned_to = relationship("User", foreign_keys=[assigned_to_id])
-    department = relationship("Department")
+    escalated_to = relationship("User", foreign_keys=[escalated_to_id])
+    findings_by = relationship("User", foreign_keys=[findings_by_id])
+    department = relationship("Department", foreign_keys=[department_id])
+    against_employee = relationship("Employee", foreign_keys=[against_employee_id])
+    against_department = relationship("Department", foreign_keys=[against_department_id])
+    repeat_of = relationship("Case", remote_side="Case.id", foreign_keys=[repeat_of_id])
     comments = relationship("CaseComment", back_populates="case", order_by="CaseComment.created_at", cascade="all, delete-orphan")
+    contacts = relationship("ParentContact", back_populates="case", order_by="ParentContact.contacted_at")
+
+    @property
+    def is_sensitive(self) -> bool:
+        """A complaint naming a member of staff: visible only to the people handling it (docs/COMPLAINTS.md)."""
+        return self.against_employee_id is not None
 
 
 class CaseComment(Base, PKMixin):
@@ -312,10 +345,49 @@ class CaseComment(Base, PKMixin):
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     text: Mapped[str] = mapped_column(Text)
     is_internal: Mapped[bool] = mapped_column(Boolean, default=True)
+    kind: Mapped[str] = mapped_column(String(20), default="comment")  # comment | decision | finding | status | contact | system
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     case = relationship("Case", back_populates="comments")
     user = relationship("User")
+
+
+PARENT_CONTACT_CHANNELS = ["phone", "whatsapp", "video", "meeting", "email", "portal"]
+PARENT_SATISFACTION = ["satisfied", "partly_satisfied", "not_satisfied", "unreachable"]
+
+
+class ParentContact(Base, PKMixin, TimestampMixin):
+    """One conversation with a family: who spoke to them, what they said, and what was agreed.
+
+    Used for complaint confirmation calls now; academic, attendance and progress calls use the same record.
+    """
+    __tablename__ = "parent_contacts"
+    client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"), index=True)
+    student_id: Mapped[Optional[int]] = mapped_column(ForeignKey("students.id", ondelete="SET NULL"), index=True)
+    case_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+    purpose: Mapped[str] = mapped_column(String(30), default="complaint_confirmation")  # complaint_confirmation | academic | attendance | performance | complaint | other
+    channel: Mapped[str] = mapped_column(String(20), default="phone")
+    contacted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    contacted_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))  # empty when the family answered in the portal
+    summary: Mapped[Optional[str]] = mapped_column(Text)
+    parent_response: Mapped[Optional[str]] = mapped_column(Text)
+    satisfaction: Mapped[Optional[str]] = mapped_column(String(20))
+    feedback: Mapped[Optional[str]] = mapped_column(Text)
+    agreed_action: Mapped[Optional[str]] = mapped_column(Text)
+    follow_up_date: Mapped[Optional[date]] = mapped_column(Date)
+    responsible_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    follow_up_task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"))
+    recording_url: Mapped[Optional[str]] = mapped_column(String(500))
+    recording_attachment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("attachments.id", ondelete="SET NULL"))
+    transcript: Mapped[Optional[str]] = mapped_column(Text)
+    referral_mentioned: Mapped[bool] = mapped_column(Boolean, default=False)
+    outcome: Mapped[Optional[str]] = mapped_column(String(30))  # closed | reopened | escalated | awaiting | recorded
+
+    case = relationship("Case", back_populates="contacts")
+    client = relationship("Client")
+    student = relationship("Student")
+    contacted_by = relationship("User", foreign_keys=[contacted_by_id])
+    responsible = relationship("User", foreign_keys=[responsible_id])
 
 
 class RetentionAction(Base, PKMixin, TimestampMixin):

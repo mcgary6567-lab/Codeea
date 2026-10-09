@@ -370,7 +370,8 @@ def complaints(request: Request, page: int = 1, status: str = "", client: str = 
                date_from: str = "", date_to: str = "", q: str = "", db: Session = Depends(get_db),
                user: User = Depends(require("requests.view"))):
     f = _filters(q, status, client, student, date_from, date_to)
-    query = db.query(Case).filter(Case.case_type == "complaint")
+    from app.services import complaints as complaints_svc
+    query = complaints_svc.visible(db, user, db.query(Case).filter(Case.case_type == "complaint"))
     if status:
         query = query.filter(Case.approval_status == status)
     if parse_int(client):
@@ -498,10 +499,15 @@ def _apply_complaint(db: Session, user: User, k: Case, status: str, remarks: str
     k.approval_status = status
     if company_response:
         k.company_response = company_response
-    if status == "approved":
-        k.status = "resolved"
-        k.resolution = k.company_response or remarks or None
-        k.resolved_at = datetime.utcnow()
+    if status == "approved" and k.status not in ("pending_confirmation", "closed", "resolved"):
+        # Approving the company response resolves the complaint; it still closes only when the family confirms.
+        from app.services import complaints as complaints_svc
+        if not k.investigation_finding:
+            k.investigation_finding = f"Recorded with the company response: {k.company_response or remarks}"
+            k.finding_outcome, k.severity = k.finding_outcome or "inconclusive", k.severity or "minor"
+            k.findings_by_id, k.findings_at = user.id, datetime.utcnow()
+        complaints_svc.resolve(db, k, user, k.company_response or remarks, k.root_cause_category or "Other", root_cause=remarks,
+                               request=request)
     return k.client
 
 
@@ -535,7 +541,8 @@ async def change_status(kind: str, request: Request, db: Session = Depends(get_d
     if kind == "leaves":
         query = query.filter(Leave.person_type == "student")
     elif kind == "complaints":
-        query = query.filter(Case.case_type == "complaint")
+        from app.services import complaints as complaints_svc
+        query = complaints_svc.visible(db, user, query.filter(Case.case_type == "complaint"))
     rows = query.all()
     apply = _APPLIERS[kind]
     label = KINDS[kind]["title"]

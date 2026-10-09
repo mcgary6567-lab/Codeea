@@ -24,6 +24,7 @@ from app.models.people import Client, Student, Teacher, Leave
 from app.models.scheduling import Schedule, ClassSession, Attendance, TeacherMatch
 from app.services import people as svc
 from app.services.classes import student_attendance_pct
+from app.services.crm import OPEN_CASE_STATUSES
 
 router = APIRouter(prefix="/students", dependencies=[Depends(csrf_protect)])
 
@@ -360,7 +361,7 @@ def student_detail(id: int, request: Request, tab: str = "overview", db: Session
         ctx["dor"] = db.query(DorSchedule).filter(DorSchedule.student_id == s.id).order_by(DorSchedule.period.desc()).first()
         ctx["progress"] = svc.student_progress_summary(db, s)
         ctx["last_match"] = db.query(TeacherMatch).filter(TeacherMatch.student_id == s.id).order_by(TeacherMatch.created_at.desc()).first()
-        ctx["open_cases"] = db.query(Case).filter(Case.student_id == s.id, Case.status.in_(["open", "in_progress", "waiting", "escalated"])).count()
+        ctx["open_cases"] = db.query(Case).filter(Case.student_id == s.id, Case.status.in_(list(OPEN_CASE_STATUSES))).count()
         ctx["recent_audit"] = db.query(AuditEvent).filter(AuditEvent.entity_type == "Student", AuditEvent.entity_id == s.id).order_by(AuditEvent.created_at.desc()).limit(6).all()
     elif tab == "subscriptions":
         subs = db.query(Subscription).filter(Subscription.student_id == s.id).order_by(Subscription.created_at.desc()).all()
@@ -413,7 +414,8 @@ def student_detail(id: int, request: Request, tab: str = "overview", db: Session
         ctx["invoices"] = db.query(Invoice).filter(Invoice.student_id == s.id).order_by(Invoice.issue_date.desc()).limit(50).all()
         ctx["balance"] = svc.client_balance(db, s.client) if s.client else 0
     elif tab == "cases":
-        ctx["cases"] = db.query(Case).filter(Case.student_id == s.id).order_by(Case.created_at.desc()).all()
+        from app.services import complaints as complaints_svc
+        ctx["cases"] = complaints_svc.visible(db, user, db.query(Case).filter(Case.student_id == s.id)).order_by(Case.created_at.desc()).all()
     elif tab == "certificates":
         ctx["certificates"] = db.query(Certificate).filter(Certificate.student_id == s.id).order_by(Certificate.issued_at.desc()).all()
     elif tab == "matches":

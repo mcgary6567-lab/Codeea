@@ -460,7 +460,8 @@ ROLE_APPS = {
     "hod_people": "Human Resource", "hr_officer": "Human Resource",
     "hod_academics": "Online Academics", "academic_coordinator": "Online Academics", "manager": "Online Academics",
     "supervisor": "Online Academics", "teacher": "Online Academics", "hod_qa": "Online Academics",
-    "qa_officer": "Online Academics",
+    "qa_officer": "Online Academics", "academy_manager": "Online Academics",
+    "head_of_admissions": "Billing Management",
     "client": "Client Portal", "student": "Client Portal",
 }
 

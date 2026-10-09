@@ -402,8 +402,11 @@ def employee_detail(id: int, request: Request, tab: str = "overview", month: str
     e = _emp(db, id)
     month = _month_param(month)
     start, end = month_bounds(month)
+    from app.services import complaints as complaints_svc
+    show_complaints = complaints_svc.can_read_history(user) and e.user_id != user.id
+    tab_list = EMPLOYEE_TABS[:-1] + ([("complaints", "Complaints")] if show_complaints else []) + EMPLOYEE_TABS[-1:]
     ctx: dict = {"user": user, "e": e, "tab": tab, "month": month,
-                 "tabs": [(k, l, f"/hr/employees/{e.id}?tab={k}") for k, l in EMPLOYEE_TABS],
+                 "tabs": [(k, l, f"/hr/employees/{e.id}?tab={k}") for k, l in tab_list],
                  "show_sensitive": can_see_sensitive(user), "statuses": EMP_STATUSES}
     if tab == "overview":
         ctx["kpis"] = svc.employee_kpis(db, e, month)
@@ -445,6 +448,12 @@ def employee_detail(id: int, request: Request, tab: str = "overview", month: str
         ctx["plan"] = db.query(DevelopmentPlan).filter(DevelopmentPlan.employee_id == e.id).order_by(DevelopmentPlan.id.desc()).first()
         ctx["trainings"] = (db.query(TrainingAssignment).filter(TrainingAssignment.teacher_id == e.teacher.id)
                             .order_by(TrainingAssignment.id.desc()).all() if e.teacher else [])
+    elif tab == "complaints":
+        if not show_complaints:
+            raise PermissionDenied("complaint_history.view")
+        ctx["h"] = complaints_svc.employee_history(db, user, employee=e, request=request)
+        ctx["complaint_status_label"] = complaints_svc.status_label
+        db.commit()
     elif tab == "audit":
         ctx["events"] = db.query(AuditEvent).filter(or_((AuditEvent.entity_type == "Employee") & (AuditEvent.entity_id == e.id),
                                                         (AuditEvent.entity_type == "SalaryStructure") & (AuditEvent.entity_id.in_(

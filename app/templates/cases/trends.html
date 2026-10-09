@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Case trends{% endblock %}
-{% macro count_list(title, rows, icon='list') %}
-{% call ui.card(title) %}
+{% block title %}Complaint intelligence{% endblock %}
+{% macro count_list(title, rows, icon='list', subtitle=None) %}
+{% call ui.card(title, subtitle) %}
   {% if rows %}
   <ul class="space-y-2 text-sm">
     {% for key, n in rows[:10] %}
-    <li><div class="flex justify-between"><span class="text-slate-600 dark:text-slate-300">{{ key|titleize }}</span><b>{{ n }}</b></div>
+    <li><div class="flex justify-between"><span class="text-slate-600">{{ key|titleize }}</span><b>{{ n }}</b></div>
       {{ ui.progress(100 * n / rows[0][1], 'brand') }}</li>
     {% endfor %}
   </ul>
@@ -14,27 +14,79 @@
 {% endcall %}
 {% endmacro %}
 {% block content %}
-{{ ui.page_header('Case trends', 'Volume, resolution speed and SLA compliance across categories, departments and teachers', back='/cases') }}
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
-  {{ ui.stat('Total cases', t.total, icon='life-buoy', color='sky') }}
-  {{ ui.stat('Open', t.open, icon='folder-open', color='amber') }}
-  {{ ui.stat('Breached (open)', t.breached_open, icon='alarm-clock-off', color='rose') }}
-  {{ ui.stat('Avg resolution', t.avg_resolution_hours ~ 'h', icon='timer', color='indigo') }}
-  {{ ui.stat('SLA compliance', t.sla_compliance ~ '%', icon='shield-check', color='emerald') }}
+{{ ui.page_header('Complaint intelligence', 'Where complaints come from, what causes them and which ones need management now. Root cause, corrective action, prevention.', back='/cases') }}
+
+{% call ui.card('Summary for management', 'Written from the figures below. Decisions stay with authorised staff.') %}
+  <ul class="list-disc space-y-1 pl-5 text-sm text-slate-700">
+    {% for p in summary.points %}<li>{{ p }}</li>{% endfor %}
+  </ul>
+  <p class="mt-2 text-[11px] text-slate-400">{{ summary.run.provider }} · {{ summary.run.model }} · run #{{ summary.run.id }}</p>
+{% endcall %}
+
+<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+  {{ ui.stat('Complaints', x.total, icon='life-buoy', color='sky') }}
+  {{ ui.stat('Being worked', x.open, icon='folder-open', color='amber', href='/cases?case_type=complaint&status=open_all') }}
+  {{ ui.stat('Awaiting family', x.pending_confirmation, icon='phone-call', color='violet', href='/cases?status=pending_confirmation') }}
+  {{ ui.stat('Reopened', x.reopened, icon='rotate-ccw', color='orange', href='/cases?status=reopened') }}
+  {{ ui.stat('Repeat', x.repeat, icon='repeat', color='rose') }}
+  {{ ui.stat('Avg to resolve', (x.avg_resolution_hours ~ 'h') if x.avg_resolution_hours is not none else '—', icon='timer', color='indigo') }}
 </div>
 
-{% call ui.card('Opened vs resolved by month') %}{{ ui.chart('trend', 260) }}{% endcall %}
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+  {% call ui.card('Complaints received and closed by month') %}{{ ui.chart('trend', 240) }}{% endcall %}
+  </div>
+  {% call ui.card('Rising this month') %}
+    {% for cat, a, b in x.rising %}
+    <div class="flex items-center justify-between border-b border-slate-100 py-1.5 text-sm"><span>{{ cat }}</span><span class="text-rose-600"><b>{{ b }}</b> <span class="text-xs text-slate-400">from {{ a }}</span></span></div>
+    {% else %}<p class="text-sm text-slate-400">No category is rising.</p>{% endfor %}
+  {% endcall %}
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Needs management attention', 'Open complaints most likely to escalate, with the reasons') %}
+  {{ ui.table_start(['Complaint','Risk','Why'], compact=True) }}
+  {% for r in x.at_risk %}
+  <tr><td class="px-4 py-1.5"><a class="font-medium text-brand-700 hover:underline" href="/cases/{{ r.case.id }}">{{ r.case.case_number }}</a><div class="text-xs text-slate-500">{{ r.case.title[:60] }}</div></td>
+    <td class="px-4 py-1.5"><b class="{{ 'text-rose-600' if r.score >= 60 else 'text-amber-600' }}">{{ r.score }}</b></td>
+    <td class="px-4 py-1.5 text-xs text-slate-600">{{ r.why|join(', ') }}</td></tr>
+  {% else %}{{ ui.empty('Nothing at risk right now.', 3) }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('People with recurring complaints', 'Two or more complaints. Confidential: shown only to those handling complaints.') %}
+  {{ ui.table_start(['Employee','Total','Open','Confirmed by investigation'], compact=True) }}
+  {% for d in x.recurring_people %}
+  <tr><td class="px-4 py-1.5">{% if d.employee %}<a class="text-brand-700 hover:underline" href="/cases?against={{ d.employee.id }}">{{ d.employee.full_name }}</a>{% endif %}</td>
+    <td class="px-4 py-1.5">{{ d.total }}</td><td class="px-4 py-1.5">{{ d.open }}</td><td class="px-4 py-1.5">{{ d.substantiated }}</td></tr>
+  {% else %}{{ ui.empty('No recurring complaints about a person.', 4) }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% if x.overdue_confirmation %}
+<div class="mt-6">
+{% call ui.card('Confirmation calls overdue', 'Resolved complaints the family has not yet been asked about') %}
+<ul class="text-sm">
+  {% for c in x.overdue_confirmation %}<li class="border-b border-slate-100 py-1.5"><a class="text-brand-700 hover:underline" href="/cases/{{ c.id }}">{{ c.case_number }}</a> · {{ c.title }} · due {{ c.confirmation_due_at|datetime }} · {{ c.assigned_to.full_name if c.assigned_to else 'unassigned' }}</li>{% endfor %}
+</ul>
+{% endcall %}
+</div>
+{% endif %}
 
 <div class="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-  {{ count_list('By category', t.by_category, 'tags') }}
-  {{ count_list('By department', t.by_department, 'building-2') }}
-  {{ count_list('By teacher', t.by_teacher, 'user-check') }}
-  {{ count_list('By case type', t.by_type, 'list') }}
-  {{ count_list('Root causes', t.root_causes, 'search') }}
+  {{ count_list('By category', x.by_category, 'tags') }}
+  {{ count_list('Root causes', x.root_causes, 'search', 'From resolved complaints') }}
+  {{ count_list('By department', x.by_department, 'building-2') }}
+  {{ count_list('Verified severity', x.by_severity, 'gauge') }}
+  {{ count_list('All cases by type', t.by_type, 'list') }}
+  {% call ui.card('Response deadlines') %}
+    {{ ui.dl([('Met', t.sla_compliance ~ '%'), ('Missed and still open', t.breached_open), ('All cases', t.total), ('Average to resolve', t.avg_resolution_hours ~ 'h')]) }}
+  {% endcall %}
 </div>
 {% endblock %}
 {% block scripts %}
 <script>
-  OQC.line('trend', {{ t.labels|tojson }}, [{label:'Opened', data: {{ t.opened|tojson }}}, {label:'Resolved', data: {{ t.resolved|tojson }}}]);
+  OQC.line('trend', {{ x.labels|tojson }}, [{label:'Received', data: {{ x.opened|tojson }}}, {label:'Closed', data: {{ x.closed_by_month|tojson }}}]);
 </script>
 {% endblock %}

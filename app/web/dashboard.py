@@ -19,6 +19,7 @@ from app.models.people import Leave, Student, Teacher
 from app.models.scheduling import ClassSession, QAReview, Schedule, Shift
 from app.services import classes as class_svc
 from app.services import scheduling as sched_svc
+from app.services.crm import OPEN_CASE_STATUSES
 
 router = APIRouter(dependencies=[Depends(csrf_protect)])
 
@@ -69,7 +70,7 @@ def _pending_panel(db: Session, user: User, teacher_ids: list[int] | None) -> li
     staff_leaves = db.query(func.count(Leave.id)).filter(Leave.person_type == "employee", Leave.status == "pending").scalar() or 0
     discounts = db.query(func.count(DiscountRequest.id)).filter(DiscountRequest.status == "pending").scalar() or 0
     cases = dict(db.query(Case.priority, func.count(Case.id))
-                 .filter(Case.status.in_(["open", "in_progress", "waiting", "escalated"])).group_by(Case.priority).all())
+                 .filter(Case.status.in_(list(OPEN_CASE_STATUSES))).group_by(Case.priority).all())
     unscored = db.query(func.count(MonthlyTest.id)).filter(MonthlyTest.status == "generated").scalar() or 0
     unverified = db.query(func.count(Teacher.id)).filter(Teacher.is_verified.is_(False), Teacher.status != "inactive").scalar() or 0
     qa_queue = db.query(func.count(QAReview.id)).filter(QAReview.status.in_(["queued", "in_review"])).scalar() or 0

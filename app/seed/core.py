@@ -53,6 +53,14 @@ USERS = [
     ("auditor@oqc.local", "Auditor@123", "External Auditor", "auditor", None),
 ]
 
+# Sign-ins for roles added after the first production deploy. They are created on development databases only: on a
+# deployed instance deploy_secure.py rotates demo passwords only when its configuration changes, so an account created
+# later would keep the published password. Real staff receive these roles through HR > Users & Access.
+DEV_ONLY_USERS = [
+    ("admissions@oqc.local", "Admit@123", "Rukhsana Javed", "head_of_admissions", "marketing"),
+    ("academy@oqc.local", "Academy@123", "Ustadh Hamza Siddiqui", "academy_manager", "academics"),
+]
+
 TEMPLATES = [
     ("class_reminder_teacher", "in_app", "Class in {{minutes}} minutes", "Your class with {{student}} starts at {{time}}. Room: {{room}}."),
     ("class_reminder_student", "whatsapp", "Class reminder", "Assalamu Alaikum {{name}}, {{student}}'s Quran class with {{teacher}} starts at {{time}}. Join: {{link}}"),
@@ -119,7 +127,9 @@ def run(db: Session) -> None:
     role_by_slug = sync_system_roles(db)
 
     branch = db.query(Branch).first()
-    for email, pwd, name, role_slug, dept in USERS:
+    from app.config import settings as app_settings
+    wanted = USERS + (DEV_ONLY_USERS if app_settings.APP_ENV == "development" else [])
+    for email, pwd, name, role_slug, dept in wanted:
         if db.query(User).filter(User.email == email).first():
             continue
         db.add(User(email=email, username=email.split("@")[0], full_name=name, hashed_password=hash_password(pwd),

@@ -257,7 +257,17 @@ def main() -> int:
         post(client, f"/cases/{new_case_id}/status", {"status": "resolved", "resolution": "Teacher counselled and time made up.",
                                                       "root_cause": "Teacher schedule overlap"})
         db = SessionLocal()
-        check("case resolved", db.get(Case, new_case_id).status == "resolved")
+        check("complaint not resolved without an investigation finding", db.get(Case, new_case_id).status not in ("resolved", "pending_confirmation"))
+        db.close()
+        post(client, f"/cases/{new_case_id}/findings", {"investigation_finding": "Recording confirms the teacher joined late twice.",
+                                                        "finding_outcome": "substantiated", "severity": "moderate"})
+        post(client, f"/cases/{new_case_id}/resolve", {"resolution": "Teacher counselled and time made up.",
+                                                       "root_cause_category": "Teacher punctuality", "root_cause": "Teacher schedule overlap"})
+        db = SessionLocal()
+        resolved = db.get(Case, new_case_id)
+        # a complaint from a family waits for the family to confirm; one without a family is simply resolved
+        check("case resolved", resolved.status == ("pending_confirmation" if (resolved.client_id or resolved.student_id) else "resolved"),
+              resolved.status)
         db.close()
 
         # feedback + public survey
