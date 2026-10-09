@@ -326,6 +326,8 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
     if tab == "overview":
         from app.models.automation import Tag, WorkflowRun
         from app.services import automation as auto
+        from app.services import ghl_sync
+        ctx["ghl_last"] = ghl_sync.last_sync(db, "client", c.id)
         ctx["tags"] = auto.tags_for(db, "client", c.id)
         ctx["tag_options"] = [t.name for t in db.query(Tag).filter(Tag.is_active.is_(True)).order_by(Tag.name)]
         ctx["runs"] = (db.query(WorkflowRun).filter(WorkflowRun.contact_type == "client", WorkflowRun.contact_id == c.id)

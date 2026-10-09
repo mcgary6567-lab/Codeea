@@ -145,7 +145,21 @@ def remove_tag(db: Session, contact_type: str, contact_id: int, name: str) -> bo
     if not t:
         return False
     n = db.query(ContactTag).filter(ContactTag.contact_type == contact_type, ContactTag.contact_id == contact_id, ContactTag.tag_id == t.id).delete()
+    if n:
+        _to_ghl(db, "tag.removed", contact_type, contact_id, {"tag": t.name})
     return bool(n)
+
+
+def _to_ghl(db: Session, event: str, contact_type: str, contact_id: int, payload: dict) -> None:
+    """Queue the matching GoHighLevel changes (app.services.ghl_sync). Never lets a sync problem break the business
+    action that raised the event."""
+    try:
+        from app.services import ghl_sync
+        with db.begin_nested():
+            ghl_sync.on_event(db, event, contact_type, contact_id, payload)
+    except Exception:  # pragma: no cover - logged, the event itself still stands
+        import logging
+        logging.getLogger("oqc.ghl").exception("could not queue GHL sync for %s", event)
 
 
 def contacts_with_tag(db: Session, tag: Tag) -> list[tuple[str, Any]]:
@@ -187,6 +201,7 @@ def emit(db: Session, event: str, contact_type: str, contact_id: int, payload: O
     payload = dict(payload or {})
     ev = AutomationEvent(event=event, contact_type=contact_type, contact_id=contact_id, payload=payload, created_at=now)
     db.add(ev)
+    _to_ghl(db, event, contact_type, contact_id, payload)
     contact = resolve_contact(db, contact_type, contact_id)
     started: list[WorkflowRun] = []
     if not contact:

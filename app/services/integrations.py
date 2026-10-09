@@ -192,7 +192,14 @@ def ghl_upsert_contact(db: Session, contact: dict) -> dict:
 
 # ----------------------------------------------------------------------------- Outbound webhooks (n8n etc.)
 def emit_event(db: Session, event: str, payload: dict) -> None:
-    """Queue an outbound webhook delivery for every active webhook subscribed to ``event``."""
+    """Queue an outbound webhook delivery for every active webhook subscribed to ``event``, and the matching
+    GoHighLevel changes (complaints, referrals; app.services.ghl_sync)."""
+    try:
+        from app.services import ghl_sync
+        with db.begin_nested():
+            ghl_sync.on_webhook_event(db, event, payload)
+    except Exception:  # pragma: no cover - a sync problem never blocks the event
+        log.exception("could not queue GHL sync for %s", event)
     hooks = db.query(Webhook).filter(Webhook.is_active.is_(True)).all()
     for hook in hooks:
         if hook.events and event not in hook.events and "*" not in hook.events:

@@ -99,7 +99,7 @@ classes, supervisors only their assigned teachers, parents only their own family
 
 | Section | Requirement | Status |
 |---|---|---|
-| 7 | CRM, GHL & WhatsApp: two-way messaging, shared inbox, templates, opt-in/out, webhook retries, lead→client→student without re-entry | Built · WhatsApp and GHL **simulated** until credentials are set |
+| 7 | CRM, GHL & WhatsApp: two-way messaging, shared inbox, templates, opt-in/out, webhook retries, lead→client→student without re-entry | Built · WhatsApp and GHL **simulated** until credentials are set; two-way GHL sync with a retry queue, sync log, conflict review and inbound pipeline stages (docs/GHL_INTEGRATION.md) |
 | 8 | Quran education: Qaida, Nazra, Hifz, Tajweed, Tarjuma; books, chapters, lessons, objectives; RTL, tashkeel, Tajweed colours; human-in-the-loop QA | Built · Tajweed colouring is a documented heuristic |
 | 9 | AI monitoring: camera presence, punctuality, active teaching, engagement, curriculum coverage, tone and conduct flags, cost dashboard, model/version/confidence on every result, no action on AI score alone | Built · **simulated** provider by default; set `AI_PROVIDER` and `AI_API_KEY` for live inference. Transcription requires a live provider |
 | 10 | QA framework: queue, random and risk-based sampling, scorecards, corrective actions, re-evaluation, trends, human approval for high-impact | Built |

@@ -185,11 +185,31 @@ async def ghl_inbound(request: Request, db: Session = Depends(get_db)):
     payload = _parse_body(await verify_inbound(request, db, "ghl"))
     delivery = _log_delivery(db, "ghl.contact", payload)
     contact = payload.get("contact") or payload
-    lead, created = svc.upsert_lead_from_ghl(db, contact)
-    delivery.response_body = f"lead={lead.lead_code} created={created}"
-    log_action(db, None, "sync", "leads", entity=lead, description=f"GHL webhook {'created' if created else 'updated'} {lead.lead_code}")
+    from app.services import ghl_sync
+    job, lead, created = ghl_sync.handle_contact(db, contact)
+    delivery.response_body = f"{job.entity_type}={job.entity_id} status={job.status} created={created}"
+    if lead is not None:
+        log_action(db, None, "sync", "leads", entity=lead, description=f"GHL webhook {'created' if created else 'updated'} {lead.lead_code}"
+                   + (" (conflict with the family record, queued for review)" if job.status == "conflict" else ""))
     db.commit()
-    return WebhookAck(event="ghl.contact", delivery_id=delivery.id, detail={"lead_id": lead.id, "lead_code": lead.lead_code, "created": created})
+    return WebhookAck(event="ghl.contact", delivery_id=delivery.id,
+                      detail={"lead_id": lead.id if lead else None, "lead_code": lead.lead_code if lead else None, "created": created,
+                              "status": job.status, "sync_log_id": job.id})
+
+
+@router.post("/ghl/opportunity", response_model=WebhookAck)
+async def ghl_opportunity(request: Request, db: Session = Depends(get_db)):
+    """GoHighLevel opportunity / pipeline-stage webhook: moves the lead to the matching ERP stage. Same signing as
+    the contact webhook. Expects contact_id plus pipeline_stage_id, pipeline_stage (name) or status."""
+    payload = _parse_body(await verify_inbound(request, db, "ghl"))
+    delivery = _log_delivery(db, "ghl.opportunity", payload)
+    from app.services import ghl_sync
+    job = ghl_sync.handle_opportunity(db, payload.get("opportunity") or payload)
+    delivery.response_body = f"status={job.status} lead={job.entity_id} {job.last_error or ''}".strip()
+    db.commit()
+    return WebhookAck(event="ghl.opportunity", delivery_id=delivery.id,
+                      detail={"status": job.status, "lead_id": job.entity_id, "erp_stage": (job.payload or {}).get("erp_stage"),
+                              "reason": job.last_error, "sync_log_id": job.id})
 
 
 # ----------------------------------------------------------------------------- Meta lead ads

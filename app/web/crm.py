@@ -509,9 +509,11 @@ async def lead_rescore(id: int, request: Request, db: Session = Depends(get_db),
 @router.post("/leads/{id}/sync-ghl", include_in_schema=False)
 async def lead_sync_ghl(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leads.update"))):
     lead = _lead(db, id, user)
-    svc.sync_ghl(db, lead, user)
+    res = svc.sync_ghl(db, lead, user)
     db.commit()
-    return redirect(f"/crm/leads/{lead.id}", f"Synced to GoHighLevel (contact {lead.ghl_contact_id}).")
+    if res["status"] != "sent":
+        return redirect(f"/crm/leads/{lead.id}", f"GoHighLevel did not accept it yet ({res.get('error') or res['status']}); it will be retried.", "warning")
+    return redirect(f"/crm/leads/{lead.id}", f"Synced to GoHighLevel (contact {res.get('contact_id')}).")
 
 
 @router.post("/leads/{id}/enroll", include_in_schema=False)

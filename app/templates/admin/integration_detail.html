@@ -6,6 +6,7 @@
   {{ ui.badge(integ.status) }}
   {{ ui.badge(integ.health) }}
   {{ ui.button("API & webhooks", href="/admin/api", icon="webhook", variant="secondary", size="sm") }}
+  {% if provider == 'ghl' %}{{ ui.button("Sync log & conflicts", href="/admin/integrations/ghl/sync", icon="arrow-left-right", size="sm") }}{% endif %}
 {% endcall %}
 
 <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

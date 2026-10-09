@@ -344,6 +344,7 @@ ADMIN_NAV = [
         _i("OTP Configuration", "/config/otp", "shield-check", "security.view"),
         _i("Settings", "/admin/settings", "settings", "settings.view"),
         _i("Integration Hub", "/admin/integrations", "plug", "integrations.view"),
+        _i("GoHighLevel Sync", "/admin/integrations/ghl/sync", "arrow-left-right", "integrations.view"),
         _i("API & Webhooks", "/admin/api", "code-2", "api_keys.view"),
         _i("Security Center", "/admin/security", "lock-keyhole", "security.view"),
         _i("Backups & DR", "/admin/backups", "database-backup", "backups.view"),

@@ -77,6 +77,13 @@
       {{ ui.stat('Overdue invoices', overdue, icon='receipt', color=palette(7) if overdue else palette(1), href='/clients/' ~ c.id ~ '?tab=billing') }}
     </div>
     {% if has_perm(user, 'tags.view') %}
+    {% call ui.card("GoHighLevel") %}
+      <p class="text-xs text-slate-600">{% if c.ghl_contact_id %}Linked to GHL contact <span class="font-mono">{{ c.ghl_contact_id }}</span>{% else %}Not yet linked to a GHL contact{% endif %}.</p>
+      {% if ghl_last %}<p class="mt-1 text-xs text-slate-500">Last exchange: {{ ghl_last.operation|replace('_', ' ') }} · {{ ghl_last.status }} · {{ ghl_last.created_at|datetime }}</p>{% endif %}
+      {% if has_perm(user, 'integrations.configure') %}
+      <form method="post" action="/admin/integrations/ghl/sync/push/client/{{ c.id }}" class="mt-2">{{ ui.button('Sync to GHL now', icon='refresh-cw', size='sm', variant='secondary') }}</form>
+      {% endif %}
+    {% endcall %}
     {% call ui.card("Tags") %}
       {% set tc_type, tc_id, tc_next = 'client', c.id, '/clients/' ~ c.id %}
       {% include 'crm/_tag_chips.html' %}

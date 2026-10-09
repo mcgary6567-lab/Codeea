@@ -28,7 +28,7 @@ from app.models.finance import Subscription, LedgerEntry
 from app.models.people import Client, Student, Teacher, Grievance, Employee
 from app.models.scheduling import Trial
 from app.services.ai_gateway import ai
-from app.services.integrations import send_whatsapp, ghl_upsert_contact, emit_event
+from app.services.integrations import send_whatsapp, emit_event
 
 # Statuses in which a case is still being worked (and its response deadline runs). "pending_confirmation" is not
 # one of them: the work is done and the family is being asked to confirm (app.services.complaints).
@@ -260,15 +260,14 @@ def link_referral(db: Session, lead: Lead) -> Optional[Referral]:
 
 
 def sync_ghl(db: Session, lead: Lead, actor: Optional[User] = None) -> dict:
-    res = ghl_upsert_contact(db, {"firstName": lead.full_name.split()[0], "name": lead.full_name, "email": lead.email, "phone": lead.phone,
-                                  "country": lead.country, "tags": [f"stage:{lead.stage}", f"source:{lead.source.name if lead.source else 'unknown'}"],
-                                  "customFields": {"lead_code": lead.lead_code, "score": lead.score}})
-    if res.get("id"):
-        lead.ghl_contact_id = res["id"]
-    add_activity(db, lead, "note", f"Synced to GoHighLevel (contact {lead.ghl_contact_id})", actor)
-    log_action(db, actor, "sync", "leads", entity=lead, description=f"GHL sync for {lead.lead_code}")
+    """Push the lead (or the family it became) to GHL now, recorded in the sync log (app.services.ghl_sync)."""
+    from app.services import ghl_sync
+    entity_type, entity_id = ghl_sync.resolve(db, "lead", lead.id)
+    res = ghl_sync.sync_now(db, entity_type or "lead", entity_id or lead.id, actor)
+    if res.get("contact_id"):
+        lead.ghl_contact_id = lead.ghl_contact_id or res["contact_id"]
+    add_activity(db, lead, "note", f"Synced to GoHighLevel ({res['status']}, contact {res.get('contact_id') or '-'})", actor)
     return res
-
 
 def upsert_lead_from_ghl(db: Session, contact: dict) -> tuple[Lead, bool]:
     """Webhook upsert: match by ghl_contact_id, then phone/email; else create."""

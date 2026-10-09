@@ -353,6 +353,36 @@ class CaseComment(Base, PKMixin):
     user = relationship("User")
 
 
+GHL_SYNC_STATUSES = ["pending", "sent", "failed", "dead", "skipped", "conflict", "resolved", "received"]
+
+
+class GhlSyncJob(Base, PKMixin, TimestampMixin):
+    """One change exchanged with GoHighLevel: the queue, the retry state and the log (docs/GHL_INTEGRATION.md).
+
+    Outbound rows are created by ERP events and sent by the sync worker with retries; inbound rows record what a
+    GHL webhook changed, and hold a conflict for review when GHL disagrees with a record the ERP owns."""
+    __tablename__ = "ghl_sync_jobs"
+    direction: Mapped[str] = mapped_column(String(3), default="out", index=True)  # out | in
+    entity_type: Mapped[str] = mapped_column(String(20), index=True)  # lead | client
+    entity_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    operation: Mapped[str] = mapped_column(String(30))  # upsert_contact | add_tags | remove_tags | opportunity | add_note | contact | stage
+    event: Mapped[Optional[str]] = mapped_column(String(60))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+    last_error: Mapped[Optional[str]] = mapped_column(Text)
+    ghl_contact_id: Mapped[Optional[str]] = mapped_column(String(80), index=True)
+    response: Mapped[dict] = mapped_column(JSON, default=dict)
+    dedupe_key: Mapped[Optional[str]] = mapped_column(String(64), index=True)
+    simulated: Mapped[bool] = mapped_column(Boolean, default=False)
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    resolution: Mapped[Optional[str]] = mapped_column(String(20))  # keep_erp | accept_ghl (conflicts)
+    resolved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    resolved_by = relationship("User")
+
+
 PARENT_CONTACT_CHANNELS = ["phone", "whatsapp", "video", "meeting", "email", "portal"]
 PARENT_SATISFACTION = ["satisfied", "partly_satisfied", "not_satisfied", "unreachable"]
 PARENT_CONTACT_PURPOSES = [("academic", "Academic progress"), ("attendance", "Attendance"), ("performance", "Performance"),
