@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText,
-  Building2, ListChecks, Lightbulb, UserCheck, Hourglass,
+  Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -173,6 +173,19 @@ export default function Layout() {
   useLiveEvents(() => counts.reload(), can("whatsapp.inbox"));
   const k = counts.data?.kpis;
   const badgeVal: Record<string, number> = { unread: k?.whatsapp.unread ?? 0, orders: k?.pending_orders ?? 0, alerts: k?.open_alerts ?? 0 };
+  const [q, setQ] = useState("");
+  const visible = NAV.filter((n) => (!n.perm || n.perm.split("|").some(can)) && (!("only" in n) || (n.only as string[]).includes(user?.role ?? "")));
+  // flat, searchable list of every menu item the role can see, plus sub-items (e.g. Day book)
+  const searchHits = (() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return [];
+    const hits: { to: string; label: string; icon: NavItem["icon"] }[] = [];
+    for (const n of visible) {
+      if (n.label.toLowerCase().includes(query) || (NAV_UR[n.to] ?? "").includes(q.trim())) hits.push({ to: n.to, label: n.label, icon: n.icon });
+      for (const s of SUBS[n.to] ?? []) if (can(s.perm) && (s.label.toLowerCase().includes(query) || (s.ur ?? "").includes(q.trim()))) hits.push({ to: s.to, label: `${n.label} · ${s.label}`, icon: s.icon });
+    }
+    return hits.slice(0, 12);
+  })();
 
   const sidebar = (
     <nav className="flex h-full flex-col bg-brand-900 text-emerald-50">
@@ -185,9 +198,26 @@ export default function Layout() {
         <div className="hidden lg:block"><NotificationBell dark /></div>
       </div>
       <QuickAddButton />
+      <div className="px-3 pb-2">
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-2.5 top-2.5 text-emerald-200/70" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search menu… · مینو تلاش"
+            aria-label="Search menu"
+            onKeyDown={(e) => { if (e.key === "Enter" && searchHits[0]) { nav(searchHits[0].to); setQ(""); setOpen(false); } if (e.key === "Escape") setQ(""); }}
+            className="w-full rounded-lg bg-white/10 py-1.5 pl-8 pr-7 text-sm text-white placeholder:text-emerald-200/60 outline-none ring-1 ring-white/15 focus:bg-white/15 focus:ring-white/40" />
+          {q && <button aria-label="Clear" onClick={() => setQ("")} className="absolute right-1.5 top-1.5 rounded p-0.5 text-emerald-200/70 hover:text-white"><X size={15} /></button>}
+        </div>
+      </div>
       <div className="flex-1 space-y-0.5 overflow-y-auto px-3">
-        <NavMenu items={NAV.filter((n) => (!n.perm || n.perm.split("|").some(can)) && (!("only" in n) || (n.only as string[]).includes(user?.role ?? "")))}
-          grouped={["admin", "manager"].includes(user?.role ?? "")} badges={badgeVal} onGo={() => setOpen(false)} />
+        {q.trim() ? (
+          searchHits.length ? searchHits.map((hit) => (
+            <NavLink key={hit.to + hit.label} to={hit.to} onClick={() => { setQ(""); setOpen(false); }} className={itemCls(false)}>
+              <hit.icon size={17} className="shrink-0" /><span className="min-w-0 flex-1 truncate">{hit.label}</span>
+            </NavLink>
+          )) : <p className="px-3 py-4 text-center text-sm text-emerald-200/70">Kuch nahi mila · <span lang="ur" dir="rtl" className="font-urdu">کچھ نہیں ملا</span></p>
+        ) : (
+          <NavMenu items={visible} grouped={["admin", "manager"].includes(user?.role ?? "")} badges={badgeVal} onGo={() => setOpen(false)} />
+        )}
       </div>
       <div className="border-t border-white/10 p-4 text-sm">
         <div className="font-medium">{user?.name}</div>
