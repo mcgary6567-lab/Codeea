@@ -664,6 +664,12 @@ export function migrate() {
   addColumn("nozzles", "active", "INTEGER NOT NULL DEFAULT 1");
   addColumn("expense_categories", "active", "INTEGER NOT NULL DEFAULT 1");
   addColumn("customers", "active", "INTEGER NOT NULL DEFAULT 1"); // archive a dead / duplicate customer — history stays
+  // one-time: existing salesmen get a default 8:00 AM duty start so the 24-hour shift attendance tracks them
+  // (guarded so it never re-sets a duty time the owner later clears on purpose)
+  if (!get("SELECT value FROM settings WHERE tenant_id=0 AND key='mig_salesman_duty8'")) {
+    run("UPDATE users SET duty_start='08:00' WHERE role='salesman' AND (duty_start IS NULL OR duty_start='')");
+    run("INSERT INTO settings (tenant_id,key,value) VALUES (0,'mig_salesman_duty8','1')");
+  }
 }
 
 /** Allow the cashier role on databases made before it (the users table keeps every column it has today). */

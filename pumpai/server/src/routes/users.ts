@@ -55,8 +55,9 @@ users.post("/users", h((req) => {
   const email = b.email.toLowerCase().trim();
   if (get("SELECT id FROM users WHERE email=?", email)) throw new AppError(400, "This email is already in use");
   checkStation(tid(req), b.role, b.station_id);
-  const { id } = run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id,phone,active,created_at) VALUES (?,?,?,?,?,?,?,1,?)",
-    tid(req), b.name, email, bcrypt.hashSync(b.password, 10), b.role, b.role === "salesman" ? b.station_id! : b.station_id ?? null, b.phone ? normalizePhone(b.phone) : null, now());
+  // a salesman runs the forecourt shift: default duty start 8:00 AM (the owner can change it on the Staff page)
+  const { id } = run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id,phone,duty_start,active,created_at) VALUES (?,?,?,?,?,?,?,?,1,?)",
+    tid(req), b.name, email, bcrypt.hashSync(b.password, 10), b.role, b.role === "salesman" ? b.station_id! : b.station_id ?? null, b.phone ? normalizePhone(b.phone) : null, b.role === "salesman" ? "08:00" : null, now());
   if (b.pin) run("UPDATE users SET pin_hash=? WHERE id=?", bcrypt.hashSync(b.pin, 10), id);
   return list(tid(req)).find((u) => u.id === id);
 }));
