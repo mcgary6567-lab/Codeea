@@ -27,7 +27,7 @@ export default function SettingsPage() {
       <KhataRules r={data.khata_rules} onSaved={reload} />
       <Limits l={data.limits} onSaved={reload} />
       <AlertSensitivity s={data.sensitivity} onSaved={reload} />
-      <Safety />
+      <Safety twofa={data.admin_2fa} onTwofa={reload} />
       <Backups />
       <Hardware />
       <Integrations ai={i.claude.connected} wa={i.whatsapp.connected} />
@@ -224,16 +224,19 @@ function KhataRules({ r, onSaved }: { r?: { block_days: number; block_institutio
   );
 }
 
-function Safety() {
+function Safety({ twofa, onTwofa }: { twofa?: boolean; onTwofa?: () => void }) {
   const { data, reload } = useApi<any>("/safety");
   const { run } = useAction();
   if (!data) return null;
   return (
-    <div className="card p-4">
-      <h2 className="mb-2 font-semibold">Safety rules</h2>
+    <div className="card space-y-3 p-4">
+      <h2 className="font-semibold">Safety rules</h2>
       <label className="flex items-start gap-3"><input type="checkbox" className="mt-1 h-5 w-5" checked={data.price_approval}
         onChange={(e) => run(() => api("/safety", { method: "PUT", body: { price_approval: e.target.checked } }), "Saved").then(reload)} />
         <span><span className="block font-medium">Two-person approval for price changes</span><span className="text-sm text-slate-600">A manager's new prices wait until the admin approves them (admin gets a notification). Big expenses already need approval above the expense limit.</span></span></label>
+      <label className="flex items-start gap-3"><input type="checkbox" className="mt-1 h-5 w-5" defaultChecked={twofa}
+        onChange={(e) => run(() => api("/settings", { method: "PUT", body: { admin_2fa: e.target.checked } }), e.target.checked ? "Two-factor on" : "Two-factor off").then(() => onTwofa?.())} />
+        <span><span className="block font-medium">Two-factor login for the owner (admin)</span><span className="text-sm text-slate-600">After the password, a 6-digit code is sent to the admin's WhatsApp number — needed to finish signing in. Make sure every admin has a WhatsApp number on the Users page, or they could be locked out.</span></span></label>
     </div>
   );
 }

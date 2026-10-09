@@ -276,6 +276,9 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, prices TEXT NOT NULL, broadcast INTEGER NOT NULL DEFAULT 0, note TEXT,
     effective_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created_by TEXT, created_at TEXT NOT NULL, applied_at TEXT)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_sched_price ON scheduled_prices(tenant_id, status, effective_at)");
+  // one-time codes for admin two-factor login (sent on WhatsApp); short-lived, one row per user
+  db.exec(`CREATE TABLE IF NOT EXISTS login_otps (
+    user_id INTEGER PRIMARY KEY, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)`);
   // monthly owner targets (sale litres, revenue, net profit) to track actual-vs-target
   db.exec(`CREATE TABLE IF NOT EXISTS targets (
     tenant_id INTEGER NOT NULL, month TEXT NOT NULL, sales_litres REAL, revenue REAL, net_profit REAL,

@@ -6,7 +6,8 @@ import { config, aiEnabled, waLive, APP_VERSION } from "./config.js";
 import { migrate, get, run, closeDb } from "./db.js";
 import bcrypt from "bcryptjs";
 import { AppError } from "./services.js";
-import { requireAuth, errorHandler, login, pinLogin, pinUsers, h, parse, permissionsOf, mediaToken, signToken, revokeSessions } from "./auth.js";
+import { requireAuth, errorHandler, authenticate, issueSession, twoFaRequired, create2fa, verify2fa, pinLogin, pinUsers, h, parse, permissionsOf, mediaToken, signToken, revokeSessions } from "./auth.js";
+import { sendToPhone } from "./whatsapp/cloud.js";
 import { securityHeaders, rateLimit } from "./security.js";
 import { privacyPage, termsPage } from "./legal.js";
 import { operations } from "./routes/operations.js";
@@ -112,9 +113,21 @@ app.get("/manifest.webmanifest", (_req, res) => {
     icons: logo ? [{ src: "/branding/logo", sizes: "512x512", type: "image/jpeg", purpose: "any" }] : [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
   }));
 });
-app.post("/api/auth/login", h((req) => {
+app.post("/api/auth/login", h(async (req) => {
   const b = parse(z.object({ email: z.string().email(), password: z.string().min(1) }), req.body);
-  return login(b.email, b.password);
+  const u = authenticate(b.email, b.password);
+  // owner two-factor: password is right, now send a one-time code on WhatsApp and ask for it
+  if (twoFaRequired(u)) {
+    const code = create2fa(u.id);
+    const masked = String(u.phone).replace(/.(?=.{3})/g, "•");
+    try { await sendToPhone(u.phone, `PumpAI login code: ${code}\n10 minute mein expire ho jayega. Agar aap ne login nahi kiya to apna password badlein.`); } catch { /* shown on screen fallback below */ }
+    return { twofa: true, user_id: u.id, phone_hint: masked };
+  }
+  return issueSession(u);
+}));
+app.post("/api/auth/verify-2fa", h((req) => {
+  const b = parse(z.object({ user_id: z.number().int(), code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code") }), req.body);
+  return verify2fa(b.user_id, b.code);
 }));
 app.get("/api/auth/pin-users", h((req) => pinUsers(req.headers["x-device"] as string | undefined)));
 app.post("/api/auth/pin", h((req) => {

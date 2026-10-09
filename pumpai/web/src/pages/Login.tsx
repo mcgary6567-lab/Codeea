@@ -108,14 +108,36 @@ function EmailLogin({ demo, onDone, onPin }: { demo: boolean; onDone: (r: any) =
   useEffect(() => { if (demo) { setEmail((x) => x || "admin@pumpai.pk"); setPassword((x) => x || "demo1234"); } }, [demo]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [twofa, setTwofa] = useState<{ user_id: number; phone_hint?: string } | null>(null);
+  const [code, setCode] = useState("");
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    try { await onDone(await api("/auth/login", { body: { email, password } })); }
+    try {
+      const r: any = await api("/auth/login", { body: { email, password } });
+      if (r.twofa) { setTwofa({ user_id: r.user_id, phone_hint: r.phone_hint }); setCode(""); }
+      else await onDone(r);
+    } catch (err: any) { setError(err.message); }
+    finally { setBusy(false); }
+  };
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    try { await onDone(await api("/auth/verify-2fa", { body: { user_id: twofa!.user_id, code } })); }
     catch (err: any) { setError(err.message); }
     finally { setBusy(false); }
   };
+  if (twofa) return (
+    <form onSubmit={verify} className="card space-y-4 p-6">
+      <div><h2 className="text-lg font-semibold">Verification code</h2>
+        <p className="text-sm text-slate-500">Aap ke WhatsApp number {twofa.phone_hint ?? ""} par ek 6-digit code bheja gaya hai. Wo yahan likhein.</p></div>
+      {error && <ErrorBox error={error} />}
+      <input className="input text-center text-2xl tracking-[0.4em]" inputMode="numeric" autoFocus maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="______" />
+      <button className="btn-primary w-full" disabled={busy || code.length !== 6}>{busy ? "Checking…" : "Verify & sign in"}</button>
+      <button type="button" onClick={() => { setTwofa(null); setError(null); }} className="w-full text-sm text-slate-500 hover:underline">← Back</button>
+    </form>
+  );
   return (
     <form onSubmit={submit} className="card space-y-4 p-6">
       {error && <ErrorBox error={error} />}

@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { z, ZodError } from "zod";
 import { config } from "./config.js";
-import { all, get, run } from "./db.js";
+import { all, get, run, type Row } from "./db.js";
 import { AppError } from "./services.js";
 
 /**
@@ -174,7 +174,8 @@ export function pinLogin(device: string | undefined, userId: number, pin: string
 
 const PW_TRIES = 8, PW_LOCK_MIN = 15;
 const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
-export function login(email: string, password: string) {
+/** Check email + password (with lockout). Returns the user row on success; throws on failure. Does NOT issue a session. */
+export function authenticate(email: string, password: string): Row {
   const u = get("SELECT * FROM users WHERE email=?", email.toLowerCase().trim());
   if (u?.pw_locked_until && Date.parse(u.pw_locked_until) > Date.now())
     throw new AppError(429, `Too many wrong passwords. Try again after ${Math.ceil((Date.parse(u.pw_locked_until) - Date.now()) / 60000)} minutes.`);
@@ -190,11 +191,44 @@ export function login(email: string, password: string) {
   }
   if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
   run("UPDATE users SET pw_fails=0, pw_locked_until=NULL WHERE id=?", u.id);
-  auditLogin(u, true, "password");
+  return u;
+}
+/** Issue a signed session for an already-authenticated user row. */
+export function issueSession(u: Row, how = "password") {
+  auditLogin(u, true, how);
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
   // only the owner / a manager links a shared tablet for PIN sign-in
   const links = ["admin", "manager"].includes(u.role);
   return { token: signToken(user), user, permissions: permissionsOf(user.role, user.tenant_id), ...(links ? { device_token: deviceToken(u.tenant_id) } : {}) };
+}
+export function login(email: string, password: string) {
+  return issueSession(authenticate(email, password));
+}
+
+/** Two-factor login for the owner: is it switched on and usable (admin with a phone)? */
+export const twoFaRequired = (u: Row) =>
+  u.role === "admin" && get("SELECT value FROM settings WHERE tenant_id=? AND key='admin_2fa'", u.tenant_id)?.value === "1" && Boolean(u.phone);
+const OTP_MIN = 10, OTP_TRIES = 5;
+/** Make and store a 6-digit one-time code for this user; returns the plain code to send on WhatsApp. */
+export function create2fa(userId: number): string {
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  run("INSERT INTO login_otps (user_id,code_hash,expires_at,attempts,created_at) VALUES (?,?,?,0,?) ON CONFLICT(user_id) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at, attempts=0, created_at=excluded.created_at",
+    userId, bcrypt.hashSync(code, 8), new Date(Date.now() + OTP_MIN * 60000).toISOString(), new Date().toISOString());
+  return code;
+}
+/** Verify a login OTP and issue the session. Throws on wrong / expired / too many tries. */
+export function verify2fa(userId: number, code: string) {
+  const u = get("SELECT * FROM users WHERE id=? AND active=1", userId);
+  const o = get("SELECT * FROM login_otps WHERE user_id=?", userId);
+  if (!u || !o) throw new AppError(401, "Sign in again");
+  if (Date.parse(o.expires_at) < Date.now()) { run("DELETE FROM login_otps WHERE user_id=?", userId); throw new AppError(401, "Code expired — sign in again"); }
+  if (o.attempts >= OTP_TRIES) { run("DELETE FROM login_otps WHERE user_id=?", userId); throw new AppError(429, "Too many wrong codes — sign in again"); }
+  if (!bcrypt.compareSync(code, o.code_hash)) {
+    run("UPDATE login_otps SET attempts=attempts+1 WHERE user_id=?", userId);
+    throw new AppError(401, `Wrong code (${OTP_TRIES - o.attempts - 1} tries left)`);
+  }
+  run("DELETE FROM login_otps WHERE user_id=?", userId);
+  return issueSession(u, "password + code");
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
