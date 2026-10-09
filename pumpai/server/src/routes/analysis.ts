@@ -243,6 +243,22 @@ export function gainLoss(t: number, from: string, to: string) {
 }
 analysis.get("/analysis/gain-loss", h((req) => { const r = range(parse(dates, req.query)); return { ...r, tanks: gainLoss(tid(req), r.from, r.to) }; }));
 
+/** Dip-by-dip variance trend per tank (for the evaporation / loss chart): each dip's measured vs book, %, and temperature. */
+analysis.get("/analysis/dip-trend", h((req) => {
+  const q = parse(z.object({ tank_id: z.coerce.number().optional(), days: z.coerce.number().min(7).max(366).default(90) }), req.query);
+  const since = new Date(Date.now() - q.days * DAY).toISOString();
+  const tanks = all(`SELECT t.id, t.name, t.product FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=?${q.tank_id ? " AND t.id=" + Number(q.tank_id) : ""} ORDER BY s.id, t.id`, tid(req));
+  return tanks.map((tk) => {
+    const dips = all(`SELECT date(datetime(created_at,'+5 hours')) day, measured_l, book_l, variance_pct, temperature, corrected_l, created_at
+      FROM dip_readings WHERE tank_id=? AND created_at >= ? ORDER BY created_at`, tk.id, since);
+    const losses = dips.filter((d) => d.variance_pct < 0);
+    return { id: tk.id, name: tk.name, product: tk.product, dips,
+      avg_variance_pct: dips.length ? r0(dips.reduce((a, d) => a + d.variance_pct, 0) / dips.length) : 0,
+      worst_pct: dips.length ? r0(Math.min(...dips.map((d) => d.variance_pct))) : 0,
+      loss_days: losses.length };
+  });
+}));
+
 /* ================= Pump health score ================= */
 export function healthScore(t: number) {
   const week = new Date(Date.now() - 7 * DAY).toISOString(), now = new Date().toISOString();

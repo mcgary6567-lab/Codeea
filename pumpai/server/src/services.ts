@@ -203,6 +203,15 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * Volume Correction Factor to 15°C (simplified ASTM linear model): fuel expands in heat, so the same litres
+ * measured on a hot afternoon read higher than on a cold morning. V15 = Vobserved × (1 − α·(T − 15)), where α
+ * (per °C) is ~0.00120 for petrol, ~0.00083 for diesel. Used to show whether a dip "loss" is just temperature.
+ */
+const VCF_ALPHA: Record<string, number> = { PMG: 0.00120, HOBC: 0.00120, HSD: 0.00083, LDO: 0.00083, KERO: 0.00090 };
+export const vcfAlpha = (product: string) => VCF_ALPHA[product] ?? 0.0011;
+export const correctTo15 = (litres: number, product: string, tempC: number) => round2(litres * (1 - vcfAlpha(product) * (tempC - 15)));
+
 /** A salesman can undo their own sale for this long. */
 export const UNDO_SECONDS = 120;
 

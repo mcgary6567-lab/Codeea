@@ -311,6 +311,9 @@ export function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS tank_charts (tank_id INTEGER NOT NULL, cm REAL NOT NULL, litres REAL NOT NULL, PRIMARY KEY (tank_id, cm))`);
   db.exec(`CREATE TABLE IF NOT EXISTS day_closes (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL, closed_at TEXT NOT NULL, UNIQUE (tenant_id, day))`);
   addColumn("dip_readings", "measured_cm", "REAL");
+  // temperature at the dip (°C) and the volume corrected to 15°C, so fuel expansion in heat is not mistaken for a loss
+  addColumn("dip_readings", "temperature", "REAL");
+  addColumn("dip_readings", "corrected_l", "REAL");
   // lubricants / tuck shop / tyre shop: items kept per station, every stock movement logged
   db.exec(`CREATE TABLE IF NOT EXISTS shop_items (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER NOT NULL, sku TEXT, barcode TEXT, name TEXT NOT NULL,

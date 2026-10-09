@@ -15,7 +15,7 @@ export default function Stock() {
   const [addSup, setAddSup] = useState(false);
   const { can } = useAuth();
   const { busy, run } = useAction();
-  const [dip, setDip] = useState({ tank_id: "", measured_l: "", cm: "" });
+  const [dip, setDip] = useState({ tank_id: "", measured_l: "", cm: "", temp: "" });
   const [dipPhotos, setDipPhotos] = useState<number[]>([]);
   const [dipL, setDipL] = useState<{ litres?: number; error?: string } | null>(null);
   const [dipSure, setDipSure] = useState(false);
@@ -63,9 +63,10 @@ export default function Stock() {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <form className="card min-w-0 space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
-          const body = { ...(dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) }), photo_ids: dipPhotos, confirm: dipSure };
-          const r = await run(() => api("/stock/dip", { body }), (x: any) => `Dip saved: ${num(x.measured_l)} L. Variance ${x.variance_pct}%`);
-          if (r) { setDip({ ...dip, measured_l: "", cm: "" }); setDipPhotos([]); setDipSure(false); refresh(); }
+          const body: any = { ...(dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) }), photo_ids: dipPhotos, confirm: dipSure };
+          if (dip.temp !== "") body.temperature = Number(dip.temp);
+          const r = await run(() => api("/stock/dip", { body }), (x: any) => `Dip saved: ${num(x.measured_l)} L. Variance ${x.variance_pct}%${x.corrected_l != null ? ` · 15°C ≈ ${num(x.corrected_l)} L` : ""}`);
+          if (r) { setDip({ ...dip, measured_l: "", cm: "", temp: "" }); setDipPhotos([]); setDipSure(false); refresh(); }
         }}>
           <div className="flex items-center justify-between"><h2 className="font-semibold">Record dip reading</h2>
             <button type="button" className="-my-2 min-h-9 px-1 text-xs text-brand-600 hover:underline" onClick={() => api(`/tanks/${dipTank}/chart`).then(setChart)}>Dip chart</button></div>
@@ -75,6 +76,8 @@ export default function Stock() {
             <Field label="Dip stick (cm) · ڈپ"><input className="input py-3 text-xl" type="number" step="0.1" min={0} value={dip.cm} onChange={(e) => { setDip({ ...dip, cm: e.target.value, measured_l: "" }); setDipSure(false); }} /></Field>
             <Field label="…or litres"><input className="input py-3 text-xl" type="number" min={0} disabled={Boolean(dip.cm)} required={!dip.cm} value={dip.cm && dipL?.litres != null ? String(dipL.litres) : dip.measured_l} onChange={(e) => { setDip({ ...dip, measured_l: e.target.value }); setDipSure(false); }} /></Field>
           </div>
+          <Field label="Tank temperature (°C) — optional · درجہ حرارت"><input className="input" type="number" step="0.1" min={-10} max={70} placeholder="e.g. 32" value={dip.temp} onChange={(e) => setDip({ ...dip, temp: e.target.value })} /></Field>
+          {dip.temp !== "" && <p className="-mt-1 text-xs text-slate-500">Garmi/sardi ka asar: 15°C par volume correct ho kar dikhega, taake phailao ko loss na samjha jaye.</p>}
           {dipL?.error && <p className="text-xs text-red-600">{dipL.error}</p>}
           {dip.cm && dipL?.litres != null && <p className="text-sm text-slate-600">{dip.cm} cm = <b>{num(dipL.litres)} L</b> from the dip chart</p>}
           {(() => {
@@ -138,9 +141,46 @@ export default function Stock() {
         <History title="Dip readings" right={4} rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => (r.proof_ids?.length ? <ProofThumbs ids={r.proof_ids} /> : null)]]} />
         <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Tanker", (r) => <span className="flex items-center gap-1">{r.tanker_no}{r.photo_id ? <PhotoThumb id={r.photo_id} size={7} /> : null}</span>], ["Supplier", (r) => r.supplier ?? "—"], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
       </div>
+      <VarianceTrend />
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
       {chart && <ChartModal c={chart} onClose={() => setChart(null)} />}
       {addSup && <SupplierForm onClose={() => setAddSup(false)} onSaved={(sp: any) => { setAddSup(false); suppliers.reload(); if (sp?.id) setDel((x: any) => ({ ...x, supplier_id: String(sp.id) })); }} />}
+    </div>
+  );
+}
+
+/** Dip-by-dip variance trend per tank: is a tank quietly losing fuel (leak / theft) or is it just temperature? */
+function VarianceTrend() {
+  const { data } = useApi<any[]>("/analysis/dip-trend?days=90");
+  if (!data || !data.some((t) => t.dips.length)) return null;
+  return (
+    <div className="card p-4">
+      <h2 className="mb-1 font-semibold">Stock variance trend (90 din) · <span lang="ur" dir="rtl" className="font-urdu">کمی کا رجحان</span></h2>
+      <p className="mb-3 text-xs text-slate-500">Har dip ki book se kami/zyadti. Neeche jaane wali surkh bar = kami. Agar temperature li ho to 15°C wala volume bhi tooltip mein.</p>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {data.filter((t) => t.dips.length).map((t) => {
+          const max = Math.max(1, ...t.dips.map((d: any) => Math.abs(d.variance_pct)));
+          return (
+            <div key={t.id} className="min-w-0">
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="font-medium">{t.name} <span className="text-xs text-slate-400">{PRODUCTS[t.product] ?? t.product}</span></span>
+                <span className={t.avg_variance_pct < -0.3 ? "font-semibold text-red-600" : "text-slate-500"}>avg {t.avg_variance_pct}% · worst {t.worst_pct}%</span>
+              </div>
+              <div className="flex h-20 items-center gap-0.5 overflow-hidden rounded-lg bg-slate-50 px-1">
+                {t.dips.map((d: any, i: number) => {
+                  const h = Math.max(4, (Math.abs(d.variance_pct) / max) * 36);
+                  const loss = d.variance_pct < 0;
+                  return <div key={i} className="group relative flex flex-1 flex-col items-center justify-center" title={`${d.day}: ${d.variance_pct}% (book ${Math.round(d.book_l)} → dip ${Math.round(d.measured_l)})${d.temperature != null ? ` · ${d.temperature}°C → 15°C ${Math.round(d.corrected_l)}L` : ""}`}>
+                    <div className="w-full max-w-[10px] rounded-t" style={{ height: loss ? 0 : h, background: "#1baf7a" }} />
+                    <div className="w-full border-t border-slate-300" />
+                    <div className="w-full max-w-[10px] rounded-b" style={{ height: loss ? h : 0, background: "#e11d48" }} />
+                  </div>;
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

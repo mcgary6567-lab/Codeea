@@ -7,7 +7,7 @@ import { claimForDelivery } from "./claims.js";
 import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, METER, meterName, type Row } from "../db.js";
 import { meterSales } from "./reports.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
-import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
+import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt, correctTo15 } from "../services.js";
 import { productSchema } from "../products.js";
 import { moneyMethods, SPECIAL_METHODS } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -730,22 +730,24 @@ operations.get("/stock", requirePerm("stock.manage"), h((req) => ({
 })));
 
 operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
-  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional(), photo_ids: proofPhotos, confirm: z.boolean().optional() })
+  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional(), temperature: z.number().min(-10).max(70).optional(), photo_ids: proofPhotos, confirm: z.boolean().optional() })
     .refine((x) => x.measured_l !== undefined || x.measured_cm !== undefined, "Enter the dip in cm or litres"), req.body);
   const t = ownTank(tid(req), b.tank_id);
   // a dip in cm is turned into litres with the tank's dip chart
   const measured = b.measured_cm !== undefined ? litresFromCm(t.id, b.measured_cm) : b.measured_l!;
+  // volume corrected to 15°C if a temperature was taken (fuel expands in heat); informational, book stock stays the measured litres
+  const corrected = b.temperature !== undefined ? correctTo15(measured, t.product, b.temperature) : null;
   const variance = t.current_l ? ((measured - t.current_l) / t.current_l) * 100 : 0;
   // the dip replaces the book stock, so a slip of the finger (15 typed as 150) must not go through unasked
   if (Math.abs(variance) >= 5 && !b.confirm)
     throw new AppError(409, `Dip ${Math.round(measured).toLocaleString("en-IN")} L is ${variance.toFixed(1)}% from the book stock ${Math.round(t.current_l).toLocaleString("en-IN")} L. Check the reading, then confirm · ڈپ دوبارہ چیک کریں`);
   return tx(() => {
-    const { id } = run("INSERT INTO dip_readings (tank_id,measured_l,measured_cm,book_l,variance_pct,created_at) VALUES (?,?,?,?,?,?)", t.id, measured, b.measured_cm ?? null, t.current_l, round2(variance), now());
+    const { id } = run("INSERT INTO dip_readings (tank_id,measured_l,measured_cm,temperature,corrected_l,book_l,variance_pct,created_at) VALUES (?,?,?,?,?,?,?,?)", t.id, measured, b.measured_cm ?? null, b.temperature ?? null, corrected, t.current_l, round2(variance), now());
     run("UPDATE tanks SET current_l=? WHERE id=?", measured, t.id);
     linkPhotos(tid(req), b.photo_ids, `dip:${id}`); // dip-stick photo
     if (Math.abs(variance) >= 0.5)
       createAlert(tid(req), { station_id: t.station_id, type: "stock_variance", severity: Math.abs(variance) >= 1 ? "critical" : "warning",
-        title: `${t.name}: stock variance ${variance.toFixed(2)}%`, body: `Dip ${Math.round(measured)}L${b.measured_cm !== undefined ? ` (${b.measured_cm} cm)` : ""} vs book ${Math.round(t.current_l)}L.`, dedupe_key: `dip-${id}` });
+        title: `${t.name}: stock variance ${variance.toFixed(2)}%`, body: `Dip ${Math.round(measured)}L${b.measured_cm !== undefined ? ` (${b.measured_cm} cm)` : ""} vs book ${Math.round(t.current_l)}L.${corrected != null ? ` At 15°C ≈ ${Math.round(corrected)}L (temp ${b.temperature}°C — fuel ${corrected < measured ? "phaila hua" : "sukra hua"}).` : ""}`, dedupe_key: `dip-${id}` });
     return get("SELECT * FROM dip_readings WHERE id=?", id);
   });
 }));
