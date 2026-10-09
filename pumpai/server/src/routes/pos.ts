@@ -1,7 +1,7 @@
 /** Endpoints for the big-button POS used by salesmen. */
 import { Router } from "express";
-import { all, get, pkDate, type Row } from "../db.js";
-import { h, tid, requirePerm, scopedStation } from "../auth.js";
+import { all, get, pkDate, getSetting, type Row } from "../db.js";
+import { h, tid, requirePerm, scopedStation, can } from "../auth.js";
 import { AppError, currentPrices, UNDO_SECONDS } from "../services.js";
 import { institutionTypes } from "./lookups.js";
 import { shiftSummary } from "../shifts.js";
@@ -66,6 +66,8 @@ pos.get("/pos/today", h((req) => {
     attendance: u.role === "salesman" ? (get("SELECT id, check_in FROM attendance WHERE user_id=? AND day=?", u.id, pkDate()) ?? null) : null,
     station: get("SELECT id, name FROM stations WHERE id=?", stationId),
     prices: Object.fromEntries(Object.entries(currentPrices(tid(req))).map(([k, v]) => [k, v.price])),
+    // khata lump-sum discount: how much this user may give per sale, and whether they can go above the salesman limit
+    discount_max: can(u, "customers.edit") ? null : Number(getSetting(tid(req), "khata_discount_max", "500")),
     products: [...new Set(all("SELECT product FROM tanks WHERE station_id=?", stationId).map((t) => t.product))],
     shift: shift ? { ...shift, hours_open: (Date.now() - Date.parse(shift.opened_at)) / 3600_000, summary: shiftSummary(shift.id) } : null,
     recent: shift ? all(`SELECT s.id, s.product, s.litres, s.rate, s.amount, s.payment_method, s.vehicle_no, s.slip_no, s.photo_id, s.created_at, s.created_by, c.name customer_name, b.bank bank_name

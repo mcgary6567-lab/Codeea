@@ -260,6 +260,8 @@ export function migrate() {
   addColumn("sales", "pending", "INTEGER NOT NULL DEFAULT 0");
   addColumn("sales", "clear_rate", "REAL"); // the current pump rate applied on the day the card was brought in
   addColumn("sales", "cleared_at", "TEXT"); // when the pending slip was cleared (billed to the khata)
+  // a fixed (lump-sum) discount in rupees given to a khata customer: amount stored = litres*rate − discount (the net billed)
+  addColumn("sales", "discount", "REAL NOT NULL DEFAULT 0");
   db.exec(`CREATE TABLE IF NOT EXISTS photos (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT, mime TEXT NOT NULL, data BLOB NOT NULL,
     ai_result TEXT, created_by INTEGER, created_at TEXT NOT NULL)`); // meter / invoice / receipt photos kept as proof

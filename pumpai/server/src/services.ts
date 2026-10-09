@@ -96,6 +96,8 @@ export interface SaleInput {
   /** Khata "card pending": fuel goes out now at the meter rate, but no rate is locked and no debt is raised —
    * it is billed to the khata only when the card / parchi is brought in, at that day's rate. */
   pending?: boolean;
+  /** A fixed (lump-sum) rupee discount for a khata customer. The khata is billed the net: litres*rate − discount. */
+  discount?: number;
 }
 
 export function recordSale(tenantId: number, s: SaleInput): Row {
@@ -116,10 +118,17 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   }
   const litres = coupon ? coupon.value / rate : s.litres ?? (s.amount ? s.amount / rate : 0);
   if (!(litres > 0)) throw new AppError(400, "Litres or amount required");
-  const amount = Math.round(litres * rate * 100) / 100;
+  const gross = Math.round(litres * rate * 100) / 100;
+  // a fixed rupee discount for a khata customer: the khata is billed the net (litres*rate − discount)
+  const discount = round2(s.discount ?? 0);
+  if (discount < 0) throw new AppError(400, "Discount cannot be negative");
+  if (discount > 0 && s.payment_method !== "khata") throw new AppError(400, "Discount is only for khata customers");
+  if (discount >= gross) throw new AppError(400, `Discount ${pkr(discount)} is more than the fuel amount ${pkr(gross)}`);
+  const amount = round2(gross - discount); // the net charged to the khata
   const customer = s.customer_id ? get("SELECT * FROM customers WHERE id=? AND tenant_id=?", s.customer_id, tenantId) : undefined;
   const pending = Boolean(s.pending);
   if (pending && s.payment_method !== "khata") throw new AppError(400, "Card-pending holds are only for khata accounts");
+  if (pending && discount > 0) throw new AppError(400, "Give the discount when the card is cleared, not on a pending hold");
   if (s.payment_method === "khata") {
     if (!customer) throw new AppError(400, "Khata sale needs a customer");
     if (customer.khata_blocked) throw new AppError(400, `${customer.name}: khata is on hold because payment is overdue. Ask the manager.`);
@@ -155,10 +164,10 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     // a bank account only applies to a card / digital (POS machine) sale — never cash / khata / coupon etc.
     const accountId = s.account_id && digitalMethods(tenantId).includes(s.payment_method) ? s.account_id : null;
     const { id } = run(
-      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,photo_id,at_close,account_id,pending,created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,discount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,photo_id,at_close,account_id,pending,created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       s.station_id, s.shift_id ?? null, customer?.id ?? null, s.nozzle_id ?? null, s.product,
-      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), coupon?.id ?? null, photoId, s.at_close ? 1 : null, accountId, pending ? 1 : 0, ts,
+      round2(litres), rate, amount, discount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), coupon?.id ?? null, photoId, s.at_close ? 1 : null, accountId, pending ? 1 : 0, ts,
     );
     if (coupon && run("UPDATE fuel_coupons SET status='used', sale_id=?, used_at=?, used_by=? WHERE id=? AND status='active'", id, ts, String(s.created_by ?? ""), coupon.id).changes !== 1)
       throw new AppError(409, `Coupon ${coupon.code} was just used`);
@@ -181,7 +190,7 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
       if (s.payment_method === "khata") {
         const k = run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,product,litres,rate,vehicle_no,slip_no,station_id,created_at)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-          customer.id, "debit", amount, `SALE-${id}`, `${round2(litres)}L ${s.product} @ Rs ${rate}`, s.product, round2(litres), rate,
+          customer.id, "debit", amount, `SALE-${id}`, `${round2(litres)}L ${s.product} @ Rs ${rate}${discount > 0 ? ` − ${pkr(discount)} discount` : ""}`, s.product, round2(litres), rate,
           s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.station_id, ts);
         // the slip photo shows on the khata statement like any other proof photo
         if (photoId) run("UPDATE photos SET ref=? WHERE id=? AND ref IS NULL", `khata:${k.id}`, photoId);

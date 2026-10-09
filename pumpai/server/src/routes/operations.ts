@@ -284,12 +284,20 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     client_uid: z.string().min(8).max(64).nullable().optional(),
     /** khata "card pending": fuel out now at the meter rate, billed to the khata only when the card is brought in (at that day's rate) */
     pending: z.boolean().optional(),
+    /** a fixed rupee discount for a khata customer (the khata is billed the net) */
+    discount: z.number().min(0).optional(),
     /** when the sale was made on a tablet without internet; billed at the price in force then */
     offline_at: z.string().datetime({ offset: true }).nullable().optional(),
   }), req.body);
   if (!([...SPECIAL_METHODS] as string[]).includes(b.payment_method) && !moneyMethods(tid(req)).includes(b.payment_method))
     throw new AppError(400, `Unknown payment method: ${b.payment_method} — add it in Settings → Lists`);
   b.station_id = scopedStation(req, b.station_id)!;
+  // a khata discount above the salesman's limit needs a manager / CEO (checked early, before the shift lookup)
+  if (b.discount && b.discount > 0) {
+    const max = Number(getSetting(tid(req), "khata_discount_max", "500"));
+    if (b.discount > max && !can(req.user, "customers.edit"))
+      throw new AppError(403, `Discount above ${pkr(max)} needs the manager / CEO. Ask them to enter it.`);
+  }
   const at = b.offline_at ? new Date(b.offline_at).toISOString() : null;
   if (at && (Date.parse(at) > Date.now() + 60_000 || Date.parse(at) < Date.now() - 48 * 3600_000))
     throw new AppError(400, "Offline sale time is not valid (must be within the last 48 hours)");

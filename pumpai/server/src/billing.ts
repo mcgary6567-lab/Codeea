@@ -10,7 +10,7 @@ import { logoTag, profile } from "./routes/setup.js";
 import { shopSaleTax } from "./routes/tax.js";
 import { config, PRODUCTS } from "./config.js";
 import { all, get, getSetting, pkDate, type Row } from "./db.js";
-import { paymentLink, pkr } from "./services.js";
+import { paymentLink, pkr, round2 } from "./services.js";
 import { sendWhatsApp, sendDirect } from "./whatsapp/cloud.js";
 import { khataStatement } from "./routes/crm.js";
 import { statement as wholesaleStatement, clientDue } from "./routes/wholesale.js";
@@ -42,7 +42,9 @@ export async function khataFillReceipt(tenantId: number, sale: Row) {
   const st = get("SELECT name FROM stations WHERE id=?", sale.station_id);
   const text = [
     `⛽ ${st?.name ?? "Fuel"} — ${new Date(sale.created_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi", dateStyle: "medium", timeStyle: "short" })}`,
-    `${PRODUCTS[sale.product]}: ${sale.litres} L × Rs ${sale.rate} = ${pkr(sale.amount)}`,
+    sale.discount > 0
+      ? `${PRODUCTS[sale.product]}: ${sale.litres} L × Rs ${sale.rate} = ${pkr(round2(sale.litres * sale.rate))}\nDiscount: − ${pkr(sale.discount)}\nNet: ${pkr(sale.amount)}`
+      : `${PRODUCTS[sale.product]}: ${sale.litres} L × Rs ${sale.rate} = ${pkr(sale.amount)}`,
     [sale.vehicle_no && `Gaari ${sale.vehicle_no}`, sale.slip_no && `Slip ${sale.slip_no}`].filter(Boolean).join(" · "),
     `📒 Khata balance: ${pkr(c.balance)}${c.credit_limit ? ` (limit ${pkr(c.credit_limit)})` : ""}`,
     "Shukriya! 🙏",
@@ -195,7 +197,9 @@ export function renderReceipt(token: string): string | null {
     if (!s) return null;
     // nozzle, vehicle and who filled it: what a customer checks when a fill is questioned
     const fill = [s.nozzle ? `Nozzle ${s.nozzle}` : "", s.vehicle_no ? `Vehicle ${s.vehicle_no}` : "", s.attendant ? `Served by ${s.attendant}` : ""].filter(Boolean).map(esc).join(" · ");
-    rows = `<tr><td>${esc(PRODUCTS[s.product])}<div class=muted>${n2(s.litres)} L × Rs ${Number(s.rate).toFixed(2)}</div>${fill ? `<div class=muted>${fill}</div>` : ""}</td><td class=r>Rs ${n2(s.amount)}</td></tr>`;
+    const gross = round2(s.litres * s.rate);
+    rows = `<tr><td>${esc(PRODUCTS[s.product])}<div class=muted>${n2(s.litres)} L × Rs ${Number(s.rate).toFixed(2)}</div>${fill ? `<div class=muted>${fill}</div>` : ""}</td><td class=r>Rs ${n2(gross)}</td></tr>`;
+    if (s.discount > 0) rows += `<tr><td class=muted>Discount</td><td class="r muted">− Rs ${n2(s.discount)}</td></tr>`;
     total = s.amount; when = s.created_at; pay = s.payment_method; station = s.station;
   } else {
     const s = get("SELECT s.*, st.name station FROM shop_sales s JOIN stations st ON st.id=s.station_id WHERE s.id=? AND s.tenant_id=?", p.id, p.t);

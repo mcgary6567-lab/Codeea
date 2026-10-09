@@ -151,10 +151,10 @@ function Meters({ nozzles, onSaved }: { nozzles: any[]; onSaved: () => void }) {
 
 /** Operating limits that used to be fixed in the code. */
 function Limits({ l, onSaved }: { l?: Record<string, any>; onSaved: () => void }) {
-  const [f, setF] = useState({ test_limit_l: String(l?.test_limit_l ?? 10), shortage_min: String(l?.shortage_min ?? 100), utility_alert_pct: String(l?.utility_alert_pct ?? 15), shortage_tolerance_pct: String(l?.shortage_tolerance_pct ?? 0.2), shift_hours: String(l?.shift_hours ?? 24), pin_admin: Boolean(l?.pin_admin) });
+  const [f, setF] = useState({ test_limit_l: String(l?.test_limit_l ?? 10), shortage_min: String(l?.shortage_min ?? 100), utility_alert_pct: String(l?.utility_alert_pct ?? 15), shortage_tolerance_pct: String(l?.shortage_tolerance_pct ?? 0.2), shift_hours: String(l?.shift_hours ?? 24), khata_discount_max: String(l?.khata_discount_max ?? 500), pin_admin: Boolean(l?.pin_admin) });
   const { busy, run } = useAction();
   return (
-    <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { limits: { test_limit_l: Number(f.test_limit_l), shortage_min: Number(f.shortage_min), utility_alert_pct: Number(f.utility_alert_pct), shortage_tolerance_pct: Number(f.shortage_tolerance_pct), shift_hours: Number(f.shift_hours), pin_admin: f.pin_admin } } }), "Limits saved").then(onSaved); }}>
+    <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { limits: { test_limit_l: Number(f.test_limit_l), shortage_min: Number(f.shortage_min), utility_alert_pct: Number(f.utility_alert_pct), shortage_tolerance_pct: Number(f.shortage_tolerance_pct), shift_hours: Number(f.shift_hours), khata_discount_max: Number(f.khata_discount_max), pin_admin: f.pin_admin } } }), "Limits saved").then(onSaved); }}>
       <h2 className="font-semibold sm:col-span-2">Limits & tolerances</h2>
       <div className="sm:col-span-2">
         <span className="label">Shift length — reminder to close fires after this. Set it to how long one salesman's shift runs.</span>
@@ -172,6 +172,7 @@ function Limits({ l, onSaved }: { l?: Record<string, any>; onSaved: () => void }
       <label className="block"><span className="label">Cash shortage below this (Rs) is ignored, not charged to the salesman</span><input className="input" type="number" min={0} value={f.shortage_min} onChange={(e) => setF({ ...f, shortage_min: e.target.value })} /></label>
       <label className="block"><span className="label">Tanker transit loss allowed (% of invoice) before a claim</span><input className="input" type="number" min={0} max={2} step="0.05" value={f.shortage_tolerance_pct} onChange={(e) => setF({ ...f, shortage_tolerance_pct: e.target.value })} /></label>
       <label className="block"><span className="label">Utility bill jump that raises an alert (% over last month)</span><input className="input" type="number" min={0} max={500} value={f.utility_alert_pct} onChange={(e) => setF({ ...f, utility_alert_pct: e.target.value })} /></label>
+      <label className="block"><span className="label">Khata discount a salesman can give per sale (Rs) — more needs the manager / CEO</span><input className="input" type="number" min={0} value={f.khata_discount_max} onChange={(e) => setF({ ...f, khata_discount_max: e.target.value })} /></label>
       <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={f.pin_admin} onChange={(e) => setF({ ...f, pin_admin: e.target.checked })} /> Let the owner (admin) also sign in with a 4-digit PIN on the pump tablet</label>
       <div className="sm:col-span-2"><button className="btn-primary" disabled={busy}>Save</button></div>
     </form>

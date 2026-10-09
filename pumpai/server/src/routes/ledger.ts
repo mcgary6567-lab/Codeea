@@ -59,14 +59,15 @@ export function journal(t: number, fromDay: string, toDay: string) {
   const sold = (m: string | null | undefined, d: string) => (m && posBank[m.toLowerCase()] && d >= posFrom[m.toLowerCase()] ? BANK : payAccount(t, m));
 
   // fuel sales: one voucher per day, money side by payment method (card-pending khata holds are handled on their own below)
-  const fuel = all(`SELECT date(datetime(s.created_at,'+5 hours')) d, s.payment_method m, SUM(s.amount) a, SUM(s.litres) l FROM sales s JOIN stations st ON st.id=s.station_id
+  const fuel = all(`SELECT date(datetime(s.created_at,'+5 hours')) d, s.payment_method m, SUM(s.amount) a, SUM(COALESCE(s.discount,0)) dsc, SUM(s.litres) l FROM sales s JOIN stations st ON st.id=s.station_id
     WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? AND NOT (COALESCE(s.pending,0)=1 OR s.cleared_at IS NOT NULL) GROUP BY d, m`, ...P);
   for (const d of [...new Set(fuel.map((r) => r.d))]) {
     const rows = fuel.filter((r) => r.d === d);
-    const total = rows.reduce((a, r) => a + r.a, 0);
-    const split = splitTax(total, tax.fuel_gst_pct, true);
+    const net = rows.reduce((a, r) => a + r.a, 0);          // what customers were actually billed
+    const disc = rows.reduce((a, r) => a + r.dsc, 0);        // lump-sum khata discounts given
+    const split = splitTax(net + disc, tax.fuel_gst_pct, true); // revenue is booked at the gross (before discount)
     add(d, "Sales", `Fuel sales ${d} (${Math.round(rows.reduce((a, r) => a + r.l, 0)).toLocaleString()} L)`,
-      [...rows.map((r) => dr(sold(r.m, d), r.a)), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
+      [...rows.map((r) => dr(sold(r.m, d), r.a)), ...(disc > 0 ? [dr("Discount given — khata", disc)] : []), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
   }
   // khata "card pending": on the fill day the fuel is sold into an asset (not yet billed) at the meter rate; when the
   // card is brought in it is billed to the khata at that day's rate, and the rate difference lands on the clear day.
