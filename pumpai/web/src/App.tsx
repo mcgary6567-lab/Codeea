@@ -46,6 +46,7 @@ import Setup from "./pages/Setup";
 import Audit from "./pages/Audit";
 import Machines from "./pages/Machines";
 import Cashier from "./pages/Cashier";
+import Suggestions from "./pages/Suggestions";
 import { loadBranding } from "./lib/brand";
 
 loadBranding().catch(() => {});
@@ -162,6 +163,7 @@ export default function App() {
               <Route path="compliance" element={<Need perm="alerts.view"><Compliance /></Need>} />
               <Route path="checklist" element={<Need perm="sales.create"><ChecklistPage /></Need>} />
               <Route path="insights" element={<Need perm="reports.view"><Insights /></Need>} />
+              <Route path="suggestions" element={<Need perm="dashboard.view|wholesale.view"><Suggestions /></Need>} />
               <Route path="bookings" element={<Need perm="sales.create"><Bookings /></Need>} />
               <Route path="register" element={<Need perm="stock.manage"><Register /></Need>} />
               <Route path="prepaid" element={<Need perm="khata.manage"><Prepaid /></Need>} />

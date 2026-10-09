@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertOctagon, AlertTriangle, CheckCircle2, Clock, Droplets, Info, Lightbulb, Receipt, BookOpen, Tag, BarChart3, Users } from "lucide-react";
+import { Clock, Droplets, Receipt, BookOpen, Tag, BarChart3, Users } from "lucide-react";
 import { useApi } from "../lib/api";
 import { Loading } from "./ui";
 import { BankSummary } from "./BankParts";
@@ -8,12 +7,6 @@ import { OnlineToday } from "./OnlineMoney";
 import { useAuth } from "../App";
 import { num, pkr, pkrShort } from "../lib/format";
 
-const LEVEL = {
-  critical: { icon: AlertOctagon, cls: "text-red-600", ring: "border-l-red-500", label: "Urgent" },
-  warning: { icon: AlertTriangle, cls: "text-amber-600", ring: "border-l-amber-500", label: "Soon" },
-  info: { icon: Info, cls: "text-sky-600", ring: "border-l-sky-500", label: "Idea" },
-  good: { icon: CheckCircle2, cls: "text-emerald-600", ring: "border-l-emerald-500", label: "Good" },
-} as const;
 const STAFF: Record<string, { label: string; dot: string }> = {
   present: { label: "On duty", dot: "bg-emerald-500" }, late: { label: "Late", dot: "bg-amber-500" }, missing: { label: "Not in", dot: "bg-red-500" },
   due: { label: "Not due yet", dot: "bg-slate-300" }, leave: { label: "On leave", dot: "bg-blue-400" }, off: { label: "Weekly off", dot: "bg-slate-300" },
@@ -42,7 +35,6 @@ export function ManagerDesk({ k }: { k: any }) {
   const { data } = useApi<any>("/dashboard/desk", 60_000);
   const nav = useNavigate();
   const { can } = useAuth();
-  const [all, setAll] = useState(false);
   const vs = k.today.vs_yesterday_pct;
   return (
     <div className="space-y-5">
@@ -69,27 +61,6 @@ export function ManagerDesk({ k }: { k: any }) {
       {/* the owner overview above already has it for users who can see reports */}
       {!can("reports.view") && data?.online && <OnlineToday o={data.online} onBank={can("bank.view") ? () => nav("/cash") : undefined} />}
       {can("bank.view") && !can("reports.view") && <BankSummary />}
-
-      <div className="card overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today</h2>
-          <span className="hidden text-xs text-slate-500 sm:inline">— from shifts, cash, stock, staff, khata, approvals and checks</span></div>
-        {!data ? <Loading /> : data.suggestions.length ? (
-          <ul className="divide-y divide-slate-100">
-            {(all ? data.suggestions : data.suggestions.slice(0, 6)).map((s: any, i: number) => {
-              const L = LEVEL[s.level as keyof typeof LEVEL];
-              return (
-                <li key={i} className={`flex flex-wrap items-center gap-3 border-l-4 px-4 py-3 ${L.ring}`}>
-                  <L.icon size={18} className={`shrink-0 ${L.cls}`} aria-label={L.label} />
-                  <div className="min-w-0 flex-1 basis-[calc(100%-2.5rem)] sm:basis-0"><div className="font-medium">{s.title}</div><div className="text-sm text-slate-600">{s.detail}</div></div>
-                  {s.to && <Link className="btn-secondary ml-8 !py-1.5 text-sm sm:ml-0" to={s.to}>{s.label ?? "Open"}</Link>}
-                </li>
-              );
-            })}
-          </ul>
-        ) : <p className="p-4 text-sm text-slate-500">All clear — nothing needs attention right now.</p>}
-        {data && data.suggestions.length > 6 && <button className="w-full border-t border-slate-100 py-2 text-sm font-medium text-brand-700 hover:bg-slate-50" onClick={() => setAll(!all)}>
-          {all ? "Show fewer" : `Show all ${data.suggestions.length} suggestions`}</button>}
-      </div>
 
       {data && (
         <div className="grid gap-5 lg:grid-cols-2">

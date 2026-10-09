@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText,
-  Building2, ListChecks,
+  Building2, ListChecks, Lightbulb,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -119,6 +119,7 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
   { to: "/reports", label: "Reports", icon: FileBarChart, perm: "reports.view" },
   { to: "/insights", label: "Owner insights", icon: HeartPulse, perm: "reports.view" },
+  { to: "/suggestions", label: "Suggestions", icon: Lightbulb, perm: "dashboard.view|wholesale.view" },
   { to: "/inbox", label: "WhatsApp", icon: MessageCircle, badge: "unread", perm: "whatsapp.inbox" },
   { to: "/pos", label: "Sales / POS", icon: Fuel, perm: "sales.create" },
   { to: "/shifts", label: "Shifts", icon: Clock, perm: "shifts.manage" },
@@ -179,7 +180,7 @@ export default function Layout() {
       </div>
       <QuickAddButton />
       <div className="flex-1 space-y-0.5 overflow-y-auto px-3">
-        <NavMenu items={NAV.filter((n) => (!n.perm || can(n.perm)) && (!("only" in n) || (n.only as string[]).includes(user?.role ?? "")))}
+        <NavMenu items={NAV.filter((n) => (!n.perm || n.perm.split("|").some(can)) && (!("only" in n) || (n.only as string[]).includes(user?.role ?? "")))}
           grouped={["admin", "manager"].includes(user?.role ?? "")} badges={badgeVal} onGo={() => setOpen(false)} />
       </div>
       <div className="border-t border-white/10 p-4 text-sm">

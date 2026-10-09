@@ -1,28 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from "recharts";
-import { AlertOctagon, AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, CalendarClock, CheckCircle2, ClipboardList, Info, Lightbulb, Plus, Search, Truck, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Banknote, CalendarClock, ClipboardList, Plus, Search, Truck, Wallet } from "lucide-react";
 import { ChequeForm, OrderForm, PromiseForm } from "./WholesaleDesk";
 import { WholesaleVoice } from "./WholesaleVoice";
-import { api, useApi } from "../lib/api";
-import { Loading, Modal, useAction } from "./ui";
+import { useApi } from "../lib/api";
+import { Loading, Modal } from "./ui";
 import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 
 /* chart roles: series slots 1 and 3 of the validated palette; recessive grid and axes */
 const BILLED = "#2a78d6", RECEIVED = "#1baf7a", GRID = "#e5e7eb", AXIS = "#6b7280";
 /* due ageing: one hue, light → dark as money gets older (sequential, labelled — never colour alone) */
-const ACT_UR: Record<string, string> = { payment: "رقم لیں", statement: "حساب بھیجیں", open: "کلائنٹ", rates: "ریٹ", trip: "ٹرپ", fleet: "ڈرائیور", orders: "آرڈر", collect: "وصولی", edit: "تبدیل" };
 const AGE = [
   { k: "d0_15", label: "0–15 days", fill: "#fde68a" }, { k: "d16_30", label: "16–30 days", fill: "#fbbf24" },
   { k: "d31_60", label: "31–60 days", fill: "#d97706" }, { k: "d60", label: "60+ days", fill: "#92400e" },
 ] as const;
-const LEVEL = {
-  critical: { icon: AlertOctagon, cls: "text-red-600", ring: "border-l-red-500", label: "Urgent" },
-  warning: { icon: AlertTriangle, cls: "text-amber-600", ring: "border-l-amber-500", label: "Soon" },
-  info: { icon: Info, cls: "text-sky-600", ring: "border-l-sky-500", label: "Idea" },
-  good: { icon: CheckCircle2, cls: "text-emerald-600", ring: "border-l-emerald-500", label: "Good" },
-} as const;
 const HEALTH: Record<string, { label: string; dot: string }> = {
   green: { label: "Good", dot: "bg-emerald-500" }, amber: { label: "Watch", dot: "bg-amber-500" }, red: { label: "Risk", dot: "bg-red-500" },
 };
@@ -42,28 +35,16 @@ const Kpi = ({ label, ur, value, sub, accent }: { label: string; ur?: string; va
 );
 
 /** Wholesale home: today's actions, KPIs, suggestions, trends, ageing and client health. */
-export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { onTrip: () => void; onAddClient: () => void; onFleet: () => void; onTab: (t: string) => void }) {
+export function WholesaleDashboard({ onTrip, onAddClient, onTab }: { onTrip: () => void; onAddClient: () => void; onFleet: () => void; onTab: (t: string) => void }) {
   const { can } = useAuth();
   const nav = useNavigate();
   const { data, reload } = useApi<any>("/wholesale/dashboard");
   const [desk, setDesk] = useState<null | "order" | "cheque" | "promise">(null);
-  const [allSug, setAllSug] = useState(false);
   const [pick, setPick] = useState<null | "supply" | "payment">(null);
   const [q, setQ] = useState("");
-  const { run } = useAction();
   if (!data) return <Loading />;
   const k = data.kpi;
   const manage = can("wholesale.manage");
-  const act = async (a: any) => {
-    if (a.kind === "trip") return onTrip();
-    if (a.kind === "fleet") return onFleet();
-    if (a.kind === "orders" || a.kind === "collect") return onTab(a.kind);
-    if (a.kind === "statement") {
-      const mon = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7);
-      return run(() => api(`/wholesale/clients/${a.client_id}/send-statement`, { body: { month: mon } }), "Statement sent on WhatsApp");
-    }
-    nav(`/wholesale/${a.client_id}${a.kind === "open" ? "" : `?do=${a.kind}`}`);
-  };
   const ageTotal = AGE.reduce((s, a) => s + data.ageing[a.k], 0);
   const clients = data.clients.filter((c: any) => !q || c.name.toLowerCase().includes(q.toLowerCase()));
 
@@ -104,26 +85,6 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
         <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Promised today" ur="آج کے وعدے" value={pkrShort(k.promised_today)} accent="text-amber-700" sub={k.broken_promises ? <span className="font-medium text-red-600">{k.broken_promises} promise{k.broken_promises > 1 ? "s" : ""} broken</span> : "no broken promises"} /></button>
         <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Cheques not cleared" ur="چیک باقی" value={pkrShort(k.cheques_in_hand)} sub="in hand + deposited" /></button>
         <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Collection this month" ur="وصولی %" value={k.collection_pct == null ? "—" : `${k.collection_pct}%`} accent={k.collection_pct != null && k.collection_pct < 80 ? "text-red-600" : "text-emerald-700"} sub="received ÷ billed" /></button>
-      </div>
-
-      <div className="card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today · <Ur>آج کے مشورے</Ur></h2><span className="hidden text-xs text-slate-500 sm:inline">— worked out from dues, ordering habits, rates, stock and fleet</span></div>
-        {data.suggestions.length ? (
-          <ul className="divide-y divide-slate-100">
-            {(allSug ? data.suggestions : data.suggestions.slice(0, 6)).map((s: any, i: number) => {
-              const L = LEVEL[s.level as keyof typeof LEVEL];
-              return (
-                <li key={i} className={`flex flex-wrap items-center gap-3 border-l-4 px-4 py-3 ${L.ring}`}>
-                  <L.icon size={18} className={`shrink-0 ${L.cls}`} aria-label={L.label} />
-                  <div className="min-w-0 flex-1 basis-[calc(100%-2.5rem)] sm:basis-0"><div className="font-medium">{s.title}</div>{s.ur && <div className="text-right text-slate-800"><Ur className="leading-loose">{s.ur}</Ur></div>}<div className="text-sm text-slate-600">{s.detail}</div></div>
-                  {s.action && manage && <button className="btn-secondary ml-8 !py-1.5 text-sm sm:ml-0" onClick={() => act(s.action)}>{s.action.label}{ACT_UR[s.action.kind] && <> · <Ur>{ACT_UR[s.action.kind]}</Ur></>}</button>}
-                </li>
-              );
-            })}
-          </ul>
-        ) : <p className="p-4 text-sm text-slate-500">All clear — nothing needs attention today.</p>}
-        {data.suggestions.length > 6 && <button className="w-full border-t border-slate-100 py-2.5 text-sm font-medium text-brand-700 hover:bg-slate-50" onClick={() => setAllSug(!allSug)}>
-          {allSug ? "Show fewer" : `Show all ${data.suggestions.length} suggestions`}</button>}
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
