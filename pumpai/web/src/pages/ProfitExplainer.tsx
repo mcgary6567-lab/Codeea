@@ -54,6 +54,7 @@ export default function ProfitExplainer() {
           {line("Fuel — retail (POS)", pkr(p.income.fuel_retail))}
           {line("Fuel — wholesale", pkr(p.income.fuel_wholesale))}
           {line("Shop & lubricants", pkr(p.income.shop))}
+          {p.discount_given > 0 && line("Khata discount diya (fuel se minus ho chuka)", `− ${pkr(p.discount_given)}`)}
           {fuels.length > 0 && <tr><td colSpan={2} className="pt-2 text-xs font-semibold text-slate-500">Per fuel (sale rate)</td></tr>}
           {fuels.map((f: any) => line(`${f.name} — ${num(f.litres, 0)} L`, `${pkr(f.revenue)} @ Rs ${f.avg_sale_rate.toFixed(2)}`))}
         </>)} />

@@ -108,6 +108,8 @@ export function profitAndLoss(t: number, month: string) {
   const expAccts = J.trial_balance.filter((x) => x.account.startsWith("Expense: "));
   const expensesTotal = r0(expAccts.reduce((a, x) => a + x.balance, 0));
   const byCategory = expAccts.map((x) => ({ category: x.account.replace("Expense: ", ""), amount: r0(x.balance) })).filter((x) => x.amount).sort((a, b) => b.amount - a.amount);
+  // lump-sum khata discounts given this month (already netted off fuel revenue; shown so the owner can see the rebate)
+  const discountGiven = r0(J.trial_balance.find((x) => x.account === "Discount given — khata")?.balance ?? 0);
   // income the pump earns beyond fuel/shop: shop rent and carriage/kiraya (booked in the ledger, so add them to profit)
   const toIso = new Date(to).toISOString();
   const otherIncome = r0(rentalIncome(t, from, toIso) + carriageIncome(t, from, toIso) + carriageIncomeThekedar(t, from, toIso));
@@ -115,6 +117,7 @@ export function profitAndLoss(t: number, month: string) {
   return {
     month, from, to: toIso, income, cost_of_sales: cost, gross_profit: gross,
     other_income: otherIncome,
+    discount_given: discountGiven,
     expenses: { total: expensesTotal, by_category: byCategory },
     net_profit: net,
     margin_pct: income.total ? round2((net / income.total) * 100) : 0,

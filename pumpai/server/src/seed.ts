@@ -236,6 +236,8 @@ export function seed() {
     // 6 of the coupon book were filled at the pump (a real coupon sale each: stock out, coupon used, money taken off the coupon liability)
     all("SELECT code FROM fuel_coupons WHERE tenant_id=? AND batch='B-DEMO-01' ORDER BY id LIMIT 6", tenantId).forEach((c, i) =>
       recordSale(tenantId, { station_id: st1, product: "PMG", payment_method: "coupon", coupon_code: c.code, created_at: iso(T0 - (8 - i) * DAY + 3 * 3600_000) } as any));
+    seedProperty(tenantId, st1);
+    seedKhataDiscounts(tenantId, st1);
     seedCashier(tenantId);
     alignDips(tenantId);
     ensureAutomations(tenantId);
@@ -338,6 +340,61 @@ function seedCarriage(tenantId: number, T0: number) {
     const pts = iso(T0 - 8 * DAY + 11 * 3600_000);
     run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,amount,method,ref,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
       tenantId, kid, "payment", k.kiraya[0], "cash", "Kiraya received", "Haji Abdul Rehman (CEO)", pts, pts);
+  }
+}
+
+/**
+ * A few lump-sum khata discounts (the owner's "levers"): fuel billed to a loyal fleet customer at the pump rate
+ * minus a fixed rupee rebate. recordSale books the gross revenue and the discount as a contra, so the khata, the
+ * ledger and the P&L all agree. Kept small and within the customer's credit so the books stay clean.
+ */
+function seedKhataDiscounts(tenantId: number, st1: number) {
+  const cust = get(`SELECT id, credit_limit, balance FROM customers WHERE tenant_id=? AND type IN ('fleet','business') AND khata_blocked=0 ORDER BY (credit_limit - balance) DESC LIMIT 1`, tenantId);
+  if (!cust) return;
+  let room = (cust.credit_limit as number) - (cust.balance as number);
+  for (let d = 6; d >= 2; d -= 2) {
+    const litres = 40 + Math.round(rnd() * 20);
+    const discount = 300 + Math.round(rnd() * 4) * 50; // Rs 300–500
+    try {
+      const sale = recordSale(tenantId, { station_id: st1, product: "HSD", litres, payment_method: "khata", customer_id: cust.id, discount, created_at: iso(Date.now() - d * DAY + 10 * 3600_000) } as any);
+      room -= sale.amount as number;
+      if (room < 20_000) break; // keep well inside the credit limit
+    } catch { break; }
+  }
+}
+
+/**
+ * Units inside the pump rented out to others (shop, service bay) — that rent is INCOME. Each payment is booked
+ * exactly like the Property page does it: a cashier voucher so the cash book counts it, or a bank_txn for bank rent,
+ * so the general ledger picks it up as "Other income" and the books tally to the rupee.
+ */
+function seedProperty(tenantId: number, st1: number) {
+  const hbl = get("SELECT id FROM bank_accounts WHERE tenant_id=? AND bank LIKE 'Habib%' ORDER BY id LIMIT 1", tenantId)?.id as number | null;
+  const by = "Haji Abdul Rehman (CEO)";
+  const month = (d: Date) => d.toISOString().slice(0, 7);
+  const units = [
+    { name: "Tuck shop (front)", kind: "shop", tenant_name: "Naeem General Store", phone: "923009990011", rent: 25_000, deposit: 50_000, method: "bank" as const },
+    { name: "Service & tyre bay", kind: "service", tenant_name: "Quick Tyre & Tune", phone: "923009990022", rent: 18_000, deposit: 36_000, method: "bank" as const },
+  ];
+  for (const u of units) {
+    const started = iso(Date.now() - 120 * DAY);
+    const rid = run(`INSERT INTO rentals (tenant_id,station_id,name,kind,tenant_name,phone,monthly_rent,deposit,start_day,active,note,created_by,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?)`, tenantId, st1, u.name, u.kind, u.tenant_name, u.phone, u.rent, u.deposit, pkDate(Date.now() - 120 * DAY), null, by, started).id;
+    // last 3 full months paid; the current (running) month left unpaid so the owner sees a "due"
+    for (let m = 3; m >= 1; m--) {
+      const when = new Date(Date.now() - m * 30 * DAY);
+      const ts = iso(when.getTime() + 11 * 3600_000);
+      const forMonth = month(when);
+      const note = `Rent — ${u.name} (${u.tenant_name}) · ${forMonth}`;
+      const acct = u.method === "bank" ? hbl : null;
+      const { id: vid } = run(`INSERT INTO cashier_vouchers (tenant_id,direction,party_type,party_name,amount,method,account_id,category,ref,note,src,created_by,created_at)
+        VALUES (?, 'in', 'other', ?, ?, ?, ?, 'Shop / hotel rent', ?, ?, ?, ?, ?)`,
+        tenantId, u.name, u.rent, u.method, acct, null, note, `rental:${rid}`, by, ts);
+      if (acct) run(`INSERT INTO bank_txns (tenant_id,account_id,kind,amount,party,ref,note,txn_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        tenantId, acct, "other_in", u.rent, u.name, null, note, ts, by, ts);
+      run(`INSERT INTO rental_payments (tenant_id,rental_id,for_month,amount,method,account_id,ref,note,voucher_id,received_by,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)`, tenantId, rid, forMonth, u.rent, u.method, acct, null, null, vid, by, ts);
+    }
   }
 }
 

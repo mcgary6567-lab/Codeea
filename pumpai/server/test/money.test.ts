@@ -169,8 +169,9 @@ test("general ledger: every voucher balances, trial balance totals agree; CSV an
   assert.ok(Math.abs(r.totals.debit - r.totals.credit) < 1);
   const accounts = r.trial_balance.map((a: any) => a.account);
   for (const a of ["Fuel sales", "Shop sales", "Output sales tax", "Fuel purchases", "Khata receivable", "Bank", "Cash in hand"]) assert.ok(accounts.includes(a), a);
-  // fuel sales in the ledger = sales in the books (no sales tax on fuel set)
-  const fuel = db.get("SELECT SUM(s.amount) v FROM sales s WHERE s.created_at >= ? AND s.created_at < ?", db.pkStart(from), db.pkEnd(to)).v;
+  // fuel sales in the ledger = sales in the books at GROSS (no sales tax on fuel set); the ledger books revenue before
+  // any lump-sum khata discount, so compare against amount + discount
+  const fuel = db.get("SELECT SUM(s.amount + COALESCE(s.discount,0)) v FROM sales s WHERE s.created_at >= ? AND s.created_at < ?", db.pkStart(from), db.pkEnd(to)).v;
   assert.ok(Math.abs(r.trial_balance.find((a: any) => a.account === "Fuel sales").credit - fuel) < 1);
   const csv = await call("manager", "GET", `/api/ledger.csv?from=${from}&to=${to}`);
   assert.match(csv.data, /^\ufeff?"Date","Voucher","Type","Account","Debit","Credit","Narration"/);

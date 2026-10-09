@@ -128,8 +128,9 @@ test("P&L and reports agree with the ledger for this month", async () => {
   const M = journal(t, `${month}-01`, tomorrow());
   const mt = (a: string) => M.trial_balance.find((x) => x.account === a)?.balance ?? 0;
   const pl = profitAndLoss(t, month);
-  // pump and shop sales as billed (the ledger splits the sales tax out of both)
-  near(pl.income.fuel_retail + pl.income.shop, -(mt("Fuel sales") + mt("Shop sales") + mt("Output sales tax")), "pump + shop sales (with sales tax) vs ledger", 5);
+  // pump and shop sales as billed (the ledger splits the sales tax out of both). The ledger books fuel revenue at the
+  // gross and the khata discount as a contra ("Discount given — khata"); the P&L shows the net, so net + discount = gross.
+  near(pl.income.fuel_retail + pl.income.shop + mt("Discount given — khata"), -(mt("Fuel sales") + mt("Shop sales") + mt("Output sales tax")), "pump + shop sales (with sales tax) vs ledger", 5);
   near(pl.income.fuel_wholesale, -mt("Wholesale sales"), "wholesale sales vs ledger", 5);
   const ledgerExp = M.trial_balance.filter((x) => x.account.startsWith("Expense: ")).reduce((a, x) => a + x.balance, 0);
   near(pl.expenses.total, ledgerExp, "expenses vs ledger", 5);
@@ -152,8 +153,9 @@ test("cashier's day book closes on the cash book; owner sees the same cash", asy
 });
 
 test("every sale: litres × rate = amount; no tank below zero; each meter = its last closing reading", () => {
-  const bad = db.get("SELECT COUNT(*) n FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND ABS(s.litres * s.rate - s.amount) > 1", t)!.n;
-  assert.equal(bad, 0, "sales where litres × rate ≠ amount");
+  // amount is the net billed: litres × rate − any lump-sum khata discount
+  const bad = db.get("SELECT COUNT(*) n FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND ABS(s.litres * s.rate - COALESCE(s.discount,0) - s.amount) > 1", t)!.n;
+  assert.equal(bad, 0, "sales where litres × rate − discount ≠ amount");
   assert.equal(db.get("SELECT COUNT(*) n FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND t.current_l < 0", t)!.n, 0, "tanks below zero");
   const off = db.all(`SELECT n.id, n.label, n.totalizer, (SELECT mr.closing FROM meter_readings mr JOIN shifts sh ON sh.id=mr.shift_id WHERE mr.nozzle_id=n.id AND mr.closing IS NOT NULL ORDER BY sh.closed_at DESC LIMIT 1) last
     FROM nozzles n JOIN stations s ON s.id=n.station_id WHERE s.tenant_id=?`, t).filter((n) => n.last != null && Math.abs(n.last - n.totalizer) > 0.01);
@@ -183,4 +185,37 @@ test("the shared tally (as run after every day-long test) passes on the demo too
 test("shift reports: meter lines less test litres = litres sold, for every closed shift", async () => {
   const { shiftMetersTally } = await import("./helpers/shiftMeters.js");
   await shiftMetersTally("system_audit");
+});
+
+test("the owner's money levers tie to the ledger: khata discount, bank card commission (MDR), shop/unit rent", async () => {
+  // 1) lump-sum khata discounts: every rupee of discount is booked to "Discount given — khata"
+  const discGiven = db.get("SELECT COALESCE(SUM(discount),0) v FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=?", t)!.v as number;
+  assert.ok(discGiven > 0, "demo has at least one lump-sum khata discount to check");
+  near(discGiven, tb("Discount given — khata"), "khata discount vs ledger");
+
+  // 2) bank card/POS commission (MDR): the ledger expense equals the fee derived from card sales, to the rupee
+  const { cardFees } = await import("../src/routes/banks.js");
+  const feeTotal = cardFees(t).reduce((a: number, f: any) => a + f.fee, 0);
+  assert.ok(feeTotal > 0, "demo has a card fee % set so commission is exercised");
+  near(feeTotal, tb("Expense: Card charges"), "card commission (MDR) vs ledger");
+
+  // 3) shop/unit rent: every rent payment is income in the ledger ("Other income" covers it); the helper agrees with the rows
+  const { rentalIncome } = await import("../src/routes/property.js");
+  const rentRows = db.get("SELECT COALESCE(SUM(amount),0) v, COUNT(*) n FROM rental_payments WHERE tenant_id=?", t)!;
+  assert.ok((rentRows.n as number) > 0, "demo has rent payments to check");
+  near(rentalIncome(t, "2000-01-01T00:00:00.000Z", tomorrow() + "T23:59:59.999Z"), rentRows.v as number, "rental income helper vs rows");
+  // income accounts carry credit (negative) balances in the trial balance, so flip the sign
+  assert.ok(-tb("Other income") >= (rentRows.v as number) - 1, `ledger "Other income" (${-tb("Other income")}) covers the rent (${rentRows.v})`);
+});
+
+test("P&L surfaces commission, rent and discount so the owner sees them", async () => {
+  const { profitAndLoss } = await import("../src/routes/analysis.js");
+  const month = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7);
+  const pl: any = profitAndLoss(t, month);
+  // card commission shows as its own expense line
+  assert.ok(pl.expenses.by_category.some((e: any) => /card/i.test(e.category) && e.amount > 0), "P&L shows a card-charges expense line");
+  // rent (and carriage) is added back as other income
+  const { rentalIncome } = await import("../src/routes/property.js");
+  const rentThisMonth = rentalIncome(t, `${month}-01T00:00:00.000Z`, tomorrow() + "T23:59:59.999Z");
+  if (rentThisMonth > 0) assert.ok(pl.other_income >= rentThisMonth - 1, `P&L other_income (${pl.other_income}) includes this month's rent (${rentThisMonth})`);
 });

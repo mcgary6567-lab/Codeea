@@ -37,7 +37,8 @@ test("khata lump-sum discount: net billed, booked gross with a discount line, sa
   // CEO-controlled limit: salesman can give up to Rs 500
   ok(await call("admin", "PUT", "/api/settings", { limits: { khata_discount_max: 500 } }), "set limit");
 
-  await tallyBooks("before");
+  const { tb: tbBefore } = await tallyBooks("before");
+  const discBefore = tbBefore("Discount given — khata"); // the demo already has some seeded khata discounts
 
   // admin sells 100 L @ 250 = 25,000 with a Rs 1000 discount → net 24,000 charged to khata
   const sale = ok(await call("admin", "POST", "/api/sales", { station_id: 1, product: "PMG", litres: 100, payment_method: "khata", customer_id: cust.id, discount: 1000 }), "discounted sale");
@@ -51,7 +52,7 @@ test("khata lump-sum discount: net billed, booked gross with a discount line, sa
 
   // books: Fuel sales booked at GROSS 25,000, with a "Discount given — khata" of 1000; everything tallies
   const { tb } = await tallyBooks("after discount");
-  assert.ok(Math.abs(tb("Discount given — khata") - 1000) <= 0.05, `discount account = 1000, got ${tb("Discount given — khata")}`);
+  assert.ok(Math.abs((tb("Discount given — khata") - discBefore) - 1000) <= 0.05, `discount account rose by 1000, got ${(tb("Discount given — khata") - discBefore).toFixed(2)}`);
 
   // salesman cannot give more than the Rs 500 limit
   const over = await call("salesman", "POST", "/api/sales", { station_id: 1, product: "PMG", litres: 10, payment_method: "khata", customer_id: cust.id, discount: 800 });
