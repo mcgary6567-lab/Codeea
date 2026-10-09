@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
-import { Plus, Truck, Factory, Download, Printer, HandCoins, ArrowLeft, Ban } from "lucide-react";
+import { Plus, Truck, Factory, Download, Printer, HandCoins, Ban } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Empty, ErrorBox, Field, Loading, Modal, Stat, useAction } from "../components/ui";
 import { PRODUCTS, activeProducts, dt, num, phone, pkr, pkrShort } from "../lib/format";
@@ -15,7 +15,6 @@ const Ur = ({ children, className = "" }: { children: React.ReactNode; className
 
 /** Bypass delivery — shown inside the Wholesale "Tanker trips" tab: buy fuel from suppliers at the depot and deliver straight to wholesale clients. */
 export function BypassPanel() {
-  const { can } = useAuth();
   const sups = useApi<any[]>("/bypass/suppliers");
   const dels = useApi<any[]>("/bypass/deliveries");
   const stock = useApi<any>("/bypass/stock");

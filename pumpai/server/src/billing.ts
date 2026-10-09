@@ -6,7 +6,7 @@
  */
 import { BRAND_CSS, brandHead, brandFoot } from "./brandPrint.js";
 import jwt from "jsonwebtoken";
-import { logoTag, profile } from "./routes/setup.js";
+import { profile } from "./routes/setup.js";
 import { shopSaleTax } from "./routes/tax.js";
 import { config, PRODUCTS } from "./config.js";
 import { all, get, getSetting, pkDate, type Row } from "./db.js";

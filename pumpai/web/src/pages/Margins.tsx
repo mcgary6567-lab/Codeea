@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
 import { Loading, PageHeader, Stat, useAction } from "../components/ui";
-import { PRODUCTS, pkr, num } from "../lib/format";
+import { pkr, num } from "../lib/format";
 
 /** Product-wise margin (sale rate − purchase cost) and the owner's monthly targets vs actual. */
 export default function Margins() {

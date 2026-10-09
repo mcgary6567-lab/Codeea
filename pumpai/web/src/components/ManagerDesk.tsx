@@ -1,7 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Clock, Droplets, Receipt, BookOpen, Tag, BarChart3, Users } from "lucide-react";
 import { useApi } from "../lib/api";
-import { Loading } from "./ui";
 import { BankSummary } from "./BankParts";
 import { OnlineToday } from "./OnlineMoney";
 import { useAuth } from "../App";

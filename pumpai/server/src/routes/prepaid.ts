@@ -13,7 +13,6 @@ import { bankAccountFor, accountIdField, otherMoney } from "./banks.js";
 import { AppError, round2, pkr, audit } from "../services.js";
 import { productSchema } from "../products.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
-import { PRODUCTS } from "../config.js";
 
 export const prepaid = Router();
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);

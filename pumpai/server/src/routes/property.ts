@@ -7,7 +7,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, now, pkDate, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { AppError, round2, pkr } from "../services.js";
+import { AppError, round2 } from "../services.js";
 import { bankAccountFor } from "./banks.js";
 import { ensureCategories } from "./expenses.js";
 import { linkPhotos } from "./capture.js";
@@ -37,7 +37,7 @@ function syncPumpRent(t: number, ownership: string, rent: number, by: string) {
 }
 
 /** A rental unit with this month's rent status. */
-function withStatus(t: number, r: any, month: string) {
+function withStatus(r: any, month: string) {
   const paid = round2(get("SELECT COALESCE(SUM(amount),0) v FROM rental_payments WHERE rental_id=? AND for_month=?", r.id, month)!.v);
   return { ...r, month_paid: paid, month_due: round2(Math.max(0, r.monthly_rent - paid)), month_settled: paid >= r.monthly_rent - 0.01 };
 }
@@ -48,7 +48,7 @@ property.get("/property", requirePerm("expenses.view"), h((req) => {
   const ownership = getSetting(t, "pump_ownership", "owned");
   const pump_rent = Number(getSetting(t, "pump_rent", "0")) || 0;
   const rentals = all("SELECT r.*, s.name station_name FROM rentals r LEFT JOIN stations s ON s.id=r.station_id WHERE r.tenant_id=? ORDER BY r.active DESC, r.name", t)
-    .map((r) => withStatus(t, r, month));
+    .map((r) => withStatus(r, month));
   const active = rentals.filter((r) => r.active);
   return {
     month, ownership, pump_rent,
@@ -121,7 +121,7 @@ property.post("/rentals/:id/pay", requirePerm("cash.receive"), h((req) => {
   const { id: pid } = run(`INSERT INTO rental_payments (tenant_id,rental_id,for_month,amount,method,account_id,ref,note,voucher_id,received_by,created_at)
     VALUES (?,?,?,?,?,?,?,?,?,?,?)`, t, r.id, forMonth, b.amount, b.method, account, b.ref ?? null, b.note ?? null, vid, req.user!.name, now());
   if (b.photo_ids?.length) linkPhotos(t, b.photo_ids, `rentpay:${pid}`);
-  return { ok: true, rental: withStatus(t, r, monthStr()), received: b.amount };
+  return { ok: true, rental: withStatus(r, monthStr()), received: b.amount };
 }));
 
 /** Rent income collected in a period — added to reports and the day report. */

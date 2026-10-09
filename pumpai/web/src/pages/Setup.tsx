@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { SocialFields } from "../components/BusinessSettings";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, Plus, Trash2, Upload, Building2, UserCog, Fuel, Tag, ClipboardCheck, Gauge, MapPin, Palette, Sparkles, Cylinder } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, Trash2, Upload, Building2, UserCog, Tag, ClipboardCheck, Gauge, MapPin, Palette, Sparkles, Cylinder } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../App";
 import { ErrorBox, Loading } from "../components/ui";

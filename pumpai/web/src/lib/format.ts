@@ -27,14 +27,6 @@ export async function loadProducts() {
     productSubs.forEach((f) => f());
   } catch { /* keep the defaults */ }
 }
-import { useEffect, useState } from "react";
-/** Re-render a component when the product list loads or changes. */
-export function useProducts() {
-  const [, tick] = useState(0);
-  useEffect(() => onProductsChanged(() => tick((x) => x + 1)), []);
-  return activeProducts;
-}
-
 /** Pakistani number grouping: 12,34,567 */
 export const num = (n: number | null | undefined, d = 0) =>
   n == null || isNaN(n) ? "—" : Number(n).toLocaleString("en-IN", { maximumFractionDigits: d, minimumFractionDigits: d });

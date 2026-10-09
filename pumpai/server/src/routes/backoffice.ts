@@ -8,7 +8,6 @@
  */
 import { BRAND_CSS, brandHead, brandFoot } from "../brandPrint.js";
 import { Router } from "express";
-import { logoTag } from "./setup.js";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { all, get, run, tx, now, pkDate, pkStart, pkEnd, getSetting } from "../db.js";

@@ -466,7 +466,6 @@ function simulateStock(tenantId: number, st1: number, st2: number, T0: number) {
   const margin: Record<string, number> = { PMG: 7.87, HOBC: 12.5, HSD: 7.5 }; // dealer margin per litre (demo)
   const retailAt = (p: string, t: string) => get("SELECT price FROM prices WHERE tenant_id=? AND product=? AND effective_from <= ? ORDER BY effective_from DESC LIMIT 1", tenantId, p, t)?.price
     ?? get("SELECT price FROM prices WHERE tenant_id=? AND product=? ORDER BY effective_from LIMIT 1", tenantId, p)!.price;
-  const start = T0 - 57 * DAY;
 
   for (const tank of all("SELECT t.* FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=?", tenantId)) {
     type Ev = { t: string; dl: number; kind: "move" | "dip" };

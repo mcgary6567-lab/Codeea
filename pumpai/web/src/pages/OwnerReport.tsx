@@ -16,7 +16,7 @@ export default function OwnerReport() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const pl = useApi<any>(`/analysis/pl?month=${month}`);
   const aging = useApi<any>("/khata/aging");
-  const gl = useApi<any[]>(`/analysis/gain-loss?from=${month}-01&to=${monthEnd(month)}`);
+  const gl = useApi<any>(`/analysis/gain-loss?from=${month}-01&to=${monthEnd(month)}`);
   const p = pl.data?.pl, bs = pl.data?.balance_sheet;
 
   const Row = ({ label, value, bold, tone }: { label: string; value: number; bold?: boolean; tone?: "red" | "green" }) => (
@@ -25,7 +25,7 @@ export default function OwnerReport() {
       <span className={`tabular-nums ${tone === "red" ? "text-red-600" : tone === "green" ? "text-emerald-700" : ""}`}>{pkr(value)}</span>
     </div>
   );
-  const lossTanks = (gl.data ?? []).filter((t) => t.gain_loss_l < 0);
+  const lossTanks = ((gl.data?.tanks ?? []) as any[]).filter((t) => t.gain_loss_l < 0);
 
   return (
     <div>
@@ -55,7 +55,8 @@ export default function OwnerReport() {
               <Row label="Cost of shop" value={p.cost_of_sales.shop} />
               {p.cost_of_sales.stock_gain_loss ? <Row label="Stock gain/loss" value={p.cost_of_sales.stock_gain_loss} /> : null}
               <Row label="Gross profit" value={p.gross_profit} bold tone={p.gross_profit >= 0 ? "green" : "red"} />
-              <Row label="Expenses" value={p.expenses.total} tone="red" />
+              {p.other_income ? <Row label="+ Other income (rent, carriage)" value={p.other_income} tone="green" /> : null}
+              <Row label="Expenses (incl. card fee)" value={p.expenses.total} tone="red" />
               <Row label="NET PROFIT" value={p.net_profit} bold tone={p.net_profit >= 0 ? "green" : "red"} />
               <div className="mt-1 text-right text-xs text-slate-500">Margin {num(p.margin_pct, 1)}% · {num(p.litres.retail + p.litres.wholesale, 0)} L sold</div>
             </section>

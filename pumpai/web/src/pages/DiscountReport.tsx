@@ -35,6 +35,17 @@ export default function DiscountReport() {
         </div>
       )}
 
+      {data.by_customer?.length > 0 && (
+        <div className="card mb-4 p-4">
+          <h2 className="mb-2 font-semibold">Discount by khata customer</h2>
+          <table className="w-full text-sm">
+            <thead><tr><th className="th">Customer</th><th className="th text-right">Times</th><th className="th text-right">Total discount</th></tr></thead>
+            <tbody>{data.by_customer.map((c: any) => (
+              <tr key={c.name}><td className="td">{c.name}</td><td className="td text-right tabular-nums">{c.count}</td><td className="td text-right font-semibold tabular-nums text-amber-700">{pkr(c.total)}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr><th className="th">When</th><th className="th">Customer</th><th className="th">Fuel</th><th className="th text-right">Litres</th><th className="th text-right">Discount</th><th className="th">Override</th><th className="th">By</th></tr></thead>

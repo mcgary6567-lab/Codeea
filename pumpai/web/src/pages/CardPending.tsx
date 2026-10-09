@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Hourglass, Check } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Loading, PageHeader, useAction } from "../components/ui";
@@ -37,11 +37,11 @@ export default function CardPending() {
     if (r) { setSel(new Set()); setRate(""); setPhoto(null); reload(); }
   };
 
-  const byCustomer = useMemo(() => {
+  const byCustomer = (() => {
     const m = new Map<string, any[]>();
     for (const r of rows) { const k = r.customer_name ?? "—"; (m.get(k) ?? m.set(k, []).get(k)!).push(r); }
     return [...m.entries()];
-  }, [rows]);
+  })();
 
   return (
     <div>

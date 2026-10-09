@@ -4,7 +4,7 @@
  * and this month's profit. Every number comes from the same books the cashier, banks and accounts use.
  */
 import { Router } from "express";
-import { all, get, pkDate, pkDayStart, pkStart } from "../db.js";
+import { get, pkDate, pkDayStart, pkStart } from "../db.js";
 import { h, tid, requirePerm } from "../auth.js";
 import { round2 } from "../services.js";
 import { cashPosition } from "./backoffice.js";

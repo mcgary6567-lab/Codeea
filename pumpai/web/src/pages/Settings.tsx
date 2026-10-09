@@ -1,17 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { StationForm, TankForm } from "../components/QuickAdd";
 import { BusinessProfile, Integrations, About } from "../components/BusinessSettings";
 import { PRODUCTS, num } from "../lib/format";
 
-const Status = ({ ok, label }: { ok: boolean; label: string }) => (
-  <span className={`inline-flex items-center gap-1 text-sm font-medium ${ok ? "text-emerald-700" : "text-slate-500"}`}>
-    {ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />} {label}
-  </span>
-);
 
 export default function SettingsPage() {
   const { data, reload } = useApi<any>("/settings");

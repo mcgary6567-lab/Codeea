@@ -64,7 +64,6 @@ staffRouter.patch("/staff/:id", h((req) => {
     weekly_off: z.number().int().min(0).max(6).nullable().optional(), phone: z.string().max(30).nullable().optional(),
     station_id: z.number().nullable().optional(), active: z.boolean().optional(), name: z.string().min(2).max(60).optional(),
   }), req.body);
-  const m = { ...u, ...b };
   const pick = (v: any, cur: any) => (v === undefined ? (cur ?? null) : (v ?? null));
   run("UPDATE users SET name=?, salary=?, job_title=?, duty_start=?, weekly_off=?, station_id=?, active=? WHERE id=?",
     b.name ?? u.name, pick(b.salary, u.salary), pick(b.job_title, u.job_title),

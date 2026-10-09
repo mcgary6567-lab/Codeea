@@ -14,7 +14,7 @@ import { AppError, createAlert, round2, pkr } from "../services.js";
 import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
-import { bankAccountFor, accountIdField } from "./banks.js";
+import { bankAccountFor } from "./banks.js";
 import { sendDirect } from "../whatsapp/cloud.js";
 import { notify, staff } from "../notifications.js";
 import { clientDue } from "./wholesale.js";

@@ -9,6 +9,10 @@ import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, pkr, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { buildReport, balances } from "./reports.js";
+import { journal } from "./ledger.js";
+import { rentalIncome } from "./property.js";
+import { carriageIncome } from "./wholesale.js";
+import { carriageIncomeThekedar } from "./carriage.js";
 import { cashPosition } from "./backoffice.js";
 import { bankAccounts } from "./banks.js";
 import { shopSummary } from "./shop.js";
@@ -97,11 +101,23 @@ export function profitAndLoss(t: number, month: string) {
   };
   const cost = { fuel: r0(fuelCost), shop: r0(shopCost), stock_gain_loss: r0(dipLoss), total: r0(fuelCost + shopCost - dipLoss) };
   const gross = r0(income.total - cost.total);
+  // Expenses come from the ledger (every "Expense: *" account), so bank card charges (MDR), bank charges and staff
+  // bonuses are all counted — not just the manual expenses table. This keeps net profit true and matches the ledger.
+  const toDay = `${month}-${String(lastDay).padStart(2, "0")}`;
+  const J = journal(t, `${month}-01`, toDay);
+  const expAccts = J.trial_balance.filter((x) => x.account.startsWith("Expense: "));
+  const expensesTotal = r0(expAccts.reduce((a, x) => a + x.balance, 0));
+  const byCategory = expAccts.map((x) => ({ category: x.account.replace("Expense: ", ""), amount: r0(x.balance) })).filter((x) => x.amount).sort((a, b) => b.amount - a.amount);
+  // income the pump earns beyond fuel/shop: shop rent and carriage/kiraya (booked in the ledger, so add them to profit)
+  const toIso = new Date(to).toISOString();
+  const otherIncome = r0(rentalIncome(t, from, toIso) + carriageIncome(t, from, toIso) + carriageIncomeThekedar(t, from, toIso));
+  const net = r0(gross + otherIncome - expensesTotal);
   return {
-    month, from, to: new Date(to).toISOString(), income, cost_of_sales: cost, gross_profit: gross,
-    expenses: { total: r0(r.expenses.total), by_category: r.expenses.by_category },
-    net_profit: r0(gross - r.expenses.total),
-    margin_pct: income.total ? round2(((gross - r.expenses.total) / income.total) * 100) : 0,
+    month, from, to: toIso, income, cost_of_sales: cost, gross_profit: gross,
+    other_income: otherIncome,
+    expenses: { total: expensesTotal, by_category: byCategory },
+    net_profit: net,
+    margin_pct: income.total ? round2((net / income.total) * 100) : 0,
     litres: { retail: r0(s.retail_litres), wholesale: r0(s.wholesale_litres) },
   };
 }

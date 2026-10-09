@@ -279,7 +279,7 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
           🏭 Client paid our depot direct (bypass) · <Ur>کلائنٹ نے سیدھا ڈپو کو دیا</Ur></button>}
       </fieldset>
 
-      {isCash(f.method) && !depot && <NoteGrid notes={notes} onChange={setNotes} amount={amount} dir={dir} />}
+      {isCash(f.method) && !depot && <NoteGrid notes={notes} onChange={setNotes} amount={amount} />}
 
       {depot && (
         <div className="space-y-2 rounded-xl bg-sky-50 p-3">
@@ -337,7 +337,7 @@ export const notesTotal = (notes: Record<string, number | string> | null | undef
   DENOMS.reduce((a, d) => a + d * (Number(notes?.[d]) || 0), 0);
 
 /** Cash note breakdown: how many 5000s, 1000s, … — live total, matched against the amount. */
-function NoteGrid({ notes, onChange, amount, dir }: { notes: Record<string, string>; onChange: (n: Record<string, string>) => void; amount: number; dir: "in" | "out" }) {
+function NoteGrid({ notes, onChange, amount }: { notes: Record<string, string>; onChange: (n: Record<string, string>) => void; amount: number }) {
   const total = notesTotal(notes);
   const diff = total - amount;
   const any = total > 0;
@@ -711,6 +711,13 @@ function DayBook() {
             <p className="mt-1 text-xs text-slate-500">{data.rows.length} entries on this day · <Ur>اس دن کی اندراجات</Ur></p>
           </div>
         </div>
+        {data.summary && (data.summary.sales_tax > 0 || data.summary.discount > 0 || data.summary.card_fee > 0) && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="card p-3"><div className="text-xs text-slate-500">Sales tax collected · <Ur>ٹیکس</Ur></div><div className="text-lg font-bold tabular-nums">{pkr(data.summary.sales_tax)}</div></div>
+            <div className="card p-3"><div className="text-xs text-slate-500">Khata discount given · <Ur>رعایت</Ur></div><div className="text-lg font-bold tabular-nums text-amber-700">{pkr(data.summary.discount)}</div></div>
+            <div className="card p-3"><div className="text-xs text-slate-500">Bank card fee (MDR) · <Ur>بینک کمیشن</Ur></div><div className="text-lg font-bold tabular-nums text-rose-700">{pkr(data.summary.card_fee)}</div></div>
+          </div>
+        )}
         <div className="card">
           <div className="space-y-2 border-b border-slate-100 p-3 print:hidden">
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">{DAYBOOK_FILTERS.map((f) => (

@@ -357,12 +357,20 @@ reports.get("/reports/discounts", h((req) => {
     const e = byPerson.get(k) ?? { name: k, role: r.by_role ?? "", count: 0, total: 0 };
     e.count++; e.total = round2(e.total + r.discount); byPerson.set(k, e);
   }
+  // per khata customer: how much discount they got in total
+  const byCustomer = new Map<string, { name: string; count: number; total: number }>();
+  for (const r of discounts) {
+    const k = r.customer_name ?? "—";
+    const e = byCustomer.get(k) ?? { name: k, count: 0, total: 0 };
+    e.count++; e.total = round2(e.total + r.discount); byCustomer.set(k, e);
+  }
   return {
     from, to,
     discount_total: round2(discounts.reduce((a, r) => a + r.discount, 0)),
     discount_count: discounts.length,
     override_count: overrides.length,
     by_person: [...byPerson.values()].sort((a, b) => b.total - a.total),
+    by_customer: [...byCustomer.values()].sort((a, b) => b.total - a.total),
     list: rows.slice(0, 300),
   };
 }));

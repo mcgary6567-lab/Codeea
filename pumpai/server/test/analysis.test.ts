@@ -69,7 +69,7 @@ test("monthly P&L and balance sheet, with CSV export", async () => {
   const p = r.pl;
   assert.equal(p.income.total, p.income.fuel_retail + p.income.fuel_wholesale + p.income.shop);
   assert.ok(Math.abs(p.gross_profit - (p.income.total - p.cost_of_sales.total)) <= 1);
-  assert.ok(Math.abs(p.net_profit - (p.gross_profit - p.expenses.total)) <= 1);
+  assert.ok(Math.abs(p.net_profit - (p.gross_profit + (p.other_income ?? 0) - p.expenses.total)) <= 1);
   const b = r.balance_sheet;
   assert.equal(b.net_worth, b.total_assets - b.total_liabilities);
   assert.ok(b.assets.fuel_stock > 0 && b.assets.shop_stock > 0);

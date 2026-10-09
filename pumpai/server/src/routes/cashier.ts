@@ -14,7 +14,8 @@ import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert, khataEntry } from "../services.js";
 import { sendDirect, sendWhatsApp } from "../whatsapp/cloud.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
-import { bankAccountFor, accountName, bankAccounts, accountIdField, posMap, POS_DIGITAL, DEPOT_PAY, notDepot } from "./banks.js";
+import { bankAccountFor, accountName, bankAccounts, accountIdField, posMap, POS_DIGITAL, DEPOT_PAY, notDepot, cardFees } from "./banks.js";
+import { taxSettings, splitTax } from "./tax.js";
 import { cashPosition, handoverMode } from "./backoffice.js";
 import { chargeShortage } from "./staff.js";
 import { clientDue, insertTxn } from "./wholesale.js";
@@ -441,7 +442,19 @@ export function cashierDayBook(t: number, d: string) {
       party: `counted ${pkr(c.amount)}`, method: "Cash", amount: Math.abs(diff), signed: diff, account_id: null, account: null, who: c.counted_by, cash: true, n: i });
   });
   rows.sort((a, b) => (a.at < b.at ? -1 : 1));
-  return { date: d, rows, totals: { ...totals, withdrawn, counted }, cash: { opening, closing, book_starts: started ? null : first, starts_today: startsToday } };
+  // day summary the cashier (and everyone) can see: sales tax collected, khata discount given, and bank card fee (MDR)
+  const tax = taxSettings(t);
+  const fuelAmt = get(`SELECT COALESCE(SUM(s.amount),0) v FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)!.v as number;
+  const fuelTax = splitTax(fuelAmt, tax.fuel_gst_pct, true).tax;
+  const shopTax = all(`SELECT i.category c, SUM(l.qty*l.price) a FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id JOIN shop_sales ss ON ss.id=l.sale_id
+    WHERE ss.tenant_id=? AND ss.created_at >= ? AND ss.created_at < ? GROUP BY c`, ...P)
+    .filter((r) => !tax.exempt.includes(r.c)).reduce((a, r) => a + splitTax(r.a, tax.gst_pct, tax.prices_include_tax).tax, 0);
+  const summary = {
+    sales_tax: round2(fuelTax + shopTax),
+    discount: round2(get(`SELECT COALESCE(SUM(s.discount),0) v FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)!.v as number),
+    card_fee: round2(cardFees(t).filter((f) => f.day === d).reduce((a, f) => a + f.fee, 0)),
+  };
+  return { date: d, rows, totals: { ...totals, withdrawn, counted }, summary, cash: { opening, closing, book_starts: started ? null : first, starts_today: startsToday } };
 }
 
 /**

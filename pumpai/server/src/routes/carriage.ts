@@ -12,7 +12,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDate } from "../db.js";
-import { h, parse, tid, requirePerm, requireRole } from "../auth.js";
+import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, createAlert, round2, pkr } from "../services.js";
 import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";

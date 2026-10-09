@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera, Printer } from "lucide-react";
+import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera, Printer } from "lucide-react";
 import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
 import { Loading, useAction, useToast } from "../components/ui";
@@ -66,7 +66,7 @@ export default function Pos() {
   useEffect(() => { if (!isSalesman && stations.data && !stationId) setStationId(stations.data[0].id); }, [stations.data]);
   const notif = useNotifications();
   const priceLock = isSalesman && notif.data?.pending_ack.some((n) => n.type === "price_change");
-  const { busy, run } = useAction();
+  const { run } = useAction();
   const toast = useToast();
   const queue = useOfflineQueue(() => today.reload());
   const [saving, setSaving] = useState(false);

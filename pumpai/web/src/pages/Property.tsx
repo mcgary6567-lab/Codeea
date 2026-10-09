@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Building2, Plus, Home, Store, Wallet, Pencil } from "lucide-react";
+import { Building2, Plus, Home, Wallet, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
-import { pkr, pkrShort, d } from "../lib/format";
+import { pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { AccountPicker } from "../components/BankParts";
 

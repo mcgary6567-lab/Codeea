@@ -166,7 +166,6 @@ const NAV = [
 export default function Layout() {
   const { user, tenant, logout, can } = useAuth();
   const nav = useNavigate();
-  const loc = useLocation();
   const [open, setOpen] = useState(false);
   const brand = useBranding();
   const { canInstall, install } = useInstallPrompt();

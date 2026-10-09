@@ -8,18 +8,16 @@
  */
 import { BRAND_CSS, brandHead, brandFoot } from "../brandPrint.js";
 import { Router } from "express";
-import { logoTag } from "./setup.js";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { pinLink } from "./pinPortal.js";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm, scopedStation } from "../auth.js";
 import { AppError, round2, pkr, khataEntry, paymentLink, upsertCustomerByPhone } from "../services.js";
-import { config, PRODUCTS } from "../config.js";
+import { config } from "../config.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { notify, staff } from "../notifications.js";
 import { khataStatement } from "./crm.js";
-import { billLink } from "../billing.js";
 import { lookups, institutionTypes } from "./lookups.js";
 
 export const care = Router();

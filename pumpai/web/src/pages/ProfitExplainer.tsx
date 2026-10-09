@@ -68,6 +68,8 @@ export default function ProfitExplainer() {
 
         <Row id="gross" sign="=" label="Gross profit" ur="مجموعی منافع" amount={p.gross_profit} tone={p.gross_profit >= 0 ? "green" : "red"} />
 
+        {p.other_income > 0 && <Row id="other" sign="+" label="Other income (rent, carriage)" ur="دیگر آمدن" amount={p.other_income} tone="green" detail={<p className="text-slate-600">Dukaan ka kiraya + carriage/kiraya income (fuel ke ilawa).</p>} />}
+
         <Row id="exp" sign="−" label="Expenses" ur="اخراجات" amount={p.expenses.total} tone="red" detail={detailTable(
           (p.expenses.by_category ?? []).length
             ? (p.expenses.by_category as any[]).map((c) => line(c.category, pkr(c.amount)))
@@ -79,9 +81,9 @@ export default function ProfitExplainer() {
       {/* plain formula */}
       <div className="card mt-4 p-4 text-sm text-slate-600">
         <div className="mb-1 font-semibold text-slate-800">Formula (seedhi baat)</div>
-        <p>Net profit = <b>Total income</b> − <b>Cost of fuel</b> − <b>Cost of shop</b> (± stock dip) − <b>Expenses</b>.</p>
+        <p>Net profit = <b>Total income</b> − <b>Cost of fuel</b> − <b>Cost of shop</b> (± stock dip) <b>+ Other income</b> (rent, carriage) − <b>Expenses</b>.</p>
         <p className="mt-1">Fuel ki cost = har product ki <b>pichhle 120 din ki average purchase rate</b> × us mahine bike litres. Is liye munafa sahi aane ke liye <b>har tanker par purchase rate theek daalna</b> zaroori hai — warna us fuel ka cost "—" aata hai.</p>
-        <p className="mt-1 text-xs text-slate-500">Wholesale aur bypass ka munafa (client rate − hamari cost) in numbers mein shamil hai; carriage/kiraya aur rent alag income hain jo Reports mein milti hain.</p>
+        <p className="mt-1 text-xs text-slate-500">Expenses mein manual kharche + <b>bank card fee (MDR 1.8%)</b> + bank charges + staff bonus sab shaamil hain (ledger se). Wholesale/bypass ka munafa income mein pehle se hai.</p>
       </div>
     </div>
   );
