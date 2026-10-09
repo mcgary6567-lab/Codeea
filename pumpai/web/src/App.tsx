@@ -55,7 +55,7 @@ type Auth = {
   user: User | null; tenant: { id: number; name: string } | null; permissions: string[];
   can: (perm: string) => boolean; login: (token: string) => Promise<void>; logout: () => void; refresh: () => Promise<void>;
 };
-export const ROLE_LABEL: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale Officer", cashier: "Cashier" };
+export const ROLE_LABEL: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale Officer", cashier: "Cashier", staff: "Staff (no login)" };
 const AuthCtx = createContext<Auth>(null as unknown as Auth);
 export const useAuth = () => useContext(AuthCtx);
 

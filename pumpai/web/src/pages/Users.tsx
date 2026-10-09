@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound, Banknote, LogOut } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound, Banknote, LogOut, HardHat, UserCog } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction, useToast } from "../components/ui";
 import { useAuth, ROLE_LABEL } from "../App";
@@ -11,7 +11,10 @@ const ROLE_INFO: Record<string, { icon: any; tone: string; text: string }> = {
   salesman: { icon: Fuel, tone: "green", text: "Works at one station: records sales on the POS, opens/closes their own shift, looks up customers and sees prices." },
   wholesale: { icon: Container, tone: "amber", text: "Separate access to the wholesale module only: clients, fuel supplies and returns, payments received, dues and statements. Rates are set by the admin." },
   cashier: { icon: Banknote, tone: "green", text: "The cash counter: money received and paid with vouchers, cheques (received & issued), cash from the salesmen, bank deposits, cash count and day book." },
+  staff: { icon: HardHat, tone: "slate", text: "Staff who do not log in (guard, cleaner, electrician…). They are only for payroll, attendance and advances." },
 };
+/** Role info with a safe fallback, so a role the app doesn't know about never crashes the page. */
+const roleInfo = (r: string) => ROLE_INFO[r] ?? { icon: UserCog, tone: "slate", text: "" };
 
 /** Human-readable names for the permission matrix. */
 const PERM_LABEL: Record<string, string> = {
@@ -25,7 +28,8 @@ const PERM_LABEL: Record<string, string> = {
   "wholesale.rates": "Wholesale: set client rates & credit limits", "wholesale.void": "Wholesale: void wrong entries",
   "reports.view": "Reports (all periods)", "suppliers.manage": "Suppliers & payments to depots",
   "expenses.view": "Expenses: view & reports", "expenses.create": "Expenses: add", "expenses.approve": "Expenses: approve, budgets & categories",
-  "audit.view": "Audit log (who changed what)", "shifts.expenses": "Expenses from shift cash",
+  "audit.view": "Audit log (who changed what)", "shifts.expenses": "Expenses from shift cash", "staff.manage": "Staff: advances, salary, shortages",
+  "carriage.view": "Carriage / kiraya: view", "carriage.manage": "Carriage / kiraya: bill & payments", "carriage.void": "Carriage: void wrong entries", "photos.delete": "Delete uploaded photos (CEO)",
   "bank.view": "Banks: see balances & statements", "bank.manage": "Banks: add accounts, cash out, transfers",
   "cashier.desk": "Cashier desk & day book", "cash.book": "Cash book: count cash, bank deposits", "cash.receive": "Cashier: receive payments (vouchers)",
   "cash.pay": "Cashier: pay suppliers, expenses, staff advances", "cheques.manage": "Cheque register: deposit, clear, bounce", "shifts.handover": "Take cash from salesmen after the shift",
@@ -62,11 +66,11 @@ export default function Users() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         {data.roles.map((r: string) => {
-          const I = ROLE_INFO[r].icon;
+          const I = roleInfo(r).icon;
           return (
             <div key={r} className="card min-w-0 p-4">
-              <div className="flex flex-wrap items-center gap-2"><I size={18} className="text-slate-600" /><span className="font-semibold">{ROLE_LABEL[r]}</span><Badge tone={ROLE_INFO[r].tone}>{counts[r] ?? 0} {(counts[r] ?? 0) === 1 ? "user" : "users"}</Badge></div>
-              <p className="mt-2 text-sm text-slate-600">{ROLE_INFO[r].text}</p>
+              <div className="flex flex-wrap items-center gap-2"><I size={18} className="text-slate-600" /><span className="font-semibold">{ROLE_LABEL[r]}</span><Badge tone={roleInfo(r).tone}>{counts[r] ?? 0} {(counts[r] ?? 0) === 1 ? "user" : "users"}</Badge></div>
+              <p className="mt-2 text-sm text-slate-600">{roleInfo(r).text}</p>
               {r !== "admin" && <a href={`#rights-${r}`} onClick={() => setTimeout(() => window.dispatchEvent(new CustomEvent("pumpai:role", { detail: r })), 0)} className="mt-1 inline-flex min-h-9 items-center text-sm font-medium text-brand-700 underline">Manage {ROLE_LABEL[r]} access →</a>}
             </div>
           );
@@ -79,7 +83,7 @@ export default function Users() {
           <li key={u.id} className={`px-4 py-3 ${u.active ? "" : "opacity-60"}`}>
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0 font-semibold">{u.name} {u.id === me?.id && <span className="text-xs font-normal text-slate-400">(you)</span>}</span>
-              <span className="shrink-0"><Badge tone={ROLE_INFO[u.role]?.tone}>{ROLE_LABEL[u.role]}</Badge></span>
+              <span className="shrink-0"><Badge tone={roleInfo(u.role).tone}>{ROLE_LABEL[u.role]}</Badge></span>
             </div>
             <div className="break-all text-xs text-slate-500">{u.email}{(u as any).phone && ` · +${(u as any).phone}`}</div>
             <div className="text-xs text-slate-500">{u.station_name ?? "All stations"} · added {ago(u.created_at)}</div>
@@ -104,7 +108,7 @@ export default function Users() {
               <tr key={u.id} className={u.active ? "" : "opacity-60"}>
                 <td className="td font-medium">{u.name} {u.id === me?.id && <span className="text-xs text-slate-400">(you)</span>}</td>
                 <td className="td text-sm text-slate-600">{u.email}{(u as any).phone && <div className="text-xs text-slate-400">+{(u as any).phone}</div>}</td>
-                <td className="td"><Badge tone={ROLE_INFO[u.role]?.tone}>{ROLE_LABEL[u.role]}</Badge></td>
+                <td className="td"><Badge tone={roleInfo(u.role).tone}>{ROLE_LABEL[u.role]}</Badge></td>
                 <td className="td text-sm">{u.station_name ?? <span className="text-slate-400">All stations</span>}</td>
                 <td className="td">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>} {u.has_pin ? <Badge tone="blue">PIN set</Badge> : null} {u.pin_locked_until ? <Badge tone="red">🔒 Locked — wrong PINs</Badge> : null}</td>
                 <td className="td text-xs text-slate-500">{ago(u.created_at)}</td>
@@ -170,7 +174,7 @@ export function UserForm({ initial, stations, onClose, onSaved }: { initial: Par
         <Field label="Role">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {["admin", "manager", "salesman", "wholesale", "cashier"].map((r) => {
-              const I = ROLE_INFO[r].icon;
+              const I = roleInfo(r).icon;
               return (
                 <button type="button" key={r} onClick={() => setF({ ...f, role: r })}
                   className={`rounded-lg border-2 p-2 text-left text-sm ${f.role === r ? "border-brand-600 bg-emerald-50" : "border-slate-200"}`}>
@@ -180,7 +184,7 @@ export function UserForm({ initial, stations, onClose, onSaved }: { initial: Par
             })}
           </div>
         </Field>
-        <p className="text-xs text-slate-500">{ROLE_INFO[f.role].text}</p>
+        <p className="text-xs text-slate-500">{roleInfo(f.role).text}</p>
         <Field label={f.role === "salesman" ? "Station (required)" : "Station (optional)"}>
           <select className="input" value={f.station_id} required={f.role === "salesman"} onChange={(e) => setF({ ...f, station_id: e.target.value })}>
             {f.role !== "salesman" && <option value="">All stations</option>}
