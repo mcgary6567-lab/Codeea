@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Search, Truck, Send, ArrowLeft, Ban, HandCoins, Download, Printer } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { Badge, CnicInput, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, useAction } from "../components/ui";
 import { PRODUCTS, activeProducts, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
@@ -180,11 +180,11 @@ function ThekedarForm({ initial, onClose, onSaved }: { initial?: any; onClose: (
       }}>
         <Field label="Name · نام *"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Phone (WhatsApp)"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="923…" /></Field>
+          <Field label="Phone (WhatsApp)"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} placeholder="923…" /></Field>
           <Field label="City"><input className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="CNIC"><input className="input" value={f.cnic} onChange={(e) => setF({ ...f, cnic: e.target.value })} /></Field>
+          <Field label="CNIC"><CnicInput value={f.cnic} onChange={(v) => setF({ ...f, cnic: v })} /></Field>
           {!initial && <Field label="Opening balance (baqaya)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} placeholder="0" /></Field>}
         </div>
         <Field label="Address"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>

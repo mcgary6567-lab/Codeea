@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound, Banknote, LogOut, HardHat, UserCog } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Field, Loading, Modal, PageHeader, useAction, useToast } from "../components/ui";
+import { Badge, Field, Loading, Modal, PageHeader, PhoneInput, useAction, useToast } from "../components/ui";
 import { useAuth, ROLE_LABEL } from "../App";
 import { ago } from "../lib/format";
 
@@ -169,7 +169,7 @@ export function UserForm({ initial, stations, onClose, onSaved }: { initial: Par
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Full name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Email (used to sign in)"><input className="input" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-          <div className="sm:col-span-2"><Field label="WhatsApp number (price-change & shift alerts)"><input className="input" placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field></div>
+          <div className="sm:col-span-2"><Field label="WhatsApp number (price-change & shift alerts)"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field></div>
         </div>
         <Field label="Role">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

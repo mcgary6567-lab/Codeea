@@ -100,7 +100,7 @@ function SellCoupons({ onClose, onDone }: { onClose: () => void; onDone: () => v
         if (r) { onDone(); location.assign(`/coupons/${(r as any).batch}`); }
       }}>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="How many coupons"><input className="input" type="number" min={1} max={500} required value={f.count} onChange={(e) => setF({ ...f, count: e.target.value })} /></Field>
+          <Field label="How many coupons"><input className="input" type="number" min={1} max={500} step={1} required value={f.count} onChange={(e) => setF({ ...f, count: e.target.value })} /></Field>
           <Field label="Value of each (Rs)">
             <div className="flex gap-1">{[500, 1000, 2000, 5000].map((v) => <button type="button" key={v} onClick={() => setF({ ...f, value: String(v) })} className={`flex-1 rounded-lg py-2 text-sm ${f.value === String(v) ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{v.toLocaleString()}</button>)}</div>
           </Field>

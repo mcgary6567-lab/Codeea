@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useState, type ReactNode, type InputHTMLAttributes } from "react";
 import { PrintFooter, PrintHeader } from "./Letterhead";
 import { createPortal } from "react-dom";
 import { X, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
@@ -63,6 +63,27 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
 export const Field = ({ label, children }: { label: string; children: ReactNode }) => (
   <label className="block"><span className="label">{label}</span>{children}</label>
 );
+
+/** A phone box that only takes digits (+ a leading country code), so letters/junk can never be typed. Pakistani format. */
+export const PhoneInput = ({ value, onChange, required, placeholder, className, ...rest }: {
+  value: string | null | undefined; onChange: (v: string) => void; required?: boolean; placeholder?: string; className?: string;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) => (
+  <input {...rest} type="tel" inputMode="tel" autoComplete="tel" className={className ?? "input"} required={required}
+    placeholder={placeholder ?? "03xx xxxxxxx"} value={value ?? ""} maxLength={18}
+    onChange={(e) => onChange(e.target.value.replace(/[^\d+\s-]/g, ""))} />
+);
+
+/** A CNIC box that only takes the 13 digits and auto-formats them as xxxxx-xxxxxxx-x. */
+export const CnicInput = ({ value, onChange, required, className, ...rest }: {
+  value: string | null | undefined; onChange: (v: string) => void; required?: boolean; className?: string;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) => {
+  const fmt = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 13);
+    return [d.slice(0, 5), d.slice(5, 12), d.slice(12, 13)].filter((x) => x).join("-");
+  };
+  return <input {...rest} inputMode="numeric" className={className ?? "input"} required={required}
+    placeholder="xxxxx-xxxxxxx-x" value={value ?? ""} maxLength={15} onChange={(e) => onChange(fmt(e.target.value))} />;
+};
 
 export const Spinner = () => <Loader2 className="animate-spin text-slate-400" size={20} />;
 export const Loading = () => <div className="flex h-40 items-center justify-center"><Spinner /></div>;

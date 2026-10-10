@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wrench, Plus, AlertTriangle, CheckCircle2, Clock, ShieldCheck } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
 import { pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { labelMap } from "../lib/lookups";
@@ -103,10 +103,10 @@ function MachineForm({ m, stations, types, onClose, onSaved }: { m: any; station
           <Field label="Installed on"><input className="input" type="date" value={f.installed_on} onChange={set("installed_on")} /></Field>
           <Field label="Price paid (Rs)"><input className="input" type="number" min={0} value={f.cost} onChange={set("cost")} /></Field>
           <Field label="Mechanic / company"><input className="input" value={f.vendor} onChange={set("vendor")} /></Field>
-          <Field label="Mechanic phone"><input className="input" value={f.vendor_phone} onChange={set("vendor_phone")} /></Field>
+          <Field label="Mechanic phone"><PhoneInput value={f.vendor_phone} onChange={(v) => setF((p: any) => ({ ...p, vendor_phone: v }))} /></Field>
           <Field label="Warranty till"><input className="input" type="date" value={f.warranty_until} onChange={set("warranty_until")} /></Field>
-          <Field label="Service every (days)"><input className="input" type="number" min={1} placeholder="90" value={f.service_every_days} onChange={set("service_every_days")} /></Field>
-          <Field label="…or every (running hours)"><input className="input" type="number" min={1} placeholder="250 for a generator" value={f.service_every_hours} onChange={set("service_every_hours")} /></Field>
+          <Field label="Service every (days)"><input className="input" type="number" min={1} step={1} placeholder="90" value={f.service_every_days} onChange={set("service_every_days")} /></Field>
+          <Field label="…or every (running hours)"><input className="input" type="number" min={1} step={1} placeholder="250 for a generator" value={f.service_every_hours} onChange={set("service_every_hours")} /></Field>
           <Field label="Last service on"><input className="input" type="date" value={f.last_service_on} onChange={set("last_service_on")} /></Field>
           {(f.type === "generator" || f.service_every_hours) && <Field label="Hours meter now"><input className="input" type="number" min={0} value={f.hours} onChange={set("hours")} /></Field>}
           {m.id && <Field label="Status"><select className="input" value={f.status} onChange={set("status")}>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field>}

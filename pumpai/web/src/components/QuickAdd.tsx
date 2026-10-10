@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Trash2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Field, Modal, useAction } from "./ui";
+import { Field, Modal, PhoneInput, useAction } from "./ui";
 import { useAuth } from "../App";
 import { useLookups } from "../lib/lookups";
 import { ClientForm } from "../pages/Wholesale";
@@ -127,7 +127,7 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label={["police", "school", "government", "hospital"].includes(f.type) ? "Name (e.g. Police Station Shadbagh)" : "Name"}><input className="input" required minLength={2} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-          <Field label="Phone / WhatsApp (contact person)"><input className="input" required placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="Phone / WhatsApp (contact person)"><PhoneInput required value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
           <Field label="City / area"><input className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
         </div>
         {canCredit ? (
@@ -165,7 +165,7 @@ export function SupplierForm({ onClose, onSaved }: { onClose: () => void; onSave
       if (r) onSaved(r);
     }}>
       <Field label="Name (e.g. PSO Machike Depot)"><input className="input" required minLength={2} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-      <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+      <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
       <Field label="Opening balance we owe (Rs)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
       <Field label="Notes"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
     </SimpleModal>

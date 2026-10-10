@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, useAction } from "../components/ui";
 import { useLookups } from "../lib/lookups";
 
 // booking services come from Settings → Lists
@@ -55,7 +55,7 @@ function BookingForm({ onClose, onDone }: { onClose: () => void; onDone: () => v
       }}>
         <div className="grid grid-cols-2 gap-2">{svc.list.map((o) => <button type="button" key={o.key} onClick={() => setF({ ...f, service: o.key })} className={`rounded-xl border-2 p-3 text-left font-medium ${f.service === o.key ? "border-brand-600 bg-emerald-50" : "border-slate-200"}`}>{o.extra.icon ? o.extra.icon + " " : ""}{o.label}</button>)}</div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Customer WhatsApp"><input className="input" required placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="Customer WhatsApp"><PhoneInput required value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
           <Field label="Name"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Day"><input className="input" type="date" required value={f.day} onChange={(e) => setF({ ...f, day: e.target.value })} /></Field>
           <Field label="Time"><input className="input" type="time" required value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field>

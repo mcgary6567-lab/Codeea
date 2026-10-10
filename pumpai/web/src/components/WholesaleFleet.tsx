@@ -3,7 +3,7 @@ import { Plus, Printer, Trash2, Truck, UserRound, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "./Capture";
 import { challanPages, printPages, tripSheetPage } from "./TripPrint";
-import { Badge, Empty, Field, Loading, Modal, useAction } from "./ui";
+import { Badge, CnicInput, Empty, Field, Loading, Modal, PhoneInput, useAction } from "./ui";
 import { supplierOpts } from "./SupplierSelect";
 import { BypassDeliveryForm } from "../pages/Bypass";
 import { PRODUCTS, d, dt, num, phone, pkr } from "../lib/format";
@@ -427,7 +427,7 @@ function TankerForm({ initial, drivers, onClose, onSaved }: { initial: any; driv
         <Field label="Chambers · خانے"><input className="input" type="number" min={1} max={10} value={f.chambers} onChange={(e) => setF({ ...f, chambers: e.target.value })} /></Field>
         <Field label="Ownership · ملکیت"><select className="input" value={f.ownership} onChange={(e) => setF({ ...f, ownership: e.target.value })}><option value="own">Our own · اپنا</option><option value="hired">Hired · کرائے کا</option></select></Field>
         {f.ownership === "hired" && <><Field label="Owner name · مالک کا نام"><input className="input" value={f.owner_name} onChange={(e) => setF({ ...f, owner_name: e.target.value })} /></Field>
-          <Field label="Owner phone · مالک کا فون"><input className="input" value={f.owner_phone} onChange={(e) => setF({ ...f, owner_phone: e.target.value })} /></Field></>}
+          <Field label="Owner phone · مالک کا فون"><PhoneInput value={f.owner_phone} onChange={(v) => setF({ ...f, owner_phone: v })} /></Field></>}
         <Field label="Usual driver · ڈرائیور"><select className="input" value={f.driver_id} onChange={(e) => setF({ ...f, driver_id: e.target.value })}><option value="">—</option>{drivers.filter((x) => x.active).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
         <Field label="Notes · نوٹ"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         {initial.id && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> In use</label>}
@@ -449,8 +449,8 @@ function DriverForm({ initial, onClose, onSaved }: { initial: any; onClose: () =
         if (await run(() => initial.id ? api(`/wholesale/drivers/${initial.id}`, { method: "PATCH", body }) : api("/wholesale/drivers", { body }), "Driver saved")) onSaved();
       }}>
         <Field label="Name · نام *"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-        <Field label="Mobile · موبائل"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="03xx xxxxxxx" /></Field>
-        <Field label="CNIC · شناختی کارڈ"><input className="input" value={f.cnic} onChange={(e) => setF({ ...f, cnic: e.target.value })} placeholder="35202-1234567-1" /></Field>
+        <Field label="Mobile · موبائل"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
+        <Field label="CNIC · شناختی کارڈ"><CnicInput value={f.cnic} onChange={(v) => setF({ ...f, cnic: v })} /></Field>
         <Field label="Licence no. · لائسنس نمبر"><input className="input" value={f.licence_no} onChange={(e) => setF({ ...f, licence_no: e.target.value })} /></Field>
         <Field label="Licence valid till · لائسنس کی میعاد"><input className="input" type="date" value={f.licence_expiry} onChange={(e) => setF({ ...f, licence_expiry: e.target.value })} /></Field>
         <Field label="Address · پتہ"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>

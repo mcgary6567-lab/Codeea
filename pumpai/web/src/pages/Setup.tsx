@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2, Upload, Building2, UserCog, Tag, ClipboardCheck, Gauge, MapPin, Palette, Sparkles, Cylinder } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../App";
-import { ErrorBox, Loading } from "../components/ui";
+import { ErrorBox, Loading, PhoneInput } from "../components/ui";
 import { applyBrand, loadBranding, useBranding } from "../lib/brand";
 
 const FUELS: Record<string, string> = { PMG: "Petrol", HOBC: "Hi-Octane", HSD: "Diesel" };
@@ -191,7 +191,7 @@ export default function Setup() {
             <F label="Pump / business name *"><input className="input py-3 text-lg" placeholder="e.g. Al-Madina Petroleum" value={biz.name} onChange={(e) => setBiz({ ...biz, name: e.target.value })} autoFocus /></F>
             <Grid>
               <F label="Owner name *"><input className="input" value={biz.owner_name} onChange={(e) => setBiz({ ...biz, owner_name: e.target.value })} /></F>
-              <F label="Owner WhatsApp *"><input className="input" inputMode="tel" placeholder="03xx xxxxxxx" value={biz.owner_phone} onChange={(e) => setBiz({ ...biz, owner_phone: e.target.value })} /></F>
+              <F label="Owner WhatsApp *"><PhoneInput value={biz.owner_phone} onChange={(v) => setBiz({ ...biz, owner_phone: v })} /></F>
               <F label="City"><input className="input" value={biz.biz_city} onChange={(e) => setBiz({ ...biz, biz_city: e.target.value })} /></F>
               <F label="Oil company (OMC)"><select className="input" value={biz.omc} onChange={(e) => setBiz({ ...biz, omc: e.target.value })}>{OMCS.map((o) => <option key={o}>{o}</option>)}</select></F>
             </Grid>
@@ -206,7 +206,7 @@ export default function Setup() {
               <F label="Password * (8+ characters)"><input className="input" type="password" autoComplete="new-password" value={admin.password} onChange={(e) => setAdmin({ ...admin, password: e.target.value })} /></F>
               <F label="Password again *"><input className="input" type="password" autoComplete="new-password" value={admin.confirm} onChange={(e) => setAdmin({ ...admin, confirm: e.target.value })} /></F>
               <F label="4-digit PIN for the pump tablet (optional)"><input className="input" inputMode="numeric" maxLength={4} value={admin.pin} onChange={(e) => setAdmin({ ...admin, pin: e.target.value.replace(/\D/g, "") })} /></F>
-              <F label="Your WhatsApp (for alerts and approvals)"><input className="input" inputMode="tel" placeholder={biz.owner_phone} value={admin.phone} onChange={(e) => setAdmin({ ...admin, phone: e.target.value })} /></F>
+              <F label="Your WhatsApp (for alerts and approvals)"><PhoneInput placeholder={biz.owner_phone} value={admin.phone} onChange={(v) => setAdmin({ ...admin, phone: v })} /></F>
             </Grid>
           </>}
 
@@ -304,7 +304,7 @@ export default function Setup() {
               </div>
             </div>
             <Grid>
-              <F label="Office / pump phone"><input className="input" inputMode="tel" value={biz.biz_phone} onChange={(e) => setBiz({ ...biz, biz_phone: e.target.value })} /></F>
+              <F label="Office / pump phone"><PhoneInput value={biz.biz_phone} onChange={(v) => setBiz({ ...biz, biz_phone: v })} /></F>
               <F label="Email"><input className="input" type="email" value={biz.biz_email} onChange={(e) => setBiz({ ...biz, biz_email: e.target.value })} /></F>
               <F label="Address"><input className="input" value={biz.biz_address} onChange={(e) => setBiz({ ...biz, biz_address: e.target.value })} /></F>
               <F label="Website"><input className="input" value={biz.website} onChange={(e) => setBiz({ ...biz, website: e.target.value })} /></F>

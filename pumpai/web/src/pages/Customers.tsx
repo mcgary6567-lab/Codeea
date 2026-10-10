@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Search, MessageCircle, Wallet, BellRing, Car, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
+import { Badge, CnicInput, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, Stat, statusTone, useAction } from "../components/ui";
 import { ago, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { useLookups } from "../lib/lookups";
@@ -124,7 +124,7 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
     <Modal open={open} onClose={onClose} title={initial ? "Edit customer" : "Add customer"}>
       <form onSubmit={save} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-        <Field label="WhatsApp number"><input className="input" required placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+        <Field label="WhatsApp number"><PhoneInput required value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
         <Field label="Type"><select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
           {types.list.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}</select></Field>
         <Field label="City"><input className="input" value={f.city ?? ""} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
@@ -328,8 +328,8 @@ function GuaranteeSection({ customerId, canEdit }: { customerId: number; canEdit
               <input className="input" type="date" value={f.cheque_date ?? ""} onChange={(e) => setF({ ...f, cheque_date: e.target.value })} />
             </> : <>
               <input className="input" placeholder="Guarantor name" value={f.guarantor_name ?? ""} onChange={(e) => setF({ ...f, guarantor_name: e.target.value })} />
-              <input className="input" placeholder="Phone" value={f.guarantor_phone ?? ""} onChange={(e) => setF({ ...f, guarantor_phone: e.target.value })} />
-              <input className="input col-span-2" placeholder="CNIC" value={f.guarantor_cnic ?? ""} onChange={(e) => setF({ ...f, guarantor_cnic: e.target.value })} />
+              <PhoneInput placeholder="Phone" value={f.guarantor_phone} onChange={(v) => setF({ ...f, guarantor_phone: v })} />
+              <CnicInput className="input col-span-2" value={f.guarantor_cnic} onChange={(v) => setF({ ...f, guarantor_cnic: v })} />
             </>}
             <input className="input col-span-2" placeholder="Note (optional)" value={f.note ?? ""} onChange={(e) => setF({ ...f, note: e.target.value })} />
           </div>

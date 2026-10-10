@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, Upload, KeyRound, Info } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Field, Loading, useAction } from "./ui";
+import { Field, Loading, PhoneInput, useAction } from "./ui";
 import { squareLogo } from "../pages/Setup";
 import { applyBrand, loadBranding } from "../lib/brand";
 import { SOCIALS, SOCIAL_KEYS } from "../lib/social";
@@ -42,8 +42,8 @@ export function BusinessProfile() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Business name"><input className="input" value={f.name ?? ""} onChange={set("name")} /></Field>
         <Field label="Owner name"><input className="input" value={f.owner_name ?? ""} onChange={set("owner_name")} /></Field>
-        <Field label="Owner WhatsApp (alerts, approvals, daily brief)"><input className="input" value={f.owner_phone ?? ""} onChange={set("owner_phone")} /></Field>
-        <Field label="Office / pump phone"><input className="input" value={f.biz_phone ?? ""} onChange={set("biz_phone")} /></Field>
+        <Field label="Owner WhatsApp (alerts, approvals, daily brief)"><PhoneInput value={f.owner_phone} onChange={(v) => setF({ ...f, owner_phone: v })} /></Field>
+        <Field label="Office / pump phone"><PhoneInput value={f.biz_phone} onChange={(v) => setF({ ...f, biz_phone: v })} /></Field>
         <Field label="Email"><input className="input" type="email" value={f.biz_email ?? ""} onChange={set("biz_email")} /></Field>
         <Field label="Website"><input className="input" value={f.website ?? ""} onChange={set("website")} /></Field>
         <Field label="Address"><input className="input" value={f.biz_address ?? ""} onChange={set("biz_address")} /></Field>

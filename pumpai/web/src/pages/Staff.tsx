@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wallet, Plus, Minus, Banknote, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
 import { PhotoThumb, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { DAY_STATUS, LeaveForm } from "./MyAccount";
@@ -233,7 +233,7 @@ function AddStaffMember({ stations, onClose, onSaved }: { stations: any[]; onClo
           <Field label="Job / designation"><select className="input" value={f.job_title} onChange={(e) => setF({ ...f, job_title: e.target.value })}>{jobs.list.map((j) => <option key={j.key}>{j.label}</option>)}<option>Other</option></select></Field>
           {f.job_title === "Other" && <Field label="Write the job"><input className="input" value={f.custom} onChange={(e) => setF({ ...f, custom: e.target.value })} /></Field>}
           <Field label="Monthly salary (Rs)"><input className="input" type="number" min={0} value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} /></Field>
-          <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
           <Field label="Duty time (optional)"><input className="input" type="time" value={f.duty_start} onChange={(e) => setF({ ...f, duty_start: e.target.value })} /></Field>
           <Field label="Weekly off (optional)"><select className="input" value={f.weekly_off} onChange={(e) => setF({ ...f, weekly_off: e.target.value })}><option value="">None</option>{WEEK.map((d, i) => <option key={i} value={i}>{d}</option>)}</select></Field>
           {stations.length > 1 && <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}><option value="">All</option>{stations.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}</select></Field>}
@@ -335,7 +335,7 @@ function EditStaffMember({ u, onClose, onSaved }: { u: any; onClose: () => void;
           <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Job / designation"><select className="input" value={f.job_title} onChange={(e) => setF({ ...f, job_title: e.target.value })}>{jobs.list.map((j) => <option key={j.key}>{j.label}</option>)}<option>Other</option></select></Field>
           {f.job_title === "Other" && <Field label="Write the job"><input className="input" value={f.custom} onChange={(e) => setF({ ...f, custom: e.target.value })} /></Field>}
-          <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
           {(stations.data?.length ?? 0) > 1 && <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}><option value="">All</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>}
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Active (uncheck to remove from payroll / attendance)</label>

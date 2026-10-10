@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Building2, Plus, Home, Wallet, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
 import { pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { AccountPicker } from "../components/BankParts";
@@ -113,7 +113,7 @@ function UnitForm({ initial, onClose, onSaved }: { initial: any; onClose: () => 
           <Field label="Name (e.g. Shop 1, Hotel)"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Type"><select className="input" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
           <Field label="Rented to (name)"><input className="input" value={f.tenant_name} onChange={(e) => setF({ ...f, tenant_name: e.target.value })} /></Field>
-          <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
           <Field label="Rent per month (Rs)"><input className="input" type="number" min={0} required value={f.monthly_rent} onChange={(e) => setF({ ...f, monthly_rent: e.target.value })} /></Field>
           <Field label="Security deposit (Rs)"><input className="input" type="number" min={0} value={f.deposit} onChange={(e) => setF({ ...f, deposit: e.target.value })} /></Field>
         </div>

@@ -4,7 +4,7 @@ import { VoucherSlip } from "./Cashier";
 import { api, linkToken, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
 import { Ur } from "../components/VoiceShell";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 
@@ -97,7 +97,7 @@ function DepotForm({ initial, onClose, onSaved }: { initial?: any; onClose: () =
           <Field label="Address"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
           <Field label="City"><input className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
         </div>
-        <Field label="Depot phone (optional)"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+        <Field label="Depot phone (optional)"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
         <Field label="Notes (optional)"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         <p className="text-xs text-slate-500">Depot sirf header hai — andar company aur banda (jaise Shell — Kamran) alag add karein, khata unhi par chalega.</p>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.name}>Save</button></div>
@@ -147,7 +147,7 @@ function SupplierForm({ initial, depots, onClose, onSaved, onDepots }: { initial
           <Field label="Person's name (e.g. Kamran)"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         </div>
         {(f.company === "Other" || (!knownCompany && f.company !== "")) && <Field label="Write the company"><input className="input" value={f.company === "Other" ? f.companyOther : f.company} onChange={(e) => setF({ ...f, company: "Other", companyOther: e.target.value })} /></Field>}
-        <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+        <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
         {!initial && <Field label="Opening balance we owe (Rs)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>}
         <Field label="Notes (optional)"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         <div className="flex items-center justify-end gap-2">

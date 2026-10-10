@@ -47,7 +47,7 @@ export function FixedCosts({ categories, stations, onClose }: { categories: any[
             <Field label="Category"><select className="input" value={r.category} onChange={(e) => setR({ ...r, category: e.target.value })}>{categories.map((c) => <option key={c.id}>{c.name}</option>)}</select></Field>
             <Field label="Amount (Rs)"><input className="input" type="number" min={1} required value={r.amount} onChange={(e) => setR({ ...r, amount: e.target.value })} /></Field>
             <Field label="Paid to"><input className="input" value={r.paid_to} onChange={(e) => setR({ ...r, paid_to: e.target.value })} /></Field>
-            <Field label="Day of month"><input className="input" type="number" min={1} max={31} value={r.day_of_month} onChange={(e) => setR({ ...r, day_of_month: e.target.value })} /></Field>
+            <Field label="Day of month"><input className="input" type="number" min={1} max={31} step={1} value={r.day_of_month} onChange={(e) => setR({ ...r, day_of_month: e.target.value })} /></Field>
             <Field label="Paid by"><select className="input" value={r.method} onChange={(e) => setR({ ...r, method: e.target.value })}>{["bank", "cash", "cheque", "raast", "easypaisa", "jazzcash", "card"].map((m) => <option key={m}>{m}</option>)}</select></Field>
             <Field label="Station"><select className="input" value={r.station_id} onChange={(e) => setR({ ...r, station_id: e.target.value })}><option value="">All</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
             <button className="btn-primary col-span-2" disabled={busy}>Add monthly expense</button>

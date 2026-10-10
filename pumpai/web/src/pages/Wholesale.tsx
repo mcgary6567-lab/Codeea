@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send, Receipt } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { WholesaleDashboard } from "../components/WholesaleDashboard";
@@ -279,7 +279,7 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Contact / client name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Business name"><input className="input" value={f.business_name} onChange={(e) => setF({ ...f, business_name: e.target.value })} /></Field>
-          <Field label="WhatsApp / phone"><input className="input" placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="WhatsApp / phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
           <Field label="City"><input className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
           <div className="sm:col-span-2"><Field label="Address"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field></div>
         </div>
