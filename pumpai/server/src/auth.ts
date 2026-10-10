@@ -33,8 +33,8 @@ export const PERMISSIONS = {
   "shifts.manage": ALL, // salesman: own shifts at own station only
   "shifts.view_all": MGMT,
   "shifts.expenses": ALL, // record expenses paid from the shift's cash (tea, generator fuel...)
-  "customers.view": ALL,
-  "customers.create": ALL,
+  "customers.view": ALL, // salesman only reads khata accounts via the POS picker (/pos/khata-accounts)
+  "customers.create": MGMT, // salesman cannot add customers — only pick existing khata accounts at the POS
   "customers.edit": MGMT,
   "credit.set_limit": ADMIN,
   "khata.manage": MGMT,

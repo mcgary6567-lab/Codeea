@@ -44,7 +44,7 @@ test("/me returns role-specific permissions", async () => {
   assert.equal(a.user.role, "admin");
   assert.ok(a.permissions.includes("users.manage") && a.permissions.includes("settings.manage"));
   assert.ok(m.permissions.includes("whatsapp.inbox") && !m.permissions.includes("users.manage"));
-  assert.deepEqual(s.permissions.sort(), ["customers.create", "customers.view", "prices.view", "sales.create", "sales.view", "shifts.expenses", "shifts.manage"].sort());
+  assert.deepEqual(s.permissions.sort(), ["customers.view", "prices.view", "sales.create", "sales.view", "shifts.expenses", "shifts.manage"].sort());
   assert.ok(s.user.station_name);
 });
 
@@ -90,12 +90,16 @@ test("salesman is locked to their own station and shift", async () => {
   assert.equal((await call("salesman", "POST", `/api/shifts/${mgrShift.id}/close`, { readings: {}, cash_actual: 0 })).status, 403);
 });
 
-test("salesman can add a walk-in customer but not give credit", async () => {
-  assert.equal((await call("salesman", "POST", "/api/customers", { name: "Walk In", phone: "03451112222" })).status, 200);
+test("salesman cannot add or edit customers — only picks existing khata accounts at the POS", async () => {
+  // adding a customer (walk-in or with credit) is blocked — only the manager/CEO adds customers
+  assert.equal((await call("salesman", "POST", "/api/customers", { name: "Walk In", phone: "03451112222" })).status, 403);
   assert.equal((await call("salesman", "POST", "/api/customers", { name: "Credit Try", phone: "03451113333", credit_limit: 50000 })).status, 403);
-  const c = (await call("salesman", "GET", "/api/customers?q=Walk")).data[0];
+  // an existing khata customer: the salesman cannot edit it or touch its khata
+  const c = (await call("admin", "GET", "/api/customers")).data[0];
   assert.equal((await call("salesman", "PATCH", `/api/customers/${c.id}`, { name: "Changed" })).status, 403);
   assert.equal((await call("salesman", "POST", `/api/customers/${c.id}/khata`, { type: "credit", amount: 100 })).status, 403);
+  // but the POS khata picker still lists the existing accounts for the salesman to choose
+  assert.equal((await call("salesman", "GET", "/api/pos/khata-accounts")).status, 200);
 });
 
 test("admin creates, edits, disables and deletes users", async () => {

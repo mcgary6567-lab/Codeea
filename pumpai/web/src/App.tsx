@@ -141,8 +141,8 @@ export default function App() {
               <Route index element={<Home />} />
               <Route path="inbox" element={<Need perm="whatsapp.inbox"><Inbox /></Need>} />
               <Route path="inbox/:id" element={<Need perm="whatsapp.inbox"><Inbox /></Need>} />
-              <Route path="customers" element={<Need perm="customers.view"><Customers /></Need>} />
-              <Route path="customers/:id" element={<Need perm="customers.view"><Customers /></Need>} />
+              <Route path="customers" element={<Need perm="customers.edit"><Customers /></Need>} />
+              <Route path="customers/:id" element={<Need perm="customers.edit"><Customers /></Need>} />
               <Route path="khata" element={<Need perm="khata.manage"><Khata /></Need>} />
               <Route path="orders" element={<Need perm="orders.manage"><Orders /></Need>} />
               <Route path="complaints" element={<Need perm="complaints.manage"><Complaints /></Need>} />

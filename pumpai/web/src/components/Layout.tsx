@@ -127,7 +127,7 @@ const NAV = [
   { to: "/inbox", label: "WhatsApp", icon: MessageCircle, badge: "unread", perm: "whatsapp.inbox" },
   { to: "/pos", label: "Sales / POS", icon: Fuel, perm: "sales.create" },
   { to: "/shifts", label: "Shifts", icon: Clock, perm: "shifts.manage" },
-  { to: "/customers", label: "Customers", icon: Users, perm: "customers.view" },
+  { to: "/customers", label: "Customers", icon: Users, perm: "customers.edit" },
   { to: "/khata", label: "Khata (Credit)", icon: BookOpen, perm: "khata.manage" },
   { to: "/prepaid", label: "Coupons & wallets", icon: Ticket, perm: "khata.manage" },
   { to: "/card-pending", label: "Card pending (khata)", icon: Hourglass, perm: "khata.clear_pending" },
