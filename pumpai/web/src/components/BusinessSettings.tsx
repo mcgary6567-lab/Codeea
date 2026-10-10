@@ -85,7 +85,7 @@ export function Integrations({ ai, provider, wa }: { ai: boolean; provider?: "cl
           {inp("anthropic_key", "Claude API key (paid)", "sk-ant-…", true)}
           {inp("ai_model", "Claude model", "claude-opus-5-5")}
           {inp("gemini_key", "Gemini API key (free)", "AIza…", true)}
-          {inp("gemini_model", "Gemini model", "gemini-2.0-flash")}
+          {inp("gemini_model", "Gemini model", "gemini-flash-latest")}
         </div>
         <button className="btn-primary" disabled={busy} onClick={save}>Save</button>
       </div>

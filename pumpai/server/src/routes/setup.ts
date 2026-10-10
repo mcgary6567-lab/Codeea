@@ -163,7 +163,7 @@ const CFG: Record<string, { set: (v: string) => void; secret?: boolean }> = {
   anthropic_key: { set: (v) => { config.anthropicKey = v; }, secret: true },
   ai_model: { set: (v) => { config.aiModel = v || "claude-opus-5-5"; } },
   gemini_key: { set: (v) => { config.geminiKey = v; }, secret: true },
-  gemini_model: { set: (v) => { config.geminiModel = v || "gemini-2.0-flash"; } },
+  gemini_model: { set: (v) => { config.geminiModel = v || "gemini-flash-latest"; } },
   wa_token: { set: (v) => { config.wa.token = v; }, secret: true },
   wa_phone_number_id: { set: (v) => { config.wa.phoneNumberId = v; } },
   wa_verify_token: { set: (v) => { config.wa.verifyToken = v || "pumpai-verify"; } },

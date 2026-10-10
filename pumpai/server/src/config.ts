@@ -47,7 +47,7 @@ export const config = {
   aiEffort: (process.env.AI_EFFORT ?? "low") as "low" | "medium" | "high",
   // Google Gemini — a free-tier alternative. Used automatically when a Gemini key is set and no Claude key is.
   geminiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
+  geminiModel: process.env.GEMINI_MODEL ?? "gemini-flash-latest",
   // WhatsApp Cloud API (Meta). Without these, outbound messages are stored as "simulated".
   wa: {
     token: process.env.WA_TOKEN ?? "",
