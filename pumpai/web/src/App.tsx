@@ -169,7 +169,7 @@ export default function App() {
               <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />
               <Route path="lists" element={<Need perm="settings.manage"><Lists /></Need>} />
               <Route path="staff" element={<Need perm="staff.manage"><Staff /></Need>} />
-              <Route path="kiosk" element={<Need perm="staff.manage|sales.create"><Kiosk /></Need>} />
+              <Route path="kiosk" element={<Need perm="staff.manage"><Kiosk /></Need>} />
               <Route path="roster" element={<Need perm="staff.manage"><Roster /></Need>} />
               <Route path="my-account" element={<MyAccount />} />
               <Route path="cash" element={<Need perm="expenses.view|cash.book"><Cash /></Need>} />

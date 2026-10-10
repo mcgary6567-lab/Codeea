@@ -150,7 +150,7 @@ const NAV = [
   { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts", perm: "alerts.view" },
   { to: "/automations", label: "AI Automations", icon: Bot, perm: "automations.manage" },
   { to: "/staff", label: "Staff accounts", icon: Wallet, perm: "staff.manage" },
-  { to: "/kiosk", label: "Staff attendance", icon: UserCheck, perm: "staff.manage|sales.create" },
+  { to: "/kiosk", label: "Staff attendance", icon: UserCheck, perm: "staff.manage" },
   { to: "/roster", label: "Duty roster", icon: CalendarClock, perm: "staff.manage" },
   { to: "/team", label: "Ratings & commission", icon: Star, perm: "staff.manage" },
   { to: "/checklist", label: "Daily checks", icon: ClipboardCheck, perm: "sales.create", only: ["salesman"] },
