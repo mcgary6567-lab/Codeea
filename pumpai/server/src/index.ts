@@ -107,10 +107,18 @@ app.get("/manifest.webmanifest", (_req, res) => {
   const t = get("SELECT * FROM tenants ORDER BY id LIMIT 1");
   const logo = t && getSetting(t.id, "logo_photo_id");
   const color = (t && getSetting(t.id, "brand_color")) || "#064e3b";
+  // PNG icons (192 + 512 + maskable) make the app installable on every Android/Chrome; the pump's own logo is added first when set
+  const pngIcons = [
+    { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+  ];
   res.type("application/manifest+json").send(JSON.stringify({
-    name: t?.name ? `${t.name} — PumpAI` : "PumpAI", short_name: t?.name?.slice(0, 12) ?? "PumpAI", start_url: "/", display: "standalone",
+    name: t?.name ? `${t.name} — PumpAI` : "PumpAI", short_name: t?.name?.slice(0, 12) ?? "PumpAI",
+    description: "Petrol pump sales, khata, stock and accounts — works offline.",
+    start_url: "/", scope: "/", display: "standalone", orientation: "portrait",
     background_color: "#ffffff", theme_color: color,
-    icons: logo ? [{ src: "/branding/logo", sizes: "512x512", type: "image/jpeg", purpose: "any" }] : [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
+    icons: logo ? [{ src: "/branding/logo", sizes: "512x512", type: "image/jpeg", purpose: "any" }, ...pngIcons] : pngIcons,
   }));
 });
 app.post("/api/auth/login", h(async (req) => {

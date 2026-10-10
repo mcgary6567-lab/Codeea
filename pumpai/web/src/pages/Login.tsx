@@ -4,7 +4,8 @@ import { Delete, Mail, ArrowLeft } from "lucide-react";
 import { api, getDevice, setDevice } from "../lib/api";
 import { useAuth } from "../App";
 import { ErrorBox } from "../components/ui";
-import { useBranding, useInstallPrompt } from "../lib/brand";
+import { useBranding } from "../lib/brand";
+import { InstallAppButton } from "../components/InstallApp";
 
 const ROLE: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale" };
 const ROLE_TONE: Record<string, string> = { salesman: "bg-emerald-500", manager: "bg-blue-500", wholesale: "bg-violet-500", cashier: "bg-amber-500", admin: "bg-slate-700" };
@@ -14,7 +15,6 @@ export default function Login() {
   const nav = useNavigate();
   const [mode, setMode] = useState<"pin" | "email">(getDevice() ? "pin" : "email");
   const brand = useBranding();
-  const { canInstall, install } = useInstallPrompt();
   if (user) return <Navigate to="/" replace />;
   if (brand?.setup_needed) return <Navigate to="/setup" replace />;
   const done = async (r: any) => { if (r.device_token) setDevice(r.device_token); await login(r.token); nav("/"); };
@@ -25,7 +25,7 @@ export default function Login() {
           {brand?.logo_url ? <img src={brand.logo_url} alt="" className="mx-auto h-20 w-20 rounded-2xl bg-white object-contain p-1.5 shadow" /> : <div className="text-5xl">⛽</div>}
           <h1 className="mt-2 text-2xl font-bold">{brand?.name ?? "PumpAI"}</h1>
           <p className="text-white/80">{brand?.name && brand.name !== "PumpAI" ? "PumpAI — forecourt management & WhatsApp CRM" : "AI WhatsApp CRM & forecourt management"}</p>
-          {canInstall && <button onClick={install} className="mt-3 rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold ring-1 ring-white/40 hover:bg-white/25">⬇ Install app on this device</button>}
+          <div className="mt-3 flex justify-center"><div className="w-56"><InstallAppButton variant="login" /></div></div>
         </div>
         {mode === "pin" ? <PinLogin onDone={done} onEmail={() => setMode("email")} /> : <EmailLogin demo={Boolean(brand?.demo)} onDone={done} onPin={getDevice() ? () => setMode("pin") : undefined} />}
         <p className="mt-4 text-center text-xs text-white/70"><a className="underline" href="/privacy">Privacy</a> · <a className="underline" href="/terms">Terms</a></p>

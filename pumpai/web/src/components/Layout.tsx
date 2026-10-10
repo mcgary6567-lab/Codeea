@@ -10,7 +10,8 @@ import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
 import { NotificationsProvider, NotificationBell } from "./Notifications";
 import { QuickAddButton } from "./QuickAdd";
-import { useBranding, useInstallPrompt } from "../lib/brand";
+import { useBranding } from "../lib/brand";
+import { InstallAppButton } from "./InstallApp";
 
 /** Shortcuts under "Wholesale Supply" in the menu (open the right tab or form). */
 const WHOLESALE_SUB = [
@@ -168,7 +169,6 @@ export default function Layout() {
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
   const brand = useBranding();
-  const { canInstall, install } = useInstallPrompt();
   const counts = useApi<any>(can("dashboard.view") ? "/dashboard" : null, 60_000);
   useLiveEvents(() => counts.reload(), can("whatsapp.inbox"));
   const k = counts.data?.kpis;
@@ -223,7 +223,7 @@ export default function Layout() {
         <div className="font-medium">{user?.name}</div>
         <div className="text-xs text-emerald-200/80">{ROLE_LABEL[user?.role ?? ""]}</div>
         {user?.station_name && <div className="mt-0.5 flex items-center gap-1 text-xs text-emerald-200/80"><MapPin size={11} />{user.station_name}</div>}
-        {canInstall && <button onClick={install} className="mt-3 block text-xs text-emerald-100 underline hover:text-white">⬇ Install app on this device</button>}
+        <div className="mt-3"><InstallAppButton /></div>
         <button onClick={() => { logout(); nav("/login"); }} className="mt-3 flex items-center gap-2 text-xs text-emerald-200 hover:text-white">
           <LogOut size={14} /> Sign out
         </button>
