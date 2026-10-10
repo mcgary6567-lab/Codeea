@@ -30,6 +30,17 @@ export default function Help() {
         <BookOpen size={18} className="shrink-0" /> Har card par <b>▶ Video</b> dekhein, <b>Steps</b> parhein, ya <b>PDF</b> download karein. · <Ur>ہر ماڈیول کی آسان رہنمائی</Ur>
       </div>
 
+      {/* Featured: full salesman training video (Urdu voice) */}
+      <div className="mb-5 overflow-hidden rounded-2xl ring-1 ring-brand-200">
+        <div className="flex items-center justify-between gap-2 bg-brand-900 px-4 py-2.5 text-white">
+          <div className="font-bold">🎬 Salesman Training (Urdu) · <Ur className="text-emerald-100">سیلزمین ٹریننگ</Ur></div>
+          <span className="text-xs text-emerald-100/80">~3 min</span>
+        </div>
+        <video controls playsInline preload="metadata" poster="/help/pos.gif" className="w-full bg-black"
+          src="/help/salesman-training-ur.mp4" style={{ maxHeight: 460 }} />
+        <div className="bg-brand-50 px-4 py-2 text-sm text-brand-900">Poori sale ka tareeqa — login se shift band tak, asaan Urdu mein. · <Ur>آسان اردو میں مکمل رہنمائی</Ur></div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {mods.map((m) => (
           <div key={m.id} id={m.id} className="card flex flex-col overflow-hidden p-0">
