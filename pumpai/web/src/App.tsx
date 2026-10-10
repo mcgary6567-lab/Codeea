@@ -52,6 +52,7 @@ import Suggestions from "./pages/Suggestions";
 import CardPending from "./pages/CardPending";
 import OwnerReport from "./pages/OwnerReport";
 import DiscountReport from "./pages/DiscountReport";
+import OtherEntries from "./pages/OtherEntries";
 import Margins from "./pages/Margins";
 import ProfitExplainer from "./pages/ProfitExplainer";
 import Roster from "./pages/Roster";
@@ -163,6 +164,7 @@ export default function App() {
               <Route path="reports" element={<Need perm="reports.view"><Reports /></Need>} />
               <Route path="owner-report" element={<Need perm="reports.view"><OwnerReport /></Need>} />
               <Route path="discounts-report" element={<Need perm="reports.view"><DiscountReport /></Need>} />
+              <Route path="other-entries" element={<Need perm="other_entries.manage"><OtherEntries /></Need>} />
               <Route path="margins" element={<Need perm="reports.view"><Margins /></Need>} />
               <Route path="profit" element={<Need perm="reports.view"><ProfitExplainer /></Need>} />
               <Route path="help" element={<Help />} />

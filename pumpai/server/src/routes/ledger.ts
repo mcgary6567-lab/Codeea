@@ -32,8 +32,12 @@ const payAccount = (t: number, m: string | null | undefined) => {
 };
 
 /** Money tagged by where it came from: tax paid to FBR clears the tax payable, a recovered claim, a coupon refund. */
+const OTHER_INCOME_CEO = "Other income (CEO)", OTHER_EXPENSE_CEO = "Expense: Other (CEO)", OTHER_DISCOUNT_CEO = "Other discount (CEO)";
 const specialSide = (ref: string | null | undefined) =>
-  !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held" : null;
+  !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held"
+    : ref.startsWith("oth-inc:") ? OTHER_INCOME_CEO : ref.startsWith("oth-exp:") ? OTHER_EXPENSE_CEO : null;
+/** CEO "other discount": a party-ledger reduction whose contra is the discount account (reduces profit). */
+const isOtherDisc = (ref: string | null | undefined) => !!ref && ref.startsWith("oth-disc:");
 
 export function journal(t: number, fromDay: string, toDay: string) {
   const from = pkStart(fromDay), to = pkEnd(toDay);
@@ -96,7 +100,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
   }
   // khata: payments received, and charges other than fuel (late fee, adjustments)
   for (const r of all(`SELECT k.*, c.name FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.created_at >= ? AND k.created_at < ? AND COALESCE(k.ref,'') NOT LIKE 'SALE%' AND COALESCE(k.ref,'') NOT LIKE 'SHOP-%'`, ...P)) {
-    if (r.type === "credit") add(day(r.created_at), "Receipt", `Khata payment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(via(r.ref, r.account_id), r.amount), cr("Khata receivable", r.amount)]);
+    if (r.type === "credit") add(day(r.created_at), isOtherDisc(r.ref) ? "Journal" : "Receipt", `${isOtherDisc(r.ref) ? "Discount given" : "Khata payment"} — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(isOtherDisc(r.ref) ? OTHER_DISCOUNT_CEO : via(r.ref, r.account_id), r.amount), cr("Khata receivable", r.amount)]);
     else add(day(r.created_at), "Journal", `Khata charge — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Khata receivable", r.amount), cr("Other income", r.amount)]);
   }
   // wholesale
@@ -108,7 +112,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const depot = r.type === "payment" && r.method === DEPOT_PAY ? get("SELECT p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.ref=?", `wtx:${r.id}`)?.name : null;
     if (depot) add(d, "Journal", `Wholesale payment — ${r.name} paid ${depot} direct${r.ref ? ` (${r.ref})` : ""}`, [dr(`Payable — ${depot}`, r.amount), cr("Wholesale receivable", r.amount)]);
     // a client who settled a bypass supplier direct: the receivable credit is booked against the bypass payable (below), so skip it here
-    else if (r.type === "payment" && r.method !== BYPASS_PAY) add(d, "Receipt", `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
+    else if (r.type === "payment" && r.method !== BYPASS_PAY) add(d, isOtherDisc(r.ref) ? "Journal" : "Receipt", `${isOtherDisc(r.ref) ? "Discount given" : "Wholesale payment"} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(isOtherDisc(r.ref) ? OTHER_DISCOUNT_CEO : via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Wholesale adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Other income", r.amount)]);
     // bypass on our depot ID: only the kiraya is ours — the client owes us the carriage, booked as income (no fuel on our books)
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Carriage income", r.amount)]);
@@ -117,7 +121,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
   for (const r of all(`SELECT c.*, k.name FROM carriage_txns c JOIN thekedars k ON k.id=c.thekedar_id WHERE c.tenant_id=? AND c.voided=0 AND c.created_at >= ? AND c.created_at < ?`, ...P)) {
     const d = day(r.created_at);
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Carriage receivable", r.amount), cr("Carriage income", r.amount)]);
-    if (r.type === "payment") add(d, "Receipt", `Carriage payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Carriage receivable", r.amount)]);
+    if (r.type === "payment") add(d, isOtherDisc(r.ref) ? "Journal" : "Receipt", `${isOtherDisc(r.ref) ? "Discount given" : "Carriage payment"} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(isOtherDisc(r.ref) ? OTHER_DISCOUNT_CEO : via(r.method, r.account_id), r.amount), cr("Carriage receivable", r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Carriage adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, r.amount >= 0 ? [dr("Carriage receivable", r.amount), cr("Other income", r.amount)] : [dr("Other income", -r.amount), cr("Carriage receivable", -r.amount)]);
   }
   // bypass delivery: fuel bought from suppliers goes into bypass stock (asset); its cost hits P&L only when delivered

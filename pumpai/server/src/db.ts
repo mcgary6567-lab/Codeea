@@ -674,6 +674,15 @@ export function migrate() {
     created_by TEXT, created_at TEXT NOT NULL)`);
   // cash note breakdown kept with a cash voucher: { "5000": 2, "1000": 10, ... } — for the slip and the record
   addColumn("cashier_vouchers", "notes_json", "TEXT");
+  // CEO-only "other income / expense / discount": attributed to any party (or a free-text name) with a reason.
+  // The money/balance movement is written to the normal tables (cashier_vouchers / bank_txns / party ledgers) so
+  // the books tally; this row is the record the CEO report reads. `src` points back at that movement row.
+  db.exec(`CREATE TABLE IF NOT EXISTS other_entries (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL CHECK (kind IN ('income','expense','discount')),
+    party_type TEXT NOT NULL, party_id INTEGER, party_name TEXT NOT NULL, reason TEXT NOT NULL, amount REAL NOT NULL,
+    method TEXT, account_id INTEGER, src TEXT, note TEXT, voided INTEGER NOT NULL DEFAULT 0,
+    created_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_other_entries ON other_entries(tenant_id, kind, created_at)");
   // property & rent: units inside the pump (shop, hotel, service bay) rented out = income; and the pump's own rent = expense
   db.exec(`CREATE TABLE IF NOT EXISTS rentals (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'shop',

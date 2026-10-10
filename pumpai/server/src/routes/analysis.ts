@@ -13,6 +13,7 @@ import { journal } from "./ledger.js";
 import { rentalIncome } from "./property.js";
 import { carriageIncome } from "./wholesale.js";
 import { carriageIncomeThekedar } from "./carriage.js";
+import { otherEntriesIncome, otherEntriesDiscount } from "./otherEntries.js";
 import { cashPosition } from "./backoffice.js";
 import { bankAccounts } from "./banks.js";
 import { shopSummary } from "./shop.js";
@@ -112,12 +113,18 @@ export function profitAndLoss(t: number, month: string) {
   const discountGiven = r0(J.trial_balance.find((x) => x.account === "Discount given — khata")?.balance ?? 0);
   // income the pump earns beyond fuel/shop: shop rent and carriage/kiraya (booked in the ledger, so add them to profit)
   const toIso = new Date(to).toISOString();
-  const otherIncome = r0(rentalIncome(t, from, toIso) + carriageIncome(t, from, toIso) + carriageIncomeThekedar(t, from, toIso));
-  const net = r0(gross + otherIncome - expensesTotal);
+  // CEO "other income" (misc money the pump earned) adds to profit; "other discount" (concessions given) reduces it.
+  // "Other expense" needs no line here — it is booked as "Expense: Other (CEO)" and already sits in expensesTotal.
+  const ceoIncome = otherEntriesIncome(t, from, toIso);
+  const ceoDiscount = otherEntriesDiscount(t, from, toIso);
+  const otherIncome = r0(rentalIncome(t, from, toIso) + carriageIncome(t, from, toIso) + carriageIncomeThekedar(t, from, toIso) + ceoIncome);
+  const net = r0(gross + otherIncome - expensesTotal - ceoDiscount);
   return {
     month, from, to: toIso, income, cost_of_sales: cost, gross_profit: gross,
     other_income: otherIncome,
+    other_income_ceo: ceoIncome,
     discount_given: discountGiven,
+    other_discount_ceo: ceoDiscount,
     expenses: { total: expensesTotal, by_category: byCategory },
     net_profit: net,
     margin_pct: income.total ? round2((net / income.total) * 100) : 0,

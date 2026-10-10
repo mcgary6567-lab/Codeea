@@ -37,6 +37,7 @@ const SUBS: Record<string, typeof WHOLESALE_SUB> = { "/wholesale": WHOLESALE_SUB
 const NAV_UR: Record<string, string> = {
   "/pos": "سیل", "/shifts": "شفٹ", "/customers": "گاہک", "/bookings": "بکنگ", "/prices": "ریٹ", "/checklist": "روزانہ چیک",
   "/machines": "مشینیں", "/my-account": "میرا حساب", "/help": "رہنمائی", "/wholesale": "ہول سیل", "/carriage": "کرایہ", "/cashier": "کیشیئر", "/cash": "کیش بک",
+  "/other-entries": "متفرق آمدن/خرچہ",
 };
 /** Manager / owner menu groups (other roles have short menus and see them flat). */
 const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
@@ -44,7 +45,7 @@ const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
   { key: "customers", label: "Customers & khata", icon: Users, items: ["/customers", "/khata", "/prepaid", "/inbox", "/orders", "/complaints", "/campaigns"] },
   { key: "wholesale", label: "Wholesale", icon: Container, items: ["/wholesale", "/carriage"] },
   { key: "stock", label: "Stock & prices", icon: Droplets, items: ["/stock", "/register", "/prices", "/shop"] },
-  { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers", "/property"] },
+  { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers", "/property", "/other-entries"] },
   { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/kiosk", "/team", "/my-account"] },
   { key: "safety", label: "Safety", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines", "/alerts"] },
   { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/lists", "/settings"] },
@@ -122,6 +123,7 @@ const NAV = [
   { to: "/insights", label: "Owner insights", icon: HeartPulse, perm: "reports.view" },
   { to: "/owner-report", label: "Monthly report (PDF)", icon: FileBarChart, perm: "reports.view" },
   { to: "/discounts-report", label: "Discounts & overrides", icon: Tag, perm: "reports.view" },
+  { to: "/other-entries", label: "Other income/expense", icon: HandCoins, perm: "other_entries.manage" },
   { to: "/margins", label: "Margins & targets", icon: Calculator, perm: "reports.view" },
   { to: "/profit", label: "Profit explainer", icon: Lightbulb, perm: "reports.view" },
   { to: "/suggestions", label: "Suggestions", icon: Lightbulb, perm: "dashboard.view|wholesale.view" },
