@@ -11,7 +11,7 @@
  */
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, run, tx, now, pkDate } from "../db.js";
+import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, createAlert, round2, pkr } from "../services.js";
 import { productSchema } from "../products.js";
@@ -51,6 +51,62 @@ export function carriageIncomeThekedar(tenantId: number, fromIso: string, toIso?
   const r = get(`SELECT COALESCE(SUM(amount),0) v FROM carriage_txns WHERE tenant_id=? AND voided=0 AND type='carriage' AND txn_date >= ?${toIso ? " AND txn_date < ?" : ""}`,
     ...(toIso ? [tenantId, fromIso, toIso] : [tenantId, fromIso]))!;
   return round2(r.v as number);
+}
+
+const DAYMS = 86_400_000;
+/** How many days without a payment makes a due "overdue" (owner-set, default 20). */
+const overdueDays = (t: number) => Math.max(1, Number(getSetting(t, "carriage_overdue_days", "20")) || 20);
+
+/**
+ * Who owes carriage and for how long — mirrors the wholesale call-list so a thekedar's kiraya doesn't quietly age.
+ * due = thekedarDue; last_payment_days / last_carriage_days from his own ledger; bucket by the age of the OLDEST
+ * still-unsettled kiraya (FIFO: payments clear the oldest kiraya first). overdue = money owed and no payment in N days.
+ */
+export function thekedarAging(t: number) {
+  const nowMs = Date.now();
+  const thr = overdueDays(t);
+  const rows = all("SELECT * FROM thekedars WHERE tenant_id=? AND COALESCE(active,1)=1", t).map((k) => {
+    const due = thekedarDue(k.id);
+    const last = get(`SELECT MAX(CASE WHEN type='payment' THEN txn_date END) lp, MAX(CASE WHEN type='carriage' THEN txn_date END) lc FROM carriage_txns WHERE thekedar_id=? AND voided=0`, k.id)!;
+    const days = (iso: string | null) => (iso ? Math.floor((nowMs - Date.parse(iso)) / DAYMS) : null);
+    // FIFO: how old is the oldest kiraya still not covered by payments?
+    let paid = all("SELECT type, amount FROM carriage_txns WHERE thekedar_id=? AND voided=0 AND type='payment'", k.id).reduce((a, x) => a + x.amount, 0);
+    let oldestUnpaid: string | null = null;
+    if (due > 0.5) for (const c of all("SELECT amount, txn_date FROM carriage_txns WHERE thekedar_id=? AND voided=0 AND type='carriage' ORDER BY txn_date, id", k.id)) {
+      if (paid >= c.amount) { paid -= c.amount; continue; }
+      oldestUnpaid = c.txn_date; break;
+    }
+    const ageDays = oldestUnpaid ? Math.floor((nowMs - Date.parse(oldestUnpaid)) / DAYMS) : null;
+    const lpDays = days(last.lp);
+    return { id: k.id, name: k.name, phone: k.phone, due, last_payment: last.lp, last_payment_days: lpDays, last_carriage_days: days(last.lc),
+      age_days: ageDays, bucket: ageDays == null ? "current" : ageDays > 60 ? "60+" : ageDays > 30 ? "31-60" : "0-30",
+      overdue: due > 0.5 && (lpDays == null || lpDays >= thr) };
+  });
+  const owing = rows.filter((r) => r.due > 0.5).sort((a, b) => b.due - a.due);
+  const sum = (f: (r: typeof rows[number]) => boolean) => round2(owing.filter(f).reduce((a, r) => a + r.due, 0));
+  return { threshold_days: thr, thekedars: owing,
+    totals: { due: sum(() => true), overdue: sum((r) => r.overdue), d0_30: sum((r) => r.bucket === "0-30"), d31_60: sum((r) => r.bucket === "31-60"), d60: sum((r) => r.bucket === "60+") } };
+}
+
+/** The collection call-list: every thekedar who owes, aged, worst first. */
+carriage.get("/carriage/call-list", h((req) => thekedarAging(tid(req))));
+
+/**
+ * Daily reminder: WhatsApp each overdue thekedar his kiraya balance, at most once every 5 days.
+ * Runs as the `carriage_reminders` automation job. Returns how many were messaged.
+ */
+export async function carriageReminders(t: number): Promise<number> {
+  const name = tenantName(t);
+  let sent = 0;
+  for (const k of thekedarAging(t).thekedars) {
+    if (!k.overdue || !k.phone) continue;
+    // throttle on the outbox: skip if we already reminded this thekedar in the last 5 days
+    if (get("SELECT id FROM outbox WHERE tenant_id=? AND ref=? AND created_at >= ?", t, `carr-reminder:${k.id}`, new Date(Date.now() - 5 * DAYMS).toISOString())) continue;
+    await sendDirect(t, { phone: k.phone, name: k.name }, "carriage_reminder", `carr-reminder:${k.id}`,
+      `Assalam-o-Alaikum ${k.name}! 🚚\nKiraya baqaya: Rs ${Math.round(k.due).toLocaleString("en-PK")}${k.last_payment_days != null ? ` (akhri payment ${k.last_payment_days} din pehle)` : ""}.\nMeharbani kar ke ada kar dein. Shukriya! 🙏\n— ${name}`);
+    sent++;
+  }
+  return sent;
 }
 
 /** Depots (our IDs) a bypass can be lifted on — suppliers grouped under their depot (depot → company → banda). */

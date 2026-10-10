@@ -30,6 +30,7 @@ function ThekedarList() {
         actions={can("carriage.manage") && <button className="btn-primary" onClick={() => setAdd(true)}><Plus size={16} /> New thekedar</button>} />
       <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Depot humari ID par load karta hai aur hamein invoice deta hai — fuel ka paisa humari books mein nahi aata. Hum sirf <b>kiraya</b> thekedar se charge karte hain, jo poora munafa hai. <Ur className="block">صرف کرایہ ٹھیکیدار کے ذمے — فیول ہمارے کھاتے میں نہیں</Ur></p>
       <CarriageSummary />
+      <CollectionList />
       <div className="relative"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input className="input pl-9" placeholder="Search thekedar…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       {error && <ErrorBox error={error} />}
@@ -50,6 +51,33 @@ function ThekedarList() {
         </div>
       )}
       {add && <ThekedarForm onClose={() => setAdd(false)} onSaved={() => { setAdd(false); reload(); }} />}
+    </div>
+  );
+}
+
+/** Wasooli / collection list — who owes kiraya, aged, worst first. Overdue thekedars get an auto WhatsApp daily. */
+function CollectionList() {
+  const { data } = useApi<any>("/carriage/call-list");
+  if (!data || !data.thekedars.length) return null;
+  const tone = (b: string) => (b === "60+" ? "red" : b === "31-60" ? "amber" : "slate") as "red" | "amber" | "slate";
+  return (
+    <div className="card p-4">
+      <h2 className="mb-1 flex items-center gap-2 font-semibold"><Truck size={16} className="text-rose-500" /> Wasooli list · <Ur>کرایہ وصولی</Ur></h2>
+      <p className="mb-3 text-xs text-slate-500">Jin thekedaron ka kiraya baqaya hai. {data.threshold_days}+ din se payment nahi to roz WhatsApp reminder khud chala jata hai (5 din me ek baar).</p>
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-xl bg-rose-50 p-2.5"><div className="text-[11px] text-rose-800">Kul baqaya</div><div className="text-lg font-bold tabular-nums">{pkr(data.totals.due)}</div></div>
+        <div className="rounded-xl bg-amber-50 p-2.5"><div className="text-[11px] text-amber-800">Overdue ({data.threshold_days}+ din)</div><div className="text-lg font-bold tabular-nums">{pkr(data.totals.overdue)}</div></div>
+        <div className="rounded-xl bg-slate-50 p-2.5"><div className="text-[11px] text-slate-600">31–60 din</div><div className="text-lg font-bold tabular-nums">{pkr(data.totals.d31_60)}</div></div>
+        <div className="rounded-xl bg-slate-50 p-2.5"><div className="text-[11px] text-slate-600">60+ din</div><div className="text-lg font-bold tabular-nums">{pkr(data.totals.d60)}</div></div>
+      </div>
+      <ul className="divide-y divide-slate-100 text-sm">
+        {data.thekedars.slice(0, 8).map((k: any) => (
+          <li key={k.id}><Link to={`/carriage/${k.id}`} className="-mx-1 flex items-center justify-between gap-2 rounded px-1 py-1.5 hover:bg-slate-50">
+            <span className="min-w-0 truncate">{k.name} {k.overdue && <Badge tone="red">overdue</Badge>} <Badge tone={tone(k.bucket)}>{k.bucket === "current" ? "naya" : `${k.bucket} din`}</Badge></span>
+            <span className="shrink-0 text-right"><b className="tabular-nums text-rose-600">{pkr(k.due)}</b><span className="block text-[11px] text-slate-400">{k.last_payment_days != null ? `${k.last_payment_days} din se payment nahi` : "kabhi payment nahi"}</span></span>
+          </Link></li>
+        ))}
+      </ul>
     </div>
   );
 }

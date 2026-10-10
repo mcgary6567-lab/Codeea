@@ -82,6 +82,10 @@ NOT built (deliberate, too risky for zero-rupee/meter integrity once later shift
 
 `routes/books.ts` `reconcileBooks(t)` + `GET /books/check` (perm `audit.view` = ADMIN). It runs the SAME ties `test/helpers/tally.ts` enforces — journal debit=credit, nothing in Suspense, and every cash/bank/khata/wholesale/carriage/supplier/coupon/wallet/staff/bypass-stock balance equals its ledger account — but LIVE and WITHOUT throwing (each check wrapped in `safe()`, TOL=1 rupee), returning `{ok, checked_at, max_diff, checks:[{label,book,ledger,diff,ok,note}], failed}`. Web: `Audit.tsx` `BooksCheck` card — the CEO presses it (especially after a correction like a voucher void) and sees green "Sab tally — 0 rupaye ka farq" or the exact mismatched line(s). Keep it mirroring tally.ts; `test/books_check.test.ts` guards it (all-green on demo, still 0 after a CEO void, manager 403).
 
+## Carriage / thekedar collection (overdue + reminders)
+
+`routes/carriage.ts`: `thekedarAging(t)` (due per thekedar via `thekedarDue`, last-payment days, FIFO age-bucket 0-30/31-60/60+, `overdue` = owes AND no payment in `carriage_overdue_days` setting, default 20) + `GET /carriage/call-list` (owing thekedars worst-first + totals). `carriageReminders(t)` WhatsApps each overdue thekedar his kiraya balance via `sendDirect`, throttled to once per 5 days using the `outbox` ref `carr-reminder:<id>`. Registered as the daily `carriage_reminders` automation job (noon). Web `Carriage.tsx` shows a "Wasooli list" card (aging buckets + per-thekedar days-since-payment). `test/carriage_collection.test.ts`. Mirrors the wholesale call-list so carriage receivable no longer ages invisibly.
+
 ## Conventions
 
 - Reply to the user in Roman Urdu/Hindi.

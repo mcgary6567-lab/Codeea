@@ -18,7 +18,7 @@ import { bookRecurring } from "../routes/recurring.js";
 import { weeklyLeaderboard } from "../routes/feedback.js";
 import { trainingWatch, dailyCoaching } from "../routes/people.js";
 import { machineWatch } from "../routes/machines.js";
-import { carriageFuelHeldWatch } from "../routes/carriage.js";
+import { carriageFuelHeldWatch, carriageReminders } from "../routes/carriage.js";
 
 export interface Job {
   key: string;
@@ -261,6 +261,13 @@ export const JOBS: Job[] = [
     description: "Every morning: if a thekedar's carriage fuel money is still with us (received but not sent to the depot) for over a day, the owner and managers are reminded to forward it.",
     cron: "0 9 * * *",
     run: async (t) => `${await carriageFuelHeldWatch(t)} fuel payments to forward`,
+  },
+  {
+    key: "carriage_reminders",
+    name: "Carriage / kiraya collection reminders",
+    description: "Every day at noon: WhatsApps each thekedar who owes kiraya and hasn't paid in a while (owner-set days, default 20) his balance and a request to pay. Max once every 5 days per thekedar.",
+    cron: "0 12 * * *",
+    run: async (t) => `${await carriageReminders(t)} thekedar reminders sent`,
   },
   {
     key: "booking_reminders",
