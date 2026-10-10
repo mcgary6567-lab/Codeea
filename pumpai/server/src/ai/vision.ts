@@ -49,7 +49,7 @@ async function record<T>(parts: NeutralPart[], description: string, schema: Reco
 export type PhotoKind = "meter" | "invoice" | "receipt" | "bill" | "slip" | "payment";
 const PROMPTS: Record<PhotoKind, { text: string; description: string; schema: Record<string, unknown> }> = {
   meter: {
-    text: "This is a photo of a fuel dispenser at a Pakistani petrol pump. Read the TOTALIZER (the cumulative litres counter, often labelled 'Total' or 'Totalizer', usually the longest number), not the sale amount or the price per litre. If more than one totalizer is visible (one per nozzle), return each one with its side or label. Copy every digit exactly, including decimals. If a digit is unclear, say so in the note and lower the confidence.",
+    text: "This is a close-up photo of the TOTALIZER on a fuel dispenser at a Pakistani petrol pump (the cumulative litres counter) — the cashier aligned it inside a scan box, so it is usually a single row of digits. Read that number, not the sale amount or the price per litre. If more than one totalizer is visible, return each one with its side or label. Copy every digit exactly, including decimals. If a digit is unclear, say so in the note and lower the confidence.",
     description: "Record the totalizer reading(s) read from the dispenser photo.",
     schema: {
       properties: {

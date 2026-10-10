@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Loader2, Mic, MicOff, X, ChevronLeft, ChevronRight, Trash2, ZoomIn, Download } from "lucide-react";
+import { Camera, Loader2, Mic, MicOff, X, ChevronLeft, ChevronRight, Trash2, ZoomIn, Download, Image as ImageIcon, Zap, ZapOff, ScanLine } from "lucide-react";
 import { api, linkToken } from "../lib/api";
 import { enhanceImage } from "../lib/enhance";
 import { useAuth } from "../App";
@@ -107,9 +107,134 @@ export function PhotoThumb({ id, group, size = 10, onDeleted, className = "" }: 
   );
 }
 
+/* -------------------- Scan camera: align digits in a box, capture only that box -------------------- */
+
+/**
+ * A live camera with a card-scanner style guide box. The meter's totalizer is lined up inside the
+ * rectangle and only that rectangle is captured — so nearby digits (price, amount, other nozzles)
+ * are not read by mistake. Falls back to the normal camera/gallery when a live stream isn't allowed.
+ */
+export function ScanCamera({ open, title, hintUr, aspect = 3.2, onCapture, onClose, onFallback }: {
+  open: boolean; title: string; hintUr: string; aspect?: number;
+  onCapture: (file: File) => void; onClose: () => void; onFallback: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [torch, setTorch] = useState<boolean | null>(null); // null = not supported
+  const toast = useToast();
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setReady(false); setErr(null); setTorch(null);
+    (async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error("no-camera");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false,
+        });
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        const v = videoRef.current;
+        if (v) { v.srcObject = stream; await v.play().catch(() => {}); }
+        const caps: any = stream.getVideoTracks()[0]?.getCapabilities?.() ?? {};
+        setTorch("torch" in caps ? false : null);
+        setReady(true);
+      } catch {
+        if (!cancelled) setErr("camera");
+      }
+    })();
+    return () => { cancelled = true; streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; };
+  }, [open]);
+
+  const toggleTorch = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    try { const next = !torch; await track.applyConstraints({ advanced: [{ torch: next } as any] }); setTorch(next); }
+    catch { toast("err", "Flash not available"); }
+  };
+
+  const snap = () => {
+    const v = videoRef.current, box = boxRef.current;
+    if (!v || !box || !v.videoWidth) return;
+    // the video is shown object-contain, so the on-screen box maps 1:1 (by fraction) onto the source frame
+    const vw = v.videoWidth, vh = v.videoHeight;
+    const rectV = v.getBoundingClientRect(), rectB = box.getBoundingClientRect();
+    // size of the actually-painted video inside the <video> element (letterboxed)
+    const scale = Math.min(rectV.width / vw, rectV.height / vh);
+    const paintW = vw * scale, paintH = vh * scale;
+    const padX = (rectV.width - paintW) / 2, padY = (rectV.height - paintH) / 2;
+    const sx = Math.max(0, ((rectB.left - rectV.left - padX) / paintW) * vw);
+    const sy = Math.max(0, ((rectB.top - rectV.top - padY) / paintH) * vh);
+    const sw = Math.min(vw - sx, (rectB.width / paintW) * vw);
+    const sh = Math.min(vh - sy, (rectB.height / paintH) * vh);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => { if (blob) onCapture(new File([blob], "meter.jpg", { type: "image/jpeg" })); }, "image/jpeg", 0.95);
+  };
+
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex flex-col bg-black">
+      <div className="flex items-center gap-2 px-4 pt-4 pb-2 text-white">
+        <ScanLine size={20} className="shrink-0 text-emerald-400" />
+        <div className="min-w-0"><div className="truncate text-sm font-bold">{title}</div><div lang="ur" dir="rtl" className="font-urdu text-xs text-emerald-200">{hintUr}</div></div>
+        <button type="button" onClick={onClose} aria-label="Close" className="ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/15 active:scale-95"><X size={20} /></button>
+      </div>
+
+      <div className="relative flex-1 overflow-hidden">
+        {err ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-white">
+            <Camera size={40} className="text-slate-400" />
+            <p className="text-sm">Live camera nahi khul paya — <span lang="ur" dir="rtl" className="font-urdu">کیمرہ کی اجازت دیں یا نیچے سے عام کیمرہ/گیلری سے تصویر لیں۔</span></p>
+            <button type="button" onClick={onFallback} className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold">Normal camera / gallery</button>
+          </div>
+        ) : (
+          <>
+            <video ref={videoRef} playsInline muted className="h-full w-full object-contain" />
+            {!ready && <div className="absolute inset-0 flex items-center justify-center text-white"><Loader2 className="animate-spin" size={28} /></div>}
+            {/* guide box */}
+            <div ref={boxRef} className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={{ width: "82%", aspectRatio: String(aspect), boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)", borderRadius: 14 }}>
+              <div className="absolute inset-0 rounded-[14px] ring-2 ring-emerald-400/90" />
+              <span className="absolute -left-0.5 -top-0.5 h-6 w-6 rounded-tl-[14px] border-l-4 border-t-4 border-emerald-300" />
+              <span className="absolute -right-0.5 -top-0.5 h-6 w-6 rounded-tr-[14px] border-r-4 border-t-4 border-emerald-300" />
+              <span className="absolute -bottom-0.5 -left-0.5 h-6 w-6 rounded-bl-[14px] border-b-4 border-l-4 border-emerald-300" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-br-[14px] border-b-4 border-r-4 border-emerald-300" />
+            </div>
+            <div className="absolute inset-x-0 bottom-28 text-center text-sm font-medium text-white drop-shadow">
+              Meter ke digits box ke andar rakhein · <span lang="ur" dir="rtl" className="font-urdu">میٹر کے ہندسے خانے میں رکھیں</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {!err && (
+        <div className="flex items-center justify-center gap-10 px-6 pb-8 pt-3">
+          <button type="button" onClick={onFallback} aria-label="Gallery / normal camera" className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white active:scale-95"><ImageIcon size={22} /></button>
+          <button type="button" onClick={snap} disabled={!ready} aria-label="Capture" className="flex h-[76px] w-[76px] items-center justify-center rounded-full bg-white ring-4 ring-white/40 active:scale-95 disabled:opacity-50">
+            <span className="h-[58px] w-[58px] rounded-full bg-emerald-500" />
+          </button>
+          {torch !== null
+            ? <button type="button" onClick={toggleTorch} aria-label="Flash" className={`flex h-12 w-12 items-center justify-center rounded-full active:scale-95 ${torch ? "bg-amber-400 text-black" : "bg-white/15 text-white"}`}>{torch ? <Zap size={22} /> : <ZapOff size={22} />}</button>
+            : <span className="h-12 w-12" />}
+        </div>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
 /**
  * Camera button: take a photo of a meter, tanker invoice or receipt. The photo is kept as proof
- * and, when AI is on, the numbers come back in `onRead`.
+ * and, when AI is on, the numbers come back in `onRead`. For a meter it opens a card-scanner style
+ * guide box so only the totalizer digits are captured.
  */
 export function PhotoButton({ kind, hint, onRead, label = "Photo", big, className = "" }: {
   kind: "meter" | "invoice" | "receipt" | "bill" | "slip" | "payment" | "proof" | "selfie"; hint?: string; label?: string; big?: boolean; className?: string;
@@ -117,6 +242,8 @@ export function PhotoButton({ kind, hint, onRead, label = "Photo", big, classNam
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [scan, setScan] = useState(false);
+  const scannable = kind === "meter";
   const toast = useToast();
   const pick = async (f: File | undefined) => {
     if (!f) return;
@@ -131,11 +258,17 @@ export function PhotoButton({ kind, hint, onRead, label = "Photo", big, classNam
   };
   return (
     <>
-      <input ref={input} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
-      <button type="button" onClick={() => input.current?.click()} disabled={busy} aria-label={`${label} — take a photo`}
+      <input ref={input} type="file" accept="image/*" {...(scannable ? {} : { capture: "environment" as const })} className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      <button type="button" onClick={() => (scannable ? setScan(true) : input.current?.click())} disabled={busy} aria-label={`${label} — take a photo`}
         className={`inline-flex items-center justify-center gap-1.5 rounded-xl bg-sky-600 font-semibold text-white active:scale-95 disabled:bg-slate-400 ${big ? "px-4 py-3 text-lg" : "px-3 py-2 text-sm"} ${className}`}>
-        {busy ? <Loader2 className="animate-spin" size={big ? 22 : 16} /> : <Camera size={big ? 22 : 16} />}{busy ? "Reading…" : label}
+        {busy ? <Loader2 className="animate-spin" size={big ? 22 : 16} /> : scannable ? <ScanLine size={big ? 22 : 16} /> : <Camera size={big ? 22 : 16} />}{busy ? "Reading…" : scannable ? "Scan meter" : label}
       </button>
+      {scannable && (
+        <ScanCamera open={scan} title="Scan the meter totalizer" hintUr="میٹر کا ٹوٹلائزر خانے میں رکھ کر بٹن دبائیں"
+          onClose={() => setScan(false)}
+          onFallback={() => { setScan(false); input.current?.click(); }}
+          onCapture={(f) => { setScan(false); pick(f); }} />
+      )}
     </>
   );
 }
