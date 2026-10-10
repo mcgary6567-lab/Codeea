@@ -7,10 +7,10 @@ import { TrendingUp, TrendingDown, Percent, Trash2, Search } from "lucide-react"
 type Kind = "income" | "expense" | "discount";
 type PType = "khata" | "wholesale" | "carriage" | "other";
 
-const KINDS: { k: Kind; en: string; ur: string; icon: any; tone: "green" | "red" | "amber"; verb: string }[] = [
-  { k: "income", en: "Other income", ur: "اضافی آمدن", icon: TrendingUp, tone: "green", verb: "aayi" },
-  { k: "expense", en: "Other expense", ur: "اضافی خرچہ", icon: TrendingDown, tone: "red", verb: "gayi" },
-  { k: "discount", en: "Other discount", ur: "رعایت", icon: Percent, tone: "amber", verb: "di" },
+const KINDS: { k: Kind; en: string; short: string; ur: string; icon: any; tone: "green" | "red" | "amber" }[] = [
+  { k: "income", en: "Other income", short: "Income", ur: "اضافی آمدن", icon: TrendingUp, tone: "green" },
+  { k: "expense", en: "Other expense", short: "Expense", ur: "اضافی خرچہ", icon: TrendingDown, tone: "red" },
+  { k: "discount", en: "Other discount", short: "Discount", ur: "رعایت", icon: Percent, tone: "amber" },
 ];
 const PTYPES: { v: PType; label: string }[] = [
   { v: "khata", label: "Khata customer" }, { v: "wholesale", label: "Wholesale client" }, { v: "carriage", label: "Thekedar" }, { v: "other", label: "Other (type name)" },
@@ -21,42 +21,42 @@ export default function OtherEntries() {
   const [kind, setKind] = useState<Kind>("income");
   const meta = KINDS.find((x) => x.k === kind)!;
   const today = new Date().toISOString().slice(0, 10);
-  const [from, setFrom] = useState(`${today.slice(0, 7)}-01`);
-  const [to, setTo] = useState(today);
-  const { data: report, reload } = useApi<any>(`/other-entries?kind=${kind}&from=${from}&to=${to}`);
+  const [day, setDay] = useState(today);
+  const { data: report, reload } = useApi<any>(`/other-entries?kind=${kind}&from=${day}&to=${day}`);
 
   return (
     <div>
       <PageHeader title="Other income / expense / discount · متفرق" subtitle="Sirf CEO — misc aamdan, kharcha ya ra'ayat kisi party ke saath, wajah ke sath. Profit aur report me update." />
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 grid grid-cols-3 gap-1.5 sm:gap-2">
         {KINDS.map((x) => (
-          <button key={x.k} onClick={() => setKind(x.k)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold ${kind === x.k ? (x.tone === "green" ? "bg-emerald-600 text-white" : x.tone === "red" ? "bg-rose-600 text-white" : "bg-amber-500 text-white") : "bg-slate-100 text-slate-600"}`}>
-            <x.icon size={16} /> {x.en}
+          <button key={x.k} onClick={() => setKind(x.k)} className={`flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-xs font-semibold sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-sm ${kind === x.k ? (x.tone === "green" ? "bg-emerald-600 text-white" : x.tone === "red" ? "bg-rose-600 text-white" : "bg-amber-500 text-white") : "bg-slate-100 text-slate-600"}`}>
+            <x.icon size={16} className="shrink-0" /> <span>{x.short}</span>
           </button>
         ))}
       </div>
 
       <EntryForm kind={kind} meta={meta} onSaved={reload} />
 
-      <div className="mt-6 flex flex-wrap items-end gap-2">
-        <Field label="From"><input type="date" className="input w-auto" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="To"><input type="date" className="input w-auto" value={to} min={from} onChange={(e) => setTo(e.target.value)} /></Field>
+      <div className="mt-6">
+        <Field label="Date · تاریخ"><input type="date" className="input w-full sm:w-auto" value={day} max={today} onChange={(e) => setDay(e.target.value)} /></Field>
       </div>
       {!report ? <Loading /> : (
         <>
           <div className="my-3 grid grid-cols-2 gap-3">
-            <Stat label={`${meta.en} (total)`} value={pkr(report.total)} tone={meta.tone} />
+            <Stat label={`${meta.en} (din ka total)`} value={pkr(report.total)} tone={meta.tone} />
             <Stat label="Entries" value={report.count} />
           </div>
-          {report.by_party.length === 0 ? <p className="card p-4 text-center text-sm text-slate-500">Is range me koi {meta.en.toLowerCase()} nahi.</p> : (
+          {report.by_party.length === 0 ? <p className="card p-4 text-center text-sm text-slate-500">Is din koi {meta.short.toLowerCase()} nahi.</p> : (
             <div className="card mb-4 p-4">
               <h2 className="mb-2 font-semibold">Party ke hisab se · فی پارٹی</h2>
-              <table className="w-full text-sm">
-                <thead><tr><th className="th">Party</th><th className="th">Type</th><th className="th text-right">Entries</th><th className="th text-right">{meta.en}</th></tr></thead>
-                <tbody>{report.by_party.map((p: any, i: number) => (
-                  <tr key={i} className="border-t"><td className="td font-medium">{p.party_name}</td><td className="td text-slate-500">{PTYPES.find((x) => x.v === p.party_type)?.label ?? p.party_type}</td><td className="td text-right">{p.count}</td><td className="td text-right font-semibold">{pkr(p.total)}</td></tr>
-                ))}</tbody>
-              </table>
+              <div className="-mx-1 overflow-x-auto">
+                <table className="w-full min-w-[320px] text-sm">
+                  <thead><tr><th className="th">Party</th><th className="th hidden sm:table-cell">Type</th><th className="th text-right">#</th><th className="th text-right">{meta.short}</th></tr></thead>
+                  <tbody>{report.by_party.map((p: any, i: number) => (
+                    <tr key={i} className="border-t"><td className="td font-medium">{p.party_name}<span className="block text-xs text-slate-400 sm:hidden">{PTYPES.find((x) => x.v === p.party_type)?.label ?? p.party_type}</span></td><td className="td hidden text-slate-500 sm:table-cell">{PTYPES.find((x) => x.v === p.party_type)?.label ?? p.party_type}</td><td className="td text-right">{p.count}</td><td className="td text-right font-semibold">{pkr(p.total)}</td></tr>
+                  ))}</tbody>
+                </table>
+              </div>
             </div>
           )}
           {report.list.length > 0 && (
