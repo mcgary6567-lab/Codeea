@@ -58,9 +58,11 @@ const body = z.object({
   party_name: z.string().trim().max(80).optional().nullable(),
   reason: z.string().trim().min(2, "Reason kis cheez ka — likhein").max(120),
   amount: z.number().positive().max(1_000_000_000),
-  method: z.string().trim().max(30).optional().nullable(), // income/expense only: "cash" or a bank/wallet account's method
+  method: z.string().trim().max(30).optional().nullable(), // income/expense only: "Cash" or a bank/wallet account's method
   account_id: accountIdField,                              // income/expense only: the bank/wallet account money went to / came from
   note: z.string().trim().max(200).optional().nullable(),
+  /** cash note breakdown counted, only for a cash income/expense: { "5000": 2, "1000": 10, ... } */
+  notes: z.record(z.enum(["5000", "1000", "500", "100", "50", "20", "10"]), z.number().int().min(0).max(100_000)).optional().nullable(),
 });
 
 otherEntries.post("/other-entries", requirePerm("other_entries.manage"), h((req) => {
@@ -80,7 +82,8 @@ otherEntries.post("/other-entries", requirePerm("other_entries.manage"), h((req)
     let src: string;
     if (b.kind === "income" || b.kind === "expense") {
       const ref = `${b.kind === "income" ? "oth-inc" : "oth-exp"}:${oe}`;
-      src = otherMoney(t, { dir: b.kind === "income" ? "in" : "out", amount, method: b.method ?? "cash", account_id: b.account_id, party: name, category: b.reason, note: b.note, ref, by, at });
+      const notes = isCash(b.method) ? Object.fromEntries(Object.entries(b.notes ?? {}).filter(([, n]) => Number(n) > 0).map(([k, n]) => [k, Number(n)])) : null;
+      src = otherMoney(t, { dir: b.kind === "income" ? "in" : "out", amount, method: b.method ?? "cash", account_id: b.account_id, party: name, category: b.reason, note: b.note, ref, by, at, notes });
     } else {
       // discount: reduce the party's receivable in its own ledger; the contra is "Other discount (CEO)" (routed in ledger.ts)
       const ref = `oth-disc:${oe}`, pid = b.party_id!; // guaranteed by partyName() for a non-"other" party

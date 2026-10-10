@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, PageHeader, Stat, useAction } from "../components/ui";
+import { AccountPicker } from "../components/BankParts";
 import { pkr, num, dt } from "../lib/format";
-import { TrendingUp, TrendingDown, Percent, Trash2, Search } from "lucide-react";
+import { TrendingUp, TrendingDown, Percent, Trash2, Search, Banknote, Landmark, Smartphone, ArrowLeftRight } from "lucide-react";
+
+/** Payment methods with icons — same set the cashier uses. Cash → note count; anything else → a bank/wallet account. */
+const PAY = [
+  { m: "Cash", ur: "نقد", icon: Banknote },
+  { m: "Bank transfer", ur: "بینک", icon: Landmark },
+  { m: "Raast", ur: "راست", icon: ArrowLeftRight },
+  { m: "JazzCash", ur: "جاز کیش", icon: Smartphone },
+  { m: "Easypaisa", ur: "ایزی پیسہ", icon: Smartphone },
+] as const;
+const DENOMS = [5000, 1000, 500, 100, 50, 20, 10];
+const isCashM = (m: string) => /^cash$/i.test(m);
+const notesTotal = (n: Record<string, string>) => DENOMS.reduce((a, d) => a + d * (Number(n[d]) || 0), 0);
 
 type Kind = "income" | "expense" | "discount";
 type PType = "khata" | "wholesale" | "carriage" | "other";
@@ -90,29 +103,32 @@ function EntryForm({ kind, meta, onSaved }: { kind: Kind; meta: { en: string; to
   const [otherName, setOtherName] = useState("");
   const [reason, setReason] = useState("");
   const [amount, setAmount] = useState("");
-  const [dest, setDest] = useState("cash"); // "cash" or a bank account id (string)
+  const [method, setMethod] = useState("Cash");
+  const [account, setAccount] = useState<number | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const { data: parties } = useApi<any>(ptype === "other" ? null : `/other-entries/parties?q=${encodeURIComponent(q)}`);
-  const { data: acctData } = useApi<any>(kind === "discount" ? null : "/bank/accounts/pick");
-  const accounts = acctData?.accounts ?? [];
+  const cash = isCashM(method);
 
   // discount can't use a free-text party
   useEffect(() => { if (kind === "discount" && ptype === "other") setPtype("khata"); }, [kind, ptype]);
   useEffect(() => { setParty(null); }, [ptype]);
+  useEffect(() => { setAccount(null); }, [method]); // a new method needs its own account chosen
 
   const list = ptype === "other" ? [] : (parties?.[ptype] ?? []);
-  const reset = () => { setParty(null); setOtherName(""); setReason(""); setAmount(""); setQ(""); setDest("cash"); };
+  const reset = () => { setParty(null); setOtherName(""); setReason(""); setAmount(""); setQ(""); setMethod("Cash"); setAccount(null); setNotes({}); };
 
   const submit = () => {
     const amt = Number(amount);
     if (!(amt > 0)) return run(() => Promise.reject(new Error("Amount theek likhein")), "");
-    const bank = dest !== "cash" ? Number(dest) : null;
     const b: any = { kind, party_type: ptype, reason, amount: amt,
       ...(ptype === "other" ? { party_name: otherName } : { party_id: party?.id }),
-      ...(kind === "discount" ? {} : { method: bank ? "bank" : "cash", account_id: bank }) };
+      ...(kind === "discount" ? {} : { method, account_id: cash ? null : account,
+        notes: cash ? Object.fromEntries(Object.entries(notes).filter(([, n]) => Number(n) > 0).map(([k, n]) => [k, Number(n)])) : undefined }) };
     run(() => api("/other-entries", { body: b }), `${meta.en} saved`).then(() => { reset(); onSaved(); });
   };
 
-  const ready = reason.trim().length >= 2 && Number(amount) > 0 && (ptype === "other" ? otherName.trim().length >= 2 : !!party);
+  const ready = reason.trim().length >= 2 && Number(amount) > 0 && (ptype === "other" ? otherName.trim().length >= 2 : !!party)
+    && (kind === "discount" || cash || !!account);
 
   return (
     <div className="card space-y-3 p-4">
@@ -138,19 +154,56 @@ function EntryForm({ kind, meta, onSaved }: { kind: Kind; meta: { en: string; to
       )}
 
       <Field label="Kis cheez ka? (wajah) · وجہ"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={kind === "income" ? "e.g. Generator kiraya" : kind === "expense" ? "e.g. Gate welding" : "e.g. Purani adjustment"} /></Field>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" /></Field>
-        {kind !== "discount" && (
-          <Field label={kind === "income" ? "Paisa kahan aaya? · کہاں آیا" : "Paisa kahan se gaya? · کہاں سے"}>
-            <select className="input" value={dest} onChange={(e) => setDest(e.target.value)}>
-              <option value="cash">Cash (hath me)</option>
-              {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </Field>
-        )}
-      </div>
+      <Field label="Amount (Rs)"><input className="input text-lg font-semibold" type="number" inputMode="decimal" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" /></Field>
+
+      {kind !== "discount" && (
+        <Field label={kind === "income" ? "Paisa kahan aaya? · رقم کہاں آئی" : "Paisa kahan se gaya? · رقم کہاں سے گئی"}>
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+            {PAY.map((p) => (
+              <button type="button" key={p.m} onClick={() => setMethod(p.m)} aria-pressed={method === p.m}
+                className={`flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-xs font-semibold ${method === p.m ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700"}`}>
+                <p.icon size={18} className="shrink-0" /> <span className="leading-tight">{p.m === "Bank transfer" ? "Bank" : p.m}</span>
+              </button>
+            ))}
+          </div>
+        </Field>
+      )}
+      {kind !== "discount" && cash && <NoteGrid notes={notes} onChange={setNotes} amount={Number(amount) || 0} />}
+      {kind !== "discount" && !cash && <AccountPicker method={method} value={account} onChange={setAccount} required label="Kaun sa account? · کون سا اکاؤنٹ" />}
+
       {kind === "discount" && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Discount se is party ka outstanding {pkr(Number(amount) || 0)} kam ho jayega, aur profit bhi utna kam hoga.</p>}
       <button disabled={busy || !ready} onClick={submit} className={`btn-primary w-full ${!ready ? "opacity-60" : ""}`}>{busy ? "Saving…" : `${meta.en} save karein`}</button>
     </div>
+  );
+}
+
+/** Cash note breakdown — count the notes, check it matches the amount (same as the cashier). */
+function NoteGrid({ notes, onChange, amount }: { notes: Record<string, string>; onChange: (n: Record<string, string>) => void; amount: number }) {
+  const total = notesTotal(notes);
+  const diff = total - amount;
+  return (
+    <fieldset className="rounded-xl bg-slate-50 p-3">
+      <legend className="label">Cash notes · <span lang="ur" dir="rtl" className="font-urdu">نوٹوں کی تفصیل</span> <span className="text-xs font-normal text-slate-400">(optional)</span></legend>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+        {DENOMS.map((dn) => {
+          const n = Number(notes[dn]) || 0;
+          return (
+            <div key={dn} className="flex items-center gap-2">
+              <span className="w-12 shrink-0 text-right text-sm tabular-nums text-slate-600">{dn}</span>
+              <span className="text-slate-400">×</span>
+              <input className="input !py-1.5 w-16 text-center" type="number" min={0} inputMode="numeric" value={notes[dn] ?? ""} aria-label={`Rs ${dn} notes`}
+                onChange={(e) => onChange({ ...notes, [dn]: e.target.value })} />
+              <span className="min-w-0 flex-1 text-right text-xs tabular-nums text-slate-500">{n > 0 ? pkr(dn * n) : ""}</span>
+            </div>
+          );
+        })}
+      </div>
+      {total > 0 && (
+        <div className={`mt-2 flex items-center justify-between rounded-lg px-3 py-1.5 text-sm ${diff === 0 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
+          <span>Notes total <b className="tabular-nums">{pkr(total)}</b></span>
+          <span>{diff === 0 ? "Matches ✓" : diff > 0 ? `Rs ${num(Math.abs(diff))} zyada` : `Rs ${num(Math.abs(diff))} kam`}</span>
+        </div>
+      )}
+    </fieldset>
   );
 }

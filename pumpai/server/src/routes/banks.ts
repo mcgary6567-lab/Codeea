@@ -59,11 +59,12 @@ export const dayEnd = (d: string) => new Date(Date.parse(pkEnd(d)) - 1).toISOStr
  * cash goes through a cash-counter voucher (the cash book reads it), anything else is a bank entry on the chosen account.
  * `ref` (e.g. "wht:12") lets the accounting journal put it against the right account.
  */
-export function otherMoney(t: number, m: { dir: "in" | "out"; amount: number; method?: string | null; account_id?: number | null; party: string; category: string; note?: string | null; ref: string; by: string; at?: string }) {
+export function otherMoney(t: number, m: { dir: "in" | "out"; amount: number; method?: string | null; account_id?: number | null; party: string; category: string; note?: string | null; ref: string; by: string; at?: string; notes?: Record<string, number> | null }) {
   const at = m.at ?? now();
   if (isCash(m.method)) {
-    const id = run(`INSERT INTO cashier_vouchers (tenant_id,direction,party_type,party_id,party_name,amount,method,account_id,category,ref,note,src,created_by,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, m.dir, "other", null, m.party, m.amount, "Cash", null, m.category, m.ref, m.note ?? null, m.ref, m.by, at).id;
+    const notesJson = m.notes && Object.keys(m.notes).length ? JSON.stringify(m.notes) : null;
+    const id = run(`INSERT INTO cashier_vouchers (tenant_id,direction,party_type,party_id,party_name,amount,method,account_id,category,ref,note,src,notes_json,created_by,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, m.dir, "other", null, m.party, m.amount, "Cash", null, m.category, m.ref, m.note ?? null, m.ref, notesJson, m.by, at).id;
     return `voucher:${id}`;
   }
   const acc = bankAccountFor(t, m.account_id, m.method ?? "bank");
