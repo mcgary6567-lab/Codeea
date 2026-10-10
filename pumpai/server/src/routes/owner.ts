@@ -52,7 +52,7 @@ owner.get("/owner/overview", requirePerm("reports.view"), h((req) => {
 
   // ---- today ----
   const r = buildReport(t, dayStart, nowIso).summary;
-  const book = cashierDayBook(t, today);
+  const book = cashierDayBook(t, today, req.user!.role === "admin");
   const today_ = {
     revenue: r.revenue, retail_sales: r.retail_sales, retail_litres: r.retail_litres, retail_txns: r.retail_txns,
     wholesale: r.wholesale_net, wholesale_litres: r.wholesale_litres, shop: r.shop_sales,

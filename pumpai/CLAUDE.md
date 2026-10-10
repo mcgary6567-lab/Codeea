@@ -60,6 +60,8 @@ Never post these to "Suspense"; keep `test/other_entries.test.ts` + the whole-sy
 
 **CEO-private:** these are the owner's own dealings — a manager must not see them. `journal(t,from,to,showPrivate=true)` and `profitAndLoss(t,month,showPrivate=true)` take a flag; the manager-facing routes (ledger, analysis/pl, targets, owner/overview) pass `req.user!.role==="admin"`. With `showPrivate=false` the three entries are reclassified to **Owner's capital / Owner's drawings** with generic narration and dropped from P&L, so the manager's books still balance but reveal nothing. Internal/test callers default to `true` (full view) — the tally always uses the full journal.
 
+Same `showPrivate` gate hides them from the **cashier** too: `cashierDayBook(t,d,showPrivate)` drops discounts (no money — this also fixes a phantom bank-in) and relabels cash income/expense as "Owner money in/out"; `bankMoves(t,acc,showPrivate)` relabels bank ones in the statement; and `/cashier/desk` genericizes the recent-vouchers list. All pass `req.user!.role==="admin"`. The cash in the drawer still reconciles (amounts unchanged), only the party/reason is hidden.
+
 ## Conventions
 
 - Reply to the user in Roman Urdu/Hindi.

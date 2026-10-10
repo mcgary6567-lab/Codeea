@@ -118,7 +118,7 @@ export function cardFees(t: number, accountId?: number | null): { account_id: nu
   return out;
 }
 
-export function bankMoves(t: number, accountId?: number | null): Row[] {
+export function bankMoves(t: number, accountId?: number | null, showPrivate = true): Row[] {
   const acc = accountId ? " AND x.account_id=?" : " AND x.account_id IS NOT NULL";
   const A = accountId ? [accountId] : [];
   const rows: Row[] = [
@@ -137,7 +137,7 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
     ...all(`SELECT x.account_id, x.created_at at, CASE WHEN x.type='refund' THEN -x.amount ELSE x.amount END amount, 'receipt' kind,
         'Wallet ' || x.type || ' — ' || c.name text, x.created_by who, 'wallet:' || x.id ref
       FROM wallet_ledger x JOIN customers c ON c.id=x.customer_id WHERE x.tenant_id=? AND x.type IN ('deposit','refund')${acc}`, t, ...A),
-    ...all(`SELECT x.account_id, x.txn_date at, x.amount, x.kind, COALESCE(x.note, x.kind) || COALESCE(' — ' || x.party, '') text, x.created_by who, 'bank:' || x.id ref, x.id txn_id
+    ...all(`SELECT x.account_id, x.txn_date at, x.amount, x.kind, COALESCE(x.note, x.kind) || COALESCE(' — ' || x.party, '') text, x.created_by who, 'bank:' || x.id ref, x.id txn_id, x.ref oref
       FROM bank_txns x WHERE x.tenant_id=?${acc}`, t, ...A),
     // staff advances / bonus paid, or advances paid back, through a bank or wallet
     ...all(`SELECT x.account_id, x.created_at at, CASE WHEN x.type='repayment' THEN x.amount ELSE -x.amount END amount, 'staff' kind,
@@ -177,7 +177,13 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
   // the bank's card/POS fee (MDR) on each day's card sales — so the bank's net matches the statement
   for (const f of cardFees(t, accountId))
     rows.push({ account_id: f.account_id, at: dayEnd(f.day), amount: -f.fee, kind: "card_fee", text: `Bank card charges ${f.day} (${f.pct}% of ${Math.round(f.sales).toLocaleString()})`, who: null, ref: `cardfee:${f.account_id}:${f.day}` });
-  return rows.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  // the CEO's private "other income/expense" into/out of a bank shows to anyone but the owner as a generic owner movement
+  return rows.map((r: any) => {
+    const o = String(r.oref ?? "");
+    const hide = !showPrivate && (o.startsWith("oth-inc:") || o.startsWith("oth-exp:"));
+    const { oref: _oref, ...rest } = r;
+    return hide ? { ...rest, text: r.amount > 0 ? "Owner money in" : "Owner money out", who: null } : rest;
+  }).sort((a, b) => String(a.at).localeCompare(String(b.at)));
 }
 
 /** Each account with its balance now and this month's money in / out. */
@@ -284,7 +290,7 @@ banks.get("/bank/accounts/:id/statement", requirePerm("bank.view"), h((req) => {
   const a = ownAccount(t, Number(req.params.id));
   const to = String(req.query.to ?? pkDate());
   const from = String(req.query.from ?? `${to.slice(0, 7)}-01`);
-  const moves = bankMoves(t, a.id);
+  const moves = bankMoves(t, a.id, req.user!.role === "admin");
   const start = pkStart(from), end = pkEnd(to);
   let balance = round2(a.opening_balance + moves.filter((m) => m.at < start).reduce((s, m) => s + m.amount, 0));
   const opening = balance;

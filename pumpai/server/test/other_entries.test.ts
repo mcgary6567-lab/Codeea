@@ -13,7 +13,7 @@ process.env.NODE_ENV = "test";
 process.env.ANTHROPIC_API_KEY = "";
 process.env.WA_TOKEN = "";
 
-let server: Server, base = "", adminTok = "", salesTok = "", mgrTok = "";
+let server: Server, base = "", adminTok = "", salesTok = "", mgrTok = "", cashTok = "";
 async function call(tok: string, method: string, url: string, body?: unknown) {
   const res = await fetch(base + url, { method, headers: { "content-type": "application/json", ...(tok ? { authorization: `Bearer ${tok}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: res.status, data: (await res.json().catch(() => null)) as any };
@@ -28,6 +28,7 @@ before(async () => {
   adminTok = (await call("", "POST", "/api/auth/login", { email: "admin@pumpai.pk", password: "demo1234" })).data.token;
   salesTok = (await call("", "POST", "/api/auth/login", { email: "salesman@pumpai.pk", password: "demo1234" })).data.token;
   mgrTok = (await call("", "POST", "/api/auth/login", { email: "manager@pumpai.pk", password: "demo1234" })).data.token;
+  cashTok = (await call("", "POST", "/api/auth/login", { email: "cashier@pumpai.pk", password: "demo1234" })).data.token;
 });
 after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
@@ -116,4 +117,23 @@ test("the CEO entries are private — a manager cannot see them, but both books 
   assert.ok(!g(mgrLed.trial_balance, "Expense: Other (CEO)"), "manager ledger hides the Other (CEO) expense");
   assert.ok(!g(mgrLed.trial_balance, "Other discount (CEO)"), "manager ledger hides Other discount (CEO)");
   assert.ok(g(mgrLed.trial_balance, "Owner's capital") && g(mgrLed.trial_balance, "Owner's drawings"), "manager sees them only as owner capital/drawings");
+});
+
+test("the cashier day book hides the CEO detail but the cash still reconciles", async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const adminDay = ok(await call(adminTok, "GET", `/api/cashier/daybook?date=${today}`), "admin daybook");
+  const cashDay = ok(await call(cashTok, "GET", `/api/cashier/daybook?date=${today}`), "cashier daybook");
+  const txt = (d: any) => JSON.stringify(d.rows);
+
+  // the owner sees the reason/party; the cashier sees only a generic owner movement
+  assert.match(txt(adminDay), /Generator kiraya/);
+  assert.ok(adminDay.rows.some((r: any) => r.party === "Mistri"), "owner sees the payee");
+  assert.doesNotMatch(txt(cashDay), /Generator kiraya|welding/);
+  assert.ok(!cashDay.rows.some((r: any) => r.party === "Mistri" || r.party === "Scrap"), "cashier does not see the payee/payer");
+  assert.match(txt(cashDay), /Owner money (in|out)/);
+  // the discount (no money) must not appear as a phantom bank line for anyone
+  assert.ok(!adminDay.rows.some((r: any) => String(r.method ?? "").startsWith("oth-disc")) && !cashDay.rows.some((r: any) => String(r.method ?? "").startsWith("oth-disc")), "discount never shows in the day book");
+  // the cash actually moved, so both see the SAME cash totals (5000 in, 2000 out from these entries)
+  assert.equal(adminDay.totals.in_cash, cashDay.totals.in_cash);
+  assert.equal(adminDay.totals.out_cash, cashDay.totals.out_cash);
 });

@@ -370,7 +370,9 @@ cashier.post("/cashier/handovers/:id", requirePerm("shifts.handover"), h(async (
 }));
 
 /* ---------------- day book ---------------- */
-export function cashierDayBook(t: number, d: string) {
+/** CEO "other" money markers — hidden from the cashier day book (shown generically; discounts dropped entirely). */
+const isOtherMoney = (ref: string | null | undefined) => !!ref && (String(ref).startsWith("oth-inc:") || String(ref).startsWith("oth-exp:"));
+export function cashierDayBook(t: number, d: string, showPrivate = true) {
   const from = pkStart(d), to = pkEnd(d);
   // today: only what has happened so far (same cut-off as the cash book)
   const P = [t, from, to < now() ? to : now()] as const;
@@ -386,9 +388,9 @@ export function cashierDayBook(t: number, d: string) {
     ...all(`SELECT created_at at, 'in' dir, 'Shop sale (no shift)' what, '' party, 'Cash' method, total amount, NULL account_id, NULL who
       FROM shop_sales WHERE tenant_id=? AND shift_id IS NULL AND payment_method='cash' AND created_at >= ? AND created_at < ?`, ...P),
     ...all(`SELECT k.created_at at, 'in' dir, 'Khata payment' what, c.name party, COALESCE(k.ref,'') method, k.amount, k.account_id, NULL who
-      FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND k.created_at >= ? AND k.created_at < ?`, ...P),
+      FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND COALESCE(k.ref,'') NOT LIKE 'oth-disc:%' AND k.created_at >= ? AND k.created_at < ?`, ...P),
     ...all(`SELECT x.created_at at, 'in' dir, 'Wholesale payment' what, c.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
-      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
+      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND COALESCE(x.ref,'') NOT LIKE 'oth-disc:%' AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT x.created_at at, 'out' dir, 'Supplier payment' what, s.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
       FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.type='payment' AND COALESCE(x.method,'')<>'WHT' AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT created_at at, 'out' dir, 'Expense · ' || category what, COALESCE(paid_to,'') party, method, amount, account_id, created_by who
@@ -404,11 +406,16 @@ export function cashierDayBook(t: number, d: string) {
     ...all(`SELECT created_at at, 'contra' dir, 'Cash deposited in bank' what, COALESCE(slip_ref,'') party, 'Cash' method, amount, account_id, deposited_by who
       FROM bank_deposits WHERE tenant_id=? AND created_at >= ? AND created_at < ?`, ...P),
     ...all(`SELECT created_at at, CASE WHEN kind IN ('withdraw','transfer') THEN 'contra' WHEN amount > 0 THEN 'in' ELSE 'out' END dir, COALESCE(note, kind) what, COALESCE(party,'') party,
-      'Bank' method, ABS(amount) amount, account_id, created_by who FROM bank_txns WHERE tenant_id=? AND created_at >= ? AND created_at < ?`, ...P),
-    ...all(`SELECT created_at at, direction dir, COALESCE(category, CASE direction WHEN 'in' THEN 'Other money in' ELSE 'Other payment' END) what, party_name party, method, amount, account_id, created_by who
+      'Bank' method, ABS(amount) amount, account_id, created_by who, ref oref FROM bank_txns WHERE tenant_id=? AND created_at >= ? AND created_at < ?`, ...P),
+    ...all(`SELECT created_at at, direction dir, COALESCE(category, CASE direction WHEN 'in' THEN 'Other money in' ELSE 'Other payment' END) what, party_name party, method, amount, account_id, created_by who, src oref
       FROM cashier_vouchers WHERE tenant_id=? AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at >= ? AND created_at < ?`, ...P),
-  ].map((r) => ({ ...r, amount: round2(r.amount), account: r.account_id ? acc.get(r.account_id) ?? null : null, cash: isCash(r.method) }))
-    .sort((a, b) => (a.at < b.at ? -1 : 1));
+  ].map((r) => {
+    // the CEO's private "other income / expense" shows to the cashier only as a generic owner money movement (no party, no reason)
+    const hide = !showPrivate && isOtherMoney((r as any).oref);
+    const { oref: _oref, ...rest } = r as any;
+    return { ...rest, what: hide ? (r.dir === "in" ? "Owner money in" : "Owner money out") : r.what, party: hide ? "" : r.party,
+      amount: round2(r.amount), account: r.account_id ? acc.get(r.account_id) ?? null : null, cash: isCash(r.method) };
+  }).sort((a, b) => (a.at < b.at ? -1 : 1));
   // the day the cash book starts (first cash count): only what came after the count moves the book
   const first = get("SELECT MIN(created_at) v FROM cash_counts WHERE tenant_id=?", t)!.v as string | null;
   const startsToday = Boolean(first && first >= from && first < to);
@@ -475,13 +482,13 @@ export function onlineToday(t: number, since = pkDayStart()) {
   return { methods, total: round2(methods.reduce((a, o) => a + o.total, 0)), open_shifts };
 }
 
-cashier.get("/cashier/daybook", requirePerm("cashier.desk"), h((req) => cashierDayBook(tid(req), req.query.date ? parse(day, req.query.date) : pkDate())));
+cashier.get("/cashier/daybook", requirePerm("cashier.desk"), h((req) => cashierDayBook(tid(req), req.query.date ? parse(day, req.query.date) : pkDate(), req.user!.role === "admin")));
 
 /** The day book as a CSV (Excel) download — oldest entry first. */
 cashier.get("/cashier/daybook.csv", (req, res, next) => {
   try {
     const d = req.query.date ? parse(day, req.query.date) : pkDate();
-    const b = cashierDayBook(tid(req), d);
+    const b = cashierDayBook(tid(req), d, req.user!.role === "admin");
     const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
     const out = [
       ["Cash & bank day book", d].map(esc).join(","),
@@ -509,11 +516,15 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   const ct = chequeTotals(cheques);
   const banks = can(req.user, "bank.view") ? bankAccounts(t) : null;
   const promised = promises(t).filter((p) => p.state === "today" || p.state === "broken").map((p) => ({ client_id: p.client_id, name: p.client_name, amount: p.amount, promised_on: p.promised_on, state: p.state }));
-  const book = cashierDayBook(t, today);
+  const seeAll = req.user!.role === "admin";
+  const book = cashierDayBook(t, today, seeAll);
   // with the bank account's name, so a voucher printed again from the list says where the money went
   const vouchers = all("SELECT * FROM cashier_vouchers WHERE tenant_id=? AND created_at >= ? ORDER BY id DESC LIMIT 8", t, pkDayStart()).map((v) => {
     const acc = v.account_id ? get("SELECT * FROM bank_accounts WHERE id=?", v.account_id) : null;
-    return { ...v, no: vno(v.direction, v.id), account: acc ? accountName(acc) : null };
+    // the CEO's private "other" money shows to the cashier only as a generic owner movement
+    const hide = !seeAll && isOtherMoney(v.src);
+    return { ...v, party_name: hide ? "Owner" : v.party_name, category: hide ? (v.direction === "in" ? "Owner money in" : "Owner money out") : v.category,
+      src: hide ? null : v.src, ref: hide ? null : v.ref, note: hide ? null : v.note, no: vno(v.direction, v.id), account: acc ? accountName(acc) : null };
   });
   const counted = cash.last_count && cash.last_count.at >= pkDayStart();
   const online = onlineToday(t);
