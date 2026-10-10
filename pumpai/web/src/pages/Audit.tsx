@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Download, ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
-import { linkToken, useApi } from "../lib/api";
+import { Download, ChevronDown, ChevronRight, ShieldCheck, Scale, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, PageHeader } from "../components/ui";
-import { dt } from "../lib/format";
+import { dt, pkr } from "../lib/format";
 
 const KINDS: [string, string, string][] = [
   ["", "All", "slate"], ["price", "Prices", "blue"], ["undo", "Undo", "amber"], ["delete", "Deleted", "red"], ["edit", "Edited", "violet"],
@@ -10,6 +10,71 @@ const KINDS: [string, string, string][] = [
 ];
 const tone = (k: string) => KINDS.find((x) => x[0] === k)?.[2] ?? "slate";
 const show = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v));
+
+type CheckRow = { label: string; book: number; ledger: number; diff: number; ok: boolean; note?: string };
+type CheckResult = { ok: boolean; checked_at: string; max_diff: number; checks: CheckRow[]; failed: string[] };
+
+/** CEO-only "Hisaab check" — one button re-runs the whole-system reconciliation live and proves everything tallies to 0 rupee. */
+function BooksCheck() {
+  const [res, setRes] = useState<CheckResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const run = async () => {
+    setLoading(true); setErr(""); setRes(null);
+    try { setRes(await api<CheckResult>("/books/check")); }
+    catch (e: any) { setErr(e?.message ?? "Check nahi chal saka"); }
+    finally { setLoading(false); }
+  };
+  return (
+    <div className="card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Scale size={18} className="text-brand-600" />
+          <div>
+            <div className="font-medium">Hisaab check — poora system</div>
+            <div className="text-xs text-slate-500">Har balance (cash, bank, khata, wholesale, carriage, supplier, coupon, wallet, staff, stock) ko ledger se milata hai. Koi bhi entry theek karne ke baad press karein — pakka ho jayega ke 1 rupaye ka bhi farq nahi.</div>
+          </div>
+        </div>
+        <button className="btn-primary" onClick={run} disabled={loading}>
+          {loading ? <Loader2 size={15} className="animate-spin" /> : <Scale size={15} />} Hisaab check karein
+        </button>
+      </div>
+      {err && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {res && (
+        <div className="mt-3">
+          {res.ok ? (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-emerald-800">
+              <CheckCircle2 size={18} /> <span className="font-medium">Sab tally — 0 rupaye ka farq.</span>
+              <span className="text-xs text-emerald-600">Sabse bada farq: {pkr(res.max_diff)}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2.5 text-amber-800">
+              <AlertTriangle size={18} /> <span className="font-medium">{res.failed.length} jagah farq hai</span>
+              <span className="text-xs text-amber-600">Sabse bada farq: {pkr(res.max_diff)}</span>
+            </div>
+          )}
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-slate-500"><tr><th className="py-1.5">Mad</th><th className="text-right">Book</th><th className="text-right">Ledger</th><th className="text-right">Farq</th><th className="py-1.5 pl-3">Haalat</th></tr></thead>
+              <tbody>
+                {res.checks.map((c) => (
+                  <tr key={c.label} className="border-t border-slate-100">
+                    <td className="py-1.5 pr-3">{c.label}{c.note && <span className="block text-[11px] text-amber-600">{c.note}</span>}</td>
+                    <td className="text-right tabular-nums">{pkr(c.book)}</td>
+                    <td className="text-right tabular-nums">{pkr(c.ledger)}</td>
+                    <td className={`text-right tabular-nums ${Math.abs(c.diff) > 1 ? "font-semibold text-red-700" : "text-slate-400"}`}>{pkr(c.diff)}</td>
+                    <td className="py-1.5 pl-3">{c.ok ? <Badge tone="green">OK</Badge> : <Badge tone="red">Farq</Badge>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-2 text-[11px] text-slate-400">Checked at {dt(res.checked_at)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Who changed what, when — prices, undo, deletes, edits, approvals, settings and sign-ins. */
 export default function Audit() {
@@ -22,6 +87,7 @@ export default function Audit() {
     <div className="space-y-4">
       <PageHeader title="Audit log" subtitle="Every change in the system: who did it, when, and what it was before"
         actions={<a className="btn-secondary" href={`/api/audit.csv?${qs}&token=${linkToken()}`}><Download size={15} /> Excel / CSV</a>} />
+      <BooksCheck />
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         {KINDS.map(([k, l]) => <button key={k} onClick={() => setF({ ...f, kind: k, page: 1 })} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm sm:min-h-0 ${f.kind === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{l}</button>)}
       </div>
