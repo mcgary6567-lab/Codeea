@@ -36,7 +36,7 @@ const SUBS: Record<string, typeof WHOLESALE_SUB> = { "/wholesale": WHOLESALE_SUB
 /** Urdu next to the English in the short menus (salesman, wholesale officer, cashier). */
 const NAV_UR: Record<string, string> = {
   "/pos": "سیل", "/shifts": "شفٹ", "/customers": "گاہک", "/bookings": "بکنگ", "/prices": "ریٹ", "/checklist": "روزانہ چیک",
-  "/machines": "مشینیں", "/my-account": "میرا حساب", "/wholesale": "ہول سیل", "/carriage": "کرایہ", "/cashier": "کیشیئر", "/cash": "کیش بک",
+  "/machines": "مشینیں", "/my-account": "میرا حساب", "/help": "رہنمائی", "/wholesale": "ہول سیل", "/carriage": "کرایہ", "/cashier": "کیشیئر", "/cash": "کیش بک",
 };
 /** Manager / owner menu groups (other roles have short menus and see them flat). */
 const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
@@ -158,6 +158,7 @@ const NAV = [
   { to: "/compliance", label: "Licences & checklist", icon: ShieldCheck, perm: "alerts.view" },
   { to: "/machines", label: "Machines", icon: Wrench, perm: "sales.create" },
   { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale", "manager", "cashier"] },
+  { to: "/help", label: "User guide", icon: BookOpenText, perm: "" },
   { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
   { to: "/audit", label: "Audit log", icon: History, perm: "audit.view" },
   { to: "/lists", label: "Lists", icon: ListChecks, perm: "settings.manage" },

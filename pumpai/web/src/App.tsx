@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import { LightboxHost } from "./components/Capture";
 import { UpdateBanner } from "./components/UpdateBanner";
 import Login from "./pages/Login";
+import Help from "./pages/Help";
 import Dashboard from "./pages/Dashboard";
 import Inbox from "./pages/Inbox";
 import Customers from "./pages/Customers";
@@ -164,6 +165,7 @@ export default function App() {
               <Route path="discounts-report" element={<Need perm="reports.view"><DiscountReport /></Need>} />
               <Route path="margins" element={<Need perm="reports.view"><Margins /></Need>} />
               <Route path="profit" element={<Need perm="reports.view"><ProfitExplainer /></Need>} />
+              <Route path="help" element={<Help />} />
               <Route path="suppliers" element={<Need perm="suppliers.manage"><Suppliers /></Need>} />
               <Route path="users" element={<Need perm="users.manage"><Users /></Need>} />
               <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />
