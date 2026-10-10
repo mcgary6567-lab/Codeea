@@ -1,0 +1,41 @@
+# PumpAI on Fly.io — one always-on machine with a persistent volume for the SQLite database.
+# See FLY.md for the full step-by-step. Change `app` to your own unique name (or let `fly launch` set it).
+app = "pumpai"
+primary_region = "bom"   # Mumbai — closest Fly region to Pakistan (alternatives: sin = Singapore)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "4000"
+  DB_PATH = "/data/pumpai.db"        # the database lives on the persistent volume
+  BACKUP_DIR = "/data/backups"       # nightly backups on the volume too (survive restarts)
+  WEB_DIST = "/app/web/dist"
+  SUPERVISED = "1"                   # lets "Restart now" work from Settings after a restore
+
+# the SQLite database + backups — a Fly volume keeps them across deploys and restarts.
+# IMPORTANT: create it once with `fly volumes create pumpai_data --size 3 --region bom` (see FLY.md).
+[mounts]
+  source = "pumpai_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 4000
+  force_https = true          # free SSL on *.fly.dev and on your own domain
+  auto_stop_machines = false  # NEVER stop — nightly reminders / backups / automations must keep running
+  auto_start_machines = true
+  min_machines_running = 1    # exactly one always-on machine (single writer for SQLite)
+
+  [[http_service.checks]]
+    method = "get"
+    path = "/api/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "40s"
+
+# 1 GB RAM is comfortable for one pump group; drop to 512 MB to save a little.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  cpus = 1

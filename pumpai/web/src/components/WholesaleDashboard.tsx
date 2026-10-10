@@ -1,0 +1,226 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from "recharts";
+import { ArrowDownRight, ArrowUpRight, Banknote, CalendarClock, ClipboardList, Plus, Search, Truck, Wallet } from "lucide-react";
+import { ChequeForm, OrderForm, PromiseForm } from "./WholesaleDesk";
+import { WholesaleVoice } from "./WholesaleVoice";
+import { useApi } from "../lib/api";
+import { Loading, Modal } from "./ui";
+import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort } from "../lib/format";
+import { useAuth } from "../App";
+
+/* chart roles: series slots 1 and 3 of the validated palette; recessive grid and axes */
+const BILLED = "#2a78d6", RECEIVED = "#1baf7a", GRID = "#e5e7eb", AXIS = "#6b7280";
+/* due ageing: one hue, light → dark as money gets older (sequential, labelled — never colour alone) */
+const AGE = [
+  { k: "d0_15", label: "0–15 days", fill: "#fde68a" }, { k: "d16_30", label: "16–30 days", fill: "#fbbf24" },
+  { k: "d31_60", label: "31–60 days", fill: "#d97706" }, { k: "d60", label: "60+ days", fill: "#92400e" },
+] as const;
+const HEALTH: Record<string, { label: string; dot: string }> = {
+  green: { label: "Good", dot: "bg-emerald-500" }, amber: { label: "Watch", dot: "bg-amber-500" }, red: { label: "Risk", dot: "bg-red-500" },
+};
+
+const Change = ({ v }: { v: number | null }) => v == null ? null : (
+  <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${v >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+    {v >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{Math.abs(v)}% vs last month
+  </span>
+);
+const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
+const Kpi = ({ label, ur, value, sub, accent }: { label: string; ur?: string; value: string; sub?: React.ReactNode; accent?: string }) => (
+  <div className="card h-full p-4">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs font-medium uppercase tracking-wide text-slate-500"><span>{label}</span>{ur && <Ur className="text-sm normal-case">{ur}</Ur>}</div>
+    <div className={`mt-1 text-2xl font-bold tabular-nums ${accent ?? "text-slate-900"}`}>{value}</div>
+    {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
+  </div>
+);
+
+/** Reminder for the wholesale officer: bypass fuel we already bought but haven't delivered — deliver it first. */
+function BypassHeldBanner({ onDeliver }: { onDeliver?: () => void }) {
+  const { data } = useApi<any>("/bypass/stock");
+  const lines = (data?.by_product ?? []) as any[];
+  if (!lines.length || !(data?.total?.litres > 0)) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-300">
+      <Truck size={20} className="shrink-0 text-amber-700" />
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-amber-900">Pehle se humare paas bypass maal ruka hai — pehle ise deliver karein</div>
+        <div className="text-sm text-amber-800">{lines.map((p) => `${num(p.litres)} L ${PRODUCTS[p.product] ?? p.product}`).join(" · ")} · total {pkr(data.total.value)} (cost par) <Ur className="ml-1">باقی مال پہلے دیں</Ur></div>
+      </div>
+      {onDeliver && <button className="btn-primary !bg-amber-600 shrink-0 hover:!bg-amber-700" onClick={onDeliver}><Truck size={15} /> Deliver karein</button>}
+    </div>
+  );
+}
+
+/** Wholesale home: today's actions, KPIs, suggestions, trends, ageing and client health. */
+export function WholesaleDashboard({ onTrip, onAddClient, onTab }: { onTrip: () => void; onAddClient: () => void; onFleet: () => void; onTab: (t: string) => void }) {
+  const { can } = useAuth();
+  const nav = useNavigate();
+  const { data, reload } = useApi<any>("/wholesale/dashboard");
+  const [desk, setDesk] = useState<null | "order" | "cheque" | "promise">(null);
+  const [pick, setPick] = useState<null | "supply" | "payment">(null);
+  const [q, setQ] = useState("");
+  if (!data) return <Loading />;
+  const k = data.kpi;
+  const manage = can("wholesale.manage");
+  const ageTotal = AGE.reduce((s, a) => s + data.ageing[a.k], 0);
+  const clients = data.clients.filter((c: any) => !q || c.name.toLowerCase().includes(q.toLowerCase()));
+
+  return (
+    <div className="space-y-5">
+      <WholesaleVoice onDone={reload} />
+      <BypassHeldBanner onDeliver={manage ? onTrip : undefined} />
+      {manage && (
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-4 2xl:grid-cols-7">
+          {[
+            { label: "New supply", short: "Supply", ur: "سپلائی", sub: "one client", icon: Truck, cls: "bg-brand-600 text-white", go: () => setPick("supply") },
+            { label: "Tanker trip", short: "Trip", ur: "ٹینکر ٹرپ", sub: "several drops", icon: Truck, cls: "bg-slate-800 text-white", go: onTrip },
+            { label: "Receive payment", short: "Payment", ur: "رقم وصول", sub: "cash / bank", icon: Wallet, cls: "bg-emerald-600 text-white", go: () => setPick("payment") },
+            { label: "Book order", short: "Order", ur: "آرڈر", sub: "litres for a day", icon: ClipboardList, cls: "bg-amber-500 text-white", go: () => setDesk("order") },
+            { label: "Cheque received", short: "Cheque", ur: "چیک", sub: "post-dated too", icon: Banknote, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("cheque") },
+            { label: "Payment promise", short: "Promise", ur: "وعدہ", sub: "will pay on …", icon: CalendarClock, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("promise") },
+            { label: "Add client", short: "Client", ur: "نیا کلائنٹ", sub: "with rate card", icon: Plus, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: onAddClient },
+          ].map((b) => (
+            <button key={b.label} onClick={b.go} className={`flex flex-col items-center gap-1 rounded-2xl px-1 py-2.5 text-center shadow-sm active:scale-[.98] sm:flex-row sm:gap-3 sm:px-4 sm:py-3 sm:text-left ${b.cls}`}>
+              <b.icon size={22} className="shrink-0" /><span className="min-w-0"><span className="block text-[13px] font-semibold leading-tight sm:hidden">{b.short}</span><Ur className="block text-xs leading-tight sm:hidden">{b.ur}</Ur>
+                <span className="hidden font-semibold sm:block">{b.label} · <Ur className="font-normal">{b.ur}</Ur></span><span className="hidden text-xs opacity-75 sm:block">{b.sub}</span></span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <Kpi label="Total due" ur="کل بقایا" value={pkrShort(k.total_due)} accent="text-amber-700" sub={k.overdue_30 > 0 ? <span className="font-medium text-red-600">{pkrShort(k.overdue_30)} older than 30 days</span> : "Nothing older than 30 days"} />
+        <Kpi label="Litres this month" ur="اس مہینے لیٹر" value={`${num(k.month_litres)} L`} sub={<Change v={k.month_litres_change} />} />
+        <Kpi label="Billed this month" ur="اس مہینے بل" value={pkrShort(k.month_billed)} sub={`${k.trips_month} tanker trips`} />
+        <Kpi label="Received this month" ur="اس مہینے وصولی" value={pkrShort(k.month_received)} accent="text-emerald-700" sub={k.collection_pct == null ? undefined : k.collection_pct > 100 ? "More than billed — old dues are coming down" : `${k.collection_pct}% of this month's billing`} />
+        <Kpi label="Profit (est.)" ur="منافع" value={k.profit_estimate != null ? pkrShort(k.profit_estimate) : "—"} sub={k.profit_estimate != null
+          ? <>{k.margin_per_l != null ? `Rs ${k.margin_per_l.toFixed(2)}/L over cost` : ""} · <Change v={k.month_profit_change} /> {k.last_month_profit != null && <span className="text-slate-400">(pichle mahine {pkrShort(k.last_month_profit)})</span>}</>
+          : "Add purchase rates to see profit"} />
+        <Kpi label="Today" ur="آج" value={`${num(k.today.litres)} L`} sub={`Received ${pkr(k.today.received)}`} />
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <button className="text-left" onClick={() => onTab("orders")}><Kpi label="Open orders" ur="باقی آرڈر" value={String(k.open_orders)} accent={k.orders_today ? "text-amber-700" : undefined} sub={`${num(k.open_orders_l)} L booked${k.orders_today ? ` · ${k.orders_today} for today / late` : ""}`} /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Promised today" ur="آج کے وعدے" value={pkrShort(k.promised_today)} accent="text-amber-700" sub={k.broken_promises ? <span className="font-medium text-red-600">{k.broken_promises} promise{k.broken_promises > 1 ? "s" : ""} broken</span> : "no broken promises"} /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Cheques not cleared" ur="چیک باقی" value={pkrShort(k.cheques_in_hand)} sub="in hand + deposited" /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Collection this month" ur="وصولی %" value={k.collection_pct == null ? "—" : `${k.collection_pct}%`} accent={k.collection_pct != null && k.collection_pct < 80 ? "text-red-600" : "text-emerald-700"} sub="received ÷ billed" /></button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <div className="card p-4">
+          <h2 className="font-semibold">Litres supplied — last 30 days · <Ur>لیٹر سپلائی</Ur></h2>
+          <p className="mb-2 text-xs text-slate-500">Per day, by fuel</p>
+          <div className="h-64"><ResponsiveContainer>
+            <BarChart data={data.daily} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis dataKey="day" tickFormatter={(d) => d.slice(8)} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={{ stroke: GRID }} interval={2} />
+              <YAxis tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
+              <Tooltip cursor={{ fill: "rgba(15,23,42,.05)" }} formatter={(v: number, n: string) => [`${num(v)} L`, PRODUCTS[n] ?? n]} labelFormatter={(d) => d} />
+              <Legend formatter={(v) => <span className="text-xs text-slate-700">{PRODUCTS[v] ?? v}</span>} iconType="square" iconSize={10} />
+              {Object.keys(PRODUCTS).map((p, i, arr) => <Bar key={p} dataKey={p} stackId="l" fill={PRODUCT_COLORS[p]} stroke="#fff" strokeWidth={1} radius={i === arr.length - 1 ? [4, 4, 0, 0] : 0} maxBarSize={22} />)}
+            </BarChart>
+          </ResponsiveContainer></div>
+        </div>
+        <div className="card p-4">
+          <h2 className="font-semibold">Billed vs received — last 8 weeks · <Ur>بل اور وصولی</Ur></h2>
+          <p className="mb-2 text-xs text-slate-500">When received stays below billed, dues are growing</p>
+          <div className="h-64"><ResponsiveContainer>
+            <BarChart data={data.weekly} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={2}>
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis dataKey="week" tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={{ stroke: GRID }} tickFormatter={(w) => `wk ${w}`} />
+              <YAxis tickFormatter={(v) => (v >= 100_000 ? `${Math.round(v / 100_000)}L` : v >= 1000 ? `${Math.round(v / 1000)}k` : v)} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
+              <Tooltip cursor={{ fill: "rgba(15,23,42,.05)" }} formatter={(v: number, n: string) => [pkr(v), n === "billed" ? "Billed" : "Received"]} labelFormatter={(w) => `Week of ${w}`} />
+              <Legend formatter={(v) => <span className="text-xs text-slate-700">{v === "billed" ? "Billed" : "Received"}</span>} iconType="square" iconSize={10} />
+              <Bar dataKey="billed" fill={BILLED} radius={[4, 4, 0, 0]} maxBarSize={18} />
+              <Bar dataKey="received" fill={RECEIVED} radius={[4, 4, 0, 0]} maxBarSize={18} />
+            </BarChart>
+          </ResponsiveContainer></div>
+        </div>
+      </div>
+
+      {data.monthly_profit?.some((m: any) => m.profit) && <div className="card p-4">
+        <h2 className="font-semibold">Munafa — last 6 months · <Ur>ماہانہ منافع</Ur></h2>
+        <p className="mb-2 text-xs text-slate-500">Supply rate over our purchase cost, har mahine</p>
+        <div className="h-56"><ResponsiveContainer>
+          <BarChart data={data.monthly_profit} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke={GRID} vertical={false} />
+            <XAxis dataKey="month" tickFormatter={(ym: string) => ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(ym.split("-")[1])] ?? ym} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={{ stroke: GRID }} />
+            <YAxis tickFormatter={(v) => (Math.abs(v) >= 100_000 ? `${Math.round(v / 100_000)}L` : Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : v)} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
+            <Tooltip cursor={{ fill: "rgba(15,23,42,.05)" }} formatter={(v: number) => [pkr(v), "Munafa"]} labelFormatter={(ym) => String(ym)} />
+            <Bar dataKey="profit" radius={[4, 4, 0, 0]} maxBarSize={40}>
+              {data.monthly_profit.map((m: any, i: number) => <Cell key={i} fill={m.profit >= 0 ? RECEIVED : "#e11d48"} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer></div>
+      </div>}
+
+      <div className="card p-4">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2"><h2 className="font-semibold">How old is the money owed? · <Ur>بقایا کتنا پرانا ہے</Ur></h2><span className="text-sm text-slate-600">Total due {pkr(ageTotal)}</span></div>
+        {ageTotal > 0 && <div className="mb-3 flex h-4 gap-0.5 overflow-hidden rounded-md" role="img" aria-label="Due by age">
+          {AGE.map((a) => data.ageing[a.k] > 0 && <div key={a.k} title={`${a.label}: ${pkr(data.ageing[a.k])}`} style={{ width: `${(data.ageing[a.k] / ageTotal) * 100}%`, background: a.fill }} />)}
+        </div>}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {AGE.map((a) => (
+            <div key={a.k} className="rounded-xl bg-slate-50 p-3">
+              <div className="flex items-center gap-2 text-xs text-slate-600"><span className="h-3 w-3 rounded-sm" style={{ background: a.fill }} />{a.label}</div>
+              <div className="mt-1 text-lg font-semibold tabular-nums">{pkrShort(data.ageing[a.k])}</div>
+              <div className="text-xs text-slate-500">{ageTotal ? Math.round((data.ageing[a.k] / ageTotal) * 100) : 0}%</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-2">
+          <h2 className="font-semibold">Clients at a glance · <Ur>کلائنٹس</Ur></h2>
+          <div className="relative w-full sm:w-56"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        </div>
+        {/* phone: one card per client */}
+        <ul className="divide-y divide-slate-100 sm:hidden">{clients.map((c: any) => (
+          <li key={c.id}><button className="w-full px-4 py-3 text-left active:bg-slate-50" onClick={() => nav(`/wholesale/${c.id}`)}>
+            <div className="flex items-start gap-2">
+              <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${HEALTH[c.health].dot}`} />
+              <span className="min-w-0 flex-1"><span className="block font-semibold">{c.name}</span><span className="text-xs text-slate-500">{c.city}{c.city ? " · " : ""}{num(c.month_l)} L this month</span></span>
+              <span className="text-right"><span className="block font-bold tabular-nums">{pkr(c.due)}</span><span className={`text-xs ${c.oldest_days > 30 ? "font-semibold text-red-600" : "text-slate-500"}`}>{c.due > 0 ? `oldest ${c.oldest_days} d` : "nothing due"}</span></span>
+            </div>
+            {c.limit_pct != null && <div className="ml-4 mt-2 flex items-center gap-2"><div className="h-1.5 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, c.limit_pct))}%`, background: c.limit_pct >= 90 ? "#e34948" : c.limit_pct >= 75 ? "#eda100" : "#2a78d6" }} /></div><span className="text-xs tabular-nums text-slate-600">{c.limit_pct}% of limit</span></div>}
+            <div className="ml-4 mt-1 text-xs text-slate-500">Last order {c.last_supply_days == null ? "never" : c.last_supply_days === 0 ? "today" : `${c.last_supply_days} day${c.last_supply_days === 1 ? "" : "s"} ago`}{c.margins.length ? ` · margin ${c.margins.map((m: any) => `${PRODUCTS[m.product].split(" ")[0]} Rs ${m.margin.toFixed(2)}`).join(", ")}` : ""}</div>
+          </button></li>
+        ))}</ul>
+        <div className="hidden overflow-x-auto sm:block">
+          <table className="w-full">
+            <thead><tr><th className="th">Client</th><th className="th">Health</th><th className="th text-right">Due</th><th className="th">Credit limit used</th><th className="th text-right">Oldest unpaid</th><th className="th text-right">This month</th><th className="th">Last order</th><th className="th">Margin / L</th></tr></thead>
+            <tbody>{clients.map((c: any) => (
+              <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => nav(`/wholesale/${c.id}`)}>
+                <td className="td"><div className="font-medium">{c.name}</div><div className="text-xs text-slate-500">{c.city}</div></td>
+                <td className="td"><span className="inline-flex items-center gap-1.5 text-sm"><span className={`h-2.5 w-2.5 rounded-full ${HEALTH[c.health].dot}`} />{HEALTH[c.health].label}</span></td>
+                <td className="td text-right font-semibold tabular-nums">{pkr(c.due)}</td>
+                <td className="td">{c.limit_pct != null ? <div className="flex items-center gap-2"><div className="h-1.5 w-24 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, c.limit_pct))}%`, background: c.limit_pct >= 90 ? "#e34948" : c.limit_pct >= 75 ? "#eda100" : "#2a78d6" }} /></div><span className="text-xs tabular-nums text-slate-600">{c.limit_pct}%</span></div> : <span className="text-xs text-slate-400">no limit</span>}</td>
+                <td className={`td text-right text-sm tabular-nums ${c.oldest_days > 30 ? "font-semibold text-red-600" : ""}`}>{c.due > 0 ? `${c.oldest_days} days` : "—"}</td>
+                <td className="td text-right tabular-nums">{num(c.month_l)} L</td>
+                <td className="td text-xs">{c.last_supply_days == null ? "never" : c.last_supply_days === 0 ? "today" : `${c.last_supply_days} day${c.last_supply_days === 1 ? "" : "s"} ago`}{c.usual_gap_days ? <div className="text-slate-500">usually every {c.usual_gap_days} d</div> : null}</td>
+                <td className="td text-xs">{c.margins.map((m: any) => <div key={m.product} className={m.margin < 1 ? "font-semibold text-red-600" : "text-slate-700"}>{PRODUCTS[m.product]} Rs {m.margin.toFixed(2)}</div>)}{!c.margins.length && <span className="text-slate-400">—</span>}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>
+
+      {desk === "order" && <OrderForm onClose={() => setDesk(null)} onDone={() => { setDesk(null); reload(); }} />}
+      {desk === "cheque" && <ChequeForm onClose={() => setDesk(null)} onDone={() => { setDesk(null); reload(); }} />}
+      {desk === "promise" && <PromiseForm onClose={() => setDesk(null)} onDone={() => { setDesk(null); reload(); }} />}
+      {pick && (
+        <Modal open onClose={() => setPick(null)} title={pick === "supply" ? "Supply to which client?" : "Payment from which client?"}>
+          <div className="max-h-[60vh] space-y-1 overflow-y-auto">
+            {data.clients.map((c: any) => (
+              <button key={c.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-slate-50" onClick={() => nav(`/wholesale/${c.id}?do=${pick}`)}>
+                <span><span className="font-medium">{c.name}</span> <span className="text-xs text-slate-500">{c.city}</span></span>
+                <span className="text-sm tabular-nums text-slate-600">due {pkr(c.due)}</span>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+

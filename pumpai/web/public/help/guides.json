@@ -1,0 +1,238 @@
+{
+  "updated": "2026-10-10",
+  "modules": [
+    {
+      "id": "pos", "num": 1, "route": "/pos", "login": "salesman",
+      "title_en": "POS — Sales", "title_ur": "پوائنٹ آف سیل — سیل",
+      "who": ["👤 Salesman", "🧾 Fuel & shop sales", "📴 Works offline"],
+      "what_en": "The POS is where the salesman records every fuel and shop sale — cash, card, online, khata (udhaar) or coupon. Today's rates show on top. It keeps working even without internet.",
+      "what_ur": "پی او ایس وہ جگہ ہے جہاں سیلزمین ہر فیول اور دکان کی سیل درج کرتا ہے — کیش، کارڈ، آن لائن، کھاتہ یا کوپن۔ آج کے ریٹ اوپر نظر آتے ہیں، اور انٹرنیٹ کے بغیر بھی چلتا ہے۔",
+      "steps": [
+        {"en": "Mark your attendance (selfie + location), then start your shift with the meter reading.", "ur": "پہلے اپنی حاضری لگائیں (سیلفی اور لوکیشن)، پھر میٹر ریڈنگ کے ساتھ اپنی شفٹ شروع کریں۔"},
+        {"en": "Pick the fuel (Petrol / Hi-Octane / Diesel). The big rate is already shown — set by the owner.", "ur": "فیول چنیں (پیٹرول / ہائی آکٹین / ڈیزل)۔ ریٹ پہلے سے لکھا ہوتا ہے جو مالک سیٹ کرتا ہے۔"},
+        {"en": "Enter the amount in Rupees or Litres — the other is worked out automatically. Or tap “Speak the sale” and just say it.", "ur": "رقم روپے یا لیٹر میں لکھیں — دوسرا خود نکل آتا ہے۔ یا “بول کر سیل” دبا کر بول دیں۔"},
+        {"en": "Choose payment: Cash, Card, Online, Khata or Coupon. For khata, pick the customer's account.", "ur": "ادائیگی چنیں: کیش، کارڈ، آن لائن، کھاتہ یا کوپن۔ کھاتہ کے لیے گاہک کا اکاؤنٹ منتخب کریں۔"},
+        {"en": "Press Save. The receipt is ready to print, and stock, meter and the customer's khata update automatically.", "ur": "محفوظ دبائیں۔ رسید پرنٹ کے لیے تیار، اور اسٹاک، میٹر اور گاہک کا کھاتہ خود اپ ڈیٹ ہو جاتے ہیں۔"}
+      ],
+      "tips": [
+        {"icon": "📴", "en": "Offline: No internet? The sale is saved and syncs by itself when the signal returns.", "ur": "انٹرنیٹ نہ ہو تو سیل محفوظ ہو جاتی ہے اور سگنل آتے ہی خود اپ لوڈ ہو جاتی ہے۔"},
+        {"icon": "↩️", "en": "Mistake? Tap Undo within 2 minutes to cancel a wrong sale.", "ur": "غلط سیل 2 منٹ کے اندر Undo سے واپس کریں۔"},
+        {"icon": "🎓", "en": "Practice: Use Training mode to learn — nothing is saved.", "ur": "سیکھنے کے لیے ٹریننگ موڈ — کچھ محفوظ نہیں ہوتا۔"}
+      ]
+    },
+    {
+      "id": "shifts", "num": 2, "route": "/shifts", "login": "salesman",
+      "title_en": "Shifts — Open & Close", "title_ur": "شفٹ — شروع اور ختم",
+      "who": ["👤 Salesman", "⏱ Meter & cash"],
+      "what_en": "A shift is one salesman's duty period. You open it with the opening meter reading and close it with the closing reading — litres sold, khata, online and cash are worked out for you.",
+      "what_ur": "شفٹ ایک سیلزمین کی ڈیوٹی کا وقت ہے۔ شروع میں میٹر ریڈنگ لیں اور آخر میں بند کریں — بکنے والے لیٹر، کھاتہ، آن لائن اور کیش خود نکل آتے ہیں۔",
+      "steps": [
+        {"en": "Open shift: enter the opening meter reading handed over by the last salesman.", "ur": "شفٹ شروع: پچھلے سیلزمین کی دی ہوئی اوپننگ میٹر ریڈنگ لکھیں۔"},
+        {"en": "Record sales through the POS during your shift as normal.", "ur": "شفٹ کے دوران پی او ایس سے معمول کے مطابق سیل درج کرتے رہیں۔"},
+        {"en": "Close shift: write the closing meter reading and count the cash.", "ur": "شفٹ ختم: کلوزنگ میٹر ریڈنگ لکھیں اور کیش گنیں۔"},
+        {"en": "The app shows litres sold, test litres, khata, online, expenses and cash short/over automatically.", "ur": "ایپ خود دکھاتی ہے: بکے لیٹر، ٹیسٹ لیٹر، کھاتہ، آن لائن، خرچے اور کیش کم/زیادہ۔"},
+        {"en": "Hand the cash to the cashier — the handover is recorded.", "ur": "کیش کیشیئر کے حوالے کریں — ہینڈ اوور ریکارڈ ہو جاتا ہے۔"}
+      ],
+      "tips": [
+        {"icon": "📷", "en": "Take a photo of the meter at open and close — proof for any dispute.", "ur": "شروع اور آخر میں میٹر کی تصویر لیں — کسی تنازع کے لیے ثبوت۔"},
+        {"icon": "⚖️", "en": "Cash short/over is flagged to the manager at once.", "ur": "کیش کم/زیادہ فوراً مینیجر کو دکھتا ہے۔"}
+      ]
+    },
+    {
+      "id": "attendance", "num": 3, "route": "/my-account", "login": "salesman",
+      "title_en": "Attendance & My Account", "title_ur": "حاضری اور میرا حساب",
+      "who": ["👤 Salesman / Staff", "🙋 Selfie + location"],
+      "what_en": "Staff mark their own attendance with a live selfie and location. My Account also shows your salary, advances and shifts.",
+      "what_ur": "عملہ اپنی حاضری لائیو سیلفی اور لوکیشن سے لگاتا ہے۔ میرا حساب میں تنخواہ، ایڈوانس اور شفٹیں بھی نظر آتی ہیں۔",
+      "steps": [
+        {"en": "Open My Account (or tap Attendance on the POS).", "ur": "میرا حساب کھولیں (یا پی او ایس پر حاضری دبائیں)۔"},
+        {"en": "Tap “Check in with selfie” — allow the camera and location.", "ur": "“سیلفی سے حاضری” دبائیں — کیمرا اور لوکیشن کی اجازت دیں۔"},
+        {"en": "Your check-in time and place are saved. Check out the same way at the end.", "ur": "آپ کا وقت اور جگہ محفوظ ہو جاتے ہیں۔ آخر میں اسی طرح چیک آؤٹ کریں۔"},
+        {"en": "See your salary, advances taken and this month's attendance below.", "ur": "نیچے اپنی تنخواہ، لیے گئے ایڈوانس اور اس ماہ کی حاضری دیکھیں۔"}
+      ],
+      "tips": [
+        {"icon": "📍", "en": "Attendance only counts from the pump location — no remote check-in.", "ur": "حاضری صرف پمپ کی جگہ سے لگتی ہے — دور سے نہیں۔"},
+        {"icon": "👔", "en": "Cashier, manager and wholesale staff are exempt from the selfie — the manager marks them on the kiosk.", "ur": "کیشیئر، مینیجر اور ہول سیل عملہ سیلفی سے مستثنیٰ — مینیجر کیوسک پر لگاتا ہے۔"}
+      ]
+    },
+    {
+      "id": "customers", "num": 4, "route": "/customers", "login": "admin",
+      "title_en": "Customers & Khata", "title_ur": "گاہک اور کھاتہ",
+      "who": ["👔 Manager / CEO", "📒 Udhaar accounts"],
+      "what_en": "Add khata (credit) customers, set their credit limit, see each one's balance, aging and risk score, and print a bank-style statement.",
+      "what_ur": "کھاتہ (ادھار) گاہک شامل کریں، ان کی کریڈٹ لمٹ مقرر کریں، ہر ایک کا بیلنس، عمر اور رسک دیکھیں، اور بینک طرز کا اسٹیٹمنٹ پرنٹ کریں۔",
+      "steps": [
+        {"en": "Tap Add customer — enter name, WhatsApp number, type and city.", "ur": "گاہک شامل کریں دبائیں — نام، واٹس ایپ نمبر، قسم اور شہر لکھیں۔"},
+        {"en": "Set the credit limit (only the CEO) so khata cannot cross it.", "ur": "کریڈٹ لمٹ مقرر کریں (صرف سی ای او) تاکہ کھاتہ اس سے نہ بڑھے۔"},
+        {"en": "Open a customer to see balance, vehicles, khata history and risk score.", "ur": "کسی گاہک کو کھول کر بیلنس، گاڑیاں، کھاتہ کی تاریخ اور رسک دیکھیں۔"},
+        {"en": "Tap Bill / Statement to print the bank-style khata statement, or send it on WhatsApp.", "ur": "بل / اسٹیٹمنٹ دبا کر بینک طرز کا کھاتہ اسٹیٹمنٹ پرنٹ کریں یا واٹس ایپ پر بھیجیں۔"}
+      ],
+      "tips": [
+        {"icon": "🚦", "en": "Overdue khata is auto-blocked at the POS until the manager clears it.", "ur": "دیر سے ادائیگی پر کھاتہ پی او ایس پر خودبخود رک جاتا ہے جب تک مینیجر نہ کھولے۔"},
+        {"icon": "🚗", "en": "Add a vehicle with a daily litre limit so a driver can't over-fill.", "ur": "گاڑی کی روزانہ لیٹر لمٹ لگائیں تاکہ ڈرائیور زیادہ نہ بھروائے۔"}
+      ]
+    },
+    {
+      "id": "prices", "num": 5, "route": "/prices", "login": "admin",
+      "title_en": "Prices (Fuel Rates)", "title_ur": "ریٹ (فیول کی قیمتیں)",
+      "who": ["👔 Manager / CEO", "⛽ Fuel rates"],
+      "what_en": "Set each fuel's selling rate. The new rate instantly shows to every salesman on the POS and can be broadcast to customers on WhatsApp.",
+      "what_ur": "ہر فیول کا سیل ریٹ مقرر کریں۔ نیا ریٹ فوراً ہر سیلزمین کے پی او ایس پر آ جاتا ہے اور گاہکوں کو واٹس ایپ پر بھیجا جا سکتا ہے۔",
+      "steps": [
+        {"en": "Type the new rate for each fuel (Petrol, Hi-Octane, Diesel).", "ur": "ہر فیول کا نیا ریٹ لکھیں (پیٹرول، ہائی آکٹین، ڈیزل)۔"},
+        {"en": "Tick “Broadcast on WhatsApp” to inform opted-in customers (optional).", "ur": "“واٹس ایپ پر اطلاع” پر ٹک کریں تاکہ گاہکوں کو خبر ہو (اختیاری)۔"},
+        {"en": "Press Update — salesmen get an alert and must confirm the new dispenser price.", "ur": "اپ ڈیٹ دبائیں — سیلزمین کو الرٹ ملتا ہے اور نیا ریٹ کنفرم کرنا پڑتا ہے۔"},
+        {"en": "You can also schedule a rate to apply later (e.g. from midnight).", "ur": "آپ ریٹ بعد میں لاگو ہونے کا شیڈول بھی کر سکتے ہیں (مثلاً رات 12 بجے سے)۔"}
+      ],
+      "tips": [
+        {"icon": "🔒", "en": "Only the manager/CEO can change rates. The salesman only sees them.", "ur": "ریٹ صرف مینیجر/سی ای او بدل سکتا ہے۔ سیلزمین صرف دیکھتا ہے۔"},
+        {"icon": "📊", "en": "The competitor board lets you compare your rate with nearby pumps.", "ur": "کمپیٹیٹر بورڈ سے آس پاس کے پمپوں سے ریٹ کا موازنہ کریں۔"}
+      ]
+    },
+    {
+      "id": "stock", "num": 6, "route": "/stock", "login": "admin",
+      "title_en": "Stock, Tanks & Dips", "title_ur": "اسٹاک، ٹینک اور ڈِپ",
+      "who": ["👔 Manager", "🛢 Tanks & deliveries"],
+      "what_en": "See how much fuel is in each tank, record tanker deliveries, and enter dip readings to catch leaks or theft.",
+      "what_ur": "ہر ٹینک میں کتنا فیول ہے دیکھیں، ٹینکر ڈیلیوری درج کریں، اور ڈِپ ریڈنگ سے لیکج یا چوری پکڑیں۔",
+      "steps": [
+        {"en": "See each tank's live level and reorder alert.", "ur": "ہر ٹینک کا لائیو لیول اور ری آرڈر الرٹ دیکھیں۔"},
+        {"en": "Record a tanker delivery — litres received go into the tank and the supplier's account.", "ur": "ٹینکر ڈیلیوری درج کریں — ملے لیٹر ٹینک اور سپلائر کے کھاتے میں جاتے ہیں۔"},
+        {"en": "Enter a dip reading (dip-stick measurement) any time.", "ur": "کسی بھی وقت ڈِپ ریڈنگ (ڈِپ اسٹک پیمائش) درج کریں۔"},
+        {"en": "The app compares book stock vs dip and flags a loss as possible leak/theft.", "ur": "ایپ بُک اسٹاک اور ڈِپ کا موازنہ کرکے نقصان کو ممکنہ لیکج/چوری دکھاتی ہے۔"}
+      ],
+      "tips": [
+        {"icon": "🌡", "en": "Temperature correction is applied so day/night expansion isn't mistaken for loss.", "ur": "ٹمپریچر کریکشن لگتا ہے تاکہ دن/رات کا پھیلاؤ نقصان نہ سمجھا جائے۔"}
+      ]
+    },
+    {
+      "id": "wholesale", "num": 7, "route": "/wholesale", "login": "admin",
+      "title_en": "Wholesale", "title_ur": "ہول سیل",
+      "who": ["🚛 Wholesale officer", "📄 Supplies & rates"],
+      "what_en": "Supply fuel in bulk to wholesale clients on their own rate card, take payments, handle returns, and print a running-balance statement.",
+      "what_ur": "ہول سیل کلائنٹس کو ان کے اپنے ریٹ کارڈ پر تھوک فیول دیں، ادائیگی لیں، واپسی سنبھالیں، اور رننگ بیلنس اسٹیٹمنٹ پرنٹ کریں۔",
+      "steps": [
+        {"en": "Add a client with their per-litre rate card and credit limit.", "ur": "کلائنٹ شامل کریں ان کے فی لیٹر ریٹ کارڈ اور کریڈٹ لمٹ کے ساتھ۔"},
+        {"en": "Record a supply: product, litres and rate — the client's receivable goes up.", "ur": "سپلائی درج کریں: پروڈکٹ، لیٹر اور ریٹ — کلائنٹ کا واجب الادا بڑھ جاتا ہے۔"},
+        {"en": "Take a payment (cash / bank transfer) — the receivable goes down.", "ur": "ادائیگی لیں (کیش / بینک ٹرانسفر) — واجب الادا کم ہو جاتا ہے۔"},
+        {"en": "A fuel return posts a credit note. Print the client's statement any time.", "ur": "فیول واپسی پر کریڈٹ نوٹ لگتا ہے۔ کسی بھی وقت کلائنٹ کا اسٹیٹمنٹ پرنٹ کریں۔"}
+      ],
+      "tips": [
+        {"icon": "🎙", "en": "Use voice entry to record a supply hands-free during loading.", "ur": "لوڈنگ کے دوران بول کر سپلائی درج کریں۔"},
+        {"icon": "🏷", "en": "Rates can be a fixed price or linked to the pump rate with a differential.", "ur": "ریٹ فکسڈ ہو سکتا ہے یا پمپ ریٹ سے فرق کے ساتھ جُڑا۔"}
+      ]
+    },
+    {
+      "id": "carriage", "num": 8, "route": "/carriage", "login": "admin",
+      "title_en": "Carriage / Kiraya", "title_ur": "کرایہ / بائی پاس",
+      "who": ["👔 Manager", "🚚 Thekedar kiraya"],
+      "what_en": "When fuel is lifted on your depot ID and delivered straight to a client (bypass), only the carriage (kiraya) is your income. Track each thekedar's kiraya and payments.",
+      "what_ur": "جب فیول آپ کی ڈپو آئی ڈی پر اٹھے اور سیدھا کلائنٹ کو جائے (بائی پاس)، تو صرف کرایہ آپ کی آمدن ہے۔ ہر ٹھیکیدار کا کرایہ اور ادائیگی ٹریک کریں۔",
+      "steps": [
+        {"en": "Add a thekedar (carriage contractor).", "ur": "ٹھیکیدار (کرایہ کنٹریکٹر) شامل کریں۔"},
+        {"en": "Bill the kiraya per trip (litres + fixed kiraya) — it books as carriage income.", "ur": "ہر ٹرپ کا کرایہ لکھیں (لیٹر + فکسڈ کرایہ) — یہ کرایہ آمدن میں درج ہوتا ہے۔"},
+        {"en": "Record the kiraya payment received.", "ur": "موصول ہونے والا کرایہ درج کریں۔"},
+        {"en": "Print the thekedar's carriage statement with running balance.", "ur": "ٹھیکیدار کا کرایہ اسٹیٹمنٹ رننگ بیلنس کے ساتھ پرنٹ کریں۔"}
+      ],
+      "tips": [
+        {"icon": "ℹ️", "en": "The fuel itself is not on your books in carriage — only the kiraya margin.", "ur": "کرایہ میں فیول آپ کی بُکس پر نہیں ہوتا — صرف کرایہ کا مارجن۔"}
+      ]
+    },
+    {
+      "id": "cashier", "num": 9, "route": "/cashier", "login": "admin",
+      "title_en": "Cashier Desk", "title_ur": "کیشیئر ڈیسک",
+      "who": ["💵 Cashier", "🧾 Receive / Pay / Cheques"],
+      "what_en": "The cashier receives money from khata and wholesale, pays suppliers and expenses, manages cheques, takes the shift handover and closes the office cash book.",
+      "what_ur": "کیشیئر کھاتہ اور ہول سیل سے رقم وصول کرتا ہے، سپلائر اور خرچے ادا کرتا ہے، چیک سنبھالتا ہے، شفٹ ہینڈ اوور لیتا ہے اور آفس کیش بُک بند کرتا ہے۔",
+      "steps": [
+        {"en": "Receive: take a payment from a khata customer, wholesale client or other — a voucher number is made.", "ur": "وصولی: کھاتہ گاہک، ہول سیل کلائنٹ یا کسی سے رقم لیں — واؤچر نمبر بن جاتا ہے۔"},
+        {"en": "Pay: pay a supplier, expense or staff advance from cash or bank.", "ur": "ادائیگی: سپلائر، خرچہ یا اسٹاف ایڈوانس کیش یا بینک سے ادا کریں۔"},
+        {"en": "Cheques: record cheques received and issued — mark deposited, cleared or bounced.", "ur": "چیک: موصول اور جاری چیک درج کریں — جمع، کلیئر یا باؤنس نشان لگائیں۔"},
+        {"en": "Day book: count the cash and close the day — it must match the cash in hand.", "ur": "ڈے بُک: کیش گنیں اور دن بند کریں — یہ کیش اِن ہینڈ سے ملنا چاہیے۔"}
+      ],
+      "tips": [
+        {"icon": "🧮", "en": "Every voucher is double-entry, so the books always tally to the rupee.", "ur": "ہر واؤچر ڈبل انٹری ہے، اس لیے بُکس ہمیشہ روپے تک برابر رہتی ہیں۔"}
+      ]
+    },
+    {
+      "id": "banks", "num": 10, "route": "/accounts", "login": "admin",
+      "title_en": "Banks & Reconciliation", "title_ur": "بینک اور ری کنسیلی ایشن",
+      "who": ["💵 Cashier / CEO", "🏦 Bank balances"],
+      "what_en": "See every bank account's balance, record deposits, transfers and bank charges, and match a bank/Easypaisa statement against the books.",
+      "what_ur": "ہر بینک اکاؤنٹ کا بیلنس دیکھیں، ڈپازٹ، ٹرانسفر اور بینک چارجز درج کریں، اور بینک/ایزی پیسہ اسٹیٹمنٹ کو بُکس سے ملائیں۔",
+      "steps": [
+        {"en": "Open Banks to see each account's live balance and today's in/out.", "ur": "بینک کھول کر ہر اکاؤنٹ کا لائیو بیلنس اور آج کی آمد/روانگی دیکھیں۔"},
+        {"en": "Record a cash deposit, a transfer between accounts, or bank charges/profit.", "ur": "کیش ڈپازٹ، اکاؤنٹس کے بیچ ٹرانسفر، یا بینک چارجز/منافع درج کریں۔"},
+        {"en": "Card sales settle into the linked account; the 1.8% POS commission is shown automatically.", "ur": "کارڈ سیل لنکڈ اکاؤنٹ میں آتی ہے؛ 1.8% پی او ایس کمیشن خودبخود دکھتا ہے۔"},
+        {"en": "Upload a bank statement to match it line-by-line against the books.", "ur": "بینک اسٹیٹمنٹ اپ لوڈ کرکے لائن بہ لائن بُکس سے ملائیں۔"}
+      ],
+      "tips": [
+        {"icon": "✅", "en": "Money said to be “bank transfer” with no account chosen is flagged so the tally stays clean.", "ur": "“بینک ٹرانسفر” جس کا اکاؤنٹ نہ چنا ہو، نشان لگتا ہے تاکہ ٹیلی صاف رہے۔"}
+      ]
+    },
+    {
+      "id": "expenses", "num": 11, "route": "/expenses", "login": "admin",
+      "title_en": "Expenses", "title_ur": "اخراجات",
+      "who": ["👔 Manager", "💸 Daily costs"],
+      "what_en": "Record every running cost — electricity, tea, generator fuel, salaries, repairs. Big expenses need the CEO's approval.",
+      "what_ur": "ہر خرچہ درج کریں — بجلی، چائے، جنریٹر فیول، تنخواہیں، مرمت۔ بڑے خرچوں کو سی ای او کی منظوری چاہیے۔",
+      "steps": [
+        {"en": "Pick a category and enter the amount and who was paid.", "ur": "کیٹیگری چنیں اور رقم اور کس کو دیا لکھیں۔"},
+        {"en": "Choose how it was paid — cash or a bank account.", "ur": "ادائیگی کا طریقہ چنیں — کیش یا بینک اکاؤنٹ۔"},
+        {"en": "Expenses above the limit go to the CEO for approval before they post.", "ur": "لمٹ سے زیادہ خرچے پوسٹ ہونے سے پہلے سی ای او کی منظوری کو جاتے ہیں۔"},
+        {"en": "Recurring bills (rent, internet) can be set once and booked each month.", "ur": "ماہانہ بل (کرایہ، انٹرنیٹ) ایک بار سیٹ کرکے ہر ماہ خودبخود درج ہوتے ہیں۔"}
+      ],
+      "tips": [
+        {"icon": "📂", "en": "Every expense shows in the P&L under its category.", "ur": "ہر خرچہ پی اینڈ ایل میں اپنی کیٹیگری کے تحت نظر آتا ہے۔"}
+      ]
+    },
+    {
+      "id": "reports", "num": 12, "route": "/owner-report", "login": "admin",
+      "title_en": "Reports & Owner", "title_ur": "رپورٹس اور مالک",
+      "who": ["👑 CEO / Owner", "📈 P&L, balance sheet"],
+      "what_en": "The owner's one-page view: profit & loss, balance sheet, khata aging and stock loss — on the pump's letterhead, ready to print or save as PDF.",
+      "what_ur": "مالک کا ایک صفحے کا منظر: نفع و نقصان، بیلنس شیٹ، کھاتہ کی عمر اور اسٹاک نقصان — پمپ کے لیٹر ہیڈ پر، پرنٹ یا پی ڈی ایف کے لیے تیار۔",
+      "steps": [
+        {"en": "Choose the month to see income, cost of fuel, expenses and net profit.", "ur": "مہینہ چنیں تاکہ آمدن، فیول کی لاگت، خرچے اور خالص منافع نظر آئے۔"},
+        {"en": "See the balance sheet (assets, liabilities, net worth) that always balances.", "ur": "بیلنس شیٹ دیکھیں (اثاثے، واجبات، نیٹ ورتھ) جو ہمیشہ برابر ہوتی ہے۔"},
+        {"en": "Card commission, rent and khata discount are shown clearly in the profit.", "ur": "کارڈ کمیشن، کرایہ اور کھاتہ ڈسکاؤنٹ منافع میں صاف دکھائے جاتے ہیں۔"},
+        {"en": "Press Print / PDF to save the report on the letterhead and share on WhatsApp.", "ur": "پرنٹ / پی ڈی ایف دبا کر رپورٹ لیٹر ہیڈ پر محفوظ کریں اور واٹس ایپ پر بھیجیں۔"}
+      ],
+      "tips": [
+        {"icon": "🔎", "en": "The Profit Explainer page breaks down exactly how net profit is calculated.", "ur": "پرافٹ ایکسپلینر صفحہ بتاتا ہے کہ خالص منافع کیسے نکلا۔"}
+      ]
+    },
+    {
+      "id": "suppliers", "num": 13, "route": "/suppliers", "login": "admin",
+      "title_en": "Suppliers & Purchases", "title_ur": "سپلائر اور خریداری",
+      "who": ["👔 Manager", "🛢 Depot accounts"],
+      "what_en": "Keep each fuel depot/supplier's account — purchase cost, payments made, withholding tax, and the landed cost per litre to compare suppliers.",
+      "what_ur": "ہر ڈپو/سپلائر کا کھاتہ رکھیں — خریداری کی لاگت، ادائیگیاں، ود ہولڈنگ ٹیکس، اور فی لیٹر لینڈڈ کاسٹ تاکہ سپلائر کا موازنہ ہو۔",
+      "steps": [
+        {"en": "Add a supplier/depot with any opening balance you owe.", "ur": "سپلائر/ڈپو شامل کریں جو بقایا آپ دینا ہے اس کے ساتھ۔"},
+        {"en": "Fuel deliveries post the purchase cost to the supplier's payable.", "ur": "فیول ڈیلیوری خریداری کی لاگت سپلائر کے واجب الادا میں ڈالتی ہے۔"},
+        {"en": "Record a payment (enter withholding tax if deducted).", "ur": "ادائیگی درج کریں (کٹوتی ہو تو ود ہولڈنگ ٹیکس لکھیں)۔"},
+        {"en": "Compare suppliers by landed cost per litre to buy smarter.", "ur": "فی لیٹر لینڈڈ کاسٹ سے سپلائر کا موازنہ کرکے بہتر خریدیں۔"}
+      ],
+      "tips": [
+        {"icon": "🧾", "en": "Withholding tax is tracked until you deposit it and add the CPR.", "ur": "ود ہولڈنگ ٹیکس اس وقت تک ٹریک ہوتا ہے جب تک جمع کرکے سی پی آر نہ لگائیں۔"}
+      ]
+    },
+    {
+      "id": "settings", "num": 14, "route": "/settings", "login": "admin",
+      "title_en": "Settings, Users & Roles", "title_ur": "سیٹنگز، یوزر اور رولز",
+      "who": ["👑 Admin / CEO", "⚙️ Setup & staff"],
+      "what_en": "Set up the business (name, logo, letterhead, tax numbers), add staff with their role and PIN, and control exactly what each role can do.",
+      "what_ur": "کاروبار سیٹ کریں (نام، لوگو، لیٹر ہیڈ، ٹیکس نمبر)، عملہ ان کے رول اور پن کے ساتھ شامل کریں، اور طے کریں کہ ہر رول کیا کر سکتا ہے۔",
+      "steps": [
+        {"en": "Business profile: name, logo, address, phone, NTN/STRN and social links for the letterhead.", "ur": "بزنس پروفائل: نام، لوگو، پتہ، فون، این ٹی این/ایس ٹی آر این اور سوشل لنکس لیٹر ہیڈ کے لیے۔"},
+        {"en": "Users: add a salesman, cashier, manager or wholesale officer with a station and a PIN.", "ur": "یوزرز: سیلزمین، کیشیئر، مینیجر یا ہول سیل آفیسر اسٹیشن اور پن کے ساتھ شامل کریں۔"},
+        {"en": "Roles: tick/untick exactly what each role may open or do.", "ur": "رولز: ہر رول کیا کھول یا کر سکتا ہے، ٹک/اَن ٹک کریں۔"},
+        {"en": "Stations, tanks, nozzles, fuels, payment methods and limits are all managed here.", "ur": "اسٹیشن، ٹینک، نوزل، فیول، ادائیگی کے طریقے اور لمٹس سب یہاں سے سنبھالیں۔"}
+      ],
+      "tips": [
+        {"icon": "🔐", "en": "Turn on 2-factor for the owner login for extra safety.", "ur": "مالک کے لاگ اِن پر 2 فیکٹر آن کریں زیادہ حفاظت کے لیے۔"}
+      ]
+    }
+  ]
+}

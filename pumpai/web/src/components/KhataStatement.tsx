@@ -1,0 +1,143 @@
+import { useState } from "react";
+import { Download, Printer, Send, QrCode, ExternalLink } from "lucide-react";
+import { api, linkToken, useApi } from "../lib/api";
+import { ProofThumbs } from "./Capture";
+import { PortalCard } from "./PortalCard";
+import { Field, Loading, Modal, useAction } from "./ui";
+import { PRODUCTS, num, phone, pkr } from "../lib/format";
+
+const pkToday = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
+const monthStart = () => pkToday().slice(0, 8) + "01";
+const today = pkToday;
+
+/** Khata bill / statement: every fuel slip with litres and the rate on that day, payments, running balance. */
+export default function KhataStatement({ customerId, onClose }: { customerId: number; onClose: () => void }) {
+  const [range, setRange] = useState({ from: monthStart(), to: today() });
+  const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
+  const { data: s, reload } = useApi<any>(`/customers/${customerId}/statement?${qs}`);
+  // vehicle / slip columns only when some line has one, so the paper is not half dashes
+  const cols = { vehicle: Boolean(s?.lines?.some((l: any) => l.vehicle_no)), slip: Boolean(s?.lines?.some((l: any) => l.slip_no || l.type === "credit")) };
+  const csv = `/api/customers/${customerId}/statement.csv?${qs}&token=${linkToken()}`;
+  const { busy, run } = useAction();
+  const month = (range.from || pkToday()).slice(0, 7);
+  // open the tab at the tap (phones block a tab opened after waiting for the server), then point it at the bill
+  const openBill = async () => {
+    const tab = window.open("", "_blank");
+    const r = await run(() => api(`/customers/${customerId}/bill-link?month=${month}`));
+    if (r && tab) tab.location.href = r.url; else if (r) window.location.href = r.url; else tab?.close();
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Khata bill / statement · کھاتہ بل" wide>
+      <div className="flex flex-wrap items-end gap-2 print:hidden">
+        <Field label="From · سے"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
+        <Field label="To · تک"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
+        <button className="btn-secondary" onClick={() => setRange({ from: monthStart(), to: today() })}>This month · اس مہینے</button>
+        <button className="btn-secondary" onClick={() => setRange({ from: "", to: "" })}>All time · سارا</button>
+        <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+          <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/send-bill`, { body: { month } }), `${month} bill sent on WhatsApp`)}><Send size={15} /> WhatsApp bill · واٹس ایپ</button>
+          <button className="btn-secondary" onClick={openBill}><ExternalLink size={15} /> Bill link · لنک</button>
+          <a className="btn-secondary" href={`/cards/${customerId}`} target="_blank" rel="noreferrer"><QrCode size={15} /> QR cards</a>
+          <a className="btn-secondary" href={csv}><Download size={15} /> Excel</a>
+          <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print bill · پرنٹ</button>
+        </div>
+      </div>
+      {!s ? <Loading /> : (
+        <div className="mt-4 space-y-3 print:mt-0">
+          <div className="flex flex-wrap justify-between gap-2 border-b border-slate-200 pb-3">
+            <div>
+              <div className="text-xl font-bold">{s.customer.name}</div>
+              {(s.customer.phone || s.customer.city) && <div className="text-sm text-slate-600">{[s.customer.phone ? phone(String(s.customer.phone)) : "", s.customer.city].filter(Boolean).join(" · ")}</div>}
+              <div className="text-sm text-slate-600">Fuel account statement · {s.from ?? "start"} to {s.to ?? "today"}</div>
+            </div>
+            <div className="text-right text-sm">
+              <div>Opening balance: <b className="tabular-nums">{pkr(s.opening_balance)}</b></div>
+              <div>Charged: <b className="tabular-nums">{pkr(s.totals.charged)}</b> · Paid: <b className="tabular-nums">{pkr(s.totals.paid)}</b></div>
+              <div className="text-lg">Amount due: <b className="tabular-nums">{pkr(s.closing_balance)}</b></div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2 text-sm print:hidden">
+            <a className="btn-secondary min-h-10" href={`/api/customers/${customerId}/notice?token=${linkToken()}`} target="_blank" rel="noreferrer">📜 Payment notice</a>
+            <label className="ml-auto flex items-center gap-2"><input type="checkbox" checked={Boolean(s.customer.khata_blocked)} onChange={(e) => run(() => api(`/customers/${customerId}/khata-hold`, { body: { blocked: e.target.checked } }), e.target.checked ? "Khata on hold" : "Khata open again").then(reload)} />
+              <span className={s.customer.khata_blocked ? "font-semibold text-red-600" : ""}>{s.customer.khata_blocked ? "On hold (overdue)" : "Hold khata"}</span></label>
+          </div>
+          <div className="print:hidden"><PortalCard base={`/customers/${customerId}/portal`} name={s.customer.name} phone={s.customer.phone} canManage /></div>
+          {["police", "school", "government", "hospital"].includes(s.customer.type) && <GovtBills customerId={customerId} />}
+          <div className="flex flex-wrap gap-2">
+            {s.totals.by_product.map((p: any) => (
+              <div key={p.product} className="rounded-lg bg-slate-50 px-3 py-2 text-sm"><b>{PRODUCTS[p.product] ?? p.product}</b>: {num(p.litres, 2)} L · {pkr(p.amount)} · {p.entries} slips</div>
+            ))}
+          </div>
+          {/* phone: one card per slip / payment; the table from sm up and on paper (no empty vehicle / slip columns) */}
+          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 sm:hidden print:hidden">
+            {s.lines.map((l: any) => (
+              <li key={l.id} className="space-y-0.5 px-3 py-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="min-w-0 font-medium">{l.product ? PRODUCTS[l.product] : l.type === "credit" ? <span className="text-emerald-700">Payment</span> : l.note}
+                    {l.litres != null && <span className="font-normal text-slate-600"> · {num(l.litres, 2)} L{l.rate != null ? ` × ${Number(l.rate).toFixed(2)}` : ""}</span>}</span>
+                  <b className={`shrink-0 tabular-nums ${l.type === "credit" ? "text-emerald-700" : ""}`}>{l.type === "credit" ? "−" : ""}{pkr(l.amount)}</b>
+                </div>
+                <div className="flex justify-between gap-2 text-xs text-slate-500">
+                  <span className="min-w-0">{new Date(l.created_at).toLocaleString("en-PK", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    {l.vehicle_no ? ` · 🚛 ${l.vehicle_no}` : ""}{l.slip_no ? ` · slip ${l.slip_no}` : l.type === "credit" && l.ref ? ` · ${l.ref}` : ""} <ProofThumbs ids={l.proof_ids} /></span>
+                  <span className="shrink-0">Balance <b className="tabular-nums text-slate-800">{pkr(l.balance)}</b></span>
+                </div>
+              </li>
+            ))}
+            {!s.lines.length && <li className="p-6 text-center text-sm text-slate-500">No entries in this period</li>}
+          </ul>
+          <div className="hidden max-h-[55vh] overflow-auto rounded-lg border border-slate-200 sm:block print:block print:max-h-none">
+            <table className="w-full">
+              <thead className="sticky top-0"><tr>{["Date & time", ...(cols.vehicle ? ["Vehicle"] : []), ...(cols.slip ? ["Slip no."] : []), "Fuel", "Litres", "Rate / L", "Charged", "Paid", "Balance"].map((h) => <th key={h} className={`th whitespace-nowrap ${["Litres", "Rate / L", "Charged", "Paid", "Balance"].includes(h) ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+              <tbody>
+                {s.lines.map((l: any) => (
+                  <tr key={l.id}>
+                    <td className="td whitespace-nowrap text-xs">{new Date(l.created_at).toLocaleString("en-PK", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                    {cols.vehicle && <td className="td text-xs">{l.vehicle_no ?? "—"}</td>}
+                    {cols.slip && <td className="td text-xs font-medium">{l.slip_no ?? (l.type === "credit" ? l.ref ?? "Payment" : "—")}</td>}
+                    <td className="td whitespace-nowrap text-sm">{l.product ? PRODUCTS[l.product] : l.type === "credit" ? <span className="text-emerald-700">Payment</span> : l.note} <span className="print:hidden"><ProofThumbs ids={l.proof_ids} /></span></td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{l.litres != null ? num(l.litres, 2) : ""}</td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{l.rate != null ? `Rs ${Number(l.rate).toFixed(2)}` : ""}</td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{l.type === "debit" ? pkr(l.amount) : ""}</td>
+                    <td className="td whitespace-nowrap text-right tabular-nums text-emerald-700">{l.type === "credit" ? pkr(l.amount) : ""}</td>
+                    <td className="td whitespace-nowrap text-right font-medium tabular-nums">{pkr(l.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!s.lines.length && <div className="p-6 text-center text-sm text-slate-500">No entries in this period</div>}
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/** Monthly bills for an office: PO number, when submitted, cheque received. */
+function GovtBills({ customerId }: { customerId: number }) {
+  const { data, reload } = useApi<any[]>("/govt-bills");
+  const { busy, run } = useAction();
+  const [month, setMonth] = useState(() => { const d = new Date(Date.now() + 5 * 3600_000); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); });
+  const bills = (data ?? []).filter((b) => b.customer_id === customerId);
+  return (
+    <div className="rounded-lg border border-slate-200 p-3 print:hidden">
+      <div className="mb-2 flex flex-wrap items-end gap-2">
+        <span className="font-semibold">Government bills</span>
+        <input className="input ml-auto w-auto" type="month" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Bill month" />
+        <button className="btn-primary !py-1.5" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/govt-bills`, { body: { month } }), "Bill made").then(reload)}>Make bill</button>
+      </div>
+      {bills.map((b) => (
+        <div key={b.id} className="flex flex-wrap items-center gap-2 border-t border-slate-100 py-2 text-sm">
+          <span className="font-medium">{b.bill_no}</span><span>{b.month}</span><span className="tabular-nums">{pkr(b.amount)}</span>
+          <span className={`rounded px-1.5 text-xs ${b.status === "paid" ? "bg-emerald-100 text-emerald-800" : b.status === "draft" ? "bg-slate-100" : "bg-amber-100 text-amber-800"}`}>{b.status}{b.days_waiting != null ? ` · ${b.days_waiting} days` : ""}</span>
+          {b.po_number && <span className="text-xs text-slate-500">PO {b.po_number}</span>}
+          <span className="ml-auto flex gap-1">
+            {b.status === "draft" && <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => { const po = prompt("PO / reference number (optional)") ?? ""; run(() => api(`/govt-bills/${b.id}`, { method: "PATCH", body: { po_number: po || null, submitted_on: new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10) } }), "Marked submitted").then(reload); }}>Submitted today</button>}
+            {b.status !== "paid" && <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => { const a = prompt(`Cheque / transfer amount (outstanding ${pkr(b.outstanding)})`, String(b.outstanding)); if (a && Number(a) > 0) run(() => api(`/govt-bills/${b.id}/paid`, { body: { amount: Number(a), method: "cheque" } }), "Payment recorded").then(reload); }}>Payment received</button>}
+          </span>
+        </div>
+      ))}
+      {!bills.length && <p className="text-xs text-slate-500">No bills yet. Make the bill for a month, write the PO number when you submit it, and record the cheque when it comes.</p>}
+    </div>
+  );
+}

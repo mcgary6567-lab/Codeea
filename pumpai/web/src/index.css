@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* brand colour shades (default green); replaced by the pump's own colour from Settings → Business profile */
+:root { --brand-50: 236 253 245; --brand-100: 209 250 229; --brand-500: 16 185 129; --brand-600: 5 150 105; --brand-700: 4 120 87; --brand-900: 6 78 59; }
+
+@layer components {
+  .card { @apply bg-white rounded-xl border border-slate-200 shadow-sm; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700; }
+  .btn-secondary { @apply btn bg-white border border-slate-300 text-slate-700 hover:bg-slate-50; }
+  .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+  .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
+  .label { @apply block text-xs font-medium text-slate-600 mb-1; }
+  .th { @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50 border-b border-slate-200; }
+  .td { @apply px-3 py-2 text-sm border-b border-slate-100; }
+  .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium; }
+}
+
+/* ---------- Paper / PDF: bank-statement look, the pump's letterhead (components/Letterhead.tsx) ---------- */
+@media print {
+  @page { size: A4; margin: 12mm 11mm 14mm; }
+  html, body { background: #fff !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* a window (modal) is printed on its own, as a full page */
+  body:has(> [role="dialog"]) #root { display: none !important; }
+  [role="dialog"] { position: static !important; inset: auto !important; background: none !important; padding: 0 !important; overflow: visible !important; display: block !important; }
+  [role="dialog"] > .card { max-width: none !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; }
+  /* a voucher prints its own two copies, each with the letterhead: no page letterhead or window title around them */
+  [role="dialog"]:has(.voucher-2up) > .card > .print-head, [role="dialog"]:has(.voucher-2up) > .card > .print-foot,
+  [role="dialog"]:has(.voucher-2up) .modal-title { display: none !important; }
+  /* a window that prints its own heading (e.g. a supplier statement) drops the window title */
+  [role="dialog"]:has(.own-title) .modal-title { display: none !important; }
+  /* a voucher opened on top of another window (e.g. a supplier's ledger) prints alone */
+  body:has(> [role="dialog"] .voucher-2up) > [role="dialog"]:not(:has(.voucher-2up)) { display: none !important; }
+  .voucher-2up .print-head .mb-3 { margin-bottom: 6px; }
+  .voucher-2up .print-foot { margin-top: 8px; }
+  /* screen-only things */
+  button, .btn, .btn-primary, .btn-secondary, input[type="file"], [role="tablist"] { display: none !important; }
+  /* boxes may run over a page (a long statement would otherwise jump to the next page and leave a blank one) */
+  .card { box-shadow: none !important; border-color: #cbd5e1 !important; break-inside: auto; }
+  h1, h2, h3, thead { break-after: avoid; }
+  .overflow-x-auto, .overflow-auto { overflow: visible !important; }
+  /* tables like a bank statement: dark header, light bands, figures lined up */
+  table { border-collapse: collapse !important; width: 100% !important; min-width: 0 !important; font-size: 11px; }
+  thead th, th.th { background: #0f172a !important; color: #fff !important; border: 0 !important; }
+  tbody tr:nth-child(even) > td { background: #f8fafc !important; }
+  td, .td { border-bottom: 1px solid #e2e8f0 !important; padding-top: 4px !important; padding-bottom: 4px !important; font-size: 11px !important; line-height: 1.35 !important; }
+  tfoot td { border-top: 2px solid #0f172a !important; font-weight: 700; }
+  .tabular-nums, td.text-right { font-variant-numeric: tabular-nums; }
+  tr, .break-inside-avoid { break-inside: avoid; }
+  a { color: inherit !important; text-decoration: none !important; }
+}

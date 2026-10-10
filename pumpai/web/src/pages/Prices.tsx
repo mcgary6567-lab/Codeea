@@ -1,0 +1,183 @@
+import { useEffect, useState } from "react";
+import { api, useApi } from "../lib/api";
+import { Tv, ExternalLink } from "lucide-react";
+import { Loading, PageHeader, useAction } from "../components/ui";
+import { PRODUCTS, dt, pkr } from "../lib/format";
+import { useAuth } from "../App";
+
+export default function Prices() {
+  const { data, reload } = useApi<any>("/prices");
+  const { busy, run } = useAction();
+  const { can } = useAuth();
+  const requests = useApi<any[]>(can("prices.update") ? "/price-requests" : null);
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const [broadcast, setBroadcast] = useState(true);
+  const [note, setNote] = useState("");
+  const [schedAt, setSchedAt] = useState("");
+  const scheduled = useApi<any[]>(can("prices.update") ? "/prices/scheduled" : null);
+  useEffect(() => { if (data) setVals(Object.fromEntries(Object.entries(data.current).map(([k, v]: any) => [k, String(v.price)]))); }, [data]);
+  if (!data) return <Loading />;
+
+  const changed = Object.entries(vals).filter(([k, v]) => Number(v) > 0 && Number(v) !== data.current[k]?.price);
+  const submit = async () => {
+    const r: any = await run(() => api("/prices", { body: { prices: Object.fromEntries(changed.map(([k, v]) => [k, Number(v)])), broadcast, note: note || undefined } }),
+      (x: any) => x.pending ? "Sent to the admin for approval — prices change when the admin approves" : `Prices updated. ${x.salesmen_notified} salesmen notified to change the dispenser. Stock revaluation ${pkr(x.stock_revaluation)}${x.wholesale_rates_updated ? ` · ${x.wholesale_rates_updated} wholesale rates moved with the pump price` : ""}${x.broadcast_queued ? ` · broadcasting to ${x.broadcast_queued} customers` : ""}`);
+    if (r) { setNote(""); reload(); requests.reload(); }
+  };
+  const schedule = async () => {
+    if (!changed.length || !schedAt) return;
+    const r: any = await run(() => api("/prices/schedule", { body: { prices: Object.fromEntries(changed.map(([k, v]) => [k, Number(v)])), broadcast, note: note || undefined, effective_at: new Date(schedAt).toISOString() } }),
+      "Price change scheduled — it will apply by itself at the chosen time");
+    if (r) { setSchedAt(""); setNote(""); scheduled.reload(); }
+  };
+
+  return (
+    <div>
+      <PageHeader title="Fuel prices" subtitle="Update on each government price notification (usually the 1st and 16th). The WhatsApp bot uses these instantly." />
+      {(requests.data ?? []).filter((r) => r.status === "pending").map((r) => (
+        <div key={r.id} className="card mb-4 flex flex-wrap items-center gap-3 border-l-4 border-l-amber-500 p-4">
+          <span className="flex-1 text-sm"><b>Waiting for admin approval</b> — {Object.entries(r.prices).map(([p, v]: any) => `${PRODUCTS[p]} Rs ${v}`).join(", ")} · asked by {r.requested_by} {dt(r.created_at)}</span>
+          {can("settings.manage") && <>
+            <button className="btn-primary" disabled={busy} onClick={() => run(() => api(`/price-requests/${r.id}/approve`, { body: {} }), "Approved — prices are now live").then(() => { reload(); requests.reload(); })}>Approve</button>
+            <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/price-requests/${r.id}/reject`, { body: {} }), "Rejected").then(() => requests.reload())}>Reject</button>
+          </>}
+        </div>
+      ))}
+      {(scheduled.data ?? []).map((s) => (
+        <div key={s.id} className="card mb-4 flex flex-wrap items-center gap-3 border-l-4 border-l-violet-500 p-4">
+          <span className="flex-1 text-sm">⏰ <b>Scheduled price</b> — {Object.entries(s.prices).map(([p, v]: any) => `${PRODUCTS[p]} Rs ${v}`).join(", ")} · lagu hoga {dt(s.effective_at)}{s.note ? ` · ${s.note}` : ""}</span>
+          <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/prices/scheduled/${s.id}`, { method: "DELETE" }), "Cancelled").then(() => scheduled.reload())}>Cancel</button>
+        </div>
+      ))}
+      <div className={`grid gap-5 ${can("prices.update") ? "lg:grid-cols-[420px_1fr]" : ""}`}>
+        {!can("prices.update") && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {Object.keys(PRODUCTS).map((p) => (
+              <div key={p} className="card p-4"><div className="text-sm text-slate-500">{PRODUCTS[p]}</div><div className="text-2xl font-semibold tabular-nums">Rs {data.current[p]?.price.toFixed(2)}</div><div className="text-xs text-slate-400">per litre</div></div>
+            ))}
+          </div>
+        )}
+        {can("prices.update") && <div className="card space-y-3 p-4">
+          {Object.keys(PRODUCTS).map((p) => (
+            <label key={p} className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium">{PRODUCTS[p]} <span className="text-xs text-slate-500">({p})</span></span>
+              <div className="flex items-center gap-1"><span className="text-sm text-slate-500">Rs</span><input className="input w-32 text-right" type="number" step="0.01" min={0} value={vals[p] ?? ""} onChange={(e) => setVals({ ...vals, [p]: e.target.value })} /></div>
+            </label>
+          ))}
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={broadcast} onChange={(e) => setBroadcast(e.target.checked)} /> Broadcast new prices on WhatsApp to opted-in customers</label>
+          {broadcast && <input className="input" placeholder="Optional note, e.g. 'Raat 12 baje se laagu'" value={note} onChange={(e) => setNote(e.target.value)} />}
+          <button className="btn-primary w-full" disabled={busy || !changed.length} onClick={submit}>Update {changed.length || ""} price{changed.length === 1 ? "" : "s"} now</button>
+          <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+            <div className="mb-1 text-sm font-medium">…ya baad ke liye schedule karein <span className="text-xs font-normal text-slate-500">(e.g. raat 12 baje se)</span></div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input className="input w-auto flex-1" type="datetime-local" value={schedAt} onChange={(e) => setSchedAt(e.target.value)} />
+              <button className="btn-secondary" disabled={busy || !changed.length || !schedAt} onClick={schedule}>Schedule</button>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Upar jo rate change kiya hai wohi us waqt khud lagu ho jayega (salesman alert + broadcast bhi).</p>
+          </div>
+        </div>}
+        <div className="space-y-5">
+        <CompetitorBoard canEdit={can("prices.update")} />
+        <TvBoard canEdit={can("prices.update")} />
+        {data.last_change && (
+          <div className="card">
+            <h2 className="px-4 pt-3 font-semibold">Dispenser update — last price change {dt(data.last_change.at)}</h2>
+            <p className="px-4 text-xs text-slate-500">{data.last_change.changes.map((c: any) => `${PRODUCTS[c.product]} ${c.diff > 0 ? "+" : "−"}Rs ${Math.abs(c.diff ?? 0).toFixed(2)}`).join(" · ")}</p>
+            <table className="mt-2 w-full">
+              <thead><tr><th className="th">Salesman</th><th className="th">Station</th><th className="th">Status</th></tr></thead>
+              <tbody>{data.last_change.acks.map((a: any) => (
+                <tr key={a.name}><td className="td text-sm">{a.name}</td><td className="td text-sm">{a.station ?? "—"}</td>
+                  <td className="td text-sm">{a.acked_at ? <span className="text-emerald-700">✓ Confirmed {dt(a.acked_at)}{a.with_readings ? " · meter readings taken" : ""}</span> : <span className="font-medium text-red-600">Not confirmed yet</span>}</td></tr>
+              ))}</tbody>
+            </table>
+            {!data.last_change.acks.length && <p className="p-4 text-sm text-slate-500">No salesmen to notify.</p>}
+          </div>
+        )}
+        <div className="card">
+          <table className="w-full">
+            <thead><tr><th className="th">Effective</th><th className="th">Product</th><th className="th text-right">Price / L</th><th className="th">By</th></tr></thead>
+            <tbody>{data.history.map((h: any) => (
+              <tr key={h.id}><td className="td text-xs">{dt(h.effective_from)}</td><td className="td text-sm">{PRODUCTS[h.product]}</td><td className="td text-right tabular-nums">Rs {h.price.toFixed(2)}</td><td className="td text-xs text-slate-500">{h.created_by}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Compare our pump prices with nearby competitors' (noted by hand). */
+function CompetitorBoard({ canEdit }: { canEdit: boolean }) {
+  const { data, reload } = useApi<any>("/competitors");
+  const { busy, run } = useAction();
+  const [f, setF] = useState({ name: "", product: "", price: "" });
+  if (!data) return null;
+  const products = Object.keys(data.ours);
+  const add = async () => {
+    if (!f.name.trim() || !f.product || !(Number(f.price) > 0)) return;
+    const r = await run(() => api("/competitors", { body: { name: f.name.trim(), product: f.product, price: Number(f.price) } }), "Competitor rate saved");
+    if (r) { setF({ name: "", product: "", price: "" }); reload(); }
+  };
+  return (
+    <div className="card p-4">
+      <h2 className="mb-2 font-semibold">Nearby pumps — rate comparison · <span lang="ur" dir="rtl" className="font-urdu">قریبی پمپ</span></h2>
+      {!data.competitors.length ? <p className="text-sm text-slate-500">Koi competitor rate note nahi. Neeche add karein.</p> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr><th className="th">Pump</th><th className="th">Product</th><th className="th text-right">Unka rate</th><th className="th text-right">Hamara</th><th className="th text-right">Farq</th><th className="th">Noted</th>{canEdit && <th className="th" />}</tr></thead>
+            <tbody>{data.competitors.map((c: any) => {
+              const ours = data.ours[c.product] ?? 0; const diff = +(ours - c.price).toFixed(2);
+              return (
+                <tr key={c.id}>
+                  <td className="td">{c.name}</td><td className="td">{PRODUCTS[c.product] ?? c.product}</td>
+                  <td className="td text-right tabular-nums">Rs {c.price.toFixed(2)}</td>
+                  <td className="td text-right tabular-nums">Rs {ours.toFixed(2)}</td>
+                  <td className={`td text-right tabular-nums font-semibold ${diff > 0 ? "text-red-600" : diff < 0 ? "text-emerald-700" : "text-slate-500"}`}>{diff > 0 ? `+${diff}` : diff}</td>
+                  <td className="td text-xs text-slate-500">{dt(c.noted_on)}</td>
+                  {canEdit && <td className="td"><button className="text-xs text-red-600 underline" disabled={busy} onClick={() => run(() => api(`/competitors/${c.id}`, { method: "DELETE" }), "Removed").then(reload)}>Remove</button></td>}
+                </tr>
+              );
+            })}</tbody>
+          </table>
+          <p className="mt-1 text-xs text-slate-500">+ ka matlab hum mehnge, − ka matlab hum saste.</p>
+        </div>
+      )}
+      {canEdit && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <input className="input w-40" placeholder="Pump ka naam" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <select className="input w-auto" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}><option value="">Product</option>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p] ?? p}</option>)}</select>
+          <input className="input w-28" type="number" step="0.01" min={0} placeholder="Rate" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
+          <button className="btn-secondary" disabled={busy} onClick={add}>Add</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Link for a TV / LED screen at the pump: big prices in English and Urdu, changes by itself. */
+function TvBoard({ canEdit }: { canEdit: boolean }) {
+  const stations = useApi<any[]>("/stations");
+  const [station, setStation] = useState("");
+  const link = useApi<any>(`/board-link${station ? `?station_id=${station}` : ""}`);
+  const [offers, setOffers] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  const text = offers ?? link.data?.offers ?? "";
+  return (
+    <div className="card p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Tv size={18} className="text-brand-600" /><h2 className="flex-1 font-semibold">TV rate board</h2>
+        <select className="input min-h-9 w-auto py-1 text-sm" value={station} onChange={(e) => setStation(e.target.value)} aria-label="Station">
+          <option value="">All products</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        {link.data && <a className="btn-primary" href={link.data.url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open board</a>}
+        {link.data && <button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(link.data.url).then(() => alert("Link copied — open it on the TV's browser"))}>Copy link</button>}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">Open this link once on the TV / LED screen (smart TV browser or a small Android box). Prices update by themselves within 20 seconds of a change.</p>
+      {canEdit && <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <textarea className="input min-h-[64px] flex-1 text-sm" placeholder="Offers shown on the board, one per line" value={text} onChange={(e) => setOffers(e.target.value)} />
+        <button className="btn-secondary self-end" disabled={busy} onClick={() => run(() => api("/board/settings", { method: "PUT", body: { offers: text } }), "Offers updated on the board")}>Save offers</button>
+      </div>}
+    </div>
+  );
+}
