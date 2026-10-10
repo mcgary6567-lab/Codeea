@@ -64,6 +64,12 @@ database and serves everything from one serverless function.
 > the demo data is reset whenever Vercel restarts the function (and each instance has its own copy),
 > nightly automations, WhatsApp reminders and backups do not run there. Real pumps use Option 1 or 2.
 
+## Option 4 — Fly.io (managed, Docker, free SSL + custom domain)
+
+Runs the Docker image as one always-on machine with a persistent volume for the database; ~$6–8/month plus
+your own domain. No server to maintain. Full step-by-step in **`FLY.md`** (`fly launch --no-deploy` →
+`fly volumes create pumpai_data` → `fly secrets set …` → `fly deploy` → `fly certs add <domain>`).
+
 ## First run: the setup wizard (5 minutes, with the owner)
 
 Open the address. Because the database is empty, PumpAI shows the **setup wizard**:
