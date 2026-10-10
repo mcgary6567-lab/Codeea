@@ -40,7 +40,7 @@ capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stoc
     // a khata slip photo is first of all a record: without the AI key it is simply saved, no warning
     message: result || ["selfie", "proof"].includes(b.kind) || (b.kind === "slip" && !aiEnabled()) ? null
       : aiEnabled() ? (b.kind === "slip" ? "Photo saved. Could not read the slip — please type the slip number." : "Could not read the photo clearly. Please type the numbers.")
-      : "Photo saved as proof. Automatic reading needs the AI key — please type the numbers.",
+      : "Photo saved. Auto-reading needs the AI key — Settings → Integrations me Gemini key lagayein (ya hosting me GEMINI_API_KEY). Abhi number type karein.",
   };
 }));
 

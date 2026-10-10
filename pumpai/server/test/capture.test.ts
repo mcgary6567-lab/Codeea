@@ -32,7 +32,7 @@ after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); 
 
 test("meter photos are saved as proof on the shift even without AI reading", async () => {
   const p = ok(await call("salesman", "POST", "/api/ai/read-photo", { kind: "meter", image: PNG }), "photo");
-  assert.equal(p.ai, false); assert.match(p.message, /type the numbers/);
+  assert.equal(p.ai, false); assert.match(p.message, /number type karein/);
   const shift = ok(await call("salesman", "POST", "/api/shifts/open", { photo_ids: [p.photo_id] }), "open");
   const img = await fetch(`${base}/api/photos/${p.photo_id}?token=${(await call("manager", "GET", "/api/me")).data.media_token}`);
   assert.equal(img.status, 200); assert.equal(img.headers.get("content-type"), "image/png");
