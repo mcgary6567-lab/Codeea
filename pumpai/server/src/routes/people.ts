@@ -9,7 +9,8 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
-import { config, aiEnabled } from "../config.js";
+import { config, aiEnabled, aiProvider } from "../config.js";
+import { geminiText } from "../ai/gemini.js";
 import { all, get, run, now, pkDate, pkStart, pkEnd, tx } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, round2, pkr, audit } from "../services.js";
@@ -286,14 +287,22 @@ export function coachRules(s: Stats) {
 }
 
 let client: Anthropic | null = null;
+const COACH_SYSTEM = "You coach petrol pump salesmen in Pakistan. Write one short WhatsApp message in simple Roman Urdu (under 550 characters): greet by first name, praise one specific thing with its number, then one or two things to improve today with a concrete, practical tip. Warm and respectful, never insulting, 1-3 emojis, no markdown headings. If there is little data, give one useful general tip. Output only the message.";
 export async function coachMessage(s: Stats): Promise<{ text: string; engine: string }> {
-  if (aiEnabled()) {
+  const userMsg = `Yesterday's numbers: ${JSON.stringify({ ...s, user: { name: s.user.name } })}`;
+  const provider = aiProvider();
+  if (provider === "gemini") {
+    try {
+      const text = await geminiText(COACH_SYSTEM, userMsg);
+      if (text) return { text, engine: "gemini" };
+    } catch (e) { console.error("[coach gemini]", (e as Error).message); }
+  } else if (aiEnabled()) {
     try {
       if (!client || client.apiKey !== config.anthropicKey) client = new Anthropic({ apiKey: config.anthropicKey, maxRetries: 2, timeout: 60_000 });
       const r = await client.messages.create({
         model: config.aiModel, max_tokens: 1500, output_config: { effort: "low" },
-        system: "You coach petrol pump salesmen in Pakistan. Write one short WhatsApp message in simple Roman Urdu (under 550 characters): greet by first name, praise one specific thing with its number, then one or two things to improve today with a concrete, practical tip. Warm and respectful, never insulting, 1-3 emojis, no markdown headings. If there is little data, give one useful general tip. Output only the message.",
-        messages: [{ role: "user", content: `Yesterday's numbers: ${JSON.stringify({ ...s, user: { name: s.user.name } })}` }],
+        system: COACH_SYSTEM,
+        messages: [{ role: "user", content: userMsg }],
       });
       const text = r.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim();
       if (text) return { text, engine: "claude" };

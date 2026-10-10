@@ -15,7 +15,7 @@ import { pkDate } from "../db.js";
 export type Intent = "supply" | "payment" | "order" | "promise" | "cheque" | "return" | "trip" | "balance" | "today" | "unknown";
 export type Named = { id: number; name: string; alt?: string | null };
 export type ParsedWholesale = {
-  intent: Intent; heard: string; engine: "rules" | "claude";
+  intent: Intent; heard: string; engine: "rules" | "claude" | "gemini";
   client_id: number | null; client_name: string | null; candidates: Named[];
   product: string | null; litres: number | null; amount: number | null; rate: number | null;
   method: string | null; date: string | null; bank: string | null; cheque_no: string | null; ref: string | null;

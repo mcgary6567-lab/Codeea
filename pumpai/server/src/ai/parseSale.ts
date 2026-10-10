@@ -11,7 +11,7 @@ import { DIGITS, MAX_AMOUNT, MAX_LITRES, matchNamed, quantities, splitUnits, str
 export type ParsedSale = {
   product: string | null; litres: number | null; amount: number | null; payment_method: string | null;
   customer_id: number | null; customer_name: string | null; vehicle_no: string | null; slip_no: string | null;
-  candidates: { id: number; name: string }[]; heard: string; engine: "rules" | "claude";
+  candidates: { id: number; name: string }[]; heard: string; engine: "rules" | "claude" | "gemini";
 };
 
 const PRODUCT: [string, RegExp][] = [

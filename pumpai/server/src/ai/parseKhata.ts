@@ -11,7 +11,7 @@ import { DIGITS, MAX_AMOUNT, MAX_LITRES, METHOD, PRODUCT, matchNamed, quantities
 
 export type KhataIntent = "payment" | "charge" | "balance" | "reminder" | "bill" | "top" | "unknown";
 export type ParsedKhata = {
-  intent: KhataIntent; heard: string; engine: "rules" | "claude";
+  intent: KhataIntent; heard: string; engine: "rules" | "claude" | "gemini";
   customer_id: number | null; customer_name: string | null; candidates: Named[];
   amount: number | null; method: string | null; note: string | null; litres: number | null; product: string | null; missing: string[];
 };

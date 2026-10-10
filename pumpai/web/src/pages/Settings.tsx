@@ -24,7 +24,7 @@ export default function SettingsPage() {
       <Safety twofa={data.admin_2fa} onTwofa={reload} />
       <Backups />
       <Hardware />
-      <Integrations ai={i.claude.connected} wa={i.whatsapp.connected} />
+      <Integrations ai={i.claude.connected} provider={i.claude.provider} wa={i.whatsapp.connected} />
       <StationsSection />
       <div className="card flex items-center justify-between p-4">
         <div><h2 className="font-semibold">Team & access</h2><p className="text-sm text-slate-600">Create Admin, Manager and Salesman logins and control what each can do.</p></div>

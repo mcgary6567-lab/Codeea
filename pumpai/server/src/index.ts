@@ -2,7 +2,7 @@ import express from "express";
 import path from "node:path";
 import fs from "node:fs";
 import { z } from "zod";
-import { config, aiEnabled, waLive, APP_VERSION } from "./config.js";
+import { config, aiEnabled, aiProvider, aiModelName, waLive, APP_VERSION } from "./config.js";
 import { migrate, get, run, closeDb } from "./db.js";
 import bcrypt from "bcryptjs";
 import { AppError } from "./services.js";
@@ -89,7 +89,7 @@ app.use(/^\/(w|k)\/[^/]+\/?$/, rateLimit("portal", 60, 10 * 60_000));
 app.get("/api/health", (_req, res) => {
   let db = true;
   try { get("SELECT 1 x"); } catch { db = false; }
-  res.status(db ? 200 : 503).json({ ok: db, db, version: APP_VERSION, ai: aiEnabled() ? "claude" : "rules", whatsapp: waLive() ? "live" : "simulated" });
+  res.status(db ? 200 : 503).json({ ok: db, db, version: APP_VERSION, ai: aiProvider() === "none" ? "rules" : aiProvider(), whatsapp: waLive() ? "live" : "simulated" });
 });
 app.use("/api", setupPublic); // setup wizard + branding (no login)
 // business logo (login page, receipts, bills, TV board, app icon)
@@ -266,7 +266,7 @@ app.use(errorHandler);
 // on Vercel the app runs as a serverless function (api/index.mjs): no listen, no background scheduler
 if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
   const server = app.listen(config.port, () => {
-    console.log(`PumpAI API on http://localhost:${config.port}  (AI: ${aiEnabled() ? config.aiModel : "rule engine"}, WhatsApp: ${waLive() ? "live" : "simulated"})`);
+    console.log(`PumpAI API on http://localhost:${config.port}  (AI: ${aiEnabled() ? aiModelName() : "rule engine"}, WhatsApp: ${waLive() ? "live" : "simulated"})`);
     if (!get("SELECT id FROM tenants LIMIT 1") && config.setupToken) console.log(`[setup] SETUP CODE: ${config.setupToken}  (the owner types it in the setup wizard)`);
     startScheduler();
   });

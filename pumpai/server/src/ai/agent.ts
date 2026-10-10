@@ -6,7 +6,8 @@
  * Every entry point degrades to the rule-based engine when no API key is configured or the call fails.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { config, aiEnabled, PRODUCTS } from "../config.js";
+import { config, aiEnabled, aiProvider, PRODUCTS } from "../config.js";
+import { geminiAgentLoop, geminiText, toGContents } from "./gemini.js";
 import { all, get, run, getSetting, pkDate, type Row } from "../db.js";
 import { customerTools, runTool, toolSchemas, type ToolCtx } from "./tools.js";
 import { lookups, lookupKeys } from "../routes/lookups.js";
@@ -95,10 +96,18 @@ export async function generateCustomerReply(tenantId: number, customer: Row, con
   const ctx: ToolCtx = { tenantId, customer, conversation, actions: [] };
   let reply: string | null = null;
   let engine = "rules";
-  if (aiEnabled()) {
+  const provider = aiProvider();
+  if (provider !== "none") {
     try {
-      reply = await runAgentLoop(customerSystemPrompt(tenantId, customer), customerTools, history(conversation.id), ctx);
-      engine = "claude";
+      const sys = customerSystemPrompt(tenantId, customer);
+      const hist = history(conversation.id);
+      if (provider === "gemini") {
+        reply = await geminiAgentLoop(sys, toolSchemas(customerTools), toGContents(hist as any), ctx, runTool);
+        engine = "gemini";
+      } else {
+        reply = await runAgentLoop(sys, customerTools, hist, ctx);
+        engine = "claude";
+      }
     } catch (e: any) {
       console.error("[ai] customer agent failed, using rules:", e?.message);
     }
@@ -157,14 +166,17 @@ function staffByPhone(tenantId: number, from: string): { phone: string; name: st
 
 /** Owner/manager "Ask AI" about the business. */
 export async function askBusiness(tenantId: number, question: string) {
-  if (aiEnabled()) {
+  const provider = aiProvider();
+  if (provider !== "none") {
     const ctx: ToolCtx = { tenantId, customer: {}, conversation: {}, actions: [] };
     const system = `You are the AI business analyst for a Pakistani petrol pump owner. Answer in the language of the question (English or Roman Urdu).
 Use tools to fetch real numbers; never guess. Be concise: lead with the answer, then 2-5 bullet points with figures and one concrete recommendation.
 Products: PMG = petrol, HOBC = hi-octane, HSD = diesel. Currency PKR. Today is ${pkDate()} (Pakistan time).`;
     try {
-      const answer = await runAgentLoop(system, businessTools, [{ role: "user", content: question }], ctx, 8);
-      if (answer) return { answer, engine: "claude" };
+      const answer = provider === "gemini"
+        ? await geminiAgentLoop(system, toolSchemas(businessTools), [{ role: "user", parts: [{ text: question }] }], ctx, runTool, 8)
+        : await runAgentLoop(system, businessTools, [{ role: "user", content: question }], ctx, 8);
+      if (answer) return { answer, engine: provider };
     } catch (e: any) {
       console.error("[ai] business agent failed:", e?.message);
     }
@@ -177,7 +189,7 @@ Products: PMG = petrol, HOBC = hi-octane, HSD = diesel. Currency PKR. Today is $
     `Today: ${Math.round(k.today.litres).toLocaleString()}L sold, ${pkr(k.today.amount)} revenue across ${k.today.txns} sales. ` +
     `Khata outstanding ${pkr(k.khata.outstanding)} from ${k.khata.debtors} customers. ${k.open_alerts} open alerts.\n\n` +
     cards.map((c) => `• ${c.title} — ${c.body}`).join("\n") +
-    `\n\n(Connect a Claude API key for free-form answers to any question.)`;
+    `\n\n(Connect a Claude or free Gemini API key for free-form answers to any question.)`;
   return { answer, engine: "rules" };
 }
 
@@ -185,14 +197,23 @@ Products: PMG = petrol, HOBC = hi-octane, HSD = diesel. Currency PKR. Today is $
 export async function writeCampaign(tenantId: number, goal: string, segment: string) {
   const tenant = get("SELECT name FROM tenants WHERE id=?", tenantId)!;
   const prices = currentPrices(tenantId);
-  if (aiEnabled()) {
+  const campaignSystem = "You write WhatsApp marketing messages for a Pakistani petrol pump. Roman Urdu, under 450 characters, friendly, 1-3 emojis, a clear call to action, end with 'STOP likh kar unsubscribe karein'. Output only the message text.";
+  const campaignUser = `Business: ${tenant.name}. Segment: ${segment}. Goal: ${goal}. Current prices: ${JSON.stringify(prices)}. Use {name} as the customer-name placeholder.`;
+  if (aiProvider() === "gemini") {
+    try {
+      const text = await geminiText(campaignSystem, campaignUser);
+      if (text) return { message: text, engine: "gemini" };
+    } catch (e: any) {
+      console.error("[ai] campaign writer (gemini) failed:", e?.message);
+    }
+  } else if (aiEnabled()) {
     try {
       const r = await claude().messages.create({
         model: config.aiModel,
         max_tokens: 2000,
         output_config: { effort: "low" },
-        system: "You write WhatsApp marketing messages for a Pakistani petrol pump. Roman Urdu, under 450 characters, friendly, 1-3 emojis, a clear call to action, end with 'STOP likh kar unsubscribe karein'. Output only the message text.",
-        messages: [{ role: "user", content: `Business: ${tenant.name}. Segment: ${segment}. Goal: ${goal}. Current prices: ${JSON.stringify(prices)}. Use {name} as the customer-name placeholder.` }],
+        system: campaignSystem,
+        messages: [{ role: "user", content: campaignUser }],
       });
       const text = r.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim();
       if (text) return { message: text, engine: "claude" };

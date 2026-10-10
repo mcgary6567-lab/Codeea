@@ -162,6 +162,8 @@ business.put("/business", requirePerm("settings.manage"), h((req) => {
 const CFG: Record<string, { set: (v: string) => void; secret?: boolean }> = {
   anthropic_key: { set: (v) => { config.anthropicKey = v; }, secret: true },
   ai_model: { set: (v) => { config.aiModel = v || "claude-opus-5-5"; } },
+  gemini_key: { set: (v) => { config.geminiKey = v; }, secret: true },
+  gemini_model: { set: (v) => { config.geminiModel = v || "gemini-2.0-flash"; } },
   wa_token: { set: (v) => { config.wa.token = v; }, secret: true },
   wa_phone_number_id: { set: (v) => { config.wa.phoneNumberId = v; } },
   wa_verify_token: { set: (v) => { config.wa.verifyToken = v || "pumpai-verify"; } },
@@ -180,7 +182,7 @@ export function applyStoredConfig() {
 const mask = (v: string) => (v ? `${"•".repeat(8)}${v.slice(-4)}` : "");
 business.get("/integrations", requirePerm("settings.manage"), h(() => ({
   values: {
-    anthropic_key: mask(config.anthropicKey), ai_model: config.aiModel, wa_token: mask(config.wa.token), wa_phone_number_id: config.wa.phoneNumberId,
+    anthropic_key: mask(config.anthropicKey), ai_model: config.aiModel, gemini_key: mask(config.geminiKey), gemini_model: config.geminiModel, wa_token: mask(config.wa.token), wa_phone_number_id: config.wa.phoneNumberId,
     wa_verify_token: config.wa.verifyToken, wa_app_secret: mask(config.wa.appSecret), wa_template: config.wa.templateName, public_url: config.publicUrl, payment_link_base: config.paymentLinkBase,
   },
   webhook_url: `${config.publicUrl}/webhooks/whatsapp`,

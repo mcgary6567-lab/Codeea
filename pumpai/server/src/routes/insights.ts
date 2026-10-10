@@ -7,7 +7,7 @@ import { askBusiness } from "../ai/agent.js";
 import { runJob, ensureAutomations } from "../automation/scheduler.js";
 import { buildDailyBrief } from "../automation/jobs.js";
 import { bus } from "../whatsapp/cloud.js";
-import { aiEnabled, waLive, config } from "../config.js";
+import { aiEnabled, aiProvider, aiModelName, waLive, config } from "../config.js";
 import { normalizePhone } from "../services.js";
 import { dayBook } from "./reports.js";
 import { pkDayStart, pkDate, pkStart } from "../db.js";
@@ -97,7 +97,7 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
     admin_2fa: getSetting(t, "admin_2fa", "0") === "1",
     sensitivity: sensitivity(t),
     integrations: {
-      claude: { connected: aiEnabled(), model: config.aiModel, effort: config.aiEffort },
+      claude: { connected: aiEnabled(), provider: aiProvider(), model: aiModelName(), effort: config.aiEffort },
       whatsapp: { connected: waLive(), phone_number_id: config.wa.phoneNumberId ? "…" + config.wa.phoneNumberId.slice(-4) : null, webhook_url: `${config.publicUrl}/webhooks/whatsapp`, verify_token_set: Boolean(config.wa.verifyToken), template: config.wa.templateName },
       payments: { link_base: config.paymentLinkBase },
     },

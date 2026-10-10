@@ -45,6 +45,9 @@ export const config = {
   anthropicKey: process.env.ANTHROPIC_API_KEY ?? "",
   aiModel: process.env.AI_MODEL ?? "claude-opus-5-5",
   aiEffort: (process.env.AI_EFFORT ?? "low") as "low" | "medium" | "high",
+  // Google Gemini — a free-tier alternative. Used automatically when a Gemini key is set and no Claude key is.
+  geminiKey: process.env.GEMINI_API_KEY ?? "",
+  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
   // WhatsApp Cloud API (Meta). Without these, outbound messages are stored as "simulated".
   wa: {
     token: process.env.WA_TOKEN ?? "",
@@ -69,7 +72,12 @@ export const config = {
 
 export const APP_VERSION = "1.0.0";
 
-export const aiEnabled = () => Boolean(config.anthropicKey);
+export const aiEnabled = () => Boolean(config.anthropicKey || config.geminiKey);
+/** Which AI backend is active. Claude wins if both keys are set; otherwise Gemini; else the rule engine. */
+export const aiProvider = (): "claude" | "gemini" | "none" =>
+  config.anthropicKey ? "claude" : config.geminiKey ? "gemini" : "none";
+/** The model string of the active provider (for status surfaces). */
+export const aiModelName = () => (aiProvider() === "gemini" ? config.geminiModel : config.aiModel);
 export const waLive = () => Boolean(config.wa.token && config.wa.phoneNumberId);
 
 /**

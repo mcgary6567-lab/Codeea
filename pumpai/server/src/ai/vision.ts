@@ -4,10 +4,11 @@
  * comes back as structured data. Callers fall back to typing (or the rule parser) when AI is off.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { config, aiEnabled, PRODUCTS } from "../config.js";
+import { config, aiEnabled, aiProvider, PRODUCTS } from "../config.js";
 import { parseSaleText, type ParsedSale } from "./parseSale.js";
 import { parseWholesaleText, type ParsedWholesale, type Named } from "./parseWholesale.js";
 import { parseKhataText, type ParsedKhata } from "./parseKhata.js";
+import { geminiRecord } from "./gemini.js";
 import { pkDate } from "../db.js";
 export type WholesaleCtx = { clients: Named[]; tankers: { id: number; number: string }[]; drivers: Named[]; clientId?: number | null };
 
@@ -16,7 +17,12 @@ let clientKey = "";
 // rebuilt when the key is changed from Settings → Integrations
 const claude = () => { if (!client || clientKey !== config.anthropicKey) { clientKey = config.anthropicKey; client = new Anthropic({ apiKey: clientKey, maxRetries: 2, timeout: 60_000 }); } return client; };
 
-async function record<T>(content: Anthropic.Beta.BetaContentBlockParam[], description: string, schema: Record<string, unknown>): Promise<T | null> {
+/** A provider-neutral piece of input: a line of text, or an image (base64). */
+type NeutralPart = { text: string } | { image: { mediaType: string; data: string } };
+
+async function claudeRecord<T>(parts: NeutralPart[], description: string, schema: Record<string, unknown>): Promise<T | null> {
+  const content: Anthropic.Beta.BetaContentBlockParam[] = parts.map((p) =>
+    "image" in p ? { type: "image", source: { type: "base64", media_type: p.image.mediaType as "image/jpeg", data: p.image.data } } : { type: "text", text: p.text });
   const res = await claude().beta.messages.create({
     model: config.aiModel,
     max_tokens: 2048,
@@ -29,6 +35,15 @@ async function record<T>(content: Anthropic.Beta.BetaContentBlockParam[], descri
   });
   const use = res.content.find((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
   return (use?.input as T) ?? null;
+}
+
+/** Structured extraction via whichever AI provider is active (Claude tool-call, or Gemini JSON mode). */
+async function record<T>(parts: NeutralPart[], description: string, schema: Record<string, unknown>): Promise<T | null> {
+  if (aiProvider() === "gemini") {
+    const gParts = parts.map((p) => "image" in p ? { inlineData: { mimeType: p.image.mediaType, data: p.image.data } } : { text: p.text });
+    return geminiRecord<T>(gParts, schema);
+  }
+  return claudeRecord<T>(parts, description, schema);
 }
 
 export type PhotoKind = "meter" | "invoice" | "receipt" | "bill" | "slip" | "payment";
@@ -109,8 +124,8 @@ export async function readPhoto(kind: PhotoKind, base64: string, mediaType: stri
   const p = PROMPTS[kind];
   try {
     return await record<Record<string, unknown>>([
-      { type: "image", source: { type: "base64", media_type: mediaType as "image/jpeg", data: base64 } },
-      { type: "text", text: p.text + (extra ? `\n${extra}` : "") },
+      { image: { mediaType, data: base64 } },
+      { text: p.text + (extra ? `\n${extra}` : "") },
     ], p.description, p.schema);
   } catch (e) {
     console.error("[vision]", (e as Error).message);
@@ -123,7 +138,7 @@ export async function parseSale(text: string, accounts: { id: number; name: stri
   const rules = parseSaleText(text, accounts);
   if (!aiEnabled()) return rules;
   try {
-    const r = await record<Partial<ParsedSale>>([{ type: "text", text:
+    const r = await record<Partial<ParsedSale>>([{ text:
       `A petrol pump salesman in Pakistan said this (it may be Urdu, Roman Urdu, English or mixed): "${text}".\n` +
       `Fill in the sale. Products: ${Object.entries(PRODUCTS).map(([k, v]) => `${k} = ${v}`).join(", ")}. ` +
       "Give litres if a quantity in litres was said, otherwise amount in rupees (hazar = thousand). Payment: cash, easypaisa, jazzcash, card, raast or khata (credit/udhaar, or when an account name is said). " +
@@ -138,7 +153,7 @@ export async function parseSale(text: string, accounts: { id: number; name: stri
     if (!r) return rules;
     const acct = accounts.find((a) => a.id === r.customer_id);
     return {
-      ...rules, engine: "claude",
+      ...rules, engine: aiProvider() === "gemini" ? "gemini" : "claude",
       product: r.product ?? rules.product, litres: r.litres ?? (r.amount ? null : rules.litres), amount: r.amount ?? (r.litres ? null : rules.amount),
       payment_method: r.payment_method ?? rules.payment_method, customer_id: acct?.id ?? rules.customer_id, customer_name: acct?.name ?? rules.customer_name,
       vehicle_no: r.vehicle_no?.toUpperCase() ?? rules.vehicle_no, slip_no: r.slip_no ?? rules.slip_no,
@@ -155,7 +170,7 @@ export async function parseWholesale(text: string, ctx: WholesaleCtx): Promise<P
   if (!aiEnabled()) return rules;
   try {
     const list = (xs: { id: number; name?: string; number?: string }[]) => xs.map((x) => `${x.id}: ${x.name ?? x.number}`).join("; ") || "none";
-    const r = await record<Partial<ParsedWholesale> & { drops?: { client_id: number; litres: number }[] }>([{ type: "text", text:
+    const r = await record<Partial<ParsedWholesale> & { drops?: { client_id: number; litres: number }[] }>([{ text:
       `The wholesale officer of a petrol pump in Pakistan said this (Urdu, Roman Urdu, English or mixed): "${text}". Today is ${pkDate()}.\n` +
       "Work out the ONE entry they want: supply (fuel sent to a client), return (fuel brought back), payment (money received), order (client booked fuel for a day), " +
       "promise (client will pay on a day), cheque (cheque received, with bank and number), trip (one tanker, several clients each with litres), balance (asking a client's due) or today (asking today's totals).\n" +
@@ -178,7 +193,7 @@ export async function parseWholesale(text: string, ctx: WholesaleCtx): Promise<P
     const driver = ctx.drivers.find((x) => x.id === r.driver_id);
     const drops = (r.drops ?? []).map((d) => ({ ...d, client_name: ctx.clients.find((c) => c.id === d.client_id)?.name ?? "" })).filter((d) => d.client_name && d.litres > 0);
     const merged: ParsedWholesale = {
-      ...rules, engine: "claude", intent: r.intent as ParsedWholesale["intent"],
+      ...rules, engine: aiProvider() === "gemini" ? "gemini" : "claude", intent: r.intent as ParsedWholesale["intent"],
       client_id: client?.id ?? rules.client_id, client_name: client?.name ?? rules.client_name,
       product: r.product ?? rules.product, litres: r.litres ?? rules.litres, amount: r.amount ?? rules.amount, rate: r.rate ?? rules.rate, method: r.method ?? rules.method,
       date: r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : rules.date, bank: r.bank ?? rules.bank, cheque_no: r.cheque_no ?? rules.cheque_no,
@@ -197,7 +212,7 @@ export async function parseKhata(text: string, ctx: { customers: Named[]; custom
   const rules = parseKhataText(text, ctx);
   if (!aiEnabled()) return rules;
   try {
-    const r = await record<Partial<ParsedKhata>>([{ type: "text", text:
+    const r = await record<Partial<ParsedKhata>>([{ text:
       `The manager of a petrol pump in Pakistan said this about khata (credit accounts) — Urdu, Roman Urdu, English or mixed: "${text}".\n` +
       "Work out what they want: payment (money received from a customer), charge (add an amount to a customer's khata / udhaar), balance (ask how much a customer owes), " +
       "reminder (send a WhatsApp reminder), bill (send the monthly bill), top (who owes the most).\n" +
@@ -213,7 +228,7 @@ export async function parseKhata(text: string, ctx: { customers: Named[]; custom
     });
     if (!r || !r.intent) return rules;
     const c = ctx.customers.find((x) => x.id === r.customer_id);
-    return { ...rules, engine: "claude", intent: r.intent as ParsedKhata["intent"], customer_id: c?.id ?? rules.customer_id, customer_name: c?.name ?? rules.customer_name,
+    return { ...rules, engine: aiProvider() === "gemini" ? "gemini" : "claude", intent: r.intent as ParsedKhata["intent"], customer_id: c?.id ?? rules.customer_id, customer_name: c?.name ?? rules.customer_name,
       amount: r.amount ?? rules.amount, method: r.method ?? rules.method, note: r.note ?? rules.note };
   } catch (e) {
     console.error("[khata voice]", (e as Error).message);

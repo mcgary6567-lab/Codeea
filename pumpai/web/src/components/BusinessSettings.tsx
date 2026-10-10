@@ -65,7 +65,7 @@ const Status = ({ ok, label }: { ok: boolean; label: string }) => (
 );
 
 /** Claude key, WhatsApp Cloud API and the public address — set here, no server files to edit. */
-export function Integrations({ ai, wa }: { ai: boolean; wa: boolean }) {
+export function Integrations({ ai, provider, wa }: { ai: boolean; provider?: "claude" | "gemini" | "none"; wa: boolean }) {
   const { data, reload } = useApi<any>("/integrations");
   const { busy, run } = useAction();
   const [v, setV] = useState<Record<string, string> | null>(null);
@@ -78,10 +78,15 @@ export function Integrations({ ai, wa }: { ai: boolean; wa: boolean }) {
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
       <div className="card space-y-2 p-4">
-        <div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-semibold"><KeyRound size={16} /> Claude AI</h2><Status ok={ai} label={ai ? "Connected" : "Rule engine (offline)"} /></div>
-        <p className="text-sm text-slate-600">WhatsApp agent, Ask AI, photo reading, voice sales, coaching and campaign writing. Without a key the built-in rules still work.</p>
-        {inp("anthropic_key", "API key", "sk-ant-…", true)}
-        {inp("ai_model", "Model", "claude-opus-5-5")}
+        <div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-semibold"><KeyRound size={16} /> AI engine</h2><Status ok={ai} label={ai ? `Connected (${provider === "gemini" ? "Gemini" : "Claude"})` : "Rule engine (offline)"} /></div>
+        <p className="text-sm text-slate-600">WhatsApp agent, Ask AI, photo reading, voice sales, coaching and campaign writing. Without any key the built-in rules still work. Set a <b>Claude</b> key (paid, best quality) <b>or</b> a free <b>Gemini</b> key — if both are set, Claude is used.</p>
+        <div className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 ring-1 ring-emerald-100">💡 Google Gemini ka free tier kaafi hai kam volume ke liye — <a className="underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">aistudio.google.com/apikey</a> se free key banayein, card ki zaroorat nahi.</div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {inp("anthropic_key", "Claude API key (paid)", "sk-ant-…", true)}
+          {inp("ai_model", "Claude model", "claude-opus-5-5")}
+          {inp("gemini_key", "Gemini API key (free)", "AIza…", true)}
+          {inp("gemini_model", "Gemini model", "gemini-2.0-flash")}
+        </div>
         <button className="btn-primary" disabled={busy} onClick={save}>Save</button>
       </div>
       <div className="card space-y-2 p-4">
