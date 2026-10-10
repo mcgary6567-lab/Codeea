@@ -21,7 +21,7 @@ waWebhook.post("/", (req: Request & { rawBody?: Buffer }, res) => {
   if (!verifySignature(req.rawBody ?? Buffer.from(""), req.header("x-hub-signature-256"))) return res.sendStatus(401);
   res.sendStatus(200); // acknowledge immediately; Meta retries slow webhooks
   for (const m of parseWebhook(req.body)) {
-    handleInbound(webhookTenant(), { from: m.from, name: m.name, text: m.text, waId: m.id }).catch((e) => console.error("[wa] inbound failed", e));
+    handleInbound(webhookTenant(), { from: m.from, name: m.name, text: m.text, waId: m.id, image: m.image }).catch((e) => console.error("[wa] inbound failed", e));
   }
 });
 
@@ -79,8 +79,13 @@ inbox.patch("/conversations/:id", h((req) => {
 
 /** WhatsApp simulator: behaves exactly like an inbound Meta webhook message. */
 inbox.post("/simulate", h(async (req) => {
-  const b = parse(z.object({ phone: z.string().min(10), name: z.string().optional(), text: z.string().min(1).max(2000) }), req.body);
-  return handleInbound(tid(req), { from: b.phone, name: b.name, text: b.text });
+  const b = parse(z.object({ phone: z.string().min(10), name: z.string().optional(), text: z.string().max(2000).default(""),
+    // a payment screenshot can be pushed as a data-URL / base64 to test the payment-inbox flow end to end
+    image: z.string().optional(), image_mime: z.string().optional(), image_caption: z.string().max(300).optional() }), req.body);
+  if (!b.text && !b.image) throw new AppError(400, "text ya image chahiye");
+  const base64 = b.image ? b.image.replace(/^data:image\/[a-z]+;base64,/, "") : undefined;
+  return handleInbound(tid(req), { from: b.phone, name: b.name, text: b.text,
+    image: base64 ? { base64, mime: b.image_mime ?? "image/jpeg", caption: b.image_caption } : undefined });
 }));
 
 /** Start a new outbound chat with a customer. */

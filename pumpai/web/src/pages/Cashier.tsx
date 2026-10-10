@@ -66,6 +66,43 @@ export default function Cashier() {
 /* ================= desk ================= */
 const TONE: Record<string, string> = { red: "bg-red-500", amber: "bg-amber-500", blue: "bg-sky-500", green: "bg-emerald-500" };
 
+/** WhatsApp payment screenshots from khata customers, waiting for the cashier to check and confirm into the khata. */
+function PaymentInbox() {
+  const { data, reload } = useApi<any>("/payment-inbox", 60_000);
+  const { busy, run } = useAction();
+  if (!data || !data.payments.length) return null;
+  const confirm = (p: any) => {
+    const amount = Number(window.prompt(`${p.customer_name} ki payment confirm karein.\nBank/wallet me paisa aaya? Amount likhein:`, p.amount ? String(Math.round(p.amount)) : ""));
+    if (!amount || amount <= 0) return;
+    run(() => api(`/payment-inbox/${p.id}/confirm`, { body: { amount, method: p.method ? p.method[0].toUpperCase() + p.method.slice(1) : "Easypaisa" } }), "Khata me jama ho gaya ✅").then((r) => { if (r) reload(); });
+  };
+  const reject = (p: any) => {
+    const reason = window.prompt("Reject kyun? (duplicate / galat / paisa nahi aaya)");
+    if (reason == null || reason.trim().length < 3) return;
+    run(() => api(`/payment-inbox/${p.id}/reject`, { body: { reason: reason.trim() } }), "Reject ho gaya").then((r) => { if (r) reload(); });
+  };
+  return (
+    <div className="card">
+      <h2 className="flex items-center gap-2 p-4 pb-1 font-semibold"><HandCoins size={16} className="text-emerald-600" /> Payment inbox · <Ur>واٹس ایپ پیمنٹ</Ur>
+        <span className="rounded-full bg-emerald-100 px-2 text-xs font-bold text-emerald-700">{data.pending}</span></h2>
+      <p className="px-4 text-xs text-slate-500">Customers ne WhatsApp par payment screenshot bheji. Bank/wallet me paisa check kar ke confirm karein — khata khud update ho jayega.</p>
+      <div className="mt-2 divide-y divide-slate-100">
+        {data.payments.map((p: any) => (
+          <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+            {p.photo_id ? <a href={`/api/photos/${p.photo_id}?token=${linkToken()}`} target="_blank" rel="noreferrer" className="shrink-0"><img src={`/api/photos/${p.photo_id}?token=${linkToken()}`} alt="" className="h-12 w-12 rounded-lg object-cover ring-1 ring-slate-200" /></a> : null}
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">{p.customer_name ?? p.sender_name ?? p.phone} {p.amount ? <b className="tabular-nums text-emerald-700">{pkr(p.amount)}</b> : <span className="text-xs text-amber-600">(amount check karein)</span>}</div>
+              <div className="truncate text-xs text-slate-500">{[p.method, p.reference, p.confidence && `AI: ${p.confidence}`, dt(p.created_at)].filter(Boolean).join(" · ")}</div>
+            </div>
+            <button disabled={busy} onClick={() => confirm(p)} className="btn-primary shrink-0 !py-1.5"><Check size={15} /> Confirm</button>
+            <button disabled={busy} onClick={() => reject(p)} className="btn-secondary shrink-0 !py-1.5 !text-rose-600"><X size={15} /></button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) => void; onSlip: (v: any) => void }) {
   const { data, error, reload } = useApi<any>("/cashier/desk", 60_000);
   const { can } = useAuth();
@@ -102,6 +139,8 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
           </button>
         ))}
       </div>
+
+      {can("cash.receive") && <PaymentInbox />}
 
       {data.tips.length > 0 && (
         <div className="card">

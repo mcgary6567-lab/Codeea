@@ -97,6 +97,19 @@ export async function sendDirect(tenantId: number, to: { phone: string | null; n
   return r ?? { simulated: true };
 }
 
+/** Download a WhatsApp media object (e.g. a payment screenshot) by its id → base64 + mime. Live mode only. */
+export async function fetchMedia(mediaId: string): Promise<{ base64: string; mime: string } | null> {
+  if (!waLive()) return null;
+  try {
+    const metaRes = await fetch(`https://graph.facebook.com/${config.wa.graphVersion}/${mediaId}`, { headers: { Authorization: `Bearer ${config.wa.token}` } });
+    const meta = await metaRes.json() as { url?: string; mime_type?: string };
+    if (!meta?.url) return null;
+    const bin = await fetch(meta.url, { headers: { Authorization: `Bearer ${config.wa.token}` } });
+    const buf = Buffer.from(await bin.arrayBuffer());
+    return { base64: buf.toString("base64"), mime: meta.mime_type ?? "image/jpeg" };
+  } catch (e) { console.error("[wa media]", (e as Error).message); return null; }
+}
+
 export async function sendToPhone(phone: string, text: string) {
   if (!waLive()) return { simulated: true };
   return graphSend({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: text } });
@@ -117,6 +130,8 @@ export interface InboundMessage {
   id: string;
   type: string;
   text: string;
+  /** an attached image (e.g. a payment screenshot): its Meta media id + caption; base64 only when pushed via the simulator */
+  image?: { id?: string; mime?: string; caption?: string; base64?: string };
 }
 
 /** Extract user messages from a Meta webhook payload. */
@@ -132,8 +147,10 @@ export function parseWebhook(body: any): InboundMessage[] {
         else if (m.type === "button") text = m.button?.text ?? "";
         else if (m.type === "interactive") text = m.interactive?.button_reply?.title ?? m.interactive?.list_reply?.title ?? "";
         else if (m.type === "location") text = `[location] ${m.location?.latitude},${m.location?.longitude}`;
+        else if (m.type === "image") text = m.image?.caption ?? "";
         else text = `[${m.type} message]`;
-        out.push({ from: m.from, name: names.get(m.from), id: m.id, type: m.type, text });
+        const image = m.type === "image" && m.image?.id ? { id: m.image.id, mime: m.image.mime_type, caption: m.image.caption } : undefined;
+        out.push({ from: m.from, name: names.get(m.from), id: m.id, type: m.type, text, image });
       }
     }
   }

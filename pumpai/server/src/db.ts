@@ -685,6 +685,13 @@ export function migrate() {
     method TEXT, account_id INTEGER, src TEXT, note TEXT, voided INTEGER NOT NULL DEFAULT 0,
     created_by TEXT, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_other_entries ON other_entries(tenant_id, kind, created_at)");
+  // WhatsApp payment screenshots from khata customers, waiting for the cashier to confirm into the khata
+  db.exec(`CREATE TABLE IF NOT EXISTS payment_inbox (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER, phone TEXT, sender_name TEXT,
+    amount REAL, method TEXT, reference TEXT, confidence TEXT, photo_id INTEGER, caption TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','rejected')),
+    decided_by TEXT, decided_at TEXT, note TEXT, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_payment_inbox ON payment_inbox(tenant_id, status, created_at)");
   // property & rent: units inside the pump (shop, hotel, service bay) rented out = income; and the pump's own rent = expense
   db.exec(`CREATE TABLE IF NOT EXISTS rentals (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'shop',

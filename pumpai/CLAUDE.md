@@ -86,6 +86,11 @@ NOT built (deliberate, too risky for zero-rupee/meter integrity once later shift
 
 `routes/carriage.ts`: `thekedarAging(t)` (due per thekedar via `thekedarDue`, last-payment days, FIFO age-bucket 0-30/31-60/60+, `overdue` = owes AND no payment in `carriage_overdue_days` setting, default 20) + `GET /carriage/call-list` (owing thekedars worst-first + totals). `carriageReminders(t)` WhatsApps each overdue thekedar his kiraya balance via `sendDirect`, throttled to once per 5 days using the `outbox` ref `carr-reminder:<id>`. Registered as the daily `carriage_reminders` automation job (noon). Web `Carriage.tsx` shows a "Wasooli list" card (aging buckets + per-thekedar days-since-payment). `test/carriage_collection.test.ts`. Mirrors the wholesale call-list so carriage receivable no longer ages invisibly.
 
+## WhatsApp payment screenshots → payment inbox (khata credit on cashier confirm)
+
+Inbound WhatsApp images are now handled. `whatsapp/cloud.ts`: `InboundMessage.image` + `parseWebhook` picks up `type==='image'` (media id + caption); `fetchMedia(id)` downloads media→base64 (live only). `ai/agent.ts handleInbound` (image branch, before the normal reply): downloads/`readPhoto("payment")` (amount/method/reference/confidence — null without an AI key), saves the image as a `photos` row, and calls `recordPaymentScreenshot` (`routes/paymentInbox.ts`). That matches the sender's phone to a REAL khata customer (credit_limit>0 OR balance<>0 OR has khata_ledger — a random new number is NOT queued), inserts a PENDING `payment_inbox` row, and notifies cashiers; the customer gets an ack. Nothing is auto-credited — a screenshot is a claim.
+`routes/paymentInbox.ts` (perm `cash.receive`): `GET /payment-inbox?status=`, `POST /payment-inbox/:id/confirm` {amount,method,account_id?} → `khataEntry` credit + moves the photo onto the khata entry + marks confirmed (tally-safe), `POST /payment-inbox/:id/reject` {reason}. Web: a "Payment inbox" card on the Cashier desk (`Cashier.tsx`), thumbnail + one-tap Confirm/Reject. `/whatsapp/simulate` takes an optional `image` (base64/data-URL) to test the flow. `test/payment_inbox.test.ts` (queue→confirm→khata credit+tally, reject, unknown-number-not-queued). `table payment_inbox` in db.ts. Table 516 tests green.
+
 ## Conventions
 
 - Reply to the user in Roman Urdu/Hindi.

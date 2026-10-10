@@ -8,12 +8,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config, aiEnabled, aiProvider, PRODUCTS } from "../config.js";
 import { geminiAgentLoop, geminiText, toGContents } from "./gemini.js";
-import { all, get, run, getSetting, pkDate, type Row } from "../db.js";
+import { all, get, run, getSetting, now, pkDate, type Row } from "../db.js";
+import { readPhoto } from "./vision.js";
+import { recordPaymentScreenshot } from "../routes/paymentInbox.js";
 import { customerTools, runTool, toolSchemas, type ToolCtx } from "./tools.js";
 import { lookups, lookupKeys } from "../routes/lookups.js";
 import { fallbackReply } from "./fallback.js";
 import { businessTools } from "./businessTools.js";
-import { ensureConversation, storeMessage, sendWhatsApp, sendDirect, bus } from "../whatsapp/cloud.js";
+import { ensureConversation, storeMessage, sendWhatsApp, sendDirect, fetchMedia, bus } from "../whatsapp/cloud.js";
 import { quickAnswer, summaryAnswer } from "./ownerAnswers.js";
 import { upsertCustomerByPhone, currentPrices, pkr, normalizePhone } from "../services.js";
 import { insights, kpis } from "./analytics.js";
@@ -120,7 +122,7 @@ export async function generateCustomerReply(tenantId: number, customer: Row, con
 }
 
 /** Full inbound pipeline used by the Meta webhook and the in-app simulator. */
-export async function handleInbound(tenantId: number, msg: { from: string; name?: string; text: string; waId?: string }) {
+export async function handleInbound(tenantId: number, msg: { from: string; name?: string; text: string; waId?: string; image?: { id?: string; mime?: string; caption?: string; base64?: string } }) {
   // the owner or a manager asking about the business gets the business assistant, not the customer bot
   const boss = staffByPhone(tenantId, msg.from);
   if (boss) {
@@ -144,6 +146,24 @@ export async function handleInbound(tenantId: number, msg: { from: string; name?
   if (rating) {
     const sent = await sendWhatsApp(tenantId, get("SELECT * FROM customers WHERE id=?", customer.id)!, rating, "system", { kind: "rating_reply" });
     return { handled_by: "rating", reply: rating, message: sent.message };
+  }
+  // a payment screenshot from a khata customer → read it (if a key is set) and queue it for the cashier to confirm
+  if (msg.image) {
+    const media = msg.image.base64 ? { base64: msg.image.base64, mime: msg.image.mime ?? "image/jpeg" } : msg.image.id ? await fetchMedia(msg.image.id) : null;
+    let parsed: Record<string, unknown> | null = null, photoId: number | null = null;
+    if (media) {
+      parsed = await readPhoto("payment", media.base64, media.mime).catch(() => null);
+      try { photoId = run("INSERT INTO photos (tenant_id,kind,ref,mime,data,ai_result,created_at) VALUES (?,?,?,?,?,?,?)",
+        tenantId, "payment", null, media.mime, Buffer.from(media.base64, "base64"), parsed ? JSON.stringify(parsed) : null, now()).id; } catch { photoId = null; }
+    }
+    const row = await recordPaymentScreenshot(tenantId, { phone: msg.from, sender_name: msg.name ?? (parsed?.sender as string) ?? null,
+      amount: (parsed?.amount as number) ?? null, method: (parsed?.method as string) ?? null, reference: (parsed?.reference as string) ?? null,
+      confidence: (parsed?.confidence as string) ?? null, photo_id: photoId, caption: msg.image.caption ?? null });
+    const ack = row
+      ? `Shukriya ${customer.name}! 🧾 Payment screenshot mil gaya${row.amount ? ` (Rs ${Math.round(Number(row.amount)).toLocaleString("en-PK")})` : ""}. Humari team check kar ke aap ke khate me jama kar degi. ✅`
+      : "Payment screenshot mil gaya. Agar aap khata customer hain to humari team jald jama kar degi; warna pump par rabta karein.";
+    const sent = await sendWhatsApp(tenantId, get("SELECT * FROM customers WHERE id=?", customer.id)!, ack, "system", { kind: "payment_ack" });
+    return { handled_by: "payment_screenshot", queued: Boolean(row), payment_inbox_id: row?.id ?? null, message: sent.message };
   }
   const fresh = get("SELECT * FROM conversations WHERE id=?", conv.id)!;
   if (fresh.mode === "human") {
