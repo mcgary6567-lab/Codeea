@@ -5,11 +5,17 @@
  * and after any of them the Audit → "Hisaab check" (GET /books/check) must stay all-green (0 rupaye farq).
  *
  * The ledger is DERIVED (it re-reads the source tables), so each void = undo the source row(s) + restore the
- * paired balance column(s). Three kinds:
- *   1. Sale        — any fuel sale (POS, khata, wallet, coupon, loyalty, card, or a late/online close entry).
- *   2. Khata entry — a manual khata charge/payment made directly on a customer (not a sale, not a cashier voucher,
- *                    not an Other-discount — those have their own undo).
- *   3. Delivery    — a fuel tanker received into a tank (reverses the supplier payable + the stock).
+ * paired balance column(s). Kinds:
+ *   1. Sale          — any fuel sale (POS, khata, wallet, coupon, loyalty, card, or a late/online close entry).
+ *   2. Khata entry   — a manual khata charge/payment made directly on a customer (not a sale, not a cashier voucher,
+ *                      not an Other-discount — those have their own undo).
+ *   3. Delivery      — a fuel tanker received into a tank (reverses the supplier payable + the stock).
+ *   4. Supplier txn  — a direct depot payment/purchase/adjustment + its withholding-tax sibling (not a cashier
+ *                      voucher payment, not a delivery purchase — those go to Cashier/Delivery void).
+ *   5. Wholesale txn — a direct client supply/payment/etc. (restores tank stock on a supply; not a bulk trip or a
+ *                      cashier-voucher payment).
+ *   6. Rent          — a rent receipt (reverses its office voucher + bank deposit + the payment row).
+ * (Carriage/thekedar entries already have their own void at POST /carriage/txns/:id/void.)
  */
 import { Router } from "express";
 import { z } from "zod";
@@ -20,7 +26,6 @@ import { AppError, round2, pkr, reverseSale, audit } from "../services.js";
 export const corrections = Router();
 
 const reasonField = z.object({ reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)") });
-const ownStationIds = (t: number) => all("SELECT id FROM stations WHERE tenant_id=?", t).map((s) => s.id);
 
 /* ---------------- 1. Sale void ---------------- */
 
@@ -130,4 +135,107 @@ corrections.post("/corrections/delivery/:id/void", requirePerm("corrections.mana
   const amount = round2(sup.reduce((a, s) => a + (s.amount ?? 0), 0));
   audit(t, req.user!, "delivery_void", `delivery:${d.id}`, { supplier: d.supplier, tanker_no: d.tanker_no, tank: d.tank, product: d.product, invoice_l: d.invoice_l, received_l: d.received_l, amount, reason });
   return { ok: true, reversed_amount: amount, stock_removed_l: round2(d.received_l) };
+}));
+
+/* ---------------- 4. Supplier (depot) payment / purchase / adjustment void ---------------- */
+
+/** Recent direct supplier_txns the CEO can void (not the ones made through a cashier voucher or a delivery). */
+corrections.get("/corrections/supplier-txns", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+  const rows = all(
+    `SELECT x.id, x.type, x.amount, x.method, x.ref, x.note, x.product, x.litres, x.rate, x.delivery_id, x.txn_date, s.name supplier,
+            EXISTS(SELECT 1 FROM cashier_vouchers v WHERE v.tenant_id=? AND v.src='stx:'||x.id) via_cashier
+     FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id
+     WHERE x.tenant_id=? AND x.method IS NOT 'WHT' ORDER BY x.id DESC LIMIT ?`, t, t, limit)
+    .map((x) => ({ ...x, via_cashier: undefined,
+      // a purchase tied to a tanker delivery is undone from Delivery void; a cashier-voucher payment from Cashier void
+      voidable: !x.delivery_id && !x.via_cashier,
+      owner: x.delivery_id ? "delivery" : x.via_cashier ? "cashier" : null }));
+  return { txns: rows };
+}));
+
+corrections.post("/corrections/supplier-txn/:id/void", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const { reason } = parse(reasonField, req.body);
+  const x = get(`SELECT x.* FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.id=? AND s.tenant_id=?`, Number(req.params.id), t);
+  if (!x) throw new AppError(404, "Supplier entry nahi mili");
+  if (x.method === "WHT") throw new AppError(400, "Ye withholding-tax ka hissa hai — asal payment void karein, ye khud-ba-khud hat jayega.");
+  if (x.delivery_id) throw new AppError(400, "Ye entry ek tanker delivery se bani — 'Delivery void' se theek karein.");
+  if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `stx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se voucher void karein.");
+  // a payment may have a withholding-tax sibling (same supplier, same instant, method 'WHT') + a tax_withholdings record
+  const wht = x.type === "payment" ? get("SELECT * FROM supplier_txns WHERE tenant_id=? AND supplier_id=? AND method='WHT' AND txn_date=? AND id<>?", t, x.supplier_id, x.txn_date, x.id) : null;
+  const whtRec = wht ? get("SELECT * FROM tax_withholdings WHERE supplier_txn_id=?", wht.id) : null;
+  if (whtRec?.cpr_no) throw new AppError(400, "Is payment ka withholding tax FBR me jama (CPR) ho chuka — pehle tax deposit undo karein.");
+  tx(() => {
+    run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", x.id, t);
+    if (wht) {
+      run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", wht.id, t);
+      if (whtRec) run("DELETE FROM tax_withholdings WHERE id=? AND tenant_id=?", whtRec.id, t);
+    }
+  });
+  audit(t, req.user!, "supplier_txn_void", `stx:${x.id}`, { type: x.type, amount: x.amount, method: x.method, ref: x.ref, product: x.product, withholding: wht?.amount ?? 0, reason });
+  return { ok: true, reversed: round2(x.amount), withholding_reversed: round2(wht?.amount ?? 0) };
+}));
+
+/* ---------------- 5. Wholesale txn void ---------------- */
+
+corrections.get("/corrections/wholesale-txns", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+  const rows = all(
+    `SELECT x.id, x.type, x.amount, x.litres, x.rate, x.product, x.method, x.ref, x.note, x.trip_id, x.tank_id, x.txn_date, c.name client,
+            EXISTS(SELECT 1 FROM cashier_vouchers v WHERE v.tenant_id=? AND v.src='wtx:'||x.id) via_cashier
+     FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id
+     WHERE x.tenant_id=? AND x.voided=0 ORDER BY x.id DESC LIMIT ?`, t, t, limit)
+    .map((x) => ({ ...x, via_cashier: undefined,
+      // a bulk tanker-trip entry or a cashier-voucher payment is undone from its own place
+      voidable: !x.trip_id && !x.via_cashier,
+      owner: x.trip_id ? "trip" : x.via_cashier ? "cashier" : null }));
+  return { txns: rows };
+}));
+
+corrections.post("/corrections/wholesale-txn/:id/void", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const { reason } = parse(reasonField, req.body);
+  const x = get(`SELECT x.* FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.id=? AND c.tenant_id=? AND x.voided=0`, Number(req.params.id), t);
+  if (!x) throw new AppError(404, "Wholesale entry nahi mili");
+  if (x.trip_id) throw new AppError(400, "Ye ek tanker-trip (bulk) entry hai — trip ko wholesale page se void karein.");
+  if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `wtx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se voucher void karein.");
+  tx(() => {
+    run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=?", `${req.user!.name}: ${reason}`, x.id);
+    // a supply drew stock out of a tank — put it back
+    if (x.type === "supply" && x.tank_id && x.litres) run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", x.litres, x.tank_id);
+    // a depot-direct supply booked a supplier leg against ref wtx:<id>
+    run("DELETE FROM supplier_txns WHERE tenant_id=? AND ref=?", t, `wtx:${x.id}`);
+  });
+  audit(t, req.user!, "wholesale_txn_void", `wtx:${x.id}`, { type: x.type, amount: x.amount, litres: x.litres, product: x.product, method: x.method, reason });
+  return { ok: true, reversed: round2(x.amount) };
+}));
+
+/* ---------------- 6. Rent receipt void ---------------- */
+
+corrections.get("/corrections/rent", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const rows = all(
+    `SELECT p.id, p.amount, p.method, p.account_id, p.for_month, p.ref, p.note, p.created_at, r.name unit, r.tenant_name
+     FROM rental_payments p JOIN rentals r ON r.id=p.rental_id WHERE p.tenant_id=? ORDER BY p.id DESC LIMIT 40`, t);
+  return { payments: rows };
+}));
+
+corrections.post("/corrections/rent/:id/void", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const { reason } = parse(reasonField, req.body);
+  const p = get(`SELECT p.*, r.name unit FROM rental_payments p JOIN rentals r ON r.id=p.rental_id WHERE p.id=? AND p.tenant_id=?`, Number(req.params.id), t);
+  if (!p) throw new AppError(404, "Rent payment nahi mila");
+  const note = `Rent — ${p.unit}${p.tenant_name ? ` (${p.tenant_name})` : ""} · ${p.for_month}${p.note ? ` · ${p.note}` : ""}`;
+  tx(() => {
+    // the three rows the receipt created: the office voucher (exact id), the bank deposit (if any), and the payment row
+    if (p.voucher_id) run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", p.voucher_id, t);
+    if (p.account_id) run("DELETE FROM bank_txns WHERE id = (SELECT id FROM bank_txns WHERE tenant_id=? AND account_id=? AND kind='other_in' AND amount=? AND note=? ORDER BY id DESC LIMIT 1)",
+      t, p.account_id, p.amount, note);
+    run("DELETE FROM rental_payments WHERE id=? AND tenant_id=?", p.id, t);
+  });
+  audit(t, req.user!, "rent_void", `rentpay:${p.id}`, { unit: p.unit, amount: p.amount, method: p.method, for_month: p.for_month, reason });
+  return { ok: true, reversed: round2(p.amount) };
 }));
