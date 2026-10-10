@@ -88,7 +88,7 @@ export async function weeklyStaffRisk(t: number) {
 }
 
 /* ================= Profit & loss and balance sheet ================= */
-export function profitAndLoss(t: number, month: string) {
+export function profitAndLoss(t: number, month: string, showPrivate = true) {
   const from = pkStart(`${month}-01`);
   const lastDay = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
   const to = Math.min(Date.parse(pkEnd(`${month}-${String(lastDay).padStart(2, "0")}`)), Date.now());
@@ -105,7 +105,7 @@ export function profitAndLoss(t: number, month: string) {
   // Expenses come from the ledger (every "Expense: *" account), so bank card charges (MDR), bank charges and staff
   // bonuses are all counted — not just the manual expenses table. This keeps net profit true and matches the ledger.
   const toDay = `${month}-${String(lastDay).padStart(2, "0")}`;
-  const J = journal(t, `${month}-01`, toDay);
+  const J = journal(t, `${month}-01`, toDay, showPrivate);
   const expAccts = J.trial_balance.filter((x) => x.account.startsWith("Expense: "));
   const expensesTotal = r0(expAccts.reduce((a, x) => a + x.balance, 0));
   const byCategory = expAccts.map((x) => ({ category: x.account.replace("Expense: ", ""), amount: r0(x.balance) })).filter((x) => x.amount).sort((a, b) => b.amount - a.amount);
@@ -115,8 +115,10 @@ export function profitAndLoss(t: number, month: string) {
   const toIso = new Date(to).toISOString();
   // CEO "other income" (misc money the pump earned) adds to profit; "other discount" (concessions given) reduces it.
   // "Other expense" needs no line here — it is booked as "Expense: Other (CEO)" and already sits in expensesTotal.
-  const ceoIncome = otherEntriesIncome(t, from, toIso);
-  const ceoDiscount = otherEntriesDiscount(t, from, toIso);
+  // these CEO-only lines are shown only to the owner; a manager's P&L excludes them (and the journal
+  // above, with showPrivate=false, books the expense half as owner's drawings, so it isn't in expensesTotal)
+  const ceoIncome = showPrivate ? otherEntriesIncome(t, from, toIso) : 0;
+  const ceoDiscount = showPrivate ? otherEntriesDiscount(t, from, toIso) : 0;
   const otherIncome = r0(rentalIncome(t, from, toIso) + carriageIncome(t, from, toIso) + carriageIncomeThekedar(t, from, toIso) + ceoIncome);
   const net = r0(gross + otherIncome - expensesTotal - ceoDiscount);
   return {
@@ -159,12 +161,12 @@ export function balanceSheet(t: number) {
 
 analysis.get("/analysis/pl", h((req) => {
   const month = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() }), req.query).month ?? pkDate().slice(0, 7);
-  return { pl: profitAndLoss(tid(req), month), balance_sheet: balanceSheet(tid(req)) };
+  return { pl: profitAndLoss(tid(req), month, req.user!.role === "admin"), balance_sheet: balanceSheet(tid(req)) };
 }));
 analysis.get("/analysis/pl.csv", (req, res, next) => {
   try {
     const month = String(req.query.month ?? pkDate().slice(0, 7));
-    const p = profitAndLoss(tid(req), month), b = balanceSheet(tid(req));
+    const p = profitAndLoss(tid(req), month, req.user!.role === "admin"), b = balanceSheet(tid(req));
     const rows: [string, string | number][] = [
       [`Profit & loss — ${month}`, ""], ["Fuel sales (pump)", p.income.fuel_retail], ["Fuel sales (wholesale)", p.income.fuel_wholesale], ["Shop sales", p.income.shop], ["Total income", p.income.total],
       ["Fuel cost", -p.cost_of_sales.fuel], ["Shop cost", -p.cost_of_sales.shop], ["Stock gain / loss (dips)", p.cost_of_sales.stock_gain_loss], ["Gross profit", p.gross_profit],
@@ -314,7 +316,7 @@ analysis.get("/analysis/targets", h((req) => {
   const month = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() }), req.query).month ?? pkDate().slice(0, 7);
   const t = tid(req);
   const target = get("SELECT sales_litres, revenue, net_profit FROM targets WHERE tenant_id=? AND month=?", t, month) ?? { sales_litres: null, revenue: null, net_profit: null };
-  const pl = profitAndLoss(t, month);
+  const pl = profitAndLoss(t, month, req.user!.role === "admin");
   const actual = { sales_litres: round2(pl.litres.retail + pl.litres.wholesale), revenue: pl.income.total, net_profit: pl.net_profit };
   return { month, target, actual };
 }));

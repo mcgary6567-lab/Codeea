@@ -58,6 +58,8 @@ Two AI backends, chosen by `aiProvider()` in `server/src/config.ts`: **Claude** 
 - discount → writes the party's OWN ledger (khata_ledger credit / wholesale_txns / carriage_txns payment) with ref `oth-disc:` → `isOtherDisc` routes the contra to **"Other discount (CEO)"**; reduces the party balance AND P&L net via `otherEntriesDiscount()`. A discount needs a real party (no free-text).
 Never post these to "Suspense"; keep `test/other_entries.test.ts` + the whole-system tally green.
 
+**CEO-private:** these are the owner's own dealings — a manager must not see them. `journal(t,from,to,showPrivate=true)` and `profitAndLoss(t,month,showPrivate=true)` take a flag; the manager-facing routes (ledger, analysis/pl, targets, owner/overview) pass `req.user!.role==="admin"`. With `showPrivate=false` the three entries are reclassified to **Owner's capital / Owner's drawings** with generic narration and dropped from P&L, so the manager's books still balance but reveal nothing. Internal/test callers default to `true` (full view) — the tally always uses the full journal.
+
 ## Conventions
 
 - Reply to the user in Roman Urdu/Hindi.

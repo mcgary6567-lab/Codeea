@@ -33,13 +33,18 @@ const payAccount = (t: number, m: string | null | undefined) => {
 
 /** Money tagged by where it came from: tax paid to FBR clears the tax payable, a recovered claim, a coupon refund. */
 const OTHER_INCOME_CEO = "Other income (CEO)", OTHER_EXPENSE_CEO = "Expense: Other (CEO)", OTHER_DISCOUNT_CEO = "Other discount (CEO)";
+const OWN_CAP = "Owner's capital", OWN_DRAW = "Owner's drawings";
 const specialSide = (ref: string | null | undefined) =>
-  !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held"
-    : ref.startsWith("oth-inc:") ? OTHER_INCOME_CEO : ref.startsWith("oth-exp:") ? OTHER_EXPENSE_CEO : null;
-/** CEO "other discount": a party-ledger reduction whose contra is the discount account (reduces profit). */
-const isOtherDisc = (ref: string | null | undefined) => !!ref && ref.startsWith("oth-disc:");
+  !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held" : null;
+/** CEO-only "other" markers: income / expense / discount. Hidden from non-admin views (shown as owner capital/drawings). */
+const otherKind = (ref: string | null | undefined): "inc" | "exp" | "disc" | null =>
+  !ref ? null : ref.startsWith("oth-inc:") ? "inc" : ref.startsWith("oth-exp:") ? "exp" : ref.startsWith("oth-disc:") ? "disc" : null;
+const isOtherDisc = (ref: string | null | undefined) => otherKind(ref) === "disc";
 
-export function journal(t: number, fromDay: string, toDay: string) {
+/** `showPrivate` (default true) includes the CEO-only "other income/expense/discount" with their real
+ *  accounts + narration. When false (non-admin views), those entries appear as owner capital/drawings
+ *  with generic narration, so the manager cannot see them — the books still balance either way. */
+export function journal(t: number, fromDay: string, toDay: string, showPrivate = true) {
   const from = pkStart(fromDay), to = pkEnd(toDay);
   const P = [t, from, to] as const;
   const day = (iso: string) => pkDate(Date.parse(iso));
@@ -100,7 +105,12 @@ export function journal(t: number, fromDay: string, toDay: string) {
   }
   // khata: payments received, and charges other than fuel (late fee, adjustments)
   for (const r of all(`SELECT k.*, c.name FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.created_at >= ? AND k.created_at < ? AND COALESCE(k.ref,'') NOT LIKE 'SALE%' AND COALESCE(k.ref,'') NOT LIKE 'SHOP-%'`, ...P)) {
-    if (r.type === "credit") add(day(r.created_at), isOtherDisc(r.ref) ? "Journal" : "Receipt", `${isOtherDisc(r.ref) ? "Discount given" : "Khata payment"} — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(isOtherDisc(r.ref) ? OTHER_DISCOUNT_CEO : via(r.ref, r.account_id), r.amount), cr("Khata receivable", r.amount)]);
+    if (r.type === "credit") {
+      const od = isOtherDisc(r.ref);
+      const dside = od ? (showPrivate ? OTHER_DISCOUNT_CEO : OWN_DRAW) : via(r.ref, r.account_id);
+      const narr = od ? (showPrivate ? `Discount given — ${r.name}${r.note ? ` (${r.note})` : ""}` : "Owner's drawings") : `Khata payment — ${r.name}${r.note ? ` (${r.note})` : ""}`;
+      add(day(r.created_at), od ? "Journal" : "Receipt", narr, [dr(dside, r.amount), cr("Khata receivable", r.amount)]);
+    }
     else add(day(r.created_at), "Journal", `Khata charge — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Khata receivable", r.amount), cr("Other income", r.amount)]);
   }
   // wholesale
@@ -112,7 +122,12 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const depot = r.type === "payment" && r.method === DEPOT_PAY ? get("SELECT p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.ref=?", `wtx:${r.id}`)?.name : null;
     if (depot) add(d, "Journal", `Wholesale payment — ${r.name} paid ${depot} direct${r.ref ? ` (${r.ref})` : ""}`, [dr(`Payable — ${depot}`, r.amount), cr("Wholesale receivable", r.amount)]);
     // a client who settled a bypass supplier direct: the receivable credit is booked against the bypass payable (below), so skip it here
-    else if (r.type === "payment" && r.method !== BYPASS_PAY) add(d, isOtherDisc(r.ref) ? "Journal" : "Receipt", `${isOtherDisc(r.ref) ? "Discount given" : "Wholesale payment"} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(isOtherDisc(r.ref) ? OTHER_DISCOUNT_CEO : via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
+    else if (r.type === "payment" && r.method !== BYPASS_PAY) {
+      const od = isOtherDisc(r.ref);
+      const dside = od ? (showPrivate ? OTHER_DISCOUNT_CEO : OWN_DRAW) : via(r.method, r.account_id);
+      const narr = od ? (showPrivate ? `Discount given — ${r.name}` : "Owner's drawings") : `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`;
+      add(d, od ? "Journal" : "Receipt", narr, [dr(dside, r.amount), cr("Wholesale receivable", r.amount)]);
+    }
     if (r.type === "adjustment") add(d, "Journal", `Wholesale adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Other income", r.amount)]);
     // bypass on our depot ID: only the kiraya is ours — the client owes us the carriage, booked as income (no fuel on our books)
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Carriage income", r.amount)]);
@@ -121,7 +136,12 @@ export function journal(t: number, fromDay: string, toDay: string) {
   for (const r of all(`SELECT c.*, k.name FROM carriage_txns c JOIN thekedars k ON k.id=c.thekedar_id WHERE c.tenant_id=? AND c.voided=0 AND c.created_at >= ? AND c.created_at < ?`, ...P)) {
     const d = day(r.created_at);
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Carriage receivable", r.amount), cr("Carriage income", r.amount)]);
-    if (r.type === "payment") add(d, isOtherDisc(r.ref) ? "Journal" : "Receipt", `${isOtherDisc(r.ref) ? "Discount given" : "Carriage payment"} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(isOtherDisc(r.ref) ? OTHER_DISCOUNT_CEO : via(r.method, r.account_id), r.amount), cr("Carriage receivable", r.amount)]);
+    if (r.type === "payment") {
+      const od = isOtherDisc(r.ref);
+      const dside = od ? (showPrivate ? OTHER_DISCOUNT_CEO : OWN_DRAW) : via(r.method, r.account_id);
+      const narr = od ? (showPrivate ? `Discount given — ${r.name}` : "Owner's drawings") : `Carriage payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`;
+      add(d, od ? "Journal" : "Receipt", narr, [dr(dside, r.amount), cr("Carriage receivable", r.amount)]);
+    }
     if (r.type === "adjustment") add(d, "Journal", `Carriage adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, r.amount >= 0 ? [dr("Carriage receivable", r.amount), cr("Other income", r.amount)] : [dr("Other income", -r.amount), cr("Carriage receivable", -r.amount)]);
   }
   // bypass delivery: fuel bought from suppliers goes into bypass stock (asset); its cost hits P&L only when delivered
@@ -155,8 +175,17 @@ export function journal(t: number, fromDay: string, toDay: string) {
   // bank-only entries: cash taken out, charges, profit, owner money (transfers between own banks net to nil)
   const BANK_SIDE: Record<string, string> = { withdraw: CASH, charges: "Expense: Bank charges", profit: "Bank profit", owner_in: "Owner's capital", owner_out: "Owner's drawings", other_in: "Other income", other_out: "Other payments" };
   for (const r of all(`SELECT * FROM bank_txns WHERE tenant_id=? AND kind<>'transfer' AND txn_date >= ? AND txn_date < ?`, ...P)) {
-    const other = specialSide(r.ref) ?? BANK_SIDE[r.kind] ?? "Suspense", v = Math.abs(r.amount);
-    add(day(r.txn_date), r.kind === "withdraw" ? "Contra" : r.amount > 0 ? "Receipt" : "Payment", `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}`,
+    const ok = otherKind(r.ref); // CEO other income/expense into/out of a bank account
+    const v = Math.abs(r.amount);
+    let other: string, narr: string;
+    if (ok === "inc" || ok === "exp") {
+      other = showPrivate ? (ok === "inc" ? OTHER_INCOME_CEO : OTHER_EXPENSE_CEO) : (r.amount > 0 ? OWN_CAP : OWN_DRAW);
+      narr = showPrivate ? `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}` : (r.amount > 0 ? "Owner's capital introduced" : "Owner's drawings");
+    } else {
+      other = specialSide(r.ref) ?? BANK_SIDE[r.kind] ?? "Suspense";
+      narr = `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}`;
+    }
+    add(day(r.txn_date), r.kind === "withdraw" ? "Contra" : r.amount > 0 ? "Receipt" : "Payment", narr,
       r.amount > 0 ? [dr(BANK, v), cr(other, v)] : [dr(other, v), cr(BANK, v)]);
   }
   // bank card/POS fee (MDR) on each day's card sales — same figures the bank module nets off the balance
@@ -190,8 +219,16 @@ export function journal(t: number, fromDay: string, toDay: string) {
   }
   // cash counter: money in / out that belongs to no party account
   for (const r of all(`SELECT * FROM cashier_vouchers WHERE tenant_id=? AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at >= ? AND created_at < ?`, ...P)) {
-    const other = specialSide(r.src) ?? (r.direction === "in" ? "Other income" : "Other payments");
-    add(day(r.created_at), r.direction === "in" ? "Receipt" : "Payment", `${r.category ?? (r.direction === "in" ? "Other money in" : "Other payment")} — ${r.party_name}`,
+    const ok = otherKind(r.src); // CEO other income/expense
+    let other: string, narr: string;
+    if (ok === "inc" || ok === "exp") {
+      other = showPrivate ? (ok === "inc" ? OTHER_INCOME_CEO : OTHER_EXPENSE_CEO) : (r.direction === "in" ? OWN_CAP : OWN_DRAW);
+      narr = showPrivate ? `${r.category ?? (r.direction === "in" ? "Other money in" : "Other payment")} — ${r.party_name}` : (r.direction === "in" ? "Owner's capital introduced" : "Owner's drawings");
+    } else {
+      other = specialSide(r.src) ?? (r.direction === "in" ? "Other income" : "Other payments");
+      narr = `${r.category ?? (r.direction === "in" ? "Other money in" : "Other payment")} — ${r.party_name}`;
+    }
+    add(day(r.created_at), r.direction === "in" ? "Receipt" : "Payment", narr,
       r.direction === "in" ? [dr(CASH, r.amount), cr(other, r.amount)] : [dr(other, r.amount), cr(CASH, r.amount)]);
   }
 
@@ -222,7 +259,7 @@ function range(req: Request) {
 }
 ledger.get("/ledger", requirePerm("reports.view"), h((req) => {
   const r = range(req);
-  const j = journal(tid(req), r.from, r.to);
+  const j = journal(tid(req), r.from, r.to, req.user!.role === "admin");
   return { ...j, voucher_count: j.vouchers.length, vouchers: j.vouchers.slice(-200) };
 }));
 
@@ -231,7 +268,7 @@ const download = (fn: (req: Request) => { name: string; type: string; body: stri
 };
 ledger.get("/ledger.csv", requirePerm("reports.view"), download((req) => {
   const r = range(req);
-  const j = journal(tid(req), r.from, r.to);
+  const j = journal(tid(req), r.from, r.to, req.user!.role === "admin");
   const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
   const rows = [["Date", "Voucher", "Type", "Account", "Debit", "Credit", "Narration"],
     ...j.vouchers.flatMap((v) => v.lines.map((l) => [v.date, v.no, v.type, l.account, l.debit || "", l.credit || "", v.narration]))];
@@ -239,7 +276,7 @@ ledger.get("/ledger.csv", requirePerm("reports.view"), download((req) => {
 }));
 ledger.get("/ledger/tally.xml", requirePerm("reports.view"), download((req) => {
   const r = range(req);
-  const j = journal(tid(req), r.from, r.to);
+  const j = journal(tid(req), r.from, r.to, req.user!.role === "admin");
   const x = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]!);
   const vouchers = j.vouchers.map((v) => `<TALLYMESSAGE xmlns:UDF="TallyUDF"><VOUCHER VCHTYPE="Journal" ACTION="Create"><DATE>${v.date.replaceAll("-", "")}</DATE><VOUCHERTYPENAME>Journal</VOUCHERTYPENAME><VOUCHERNUMBER>${v.no}</VOUCHERNUMBER><NARRATION>${x(v.narration)}</NARRATION>${
     v.lines.map((l) => `<ALLLEDGERENTRIES.LIST><LEDGERNAME>${x(l.account)}</LEDGERNAME><ISDEEMEDPOSITIVE>${l.debit ? "Yes" : "No"}</ISDEEMEDPOSITIVE><AMOUNT>${(l.debit ? -l.debit : l.credit).toFixed(2)}</AMOUNT></ALLLEDGERENTRIES.LIST>`).join("")}</VOUCHER></TALLYMESSAGE>`).join("\n");

@@ -88,7 +88,7 @@ owner.get("/owner/overview", requirePerm("reports.view"), h((req) => {
   const online = { ...onlineToday(t), month: onlineMonth.methods.map((m) => ({ method: m.method, total: m.total })), month_total: onlineMonth.total };
 
   // ---- this month ----
-  const pl = profitAndLoss(t, today.slice(0, 7));
+  const pl = profitAndLoss(t, today.slice(0, 7), req.user!.role === "admin");
 
   return {
     as_of: nowIso, money,

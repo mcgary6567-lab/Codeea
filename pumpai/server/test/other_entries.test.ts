@@ -13,7 +13,7 @@ process.env.NODE_ENV = "test";
 process.env.ANTHROPIC_API_KEY = "";
 process.env.WA_TOKEN = "";
 
-let server: Server, base = "", adminTok = "", salesTok = "";
+let server: Server, base = "", adminTok = "", salesTok = "", mgrTok = "";
 async function call(tok: string, method: string, url: string, body?: unknown) {
   const res = await fetch(base + url, { method, headers: { "content-type": "application/json", ...(tok ? { authorization: `Bearer ${tok}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: res.status, data: (await res.json().catch(() => null)) as any };
@@ -27,6 +27,7 @@ before(async () => {
   base = `http://127.0.0.1:${(server.address() as any).port}`;
   adminTok = (await call("", "POST", "/api/auth/login", { email: "admin@pumpai.pk", password: "demo1234" })).data.token;
   salesTok = (await call("", "POST", "/api/auth/login", { email: "salesman@pumpai.pk", password: "demo1234" })).data.token;
+  mgrTok = (await call("", "POST", "/api/auth/login", { email: "manager@pumpai.pk", password: "demo1234" })).data.token;
 });
 after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
@@ -86,4 +87,33 @@ test("income, expense and discount move the money/balance, tally, and hit the P&
   const discRep2 = ok(await call(adminTok, "GET", "/api/other-entries?kind=discount"), "disc report 2");
   assert.equal(discRep2.total, 1000);
   void custBefore;
+});
+
+test("the CEO entries are private — a manager cannot see them, but both books still balance", async () => {
+  // state from the previous test: income 8000, expense 2000, discount (khata) 1000
+  const adminPl = ok(await call(adminTok, "GET", `/api/analysis/pl?month=${month}`), "admin pl").pl;
+  const mgrPl = ok(await call(mgrTok, "GET", `/api/analysis/pl?month=${month}`), "mgr pl").pl;
+
+  // the owner sees the CEO lines; the manager sees none of them
+  assert.equal(adminPl.other_income_ceo, 8000);
+  assert.equal(mgrPl.other_income_ceo, 0);
+  assert.equal(mgrPl.other_discount_ceo, 0);
+  assert.ok(adminPl.expenses.by_category.some((c: any) => c.category === "Other (CEO)"), "owner sees the Other (CEO) expense");
+  assert.ok(!mgrPl.expenses.by_category.some((c: any) => c.category === "Other (CEO)"), "manager does NOT see the Other (CEO) expense");
+  // the manager's net profit excludes all three (8000 income − 2000 expense − 1000 discount = 5000)
+  assert.equal(Math.round((adminPl.net_profit - mgrPl.net_profit) * 100) / 100, 5000);
+
+  const g = (tb: any[], a: string) => tb.find((x) => x.account === a);
+  const adminLed = ok(await call(adminTok, "GET", `/api/ledger?from=${month}-01&to=${month}-28`), "admin ledger");
+  const mgrLed = ok(await call(mgrTok, "GET", `/api/ledger?from=${month}-01&to=${month}-28`), "mgr ledger");
+  // both balance, nothing in Suspense
+  assert.equal(adminLed.totals.debit, adminLed.totals.credit);
+  assert.equal(mgrLed.totals.debit, mgrLed.totals.credit);
+  assert.ok(!g(adminLed.trial_balance, "Suspense") && !g(mgrLed.trial_balance, "Suspense"));
+  // the owner's ledger names the CEO accounts; the manager's does not (they appear as owner capital/drawings)
+  assert.ok(g(adminLed.trial_balance, "Other income (CEO)") && g(adminLed.trial_balance, "Other discount (CEO)"));
+  assert.ok(!g(mgrLed.trial_balance, "Other income (CEO)"), "manager ledger hides Other income (CEO)");
+  assert.ok(!g(mgrLed.trial_balance, "Expense: Other (CEO)"), "manager ledger hides the Other (CEO) expense");
+  assert.ok(!g(mgrLed.trial_balance, "Other discount (CEO)"), "manager ledger hides Other discount (CEO)");
+  assert.ok(g(mgrLed.trial_balance, "Owner's capital") && g(mgrLed.trial_balance, "Owner's drawings"), "manager sees them only as owner capital/drawings");
 });
