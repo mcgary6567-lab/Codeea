@@ -66,6 +66,7 @@ export const PERMISSIONS = {
   "suppliers.manage": MGMT, // supplier accounts, fuel purchase cost, payments to suppliers
   "audit.view": ADMIN, // who changed what (prices, undo, deletes, edits, sign-ins)
   "other_entries.manage": ADMIN, // CEO-only: record other income / expense / discount and see its report
+  "cashier.void": ADMIN, // CEO-only: void a wrong cash receive/pay voucher and reverse the money it moved
   "photos.delete": ADMIN, // only the CEO can delete an uploaded photo; everyone else may only view
   "bank.view": CASHIER, // how much is in each bank account, statements
   "bank.manage": CASHIER, // add bank accounts, cash withdrawals, transfers, bank charges / profit

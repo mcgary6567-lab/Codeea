@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PrintFooter, PrintHeader } from "../components/Letterhead";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  ArrowDownCircle, ArrowUpCircle, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, Download, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
+  ArrowDownCircle, ArrowUpCircle, Ban, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, Download, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
 } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
@@ -67,7 +67,7 @@ export default function Cashier() {
 const TONE: Record<string, string> = { red: "bg-red-500", amber: "bg-amber-500", blue: "bg-sky-500", green: "bg-emerald-500" };
 
 function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) => void; onSlip: (v: any) => void }) {
-  const { data, error } = useApi<any>("/cashier/desk", 60_000);
+  const { data, error, reload } = useApi<any>("/cashier/desk", 60_000);
   const { can } = useAuth();
   if (error) return <ErrorBox error={error} />;
   if (!data) return <Loading />;
@@ -168,11 +168,18 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
         <div className="card">
           <h2 className="p-4 pb-1 font-semibold">Today's vouchers · <Ur>آج کی رسیدیں</Ur></h2>
           <ul className="divide-y divide-slate-100">{data.vouchers.map((v: any) => (
-            <li key={v.id}><button onClick={() => onSlip({ voucher: v, account: v.account })} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-slate-50">
-              <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
-              <span className="min-w-0 flex-1 truncate">{v.party_name}<span className="block text-xs text-slate-500">{v.method} · {ago(v.created_at)}</span></span>
-              <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
-            </button></li>
+            <li key={v.id} className="flex items-center hover:bg-slate-50">
+              <button onClick={() => onSlip({ voucher: v, account: v.account })} className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left text-sm">
+                <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
+                <span className="min-w-0 flex-1 truncate">{v.party_name}<span className="block text-xs text-slate-500">{v.method} · {ago(v.created_at)}</span></span>
+                <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
+              </button>
+              {can("cashier.void") && /^(khata|wholesale|other|supplier|expense|staff)$/.test(v.party_type) && v.method !== "Cheque" && (
+                <button title="Void this voucher (CEO)" aria-label="Void voucher"
+                  onClick={async () => { const reason = prompt(`Is voucher ko void karein? (${pkr(v.amount)} ${v.party_name})\nWajah likhein:`); if (reason && reason.trim().length >= 3) { await api(`/cashier/vouchers/${v.id}/void`, { body: { reason: reason.trim() } }); reload(); } }}
+                  className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600"><Ban size={15} /></button>
+              )}
+            </li>
           ))}{!data.vouchers.length && <li><Empty>No vouchers yet today · <Ur>آج کوئی رسید نہیں</Ur></Empty></li>}</ul>
         </div>
       </div>

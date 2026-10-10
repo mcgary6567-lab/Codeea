@@ -674,6 +674,8 @@ export function migrate() {
     created_by TEXT, created_at TEXT NOT NULL)`);
   // cash note breakdown kept with a cash voucher: { "5000": 2, "1000": 10, ... } — for the slip and the record
   addColumn("cashier_vouchers", "notes_json", "TEXT");
+  // CEO can void a wrong cash receive/pay voucher: who/why/when (the money it moved is reversed)
+  for (const [c, ty] of [["void_reason", "TEXT"], ["voided_by", "TEXT"], ["voided_at", "TEXT"]]) addColumn("cashier_vouchers", c, ty);
   // CEO-only "other income / expense / discount": attributed to any party (or a free-text name) with a reason.
   // The money/balance movement is written to the normal tables (cashier_vouchers / bank_txns / party ledgers) so
   // the books tally; this row is the record the CEO report reads. `src` points back at that movement row.

@@ -11,7 +11,8 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDate, pkStart, pkEnd, pkDayStart, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
-import { AppError, round2, pkr, createAlert, khataEntry } from "../services.js";
+import { AppError, round2, pkr, createAlert, khataEntry, audit } from "../services.js";
+import { closeApproval } from "./approvals.js";
 import { sendDirect, sendWhatsApp } from "../whatsapp/cloud.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountName, bankAccounts, accountIdField, posMap, POS_DIGITAL, DEPOT_PAY, notDepot, cardFees } from "./banks.js";
@@ -247,6 +248,51 @@ cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => {
     account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src, notes_json: notesJson(b.method, b.notes) });
   if (!src) linkPhotos(t, b.photo_ids, `voucher:${v.id}`);
   return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message, approval };
+}));
+
+/* ---------------- void a wrong voucher (CEO only) ---------------- */
+/**
+ * The owner undoes a wrong cash receive / pay voucher: the money or balance it moved is reversed in the
+ * SAME source table it was written to (so the books tally), and the voucher is marked void with a reason.
+ * Cheque vouchers are not touched here — those are cancelled/returned in the cheque register.
+ */
+cashier.post("/cashier/vouchers/:id/void", requirePerm("cashier.void"), h((req) => {
+  const t = tid(req);
+  const v = get("SELECT * FROM cashier_vouchers WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!v) throw new AppError(404, "Voucher not found");
+  if (v.voided) throw new AppError(400, "Yeh voucher pehle hi void ho chuka hai");
+  const reason = String((req.body?.reason ?? "")).trim();
+  if (reason.length < 3) throw new AppError(400, "Void ki wajah likhein");
+  const [kind, idStr] = String(v.src ?? "").split(":");
+  const srcId = Number(idStr);
+  if (kind === "chq" || kind === "wchq") throw new AppError(400, "Yeh cheque entry hai — cheque register me cancel/return karein");
+
+  tx(() => {
+    if (kind === "khata") {
+      const k = get("SELECT type, amount FROM khata_ledger WHERE id=?", srcId);
+      if (k) {
+        run("DELETE FROM khata_ledger WHERE id=?", srcId);
+        // a credit (payment) had lowered the balance → add it back; a debit (charge) had raised it → take it off
+        run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", k.type === "credit" ? k.amount : -k.amount, v.party_id, t);
+      }
+    } else if (kind === "wtx") {
+      run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=? AND tenant_id=?", `${req.user!.name}: ${reason}`, srcId, t);
+      run("DELETE FROM supplier_txns WHERE tenant_id=? AND ref=?", t, `wtx:${srcId}`); // depot-direct's supplier leg, if any
+    } else if (kind === "stx") {
+      run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", srcId, t);
+    } else if (kind === "staff") {
+      run("DELETE FROM staff_ledger WHERE id=? AND tenant_id=?", srcId, t);
+    } else if (kind === "expense") {
+      run("DELETE FROM expenses WHERE id=? AND tenant_id=?", srcId, t);
+      closeApproval("expense", srcId, false, `${req.user!.name} (voucher void)`);
+    } else if (kind === "bank") {
+      run("DELETE FROM bank_txns WHERE id=? AND tenant_id=?", srcId, t);
+    }
+    // the voucher is marked void (for a cash "other" entry, this is what reverses the cash)
+    run("UPDATE cashier_vouchers SET voided=1, void_reason=?, voided_by=?, voided_at=? WHERE id=?", reason, req.user!.name, now(), v.id);
+  });
+  audit(t, req.user!, "cashier_voucher_void", `voucher:${v.id}`, { direction: v.direction, party: v.party_name, amount: v.amount, src: v.src, reason });
+  return { ok: true, balance_after: v.party_type && v.party_id && v.party_type !== "other" ? balanceOf(v.party_type, v.party_id) : null };
 }));
 
 cashier.get("/cashier/vouchers", requirePerm("cashier.desk"), h((req) => {
@@ -519,7 +565,7 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   const seeAll = req.user!.role === "admin";
   const book = cashierDayBook(t, today, seeAll);
   // with the bank account's name, so a voucher printed again from the list says where the money went
-  const vouchers = all("SELECT * FROM cashier_vouchers WHERE tenant_id=? AND created_at >= ? ORDER BY id DESC LIMIT 8", t, pkDayStart()).map((v) => {
+  const vouchers = all("SELECT * FROM cashier_vouchers WHERE tenant_id=? AND created_at >= ? AND voided=0 ORDER BY id DESC LIMIT 12", t, pkDayStart()).map((v) => {
     const acc = v.account_id ? get("SELECT * FROM bank_accounts WHERE id=?", v.account_id) : null;
     // the CEO's private "other" money shows to the cashier only as a generic owner movement
     const hide = !seeAll && isOtherMoney(v.src);
