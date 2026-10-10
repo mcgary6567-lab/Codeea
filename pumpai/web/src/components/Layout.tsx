@@ -2,7 +2,7 @@ import { useState } from "react";
 import { PrintFooter, PrintHeader } from "./Letterhead";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown, Ban,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText,
   Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search,
 } from "lucide-react";
@@ -48,7 +48,7 @@ const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
   { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers", "/property", "/other-entries"] },
   { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/kiosk", "/team", "/my-account"] },
   { key: "safety", label: "Safety", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines", "/alerts"] },
-  { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/lists", "/settings"] },
+  { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/corrections", "/lists", "/settings"] },
 ];
 const itemCls = (on: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${on ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`;
 const Badge = ({ n }: { n: number }) => n > 0 ? <span className="rounded-full bg-emerald-400 px-1.5 text-xs font-semibold text-emerald-950">{n}</span> : null;
@@ -163,6 +163,7 @@ const NAV = [
   { to: "/help", label: "User guide", icon: BookOpenText, perm: "" },
   { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
   { to: "/audit", label: "Audit log", icon: History, perm: "audit.view" },
+  { to: "/corrections", label: "Corrections (void)", icon: Ban, perm: "corrections.manage" },
   { to: "/lists", label: "Lists", icon: ListChecks, perm: "settings.manage" },
   { to: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
 ];

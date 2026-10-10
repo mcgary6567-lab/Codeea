@@ -201,6 +201,54 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   });
 }
 
+/**
+ * Undo everything recordSale (and a later /sales/clear) did for one sale, then delete the sale row.
+ * Mirrors recordSale leg-for-leg so every book reverts exactly: the derived ledger re-reads these same
+ * source tables, so restoring them leaves the rupee tally untouched. Must run inside the caller's tx.
+ * Returns a short description of what was reversed (for the audit trail).
+ */
+export function reverseSale(tenantId: number, sale: Row): string[] {
+  const did: string[] = [];
+  // 1) khata leg — recordSale (and /sales/clear for a cleared card-hold) write khata_ledger rows ref SALE-<id>.
+  //    Delete each and move the customer balance back by exactly what that row did.
+  if (sale.customer_id) {
+    for (const k of all("SELECT * FROM khata_ledger WHERE ref=? ", `SALE-${sale.id}`)) {
+      run("DELETE FROM khata_ledger WHERE id=?", k.id);
+      run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", k.type === "credit" ? k.amount : -k.amount, sale.customer_id, tenantId);
+      did.push(`khata ${k.type} ${pkr(k.amount)} wapas`);
+    }
+  }
+  // 2) wallet leg
+  if (sale.payment_method === "wallet" && sale.customer_id) {
+    run("UPDATE customers SET wallet_balance = wallet_balance + ? WHERE id=? AND tenant_id=?", sale.amount, sale.customer_id, tenantId);
+    run("DELETE FROM wallet_ledger WHERE sale_id=? AND tenant_id=?", sale.id, tenantId);
+    did.push(`wallet ${pkr(sale.amount)} wapas`);
+  }
+  // 3) prepaid coupon — reactivate it so it can be used again
+  if (sale.coupon_id) {
+    run("UPDATE fuel_coupons SET status='active', sale_id=NULL, used_at=NULL, used_by=NULL WHERE id=? AND tenant_id=? AND status='used'", sale.coupon_id, tenantId);
+    did.push("coupon dobara active");
+  }
+  // 4) loyalty points — give back any points redeemed, take back any points earned (points are not rupee-tallied,
+  //    but keep them honest). recordSale: redeemed = ceil(amount) for a loyalty sale (a loyalty_redemptions row);
+  //    earned = floor(amount/100) for any other non-pending customer sale.
+  if (sale.customer_id && !sale.pending) {
+    const redeemed = get("SELECT COALESCE(SUM(points),0) p FROM loyalty_redemptions WHERE sale_id=? AND tenant_id=?", sale.id, tenantId)!.p as number;
+    if (redeemed) run("DELETE FROM loyalty_redemptions WHERE sale_id=? AND tenant_id=?", sale.id, tenantId);
+    const earned = sale.payment_method === "loyalty" ? 0 : Math.floor(sale.amount / 100);
+    const delta = redeemed - earned;
+    if (delta) run("UPDATE customers SET loyalty_points = MAX(0, loyalty_points + ?) WHERE id=? AND tenant_id=?", delta, sale.customer_id, tenantId);
+  }
+  // 5) physical stock + meter — add the litres back to the product's tank and wind the nozzle totalizer back.
+  //    recordSale picked the fullest tank of that product at the station; reverse to the same selection.
+  const tank = get("SELECT id FROM tanks WHERE station_id=? AND product=? ORDER BY current_l DESC LIMIT 1", sale.station_id, sale.product);
+  if (tank) run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", sale.litres, tank.id);
+  if (sale.nozzle_id) run("UPDATE nozzles SET totalizer = MAX(0, totalizer - ?) WHERE id=?", sale.litres, sale.nozzle_id);
+  // 6) finally remove the sale itself (cash / card money is derived straight from this row, so it goes with it)
+  run("DELETE FROM sales WHERE id=? AND station_id IN (SELECT id FROM stations WHERE tenant_id=?)", sale.id, tenantId);
+  return did;
+}
+
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
