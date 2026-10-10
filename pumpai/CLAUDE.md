@@ -50,6 +50,14 @@ cd pumpai/server && NODE_ENV=test npx tsx --test test/*.test.ts     # all must p
 
 Two AI backends, chosen by `aiProvider()` in `server/src/config.ts`: **Claude** (`anthropicKey`, paid) wins if set; else **Gemini** (`geminiKey`, free tier) via `server/src/ai/gemini.ts` (REST, no SDK); else the built-in **rule engine**. Every AI entry point (WhatsApp agent, Ask AI, photo reading, voice parsers, coaching, campaigns) must keep all three paths working. `gemini.ts` takes `runTool` as a parameter (not an import) to avoid a require cycle — keep it that way. Keys are set in Settings → Integrations (`gemini_key`/`gemini_model`) or `.env`. WhatsApp (Meta Cloud API) is free to set up; only proactive templates cost — never add a paid-only dependency.
 
+## CEO-only "Other income / expense / discount" (never regress)
+
+`routes/otherEntries.ts` + `other_entries` table + perm `other_entries.manage` (ADMIN). Web page `OtherEntries.tsx` (`/other-entries`, in the Money group, CEO-only). The ledger is **derived**, so money/balance moves go through the EXISTING source tables (so cash/bank/party reconciliations stay untouched) and the contra is routed in `ledger.ts`:
+- income → `otherMoney` (cashier_vouchers/bank_txns), ref `oth-inc:` → `specialSide` → **"Other income (CEO)"**; added to P&L `other_income` via `otherEntriesIncome()`.
+- expense → `otherMoney` out, ref `oth-exp:` → **"Expense: Other (CEO)"**; auto-counted in P&L expenses.
+- discount → writes the party's OWN ledger (khata_ledger credit / wholesale_txns / carriage_txns payment) with ref `oth-disc:` → `isOtherDisc` routes the contra to **"Other discount (CEO)"**; reduces the party balance AND P&L net via `otherEntriesDiscount()`. A discount needs a real party (no free-text).
+Never post these to "Suspense"; keep `test/other_entries.test.ts` + the whole-system tally green.
+
 ## Conventions
 
 - Reply to the user in Roman Urdu/Hindi.
