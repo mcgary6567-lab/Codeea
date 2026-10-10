@@ -66,6 +66,10 @@ Same `showPrivate` gate hides them from the **cashier** too: `cashierDayBook(t,d
 
 `POST /cashier/vouchers/:id/void` (perm `cashier.void` = ADMIN) reverses a wrong cash receive/pay by its `src`: khata → delete khata_ledger + restore customers.balance; wtx → void wholesale_txns (+ delete the depot supplier leg); stx/staff/bank/expense → delete the source row (expense also closeApproval); cash "other" (src null) → just voided=1 (cashFlows reads voided=0). Always sets the voucher voided=1 + reason + audit (`cashier_voucher_void`). cashPosition reads the source tables (vouchers only for "other" cash), so reversing the src + voiding the voucher keeps cash/bank/party reconciliations exact. Cheque vouchers are refused (cancel in the cheque register). UI: a CEO-only Void button on the Cashier desk's recent-vouchers list (`test/cashier_void.test.ts`). Correction gaps still open (no direct fix yet): closed-shift sales, closed shifts, manual khata payment/charge, stock deliveries.
 
+## Live "Hisaab check" — whole-system reconciliation on one button (CEO-only)
+
+`routes/books.ts` `reconcileBooks(t)` + `GET /books/check` (perm `audit.view` = ADMIN). It runs the SAME ties `test/helpers/tally.ts` enforces — journal debit=credit, nothing in Suspense, and every cash/bank/khata/wholesale/carriage/supplier/coupon/wallet/staff/bypass-stock balance equals its ledger account — but LIVE and WITHOUT throwing (each check wrapped in `safe()`, TOL=1 rupee), returning `{ok, checked_at, max_diff, checks:[{label,book,ledger,diff,ok,note}], failed}`. Web: `Audit.tsx` `BooksCheck` card — the CEO presses it (especially after a correction like a voucher void) and sees green "Sab tally — 0 rupaye ka farq" or the exact mismatched line(s). Keep it mirroring tally.ts; `test/books_check.test.ts` guards it (all-green on demo, still 0 after a CEO void, manager 403).
+
 ## Conventions
 
 - Reply to the user in Roman Urdu/Hindi.
