@@ -264,6 +264,25 @@ export default function Pos() {
         </div>
       </div>
 
+      {/* Aaj ke rates — bada aur saaf; CEO/admin side se set hote hain, salesman sirf dekhta hai */}
+      <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-sm">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-bold text-amber-900">Aaj ke rate · <Ur>آج کے ریٹ</Ur></span>
+          <span className="text-xs text-amber-700">CEO/admin set karte hain</span>
+        </div>
+        <div className={`grid gap-2 ${d.products.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+          {d.products.map((p: string) => (
+            <div key={p} className="rounded-xl bg-white px-3 py-2 text-center shadow-sm ring-1 ring-amber-100">
+              <div className="flex items-center justify-center gap-1.5 text-sm font-semibold" style={{ color: fuelOf(p).color }}>
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: fuelOf(p).color }} />{fuelOf(p).en}
+              </div>
+              <div className="text-2xl font-extrabold tabular-nums text-slate-900">Rs {d.prices[p]?.toFixed(2)}</div>
+              <Ur className="text-xs text-slate-500">{fuelOf(p).ur}</Ur>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_340px]">
         {tab === "shop" ? <ShopPos d={d} training={training} disabled={!training && ((!shiftOpen && isSalesman) || !!priceLock)} onSaved={(r) => { setDone({ ...r, shop: true }); if (!r.training) today.reload(); }} /> : <div className="space-y-3">
           <VoiceButton onParsed={applyVoice} />

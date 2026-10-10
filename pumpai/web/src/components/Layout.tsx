@@ -146,7 +146,7 @@ const NAV = [
   { to: "/stock", label: "Tanks & Stock", icon: Droplets, perm: "stock.manage" },
   { to: "/register", label: "Stock register", icon: ScrollText, perm: "stock.manage" },
   { to: "/shop", label: "Shop & lubricants", icon: ShoppingBasket, perm: "stock.manage" },
-  { to: "/prices", label: "Prices", icon: Tag, perm: "prices.view" },
+  { to: "/prices", label: "Prices", icon: Tag, perm: "prices.update" },
   { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts", perm: "alerts.view" },
   { to: "/automations", label: "AI Automations", icon: Bot, perm: "automations.manage" },
   { to: "/staff", label: "Staff accounts", icon: Wallet, perm: "staff.manage" },
