@@ -30,15 +30,22 @@ export default function Help() {
         <BookOpen size={18} className="shrink-0" /> Har card par <b>▶ Video</b> dekhein, <b>Steps</b> parhein, ya <b>PDF</b> download karein. · <Ur>ہر ماڈیول کی آسان رہنمائی</Ur>
       </div>
 
-      {/* Featured: full salesman training video (Urdu voice) */}
-      <div className="mb-5 overflow-hidden rounded-2xl ring-1 ring-brand-200">
-        <div className="flex items-center justify-between gap-2 bg-brand-900 px-4 py-2.5 text-white">
-          <div className="font-bold">🎬 Salesman Training (Urdu) · <Ur className="text-emerald-100">سیلزمین ٹریننگ</Ur></div>
-          <span className="text-xs text-emerald-100/80">~3 min</span>
-        </div>
-        <video controls playsInline preload="metadata" poster="/help/pos.gif" className="w-full bg-black"
-          src="/help/salesman-training-ur.mp4" style={{ maxHeight: 460 }} />
-        <div className="bg-brand-50 px-4 py-2 text-sm text-brand-900">Poori sale ka tareeqa — login se shift band tak, asaan Urdu mein. · <Ur>آسان اردو میں مکمل رہنمائی</Ur></div>
+      {/* Featured: full training videos (Urdu voice) per role */}
+      <h2 className="mb-2 text-base font-bold text-brand-800">🎬 Training videos (Urdu) · <Ur>ٹریننگ ویڈیوز</Ur></h2>
+      <div className="mb-6 grid gap-4 md:grid-cols-3">
+        {[
+          { file: "salesman-training-ur", en: "Salesman", ur: "سیلزمین", min: "~3 min" },
+          { file: "cashier-training-ur", en: "Cashier", ur: "کیشیئر", min: "~2.5 min" },
+          { file: "manager-training-ur", en: "Manager", ur: "مینیجر", min: "~2.5 min" },
+        ].map((v) => (
+          <div key={v.file} className="overflow-hidden rounded-2xl ring-1 ring-brand-200">
+            <div className="flex items-center justify-between gap-2 bg-brand-900 px-3 py-2 text-white">
+              <div className="text-sm font-bold">{v.en} · <Ur className="text-emerald-100">{v.ur}</Ur></div>
+              <span className="text-[11px] text-emerald-100/80">{v.min}</span>
+            </div>
+            <video controls playsInline preload="none" poster="/help/pos.gif" className="w-full bg-black" src={`/help/${v.file}.mp4`} style={{ maxHeight: 420 }} />
+          </div>
+        ))}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
