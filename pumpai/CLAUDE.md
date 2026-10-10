@@ -46,6 +46,10 @@ cd pumpai/server && NODE_ENV=test npx tsx --test test/*.test.ts     # all must p
 - **Salesman** menu is intentionally short: Sales/POS, Shifts, Bookings, Daily checks, Machines, My account. Salesman has **no** Prices page, **no** Customers page, **no** Staff-attendance (kiosk). Salesman cannot add/edit customers — only picks existing khata accounts at the POS (`/pos/khata-accounts`, gated by `sales.create`). Self-attendance is in My account.
 - The POS shows a prominent read-only "Aaj ke rate" (today's fuel rates) banner; rates are set by admin/manager on the Prices page.
 
+## AI provider — Claude OR free Gemini OR rules (never regress)
+
+Two AI backends, chosen by `aiProvider()` in `server/src/config.ts`: **Claude** (`anthropicKey`, paid) wins if set; else **Gemini** (`geminiKey`, free tier) via `server/src/ai/gemini.ts` (REST, no SDK); else the built-in **rule engine**. Every AI entry point (WhatsApp agent, Ask AI, photo reading, voice parsers, coaching, campaigns) must keep all three paths working. `gemini.ts` takes `runTool` as a parameter (not an import) to avoid a require cycle — keep it that way. Keys are set in Settings → Integrations (`gemini_key`/`gemini_model`) or `.env`. WhatsApp (Meta Cloud API) is free to set up; only proactive templates cost — never add a paid-only dependency.
+
 ## Conventions
 
 - Reply to the user in Roman Urdu/Hindi.
