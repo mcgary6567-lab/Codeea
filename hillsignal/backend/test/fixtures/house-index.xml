@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FinancialDisclosure>
+  <Member><Prefix>Hon.</Prefix><Last>Example</Last><First>Pat</First><Suffix /><FilingType>P</FilingType><StateDst>CA11</StateDst><Year>2025</Year><FilingDate>1/15/2025</FilingDate><DocID>20026545</DocID></Member>
+  <Member><Prefix>Hon.</Prefix><Last>Annual</Last><First>Sam</First><Suffix /><FilingType>O</FilingType><StateDst>TX07</StateDst><Year>2025</Year><FilingDate>5/15/2025</FilingDate><DocID>10061234</DocID></Member>
+  <Member><Prefix /><Last>Atlarge</Last><First>Lee</First><Suffix /><FilingType>P</FilingType><StateDst>AKAL</StateDst><Year>2025</Year><FilingDate>2/3/2025</FilingDate><DocID>20026600</DocID></Member>
+</FinancialDisclosure>

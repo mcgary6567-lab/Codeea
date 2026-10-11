@@ -1,0 +1,29 @@
+Clerk of the House of Representatives • Legislative Resource Center • B81 Cannon Building • Washington, DC 20515
+F I
+Name: Hon. Example Member
+Status: Member
+State/District:CA11
+T
+ID Owner Asset Transaction
+Type
+Date Notification
+Date
+Amount Cap.
+Gains >
+$200?
+SP Apple Inc. (AAPL) [ST] P 01/14/2025 01/15/2025 $1,001 - $15,000
+F S : New
+S O : Brokerage Account
+Microsoft Corporation - Common
+Stock (MSFT) [ST]
+S (partial) 01/10/2025 01/15/2025 $15,001 -
+$50,000
+F S : New
+D : Sold to rebalance
+JT NVIDIA Corporation (NVDA) [OP] P 12/20/2024 01/15/2025 $250,001 -
+$500,000
+F S : New
+D : Purchased 20 call options with a strike price of $100
+DC US Treasury Bill [GS] E 01/02/2025 01/15/2025 Over $50,000,000
+* For the complete list of asset type abbreviations, please visit https://fd.house.gov/reference/asset-type-codes.aspx.
+Filing ID #20026545
