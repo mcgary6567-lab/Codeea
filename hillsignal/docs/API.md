@@ -108,6 +108,7 @@ and use **free** entitlements; with a token they use the user's plan.
 | DELETE | `/watchlist/:kind/:targetId` | | `204` |
 | GET | `/feed` | `page`, `pageSize` | `Paged<Trade>` trades for watched politicians/issuers |
 | POST | `/devices` | `{ expoPushToken, platform: "android" \| "ios" }` | `201 { ok: true }` |
+| DELETE | `/devices` | `{ expoPushToken }` (alerts turned off) | `204` |
 
 Push alerts (pro+) are sent when a new trade from a watched politician/issuer
 is ingested. Push data payload: `{ type: "trade", tradeId }`.

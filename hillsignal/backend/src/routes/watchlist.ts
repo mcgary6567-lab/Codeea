@@ -92,3 +92,14 @@ watchlistRouter.post(
     res.status(201).json({ ok: true });
   }),
 );
+
+// Turning alerts off in the app: stop pushing to this device.
+watchlistRouter.delete(
+  "/devices",
+  handler(async (req, res) => {
+    const userId = requireUser(req);
+    const { expoPushToken } = parse(z.object({ expoPushToken: z.string().min(1) }), req.body);
+    await query("DELETE FROM devices WHERE push_token = $1 AND user_id = $2", [expoPushToken, userId]);
+    res.status(204).end();
+  }),
+);

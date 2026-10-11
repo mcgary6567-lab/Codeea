@@ -1,0 +1,11 @@
+{
+  "appName": "HillSignal",
+  "scheme": "hillsignal",
+  "androidPackage": "com.hillsignal.app",
+  "tagline": "Congressional trades, decoded.",
+  "colors": {
+    "accent": "#2EE6A6",
+    "ink": "#0A0E14",
+    "paper": "#F6F7F9"
+  }
+}

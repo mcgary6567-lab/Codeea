@@ -183,6 +183,8 @@ describe("watchlist", () => {
 
     expect((await api.post("/api/v1/devices").set(auth).send({ expoPushToken: "ExponentPushToken[abc123]", platform: "android" })).status).toBe(201);
     expect((await api.post("/api/v1/devices").set(auth).send({ expoPushToken: "garbage", platform: "android" })).status).toBe(400);
+    expect((await api.delete("/api/v1/devices").set(auth).send({ expoPushToken: "ExponentPushToken[abc123]" })).status).toBe(204);
+    expect(await query("SELECT 1 FROM devices WHERE push_token = 'ExponentPushToken[abc123]'")).toHaveLength(0);
   });
 });
 
