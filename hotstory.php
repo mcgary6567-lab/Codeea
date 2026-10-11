@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v8';
+$BUILD = 'v9';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -299,8 +299,11 @@ if (isset($_POST['home'])) {
   // minutes and the model is re-billed for the same failure until
   // ForexFactory happens to promote something else. Measured on 2026-09-28:
   // 34 consecutive failures, 11h40m, panel frozen the whole time.
+  // ... but only while an output file exists. A deploy wipes hotstory.txt, and
+  // a given-up story must never leave the EA reading a 404 (2026-10-11: the
+  // model key had no credit, every story failed, the file stayed missing).
   if ($link['id'] !== '' && $link['id'] === $state['fail_id']
-      && (int)$state['fail_n'] >= $MAX_CLASSIFY_TRIES)
+      && (int)$state['fail_n'] >= $MAX_CLASSIFY_TRIES && is_readable($OUT_TXT))
     out(true, 'unchanged', array('id' => $link['id'],
         'note' => 'gave up on this story after ' . (int)$state['fail_n'] . ' model failures'));
 
@@ -331,6 +334,26 @@ if (isset($res['err'])) {
     $rawNote = ' | raw: ' . substr(preg_replace('~\s+~', ' ', (string)$res['raw']), 0, 400);
   logline($LOG_FILE, 'classify failed (' . $n . '/' . $MAX_CLASSIFY_TRIES . ') id=' . $id
                    . ': ' . $res['err'] . $rawNote);
+  // Fallback output: the headline with no side, so the panel shows the story
+  // and the file never goes missing. Written when giving up on the story and
+  // whenever there is no output file at all (after a deploy).
+  if ($n >= $MAX_CLASSIFY_TRIES || !is_readable($OUT_TXT)) {
+    $fb = array(
+      'ok'         => 1,
+      'id'         => $id,
+      'updated'    => gmdate('c'),
+      'headline'   => $meta['headline'],
+      'source'     => $meta['source'],
+      'url'        => $url,
+      'instrument' => 'NONE',
+      'direction'  => 'none',
+      'confidence' => 0,
+      'reason'     => 'AI read unavailable (' . substr(preg_replace('~\s+~', ' ', (string)$res['err']), 0, 60) . ') - headline only',
+    );
+    @file_put_contents($OUT_JSON, json_encode($fb));
+    @file_put_contents($OUT_TXT,  to_txt($fb));
+    logline($LOG_FILE, 'fallback written for id=' . $id . ' (headline only)');
+  }
   out(false, 'classify failed: ' . $res['err']
            . ($n >= $MAX_CLASSIFY_TRIES ? ' - giving up on this story' : ''));
 }
