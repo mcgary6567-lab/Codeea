@@ -76,7 +76,7 @@ function model_ping($provider, $model, $key) {
     $hdrs = array('Content-Type: application/json', 'x-goog-api-key: ' . $key);
     $body = array('system_instruction' => array('parts' => array(array('text' => $SYS))),
                   'contents' => array(array('role' => 'user', 'parts' => array(array('text' => 'ping')))),
-                  'generationConfig' => array('temperature' => 0, 'maxOutputTokens' => 20));
+                  'generationConfig' => array('temperature' => 0, 'maxOutputTokens' => 400));
   } elseif ($provider === 'anthropic') {
     $url  = 'https://api.anthropic.com/v1/messages';
     $hdrs = array('content-type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01');
@@ -114,7 +114,8 @@ function model_ping($provider, $model, $key) {
   $text = '';
   if (isset($j['content']) && is_array($j['content'])) { foreach ($j['content'] as $b) if (isset($b['text'])) $text .= $b['text']; }
   if ($text === '' && isset($j['choices'][0]['message']['content'])) $text = (string)$j['choices'][0]['message']['content'];
-  if ($text === '' && isset($j['candidates'][0]['content']['parts'])) { foreach ($j['candidates'][0]['content']['parts'] as $p) if (isset($p['text'])) $text .= $p['text']; }
+  if ($text === '' && isset($j['candidates'][0]['content']['parts'])) { foreach ($j['candidates'][0]['content']['parts'] as $p) { if (!empty($p['thought'])) continue; if (isset($p['text'])) $text .= $p['text']; } }
+  if ($text === '' && isset($j['candidates'][0]['finishReason'])) return array(true, 'reached the service (HTTP 200) but the reply had no text - finishReason ' . $j['candidates'][0]['finishReason'] . ', ' . $ms . ' ms');
   return array(true, 'answered "' . substr(trim($text), 0, 40) . '" in ' . $ms . ' ms');
 }
 

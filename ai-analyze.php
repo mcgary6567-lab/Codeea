@@ -31,7 +31,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v15';
+$BUILD = 'v16';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -400,7 +400,7 @@ if ($provider === 'anthropic') {
   }
 } elseif ($provider === 'gemini') {
   if (!empty($up['candidates'][0]['content']['parts']) && is_array($up['candidates'][0]['content']['parts'])) {
-    foreach ($up['candidates'][0]['content']['parts'] as $pt) { if (isset($pt['text'])) $text .= (string)$pt['text']; }
+    foreach ($up['candidates'][0]['content']['parts'] as $pt) { if (!empty($pt['thought'])) continue; if (isset($pt['text'])) $text .= (string)$pt['text']; }
   }
 } else {
   if (isset($up['choices'][0]['message']['content'])) $text = (string)$up['choices'][0]['message']['content'];

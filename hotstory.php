@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v12';
+$BUILD = 'v13';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -233,8 +233,10 @@ function classify_once($cfg, $SYSTEM, $USER, $timeout) {
     $text = (string)$j['choices'][0]['message']['content'];
   // Gemini: candidates[0].content.parts[].text
   if ($text === '' && isset($j['candidates'][0]['content']['parts']) && is_array($j['candidates'][0]['content']['parts'])) {
-    foreach ($j['candidates'][0]['content']['parts'] as $pt)
+    foreach ($j['candidates'][0]['content']['parts'] as $pt) {
+      if (!empty($pt['thought'])) continue;                 // a thinking part is not the answer
       if (isset($pt['text'])) $text .= (string)$pt['text'];
+    }
   }
   if ($text === '') return array('err' => 'empty model reply', 'raw' => (string)$raw);
 
