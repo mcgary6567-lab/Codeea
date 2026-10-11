@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v13';
+$BUILD = 'v14';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -281,6 +281,16 @@ function to_txt($d) {
   return implode(chr(10), $lines) . chr(10);
 }
 
+// Put the last good read back as the output files, if it is for this story.
+function restore_last($lastFile, $id, $outJson, $outTxt) {
+  if (!is_readable($lastFile)) return false;
+  $d = json_decode((string)@file_get_contents($lastFile), true);
+  if (!is_array($d) || !isset($d['id']) || (string)$d['id'] !== (string)$id) return false;
+  @file_put_contents($outJson, json_encode($d));
+  @file_put_contents($outTxt,  to_txt($d));
+  return is_readable($outTxt);
+}
+
 function state_read($f) {
   $d = array('id' => '', 'updated' => 0, 'fail_id' => '', 'fail_n' => 0);
   $s = is_readable($f) ? json_decode((string)@file_get_contents($f), true) : null;
@@ -338,6 +348,10 @@ if (isset($_POST['home'])) {
 
   if ($link['id'] === $state['id'] && is_readable($OUT_TXT))
     out(true, 'unchanged', array('id' => $link['id']));
+  if ($link['id'] === $state['id'] && restore_last($PERSIST_DIR . '/.hotstory_last.json', $link['id'], $OUT_JSON, $OUT_TXT)) {
+    logline($LOG_FILE, 'restored the last good read for id=' . $link['id'] . ' after the output file went missing');
+    out(true, 'unchanged', array('id' => $link['id'], 'note' => 'output restored from the last good read'));
+  }
 
   // A story the model has already failed on MAX_CLASSIFY_TRIES times is never
   // asked for again. Without this the client re-posts the same page every 20
@@ -385,7 +399,8 @@ if (isset($res['err'])) {
   // Fallback output: the headline with no side, so the panel shows the story
   // and the file never goes missing. Written when giving up on the story and
   // whenever there is no output file at all (after a deploy).
-  if ($n >= $MAX_CLASSIFY_TRIES || !is_readable($OUT_TXT)) {
+  if (($n >= $MAX_CLASSIFY_TRIES || !is_readable($OUT_TXT))
+      && !restore_last($PERSIST_DIR . '/.hotstory_last.json', $id, $OUT_JSON, $OUT_TXT)) {
     $fb = array(
       'ok'         => 1,
       'id'         => $id,
@@ -423,6 +438,7 @@ $data = array(
 );
 @file_put_contents($OUT_JSON, json_encode($data));
 @file_put_contents($OUT_TXT,  to_txt($data));
+@file_put_contents($PERSIST_DIR . '/.hotstory_last.json', json_encode($data));   // survives a deploy
 state_write($STATE_FILE, array('id' => $id, 'updated' => time(),
                                'fail_id' => '', 'fail_n' => 0));
 logline($LOG_FILE, 'id=' . $id . ' ' . $res['instrument'] . ' ' . $res['direction']
