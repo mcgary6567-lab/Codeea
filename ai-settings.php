@@ -41,6 +41,13 @@ $PROVIDERS = array(
                        'where' => 'platform.openai.com'),
 );
 
+// A model name must look like one of the provider's: gemini-*, claude-*, gpt-*/o*.
+function model_fits($provider, $model) {
+  $m = strtolower($model);
+  if ($provider === 'gemini')    return strpos($m, 'gemini') === 0;
+  if ($provider === 'anthropic') return strpos($m, 'claude') === 0;
+  return strpos($m, 'gpt') === 0 || preg_match('~^o\d~', $m) === 1;
+}
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 function mask($k) { $k = (string)$k; if ($k === '') return '(none)'; if (strlen($k) < 12) return '****'; return substr($k, 0, 6) . '...' . substr($k, -4); }
 
@@ -148,7 +155,10 @@ if ($authed && $action === 'save') {
     if ($key === '' && isset($cfg['key']) && (!isset($cfg['provider']) || $cfg['provider'] === $p)) $key = trim((string)$cfg['key']);
     if ($key === '') $errs[] = 'Paste the ' . $PROVIDERS[$p]['label'] . ' API key.';
     $model = isset($_POST['model']) ? trim((string)$_POST['model']) : '';
-    if ($model === '') $model = $PROVIDERS[$p]['model'];
+    if ($model === '' || !model_fits($p, $model)) {
+      if ($model !== '') $msgs[] = '"' . $model . '" is not a ' . $PROVIDERS[$p]['label'] . ' model name, so the default ' . $PROVIDERS[$p]['model'] . ' was used.';
+      $model = $PROVIDERS[$p]['model'];
+    }
     $new['provider'] = $p; $new['key'] = $key; $new['model'] = $model;
 
     $fp = isset($_POST['f_provider']) ? strtolower(trim((string)$_POST['f_provider'])) : '';
@@ -158,7 +168,7 @@ if ($authed && $action === 'save') {
       if ($fkey === '' && isset($cfg['fallback']['key']) && (!isset($cfg['fallback']['provider']) || $cfg['fallback']['provider'] === $fp))
         $fkey = trim((string)$cfg['fallback']['key']);
       $fmodel = isset($_POST['f_model']) ? trim((string)$_POST['f_model']) : '';
-      if ($fmodel === '') $fmodel = $PROVIDERS[$fp]['model'];
+      if ($fmodel === '' || !model_fits($fp, $fmodel)) $fmodel = $PROVIDERS[$fp]['model'];
       if ($fkey === '') $errs[] = 'The fallback needs a key too, or set its provider to "none".';
       else $new['fallback'] = array('provider' => $fp, 'key' => $fkey, 'model' => $fmodel);
     }
