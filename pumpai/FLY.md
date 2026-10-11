@@ -77,6 +77,17 @@ Owner login (CEO email + password), Stations & tanks, Prices → done. Then in t
 - **Settings → Integrations** — paste the Gemini/Claude key and WhatsApp Cloud API (work immediately).
 - On each phone/tablet: open the domain → **Install app**.
 
+## Auto-deploy on every push (GitHub Actions)
+
+`.github/workflows/fly-deploy.yml` deploys to Fly automatically whenever `main` is updated — no manual `fly deploy`. One-time setup:
+
+1. Make a deploy token: `fly tokens create deploy -a haroonpetro`
+2. GitHub repo → **Settings → Secrets and variables → Actions**:
+   - **Secrets** tab → **New repository secret**: `FLY_API_TOKEN` = the token from step 1
+   - **Variables** tab → **New repository variable**: `FLY_APP` = `haroonpetro`
+
+After that, a push to `main` builds the image on Fly and updates the live app; the volume (database + backups) is untouched. You can still deploy by hand with `fly deploy -a haroonpetro` any time, and run the workflow manually from the **Actions** tab.
+
 ## Day-to-day on Fly
 
 | Task | How |
