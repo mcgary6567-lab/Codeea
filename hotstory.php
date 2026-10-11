@@ -93,7 +93,7 @@ function logline($file, $s) {
 function cfg_one($c, $defaultProvider) {
   $p = isset($c['provider']) ? strtolower(trim($c['provider'])) : $defaultProvider;
   $m = isset($c['model']) ? trim($c['model']) : '';
-  if ($m === '') $m = ($p === 'gemini') ? 'gemini-2.5-flash' : (($p === 'openai') ? 'gpt-4o' : 'claude-sonnet-5');
+  if ($m === '') $m = ($p === 'gemini') ? 'gemini-3.8-flash' : (($p === 'openai') ? 'gpt-4o' : 'claude-sonnet-5');
   return array('provider' => $p, 'key' => trim($c['key']), 'model' => $m);
 }
 function cfg_load($file) {

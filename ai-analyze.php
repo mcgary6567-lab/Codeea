@@ -12,7 +12,7 @@
 //      return array(
 //        'provider' => 'gemini',                 // 'gemini' (free tier), 'anthropic' or 'openai'
 //        'key'      => 'AIza...',                // Google AI Studio key
-//        'model'    => 'gemini-2.5-flash',       // anthropic: claude-sonnet-5, openai: gpt-4o
+//        'model'    => 'gemini-3.8-flash',       // anthropic: claude-sonnet-5, openai: gpt-4o
 //        'fallback' => array('provider' => 'anthropic', 'key' => 'sk-ant-...', 'model' => 'claude-sonnet-5'),
 //      );
 //      'fallback' is optional: it is tried when the primary fails (no credit,
@@ -232,7 +232,7 @@ $fallback = null;
   if (is_array($cc) && isset($cc['fallback']) && is_array($cc['fallback']) && !empty($cc['fallback']['key'])) {
     $fp = isset($cc['fallback']['provider']) ? strtolower(trim($cc['fallback']['provider'])) : 'anthropic';
     $fm = isset($cc['fallback']['model']) ? trim($cc['fallback']['model']) : '';
-    if ($fm === '') $fm = ($fp === 'gemini') ? 'gemini-2.5-flash' : (($fp === 'openai') ? 'gpt-4o' : 'claude-sonnet-5');
+    if ($fm === '') $fm = ($fp === 'gemini') ? 'gemini-3.8-flash' : (($fp === 'openai') ? 'gpt-4o' : 'claude-sonnet-5');
     if (in_array($fp, array('anthropic', 'openai', 'gemini'), true))
       $fallback = array('provider' => $fp, 'key' => trim($cc['fallback']['key']), 'model' => $fm);
   }
@@ -378,7 +378,7 @@ if ($code === 401 || $code === 403)
   out(false, 'The ' . $provider . ' API rejected the key.' . ($why !== '' ? ' It said: ' . $why : ''));
 if ($code === 404)
   out(false, 'The ' . $provider . ' API does not recognise the model "' . $model . '". '
-           . 'For Gemini use gemini-2.5-flash; for Anthropic claude-sonnet-5 or claude-haiku-4-5-20251001; for OpenAI gpt-4o.');
+           . 'For Gemini use gemini-3.8-flash; for Anthropic claude-sonnet-5 or claude-haiku-4-5-20251001; for OpenAI gpt-4o.');
 if ($code === 429)
   out(false, 'The analysis service is rate limited or out of credit.' . ($why !== '' ? ' It said: ' . $why : ''));
 if ($code >= 400)

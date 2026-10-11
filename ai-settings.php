@@ -33,7 +33,7 @@ $LOCK_FILE = dirname(__DIR__) . '/.ai-settings-lock.json';
 if (!is_writable(dirname($LOCK_FILE))) $LOCK_FILE = __DIR__ . '/.ai-settings-lock.json';
 
 $PROVIDERS = array(
-  'gemini'    => array('label' => 'Google Gemini (free tier)', 'model' => 'gemini-2.5-flash', 'prefix' => 'AIza',
+  'gemini'    => array('label' => 'Google Gemini (free tier)', 'model' => 'gemini-3.8-flash', 'prefix' => 'AIza',
                        'where' => 'aistudio.google.com/apikey'),
   'anthropic' => array('label' => 'Anthropic Claude',          'model' => 'claude-sonnet-5',  'prefix' => 'sk-ant-',
                        'where' => 'console.anthropic.com'),
@@ -255,7 +255,7 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}td{padding:6px 4px;bor
 <div class="row"><div><label for="provider">Primary provider</label><select id="provider" name="provider">
 <?php foreach ($PROVIDERS as $k => $v): ?><option value="<?= h($k) ?>"<?= $curP === $k ? ' selected' : '' ?>><?= h($v['label']) ?></option><?php endforeach; ?></select>
 <div class="hint">Gemini: free key at aistudio.google.com/apikey. Anthropic: console.anthropic.com. OpenAI: platform.openai.com.</div></div>
-<div><label for="model">Model</label><input id="model" name="model" value="<?= h($curM) ?>" placeholder="gemini-2.5-flash / claude-sonnet-5 / gpt-4o"><div class="hint">Leave blank for the provider's default.</div></div></div>
+<div><label for="model">Model</label><input id="model" name="model" value="<?= h($curM) ?>" placeholder="gemini-3.8-flash / claude-sonnet-5 / gpt-4o"><div class="hint">Leave blank for the provider's default.</div></div></div>
 <label for="key">Primary API key</label><input id="key" name="key" type="password" autocomplete="off" placeholder="<?= isset($cfg['key']) && $cfg['key'] !== '' ? 'saved - leave blank to keep ' . h(mask($cfg['key'])) : 'paste the key' ?>">
 <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
 <div class="row"><div><label for="f_provider">Fallback provider (optional)</label><select id="f_provider" name="f_provider"><option value="">none</option>
