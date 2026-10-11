@@ -88,14 +88,20 @@ function model_ping($provider, $model, $key) {
     $body = array('model' => $model, 'max_tokens' => 20, 'temperature' => 0,
                   'messages' => array(array('role' => 'system', 'content' => $SYS), array('role' => 'user', 'content' => 'ping')));
   }
-  $t0 = microtime(true);
-  $ch = curl_init($url);
-  curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_HTTPHEADER => $hdrs,
-                               CURLOPT_POSTFIELDS => json_encode($body), CURLOPT_TIMEOUT => 25));
-  $raw  = curl_exec($ch);
-  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-  $err  = curl_error($ch);
-  curl_close($ch);
+  $t0 = microtime(true); $raw = false; $code = 0; $err = ''; $tries = 0;
+  for ($try = 1; $try <= 3; $try++) {
+    $tries = $try;
+    $ch = curl_init($url);
+    curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_HTTPHEADER => $hdrs,
+                                 CURLOPT_POSTFIELDS => json_encode($body), CURLOPT_TIMEOUT => 25));
+    $raw  = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err  = curl_error($ch);
+    curl_close($ch);
+    if ($raw !== false && $code >= 200 && $code <= 299) break;
+    if ($raw !== false && $code !== 429 && $code < 500) break;
+    if ($try < 3) sleep(3);
+  }
   $ms = (int)round((microtime(true) - $t0) * 1000);
   if ($raw === false) return array(false, 'could not reach the service: ' . $err);
   $j = json_decode($raw, true);
@@ -103,7 +109,7 @@ function model_ping($provider, $model, $key) {
     $why = '';
     if (isset($j['error']['message'])) $why = $j['error']['message'];
     elseif (isset($j['message'])) $why = $j['message'];
-    return array(false, 'HTTP ' . $code . ($why !== '' ? ' - ' . substr($why, 0, 160) : ''));
+    return array(false, 'HTTP ' . $code . ($why !== '' ? ' - ' . substr($why, 0, 160) : '') . ($tries > 1 ? ' (after ' . $tries . ' attempts)' : ''));
   }
   $text = '';
   if (isset($j['content']) && is_array($j['content'])) { foreach ($j['content'] as $b) if (isset($b['text'])) $text .= $b['text']; }

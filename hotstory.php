@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v10';
+$BUILD = 'v11';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -192,21 +192,30 @@ function classify_once($cfg, $SYSTEM, $USER, $timeout) {
         array('role' => 'user',   'content' => $USER)));
   }
 
-  $ch = curl_init($url);
-  curl_setopt_array($ch, array(
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_POST           => true,
-    CURLOPT_HTTPHEADER     => $hdrs,
-    CURLOPT_POSTFIELDS     => json_encode($body),
-    CURLOPT_TIMEOUT        => $timeout,
-  ));
-  $raw  = curl_exec($ch);
-  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-  $err  = curl_error($ch);
-  curl_close($ch);
+  // Up to three attempts: 429 / 5xx are capacity or rate messages ("high
+  // demand"), not a bad request, so wait and try again before giving up.
+  $raw = false; $code = 0; $err = '';
+  for ($try = 1; $try <= 3; $try++) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, array(
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_POST           => true,
+      CURLOPT_HTTPHEADER     => $hdrs,
+      CURLOPT_POSTFIELDS     => json_encode($body),
+      CURLOPT_TIMEOUT        => $timeout,
+    ));
+    $raw  = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err  = curl_error($ch);
+    curl_close($ch);
+    if ($raw !== false && $code >= 200 && $code <= 299) break;
+    if ($raw !== false && $code !== 429 && $code < 500) break;    // a real error: no point retrying
+    if ($try < 3) sleep(3 * $try);
+  }
 
   if ($raw === false || $code < 200 || $code > 299)
-    return array('err' => 'model HTTP ' . $code . ' ' . $err, 'raw' => (string)$raw);
+    return array('err' => 'model HTTP ' . $code . ' ' . $err, 'raw' => (string)$raw,
+                 'transient' => ($raw === false || $code === 429 || $code >= 500));
 
   $j = json_decode($raw, true);
   $text = '';
@@ -360,13 +369,17 @@ if ($meta['headline'] === '') out(false, 'could not read a headline from the pos
 
 $res = classify($cfg, $meta['headline'], $meta['excerpt'], $INSTRUMENTS, 60);
 if (isset($res['err'])) {
-  $n = ($state['fail_id'] === $id) ? ((int)$state['fail_n'] + 1) : 1;
+  // A transient failure (busy, rate limit, outage) is not a strike against
+  // the story: the next 5-minute run simply tries again.
+  $transient = !empty($res['transient']);
+  $n = $transient ? (int)($state['fail_id'] === $id ? $state['fail_n'] : 0)
+                  : (($state['fail_id'] === $id) ? ((int)$state['fail_n'] + 1) : 1);
   state_write($STATE_FILE, array('id' => $state['id'], 'updated' => (int)$state['updated'],
                                  'fail_id' => $id, 'fail_n' => $n));
   $rawNote = '';
   if (isset($res['raw']) && $res['raw'] !== '')
     $rawNote = ' | raw: ' . substr(preg_replace('~\s+~', ' ', (string)$res['raw']), 0, 400);
-  logline($LOG_FILE, 'classify failed (' . $n . '/' . $MAX_CLASSIFY_TRIES . ') id=' . $id
+  logline($LOG_FILE, 'classify failed (' . ($transient ? 'transient, not counted' : $n . '/' . $MAX_CLASSIFY_TRIES) . ') id=' . $id
                    . ': ' . $res['err'] . $rawNote);
   // Fallback output: the headline with no side, so the panel shows the story
   // and the file never goes missing. Written when giving up on the story and
