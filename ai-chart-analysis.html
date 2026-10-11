@@ -206,6 +206,15 @@
 .aca-faq details[open] summary{border-bottom:1px solid var(--border)}
 .aca-faq .a{padding:.85rem 1rem;font-size:.9rem;color:var(--text-muted);line-height:1.65}
 
+/* TradingView cross-check link */
+.aca-tv{display:inline-flex;align-items:center;gap:.4rem;font-size:.86rem;font-weight:600;color:var(--gold);
+  text-decoration:none;border:1px solid var(--border);border-radius:999px;padding:.4rem .85rem;white-space:nowrap;background:#fff}
+.aca-tv:hover{border-color:var(--gold);background:#FFFBEB}
+.aca-tv .tvi{font-size:.95em}
+.aca-tvhint{margin:.85rem 0 0;font-size:.86rem;color:var(--text-muted)}
+.aca-tvhint a{color:var(--gold);font-weight:600;text-decoration:none}
+.aca-tvhint a:hover{text-decoration:underline}
+@media (max-width:640px){.aca-rhead .aca-tv{margin-top:.5rem}}
 /* sample-upload guide */
 .aca-sample h2{margin-bottom:.25rem}
 .aca-shot{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:#131722;margin-bottom:.9rem;position:relative}
@@ -334,6 +343,9 @@
         </div>
       </div>
 
+      <p class="aca-tvhint">Second opinion: <a id="acaTvLink1" href="https://www.tradingview.com/symbols/XAUUSD/technicals/" target="_blank" rel="noopener">TradingView&rsquo;s free Technicals page for <span id="acaTvSym1">XAUUSD</span></a>
+         shows the oscillator, moving-average and pivot summary on the <span id="acaTvTf1">5-minute</span> interval. Open it next to your result and the two should agree before you act.</p>
+
       <div class="aca-drop" id="acaDrop">
         <div class="plus">+</div>
         <div class="t">Click to upload, or drag a screenshot here</div>
@@ -457,7 +469,8 @@
           <div class="aca-rmeta" id="acaRMeta">XAUUSD &middot; M5</div>
           <h2>Structured analysis</h2>
         </div>
-        
+        <a class="aca-tv" id="acaTvLink2" href="https://www.tradingview.com/symbols/XAUUSD/technicals/" target="_blank" rel="noopener"
+           title="TradingView's free indicator summary - set the interval to match your chart">Cross-check on TradingView Technicals <span class="tvi">&#8599;</span></a>
       </div>
 
       <div class="aca-verdict none" id="acaVerdict">
@@ -618,8 +631,28 @@
       (sc==null?'':'<span class="bar"><i style="width:'+sc+'%"></i></span>')+'</span></div>';
   }
 
+  /* TradingView Technicals: /symbols/<SYMBOL>/technicals/ - TradingView redirects
+     index names (US30, NAS100) to the right exchange page itself. */
+  var TV_TF={M1:'1-minute',M5:'5-minute',M15:'15-minute',M30:'30-minute',H1:'1-hour',H4:'4-hour',D1:'daily'};
+  function tvSymbol(sym){
+    sym=String(sym||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(!sym||sym==='OTHER') sym='XAUUSD';
+    if(sym==='GOLD') sym='XAUUSD';
+    return sym;
+  }
+  function tvUpdate(sym,tf){
+    var href='https://www.tradingview.com/symbols/'+tvSymbol(sym)+'/technicals/';
+    var a1=$('acaTvLink1'), a2=$('acaTvLink2');
+    if(a1){ a1.href=href; $('acaTvSym1').textContent=tvSymbol(sym); $('acaTvTf1').textContent=TV_TF[tf]||tf; }
+    if(a2){ a2.href=href; a2.title='TradingView\'s free indicator summary for '+tvSymbol(sym)+' - set the interval to '+(TV_TF[tf]||tf); }
+  }
+  $('acaSymbol').addEventListener('change',function(){ tvUpdate($('acaSymbol').value,$('acaTf').value); });
+  $('acaTf').addEventListener('change',function(){ tvUpdate($('acaSymbol').value,$('acaTf').value); });
+  tvUpdate($('acaSymbol').value,$('acaTf').value);
+
   function render(d){
     $('acaRMeta').textContent=(d.symbol||'—')+' · '+(d.timeframe||'—');
+    tvUpdate(d.symbol||$('acaSymbol').value, d.timeframe||$('acaTf').value);
 
     var bias=(d.bias||'NONE').toUpperCase();
     var side=(bias==='BUY'||bias==='SELL')?bias.toLowerCase():'none';
