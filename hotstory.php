@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v9';
+$BUILD = 'v10';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -87,15 +87,23 @@ function logline($file, $s) {
   @file_put_contents($file, gmdate('c') . '  ' . $s . chr(10), FILE_APPEND);
 }
 
+// Config: provider / key / model, plus an optional 'fallback' => array(...)
+// with the same three keys, tried when the primary fails. Providers:
+// 'gemini' (Google AI Studio key, free tier), 'anthropic', 'openai'.
+function cfg_one($c, $defaultProvider) {
+  $p = isset($c['provider']) ? strtolower(trim($c['provider'])) : $defaultProvider;
+  $m = isset($c['model']) ? trim($c['model']) : '';
+  if ($m === '') $m = ($p === 'gemini') ? 'gemini-2.5-flash' : (($p === 'openai') ? 'gpt-4o' : 'claude-sonnet-5');
+  return array('provider' => $p, 'key' => trim($c['key']), 'model' => $m);
+}
 function cfg_load($file) {
   if (!is_readable($file)) return null;
   $c = @include $file;
   if (!is_array($c) || empty($c['key'])) return null;
-  return array(
-    'provider' => isset($c['provider']) ? strtolower(trim($c['provider'])) : 'anthropic',
-    'key'      => trim($c['key']),
-    'model'    => isset($c['model']) ? trim($c['model']) : 'claude-sonnet-5',
-  );
+  $cfg = cfg_one($c, 'anthropic');
+  $cfg['fallback'] = (isset($c['fallback']) && is_array($c['fallback']) && !empty($c['fallback']['key']))
+                   ? cfg_one($c['fallback'], 'anthropic') : null;
+  return $cfg;
 }
 
 // ---- the Hot Story link, from the homepage --------------------------------
@@ -149,7 +157,27 @@ function classify($cfg, $headline, $excerpt, $instruments, $timeout) {
 
   $USER = "HEADLINE: " . $headline . "\n\nBODY: " . $excerpt;
 
-  if ($cfg['provider'] === 'anthropic') {
+  // Primary first, then the fallback. A fallback answer is marked so the log
+  // says which service actually read the story.
+  $r = classify_once($cfg, $SYSTEM, $USER, $timeout);
+  if (isset($r['err']) && !empty($cfg['fallback'])) {
+    $r2 = classify_once($cfg['fallback'], $SYSTEM, $USER, $timeout);
+    if (!isset($r2['err'])) { $r2['via'] = $cfg['fallback']['provider']; return $r2; }
+    $r['err'] .= ' | fallback ' . $cfg['fallback']['provider'] . ': ' . $r2['err'];
+  }
+  return $r;
+}
+
+function classify_once($cfg, $SYSTEM, $USER, $timeout) {
+  if ($cfg['provider'] === 'gemini') {
+    $url  = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($cfg['model']) . ':generateContent';
+    $hdrs = array('Content-Type: application/json', 'x-goog-api-key: ' . $cfg['key']);
+    $body = array(
+      'system_instruction' => array('parts' => array(array('text' => $SYSTEM))),
+      'contents' => array(array('role' => 'user', 'parts' => array(array('text' => $USER)))),
+      'generationConfig' => array('temperature' => 0.1, 'maxOutputTokens' => 1000,
+                                  'responseMimeType' => 'application/json'));
+  } elseif ($cfg['provider'] === 'anthropic') {
     $url  = 'https://api.anthropic.com/v1/messages';
     $hdrs = array('content-type: application/json', 'x-api-key: ' . $cfg['key'],
                   'anthropic-version: 2023-06-01');
@@ -194,6 +222,11 @@ function classify($cfg, $headline, $excerpt, $instruments, $timeout) {
   }
   if ($text === '' && isset($j['choices'][0]['message']['content']))
     $text = (string)$j['choices'][0]['message']['content'];
+  // Gemini: candidates[0].content.parts[].text
+  if ($text === '' && isset($j['candidates'][0]['content']['parts']) && is_array($j['candidates'][0]['content']['parts'])) {
+    foreach ($j['candidates'][0]['content']['parts'] as $pt)
+      if (isset($pt['text'])) $text .= (string)$pt['text'];
+  }
   if ($text === '') return array('err' => 'empty model reply', 'raw' => (string)$raw);
 
   if (preg_match('~\{.*\}~s', $text, $m)) $text = $m[0];
@@ -260,6 +293,7 @@ if (isset($_GET['selftest'])) {
     'persist_ok'    => (strpos($PERSIST_DIR, __DIR__) !== 0),
     'provider'      => $cfg ? $cfg['provider'] : null,
     'model'         => $cfg ? $cfg['model'] : null,
+    'fallback'      => ($cfg && !empty($cfg['fallback'])) ? $cfg['fallback']['provider'] . ' / ' . $cfg['fallback']['model'] : '(none)',
     'token_sha'     => substr($TOKEN_SHA, 0, 12) . '...',
     'known_id'      => $state['id'],
     'log_tail'      => (function($f) { if (!is_readable($f)) return array();
@@ -357,7 +391,9 @@ if (isset($res['err'])) {
   out(false, 'classify failed: ' . $res['err']
            . ($n >= $MAX_CLASSIFY_TRIES ? ' - giving up on this story' : ''));
 }
+$via = isset($res['via']) ? $res['via'] : null;
 $res = clean_result($res, $INSTRUMENTS);
+if ($via !== null) $res['via'] = $via;
 
 $data = array(
   'ok'         => 1,
@@ -375,6 +411,7 @@ $data = array(
 @file_put_contents($OUT_TXT,  to_txt($data));
 state_write($STATE_FILE, array('id' => $id, 'updated' => time(),
                                'fail_id' => '', 'fail_n' => 0));
-logline($LOG_FILE, 'id=' . $id . ' ' . $res['instrument'] . ' ' . $res['direction']);
+logline($LOG_FILE, 'id=' . $id . ' ' . $res['instrument'] . ' ' . $res['direction']
+                 . (isset($res['via']) ? ' (via fallback ' . $res['via'] . ')' : ''));
 
 out(true, 'updated', $data);

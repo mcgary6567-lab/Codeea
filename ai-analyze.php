@@ -10,10 +10,13 @@
 //
 //      <?php
 //      return array(
-//        'provider' => 'anthropic',              // 'anthropic' or 'openai'
-//        'key'      => 'sk-ant-...',
-//        'model'    => 'claude-sonnet-5',        // openai: gpt-4o
+//        'provider' => 'gemini',                 // 'gemini' (free tier), 'anthropic' or 'openai'
+//        'key'      => 'AIza...',                // Google AI Studio key
+//        'model'    => 'gemini-2.5-flash',       // anthropic: claude-sonnet-5, openai: gpt-4o
+//        'fallback' => array('provider' => 'anthropic', 'key' => 'sk-ant-...', 'model' => 'claude-sonnet-5'),
 //      );
+//      'fallback' is optional: it is tried when the primary fails (no credit,
+//      rate limit, outage).
 //
 //  That config is checked AS TEXT before it is ever included, so a typo
 //  in it returns a clear message instead of a blank 500.
@@ -28,7 +31,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v13';
+$BUILD = 'v14';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -136,14 +139,15 @@ function inspect_cfg($file) {
     $r['problems'][] = 'Could not find a key line.';
   } else {
     $r['looks'] = (strpos($r['key'], 'sk-ant-') === 0) ? 'anthropic'
-                : ((strpos($r['key'], 'sk-') === 0) ? 'openai' : 'unknown');
+                : ((strpos($r['key'], 'sk-') === 0) ? 'openai'
+                : ((strpos($r['key'], 'AIza') === 0) ? 'gemini' : 'unknown'));
     if ($r['looks'] !== 'unknown' && $r['looks'] !== $r['provider'])
       $r['problems'][] = 'MISMATCH: provider is ' . $r['provider'] . ' but the key looks like a '
                        . $r['looks'] . ' key.';
     if (trim($r['key']) !== $r['key']) $r['problems'][] = 'The key has leading or trailing whitespace.';
   }
-  if (!in_array($r['provider'], array('anthropic', 'openai'), true))
-    $r['problems'][] = 'provider must be exactly anthropic or openai - found ' . $r['provider'] . '.';
+  if (!in_array($r['provider'], array('anthropic', 'openai', 'gemini'), true))
+    $r['problems'][] = 'provider must be exactly gemini, anthropic or openai - found ' . $r['provider'] . '.';
   if ($r['provider'] === 'anthropic' && strpos($r['model'], 'claude') !== 0)
     $r['problems'][] = 'model ' . $r['model'] . ' is not a Claude id. Use claude-sonnet-5 or claude-haiku-4-5-20251001.';
 
@@ -220,6 +224,19 @@ if (!$chk['ok'])
 $provider = $chk['provider'];
 $model    = $chk['model'];
 $key      = $chk['key'];
+// The text inspection passed, so the file is safe to include for the optional
+// fallback block (same three keys), tried when the primary call fails.
+$fallback = null;
+{
+  $cc = @include $CFG_FILE;
+  if (is_array($cc) && isset($cc['fallback']) && is_array($cc['fallback']) && !empty($cc['fallback']['key'])) {
+    $fp = isset($cc['fallback']['provider']) ? strtolower(trim($cc['fallback']['provider'])) : 'anthropic';
+    $fm = isset($cc['fallback']['model']) ? trim($cc['fallback']['model']) : '';
+    if ($fm === '') $fm = ($fp === 'gemini') ? 'gemini-2.5-flash' : (($fp === 'openai') ? 'gpt-4o' : 'claude-sonnet-5');
+    if (in_array($fp, array('anthropic', 'openai', 'gemini'), true))
+      $fallback = array('provider' => $fp, 'key' => trim($cc['fallback']['key']), 'model' => $fm);
+  }
+}
 
 // =====================================================================
 //  THE RULE SET  -  mirrors Gold Scalpers EA v4.45
@@ -293,7 +310,18 @@ $USER = "The user says this is " . $symbol . " on the " . $tf . " timeframe. Ver
       . "correct it if the chart clearly shows something else. Apply the Gold Scalpers rules and return the JSON.";
 
 // ---- call the model ---------------------------------------------------
-if ($provider === 'anthropic') {
+function model_request($provider, $model, $key, $SYSTEM, $USER, $mime, $b64, $TIMEOUT) {
+if ($provider === 'gemini') {
+  $url  = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent';
+  $hdrs = array('Content-Type: application/json', 'x-goog-api-key: ' . $key);
+  $body = array(
+    'system_instruction' => array('parts' => array(array('text' => $SYSTEM))),
+    'contents' => array(array('role' => 'user', 'parts' => array(
+      array('inline_data' => array('mime_type' => $mime, 'data' => $b64)),
+      array('text' => $USER)))),
+    'generationConfig' => array('temperature' => 0.2, 'maxOutputTokens' => 8000,
+                                'responseMimeType' => 'application/json'));
+} elseif ($provider === 'anthropic') {
   $url  = 'https://api.anthropic.com/v1/messages';
   $hdrs = array('content-type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01');
   $body = array('model' => $model, 'max_tokens' => 8000, 'system' => $SYSTEM,
@@ -323,8 +351,20 @@ $resp = curl_exec($ch);
 $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $cerr = curl_error($ch);
 curl_close($ch);
+return array('resp' => $resp, 'code' => $code, 'cerr' => $cerr);
+}
 
-@file_put_contents($LOG_FILE, gmdate('c') . "\t" . $ip . "\t" . $symbol . "\t" . $tf . "\thttp=" . $code . "\n",
+$rq = model_request($provider, $model, $key, $SYSTEM, $USER, $mime, $b64, $TIMEOUT);
+$used = $provider;
+if (($rq['resp'] === false || $rq['code'] >= 400) && $fallback !== null) {
+  $rq2 = model_request($fallback['provider'], $fallback['model'], $fallback['key'], $SYSTEM, $USER, $mime, $b64, $TIMEOUT);
+  if ($rq2['resp'] !== false && $rq2['code'] < 400) {
+    $rq = $rq2; $used = $fallback['provider']; $provider = $fallback['provider']; $model = $fallback['model'];
+  }
+}
+$resp = $rq['resp']; $code = $rq['code']; $cerr = $rq['cerr'];
+
+@file_put_contents($LOG_FILE, gmdate('c') . "\t" . $ip . "\t" . $symbol . "\t" . $tf . "\thttp=" . $code . "\tvia=" . $used . "\n",
                    FILE_APPEND | LOCK_EX);
 
 if ($resp === false) out(false, 'Could not reach the analysis service. (' . $cerr . ')');
@@ -338,7 +378,7 @@ if ($code === 401 || $code === 403)
   out(false, 'The ' . $provider . ' API rejected the key.' . ($why !== '' ? ' It said: ' . $why : ''));
 if ($code === 404)
   out(false, 'The ' . $provider . ' API does not recognise the model "' . $model . '". '
-           . 'For Anthropic use claude-sonnet-5 or claude-haiku-4-5-20251001; for OpenAI use gpt-4o.');
+           . 'For Gemini use gemini-2.5-flash; for Anthropic claude-sonnet-5 or claude-haiku-4-5-20251001; for OpenAI gpt-4o.');
 if ($code === 429)
   out(false, 'The analysis service is rate limited or out of credit.' . ($why !== '' ? ' It said: ' . $why : ''));
 if ($code >= 400)
@@ -353,6 +393,10 @@ if ($provider === 'anthropic') {
     foreach ($up['content'] as $blk) {
       if (isset($blk['type'], $blk['text']) && $blk['type'] === 'text') $text .= $blk['text'];
     }
+  }
+} elseif ($provider === 'gemini') {
+  if (!empty($up['candidates'][0]['content']['parts']) && is_array($up['candidates'][0]['content']['parts'])) {
+    foreach ($up['candidates'][0]['content']['parts'] as $pt) { if (isset($pt['text'])) $text .= (string)$pt['text']; }
   }
 } else {
   if (isset($up['choices'][0]['message']['content'])) $text = (string)$up['choices'][0]['message']['content'];
