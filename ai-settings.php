@@ -198,6 +198,25 @@ if ($authed && $action === 'setpass') {
   }
 }
 
+$models = null;
+if ($authed && $action === 'models') {
+  $models = array();
+  if (!empty($cfg['key']) && isset($cfg['provider']) && $cfg['provider'] === 'gemini') {
+    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200');
+    curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => array('x-goog-api-key: ' . $cfg['key']), CURLOPT_TIMEOUT => 25));
+    $raw = curl_exec($ch); $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    $j = json_decode((string)$raw, true);
+    if ($code === 200 && isset($j['models']) && is_array($j['models'])) {
+      foreach ($j['models'] as $m) {
+        $name = isset($m['name']) ? preg_replace('~^models/~', '', $m['name']) : '';
+        $gen  = isset($m['supportedGenerationMethods']) && in_array('generateContent', $m['supportedGenerationMethods'], true);
+        if ($name !== '' && $gen && stripos($name, 'gemini') !== false) $models[] = $name;
+      }
+      sort($models);
+    } else $errs[] = 'Could not list models: HTTP ' . $code . (isset($j['error']['message']) ? ' - ' . substr($j['error']['message'], 0, 120) : '');
+  } else $errs[] = 'Listing models needs a saved Gemini key as the primary provider.';
+}
+
 $tests = array();
 if ($authed && $action === 'test') {
   if (!empty($cfg['key'])) {
@@ -252,7 +271,9 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}td{padding:6px 4px;bor
 <tr><td>Fallback</td><td><?= $curFP !== '' ? h($curFP) . ' &middot; ' . h($curFM !== '' ? $curFM : '(default model)') . ' &middot; key ' . h(mask($cfg['fallback']['key'])) : '(none)' ?></td></tr>
 <tr><td>Checks</td><td><a href="hotstory.php?selftest=1" target="_blank">news reader self-test</a> &middot; <a href="ai-analyze.php?selftest=1" target="_blank">chart analysis self-test</a> &middot; <a href="hotstory.txt" target="_blank">current hot story</a></td></tr>
 </table>
-<form method="post"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="test"><button class="btn">Test the saved keys now</button></form>
+<form method="post" style="display:inline"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="test"><button class="btn">Test the saved keys now</button></form>
+<form method="post" style="display:inline;margin-left:8px"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="models"><button class="btn alt">Show the Gemini models this key can use</button></form>
+<?php if (is_array($models)): ?><div class="msg ok" style="margin-top:10px"><b>Models available to this key</b> (type one into the Model box and Save; the "flash" ones are the fast, free-tier choices):<br><?= $models ? h(implode('  ·  ', $models)) : '(none returned)' ?></div><?php endif; ?>
 <?php foreach ($tests as $name => $t): ?><div class="msg <?= $t[0] ? 'ok' : 'bad' ?>" style="margin-top:10px"><b><?= h($name) ?></b>: <?= h($t[1]) ?></div><?php endforeach; ?>
 </div>
 

@@ -31,7 +31,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v14';
+$BUILD = 'v15';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -355,6 +355,10 @@ return array('resp' => $resp, 'code' => $code, 'cerr' => $cerr);
 }
 
 $rq = model_request($provider, $model, $key, $SYSTEM, $USER, $mime, $b64, $TIMEOUT);
+if ($rq['resp'] === false || $rq['code'] === 429 || $rq['code'] >= 500) {   // busy: one more try after a pause
+  sleep(4);
+  $rq = model_request($provider, $model, $key, $SYSTEM, $USER, $mime, $b64, $TIMEOUT);
+}
 $used = $provider;
 if (($rq['resp'] === false || $rq['code'] >= 400) && $fallback !== null) {
   $rq2 = model_request($fallback['provider'], $fallback['model'], $fallback['key'], $SYSTEM, $USER, $mime, $b64, $TIMEOUT);

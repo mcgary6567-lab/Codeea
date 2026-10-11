@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v11';
+$BUILD = 'v12';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -372,10 +372,9 @@ if (isset($res['err'])) {
   // A transient failure (busy, rate limit, outage) is not a strike against
   // the story: the next 5-minute run simply tries again.
   $transient = !empty($res['transient']);
-  $n = $transient ? (int)($state['fail_id'] === $id ? $state['fail_n'] : 0)
-                  : (($state['fail_id'] === $id) ? ((int)$state['fail_n'] + 1) : 1);
+  $n = $transient ? 0 : (($state['fail_id'] === $id) ? ((int)$state['fail_n'] + 1) : 1);
   state_write($STATE_FILE, array('id' => $state['id'], 'updated' => (int)$state['updated'],
-                                 'fail_id' => $id, 'fail_n' => $n));
+                                 'fail_id' => ($transient ? '' : $id), 'fail_n' => $n));
   $rawNote = '';
   if (isset($res['raw']) && $res['raw'] !== '')
     $rawNote = ' | raw: ' . substr(preg_replace('~\s+~', ' ', (string)$res['raw']), 0, 400);
