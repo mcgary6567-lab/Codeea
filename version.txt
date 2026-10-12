@@ -1,3 +1,3 @@
-latest=4.46
-note=Support/resistance + daily levels on the chart, early drawdown warning, TradingView link, fixed 10-19 window, faster news row
+latest=4.47
+note=Signal meter capped until every gate passes, manual buttons no longer mark the chart, transfers never read as drawdown, close alert with the right side, deeper AI news read
 url=https://goldscalpers.com/thank-you
