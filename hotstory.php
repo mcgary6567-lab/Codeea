@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v15';
+$BUILD = 'v16';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -137,7 +137,8 @@ function story_meta($html) {
   // fetch_full_story() so the model reads the whole piece, not one sentence.
   $r['excerpt_long'] = '';
   $r['source_url']   = '';
-  if (preg_match('~class="[^"]*news__story[^"]*"(.*?)\(\s*full story\s*\)~is', $html, $m)) {
+  // the link reads "(<small><a ...>full story</a></small>)", tags between the bracket and the words
+  if (preg_match('~class="[^"]*news__story[^"]*"(.*?)\(\s*(?:<[^>]+>\s*)*full story~is', $html, $m)) {
     $t = html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8');
     $t = trim(preg_replace('~\s+~u', ' ', $t));
     if (strlen($t) > strlen($r['excerpt'])) $r['excerpt_long'] = $t;
