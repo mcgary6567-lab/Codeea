@@ -218,6 +218,14 @@ if ($authed && $action === 'models') {
   } else $errs[] = 'Listing models needs a saved Gemini key as the primary provider.';
 }
 
+if ($authed && $action === 'reread') {
+  $flag = dirname(__DIR__) . '/.hotstory_reread';
+  if (!is_writable(dirname($flag))) $flag = __DIR__ . '/.hotstory_reread';
+  if (@file_put_contents($flag, gmdate('c')) !== false)
+    $msgs[] = 'Re-read requested. The reader picks it up on its next run (within 5 minutes) and re-analyses the current story with the full article; the news row updates within 2 minutes after that.';
+  else $errs[] = 'Could not write the re-read flag.';
+}
+
 $tests = array();
 if ($authed && $action === 'test') {
   if (!empty($cfg['key'])) {
@@ -274,6 +282,7 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}td{padding:6px 4px;bor
 </table>
 <form method="post" style="display:inline"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="test"><button class="btn">Test the saved keys now</button></form>
 <form method="post" style="display:inline;margin-left:8px"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="models"><button class="btn alt">Show the Gemini models this key can use</button></form>
+<form method="post" style="display:inline;margin-left:8px"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="reread"><button class="btn alt">Re-read the current hot story now</button></form>
 <?php if (is_array($models)): ?><div class="msg ok" style="margin-top:10px"><b>Models available to this key</b> (type one into the Model box and Save; the "flash" ones are the fast, free-tier choices):<br><?= $models ? h(implode('  ·  ', $models)) : '(none returned)' ?></div><?php endif; ?>
 <?php foreach ($tests as $name => $t): ?><div class="msg <?= $t[0] ? 'ok' : 'bad' ?>" style="margin-top:10px"><b><?= h($name) ?></b>: <?= h($t[1]) ?></div><?php endforeach; ?>
 </div>

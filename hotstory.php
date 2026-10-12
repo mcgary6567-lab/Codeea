@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v14';
+$BUILD = 'v15';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -130,7 +130,62 @@ function story_meta($html) {
                      html_entity_decode($m[1], ENT_QUOTES, 'UTF-8')));
   if (preg_match('~From\s+([a-z0-9@.\-]+\.[a-z]{2,}|@[A-Za-z0-9_]+)~', $html, $m))
     $r['source'] = $m[1];
+
+  // The story block on the ForexFactory page carries a longer excerpt than
+  // og:description (several paragraphs, ending in "( full story )") and a link
+  // to the source article. Both are taken; the article itself is fetched by
+  // fetch_full_story() so the model reads the whole piece, not one sentence.
+  $r['excerpt_long'] = '';
+  $r['source_url']   = '';
+  if (preg_match('~class="[^"]*news__story[^"]*"(.*?)\(\s*full story\s*\)~is', $html, $m)) {
+    $t = html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8');
+    $t = trim(preg_replace('~\s+~u', ' ', $t));
+    if (strlen($t) > strlen($r['excerpt'])) $r['excerpt_long'] = $t;
+  }
+  if (preg_match_all('~href="(https?://[^"]+)"~i', $html, $mm)) {
+    foreach ($mm[1] as $u) {
+      $h = strtolower((string)parse_url($u, PHP_URL_HOST));
+      if ($h === '' || strpos($h, 'forexfactory') !== false || strpos($h, 'faireconomy') !== false) continue;
+      if (preg_match('~facebook|twitter|x\.com|google|apple|microsoft|youtube|instagram|cloudflare|gstatic|jsdelivr|metaquotes|linkedin|telegram~', $h)) continue;
+      if (preg_match('~\.(png|jpg|jpeg|gif|webp|css|js|ico|woff2?)(\?|$)~i', $u)) continue;
+      $r['source_url'] = html_entity_decode($u, ENT_QUOTES, 'UTF-8');
+      break;
+    }
+  }
   return $r;
+}
+
+// Fetch the source article and return its paragraph text (capped), or "".
+// Many news sites answer a plain curl; the ones that do not simply fall back
+// to the ForexFactory excerpt. Never more than one attempt, 10 s.
+function fetch_full_story($url, $cap = 9000) {
+  if ($url === '' || !preg_match('~^https?://~i', $url)) return '';
+  $ch = curl_init($url);
+  curl_setopt_array($ch, array(
+    CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 4,
+    CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5,
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+    CURLOPT_HTTPHEADER => array('Accept: text/html,application/xhtml+xml', 'Accept-Language: en-US,en;q=0.9'),
+    CURLOPT_SSL_VERIFYPEER => true,
+  ));
+  $raw = curl_exec($ch);
+  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+  if ($raw === false || $code !== 200 || strlen($raw) < 500) return '';
+  $raw = substr($raw, 0, 600000);
+  $raw = preg_replace('~<(script|style|nav|header|footer|aside|form|svg)\b[^>]*>.*?</\1>~is', ' ', $raw);
+  // paragraphs only: that is the article; menus and teasers are not in <p>
+  if (!preg_match_all('~<p\b[^>]*>(.*?)</p>~is', $raw, $pm)) return '';
+  $out = array();
+  foreach ($pm[1] as $p) {
+    $t = trim(preg_replace('~\s+~u', ' ', html_entity_decode(strip_tags($p), ENT_QUOTES, 'UTF-8')));
+    if (strlen($t) < 40) continue;                                   // captions, buttons
+    if (preg_match('~cookie|subscribe|sign up|newsletter|all rights reserved|privacy policy~i', $t)) continue;
+    $out[] = $t;
+    if (strlen(implode(' ', $out)) > $cap) break;
+  }
+  $txt = implode("\n", $out);
+  return strlen($txt) >= 300 ? substr($txt, 0, $cap) : '';
 }
 
 // ---- ask the model --------------------------------------------------------
@@ -138,24 +193,44 @@ function classify($cfg, $headline, $excerpt, $instruments, $timeout) {
   $list = implode(', ', $instruments);
 
   $SYSTEM =
-    "You read one market news story and report which instrument it concerns and which way it leans. "
-  . "Reply with JSON only, no prose, no code fences, exactly these keys: "
-  . '{"instrument":"","direction":"","confidence":0,"reason":""}' . " "
-  . "instrument must be one of: " . $list . " - or \"none\" if the story is not clearly about one of them. "
-  . "direction must be \"buy\", \"sell\" or \"none\". "
-  . "confidence is 1 to 5.\n\n"
-  . "RULES THAT MATTER MORE THAN GIVING AN ANSWER:\n"
-  . "1. Return direction \"none\" whenever the story does not actually take a side. Headlines that are "
-  . "questions, previews, week-aheads, or two-sided analysis are NOT directional. Most stories are not "
-  . "directional - saying so is the correct answer, not a failure.\n"
-  . "2. Judge from the body text, not the headline. A headline can sound bearish while the body argues "
-  . "the level held.\n"
-  . "3. Direction is about the named instrument as written. \"Dollar strength\" means sell XAUUSD and "
-  . "sell EURUSD, but buy USDJPY - be careful which side of the pair the dollar is on.\n"
-  . "4. Never invent a level, a number or a forecast that is not in the text.\n"
-  . "5. reason is ONE sentence, under 110 characters, plain English, no jargon.";
+    "You are the macro desk analyst for a short-term gold and FX trading system. You receive ONE news "
+  . "story (headline plus the full article when it could be fetched) and must decide what it does to the "
+  . "instruments on this list over the next 4 to 24 hours: " . $list . ".\n\n"
+  . "Work through these steps BEFORE answering, in order:\n"
+  . "1. WHAT IS NEW. Separate new information from what was already expected or already priced. A story "
+  . "that confirms what markets expected moves little; a surprise moves a lot.\n"
+  . "2. CHANNEL. Name the transmission channel: interest-rate expectations and bond yields, US dollar "
+  . "demand, risk appetite (risk-on / risk-off), safe-haven demand, inflation expectations, central-bank "
+  . "guidance, geopolitics, energy and commodity prices, or a country-specific fiscal / political shock.\n"
+  . "3. MAP TO THE LIST. Decide which listed instrument is most exposed through that channel and which "
+  . "way it moves. Use this reference:\n"
+  . "   - XAUUSD (gold) RISES on: rate-cut expectations, falling real yields, a weaker dollar, risk-off, "
+  . "war or geopolitical escalation, sanctions, bank or credit stress, higher inflation worries, central-bank "
+  . "buying. Gold FALLS on: hawkish central banks, rising yields, a stronger dollar, strong US data that "
+  . "delays cuts, ceasefires and de-escalation, risk-on relief.\n"
+  . "   - EURUSD, GBPUSD, AUDUSD, NZDUSD are quoted with the dollar second: dollar strength = SELL, dollar "
+  . "weakness = BUY; strength in the first currency (hawkish ECB / BoE / RBA / RBNZ, better data) = BUY.\n"
+  . "   - USDJPY, USDCHF, USDCAD are quoted with the dollar first: dollar strength = BUY. Risk-off and "
+  . "safe-haven flows usually mean SELL USDJPY and SELL USDCHF. Oil up usually means SELL USDCAD.\n"
+  . "   - A story about one currency against a THIRD currency (for example sterling versus the euro) still "
+  . "says something about that currency: a stronger pound leans BUY GBPUSD, with lower confidence.\n"
+  . "   - Iran, Middle East, Russia-Ukraine escalation: BUY XAUUSD. A credible ceasefire or peace deal: SELL "
+  . "XAUUSD. A US president pressing for rate cuts or attacking the Fed: BUY XAUUSD, SELL the dollar.\n"
+  . "4. STRENGTH. confidence 5 = a clear surprise with an obvious channel; 4 = clear channel, modest "
+  . "surprise; 3 = a real lean that a desk would act on with small size; 2 = a weak lean; 1 = barely a "
+  . "lean. Use 3 or more only when you would actually put the trade on.\n"
+  . "5. NONE is for stories with NO plausible channel to any listed instrument (celebrity, sport, local "
+  . "crime, product launches), for pure previews with no new information, and for genuinely balanced "
+  . "two-sided pieces. Do NOT return none merely because the story is not about a currency pair by "
+  . "name: most macro, political and geopolitical news has a channel. Find it.\n\n"
+  . "Reply with JSON only, no prose outside it, no code fences, exactly these keys:\n"
+  . '{"instrument":"","direction":"","confidence":0,"reason":"","analysis":""}' . "\n"
+  . "instrument: one of " . $list . " or \"none\". direction: \"buy\", \"sell\" or \"none\". "
+  . "confidence: 1 to 5 (0 with none). reason: ONE sentence under 110 characters, plain English, the "
+  . "channel and the direction. analysis: 3 to 6 sentences covering steps 1 to 4, under 700 characters. "
+  . "Never invent a level, number or forecast that is not in the text.";
 
-  $USER = "HEADLINE: " . $headline . "\n\nBODY: " . $excerpt;
+  $USER = "HEADLINE: " . $headline . "\n\nARTICLE:\n" . $excerpt;
 
   // Primary first, then the fallback. A fallback answer is marked so the log
   // says which service actually read the story.
@@ -175,18 +250,18 @@ function classify_once($cfg, $SYSTEM, $USER, $timeout) {
     $body = array(
       'system_instruction' => array('parts' => array(array('text' => $SYSTEM))),
       'contents' => array(array('role' => 'user', 'parts' => array(array('text' => $USER)))),
-      'generationConfig' => array('temperature' => 0.1, 'maxOutputTokens' => 1000,
+      'generationConfig' => array('temperature' => 0.2, 'maxOutputTokens' => 4000,
                                   'responseMimeType' => 'application/json'));
   } elseif ($cfg['provider'] === 'anthropic') {
     $url  = 'https://api.anthropic.com/v1/messages';
     $hdrs = array('content-type: application/json', 'x-api-key: ' . $cfg['key'],
                   'anthropic-version: 2023-06-01');
-    $body = array('model' => $cfg['model'], 'max_tokens' => 1000, 'system' => $SYSTEM,
+    $body = array('model' => $cfg['model'], 'max_tokens' => 2500, 'system' => $SYSTEM,
       'messages' => array(array('role' => 'user', 'content' => $USER)));
   } else {
     $url  = 'https://api.openai.com/v1/chat/completions';
     $hdrs = array('Content-Type: application/json', 'Authorization: Bearer ' . $cfg['key']);
-    $body = array('model' => $cfg['model'], 'max_tokens' => 1000, 'temperature' => 0.1,
+    $body = array('model' => $cfg['model'], 'max_tokens' => 2500, 'temperature' => 0.2,
       'messages' => array(
         array('role' => 'system', 'content' => $SYSTEM),
         array('role' => 'user',   'content' => $USER)));
@@ -264,8 +339,11 @@ function clean_result($r, $instruments) {
   $reason = trim(preg_replace('~\s+~u', ' ', $reason));
   $reason = function_exists('mb_substr') ? mb_substr($reason, 0, 160, 'UTF-8')
                                          : substr($reason, 0, 160);
+  $analysis = isset($r['analysis']) ? (string)$r['analysis'] : '';
+  $analysis = trim(preg_replace('~\s+~u', ' ', $analysis));
+  $analysis = function_exists('mb_substr') ? mb_substr($analysis, 0, 900, 'UTF-8') : substr($analysis, 0, 900);
   return array('instrument' => $inst, 'direction' => $dir,
-               'confidence' => $conf, 'reason' => $reason);
+               'confidence' => $conf, 'reason' => $reason, 'analysis' => $analysis);
 }
 
 // The EA reads this. Flat key=value parses far more safely in MQL5 than JSON,
@@ -346,6 +424,12 @@ if (isset($_POST['home'])) {
   $link = hot_story_link($home);
   if (!$link) out(false, 'could not find the Hot Story block in the posted homepage');
 
+  $REREAD = $PERSIST_DIR . '/.hotstory_reread';
+  if (is_readable($REREAD)) {                      // owner pressed "re-read now" on the settings panel
+    @unlink($REREAD);
+    logline($LOG_FILE, 're-read requested from the settings panel for id=' . $link['id']);
+    out(true, 'need_story', array('id' => $link['id'], 'need_story' => $link['url'], 'note' => 're-read requested'));
+  }
   if ($link['id'] === $state['id'] && is_readable($OUT_TXT))
     out(true, 'unchanged', array('id' => $link['id']));
   if ($link['id'] === $state['id'] && restore_last($PERSIST_DIR . '/.hotstory_last.json', $link['id'], $OUT_JSON, $OUT_TXT)) {
@@ -383,7 +467,13 @@ $id = $um[1];
 $meta = story_meta($story);
 if ($meta['headline'] === '') out(false, 'could not read a headline from the posted story page');
 
-$res = classify($cfg, $meta['headline'], $meta['excerpt'], $INSTRUMENTS, 60);
+$article = fetch_full_story($meta['source_url']);
+$textUsed = ($article !== '') ? 'full article (' . strlen($article) . ' chars from ' . parse_url($meta['source_url'], PHP_URL_HOST) . ')'
+          : (($meta['excerpt_long'] !== '') ? 'ForexFactory excerpt (' . strlen($meta['excerpt_long']) . ' chars)' : 'og:description only');
+$bodyText = ($article !== '') ? $article : (($meta['excerpt_long'] !== '') ? $meta['excerpt_long'] : $meta['excerpt']);
+if ($article !== '' && $meta['excerpt_long'] !== '' && stripos($article, substr($meta['excerpt_long'], 0, 60)) === false)
+  $bodyText = $meta['excerpt_long'] . "\n\n" . $article;       // keep the FF summary in front of the source piece
+$res = classify($cfg, $meta['headline'], $bodyText, $INSTRUMENTS, 75);
 if (isset($res['err'])) {
   // A transient failure (busy, rate limit, outage) is not a strike against
   // the story: the next 5-minute run simply tries again.
@@ -435,13 +525,16 @@ $data = array(
   'direction'  => $res['direction'],
   'confidence' => $res['confidence'],
   'reason'     => $res['reason'],
+  'analysis'   => $res['analysis'],
+  'text_used'  => $textUsed,
 );
 @file_put_contents($OUT_JSON, json_encode($data));
 @file_put_contents($OUT_TXT,  to_txt($data));
 @file_put_contents($PERSIST_DIR . '/.hotstory_last.json', json_encode($data));   // survives a deploy
 state_write($STATE_FILE, array('id' => $id, 'updated' => time(),
                                'fail_id' => '', 'fail_n' => 0));
-logline($LOG_FILE, 'id=' . $id . ' ' . $res['instrument'] . ' ' . $res['direction']
-                 . (isset($res['via']) ? ' (via fallback ' . $res['via'] . ')' : ''));
+logline($LOG_FILE, 'id=' . $id . ' ' . $res['instrument'] . ' ' . $res['direction'] . ' conf ' . $res['confidence']
+                 . ' | ' . $textUsed . (isset($res['via']) ? ' (via fallback ' . $res['via'] . ')' : '')
+                 . ' | ' . substr($res['analysis'], 0, 160));
 
 out(true, 'updated', $data);
