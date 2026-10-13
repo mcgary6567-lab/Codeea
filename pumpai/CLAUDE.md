@@ -95,3 +95,9 @@ Inbound WhatsApp images are now handled. `whatsapp/cloud.ts`: `InboundMessage.im
 
 - Reply to the user in Roman Urdu/Hindi.
 - Never put a model identifier in commits, PR text, code, or any pushed artifact — chat only.
+
+## Late offline sales + zero-sale shift close (never regress)
+
+- **Late offline sale on a closed shift** (`rebookLateSale` in `routes/operations.ts`, `POST /sales` with `offline_at` from a salesman): at close the meters booked every un-entered litre as CASH (`source='meter'`). A late **cash** sale returns `{covered_by_meter:true}` (nothing to add). A late **khata / card / online** sale is moved OUT of that meter cash row (litres & amount reduced, row deleted if emptied), recorded with `at_close=1` at the rate of `offline_at`, tank given back first so `recordSale` nets to zero, and `shifts.cash_expected/variance` reduced by the freed rupees; audit `late_sale_rebooked` + alert type `late_sale`. A duplicate of an at-close slip (same shift/customer/product/litres) returns `duplicate`. Refused (409) only when the meter cash has fewer litres left. Never throw the old "shift already closed" for a salesman's offline sale — that lost the khata entry and the shift report line.
+- Web: `useOfflineQueue()` also runs in `Layout.tsx`, so queued tablet sales upload from any page; the shift-close modal (`Shifts.tsx` `CloseShift`) blocks "Close shift" while sales are still queued on the tablet.
+- **Zero-sale shift** (strike / pump closed): the close button is enabled with Rs 0 counted when `preview.cash_expected <= 0`; the cashier's handover `pending` list skips shifts with cash_actual=0 AND cash_expected=0. `test/late_sale_zero_shift.test.ts` guards all of it (522 tests).

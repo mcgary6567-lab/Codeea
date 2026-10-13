@@ -12,6 +12,7 @@ import { NotificationsProvider, NotificationBell } from "./Notifications";
 import { QuickAddButton } from "./QuickAdd";
 import { useBranding } from "../lib/brand";
 import { InstallAppButton } from "./InstallApp";
+import { useOfflineQueue } from "../lib/offline";
 
 /** Shortcuts under "Wholesale Supply" in the menu (open the right tab or form). */
 const WHOLESALE_SUB = [
@@ -169,6 +170,8 @@ const NAV = [
 ];
 
 export default function Layout() {
+  // sales saved on the tablet without internet upload from whichever page is open (not only the POS)
+  useOfflineQueue();
   const { user, tenant, logout, can } = useAuth();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);

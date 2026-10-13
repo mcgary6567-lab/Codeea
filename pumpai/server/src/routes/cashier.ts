@@ -379,7 +379,9 @@ function handovers(t: number) {
   const since = new Date(Date.now() - HANDOVER_DAYS * 86400_000).toISOString();
   const cols = `sh.id, sh.attendant, sh.opened_at, sh.closed_at, sh.cash_expected, sh.cash_actual, sh.variance, sh.handed_amount, sh.handed_to, sh.handed_at, sh.handover_note, s.name station_name`;
   return {
-    pending: all(`SELECT ${cols} FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.handed_at IS NULL AND sh.closed_at >= ? ORDER BY sh.closed_at`, t, since),
+    // a shift with no cash at all (strike / pump closed, nothing sold) has nothing to hand over
+    pending: all(`SELECT ${cols} FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.handed_at IS NULL AND sh.closed_at >= ?
+      AND NOT (COALESCE(sh.cash_actual,0)=0 AND COALESCE(sh.cash_expected,0)=0) ORDER BY sh.closed_at`, t, since),
     done: all(`SELECT ${cols} FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.handed_at IS NOT NULL ORDER BY sh.handed_at DESC LIMIT 20`, t),
   };
 }

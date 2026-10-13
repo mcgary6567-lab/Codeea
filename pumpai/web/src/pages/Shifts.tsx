@@ -1,3 +1,4 @@
+import { useOfflineQueue } from "../lib/offline";
 import { useEffect, useMemo, useState } from "react";
 import { Clock, AlertTriangle } from "lucide-react";
 import { api, useApi } from "../lib/api";
@@ -155,6 +156,8 @@ const rs = (v: number) => `Rs ${Math.round(v).toLocaleString("en-IN")}`;
 function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void; onClosed: (r: any) => void }) {
   const { data } = useApi<any>(`/shifts/${id}/live`);
   const accts = useApi<any[]>("/pos/khata-accounts");
+  // sales still waiting on the tablet must upload before the meters are settled, or they would be counted as cash
+  const queue = useOfflineQueue();
   const [readings, setReadings] = useState<Record<string, string>>({});
   const [test, setTest] = useState<Record<string, string>>({});
   const [showTest, setShowTest] = useState(false);
@@ -195,6 +198,9 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
   const counted = notesTotal > 0 ? notesTotal + (Number(direct) || 0) : Number(direct) || 0;
   const expected = preview?.cash_expected ?? null;
   const diff = expected != null ? Math.round(counted - expected) : null;
+  // strike / pump closed / nothing sold: there is no cash to count, the shift still closes and the meters hand over
+  const nothingToHandIn = !!preview && Number(preview.cash_expected ?? 0) <= 0;
+  const queued = queue.pending.length;
 
   return (
     <Modal open onClose={onClose} title={`End shift — ${data.shift.attendant}`} wide>
@@ -346,15 +352,22 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
             <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-2 py-1.5"><span className="w-14 shrink-0 text-right text-sm font-semibold">{notesTotal > 0 ? "Coins" : "Total"}</span><span className="text-slate-400">=</span>
               <input className="input min-h-9 !py-1 text-center" type="number" min={0} inputMode="numeric" value={direct} onChange={(e) => setDirect(e.target.value)} aria-label={notesTotal > 0 ? "Coins" : "Cash total"} /></label>
           </div>
+          {nothingToHandIn && counted <= 0 && (
+            <p className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-800">{preview.summary?.litres > 0 ? <>No cash this shift — everything went on khata / online. Close with Rs 0 · <Ur>نقد نہیں، صفر پر بند کریں</Ur></> : <>No sale this shift (strike / pump closed). Close with Rs 0 so the next salesman can take over the meters · <Ur>کوئی سیل نہیں، صفر پر بند کریں</Ur></>}</p>
+          )}
           <div className="mt-2 rounded-xl bg-white p-3 ring-1 ring-slate-200">
             <div className="flex items-baseline justify-between text-xl font-bold"><span>Counted · <Ur>گنا</Ur></span><span className="tabular-nums">{rs(counted)}</span></div>
             {diff != null && counted > 0 && <div className={`text-right text-sm font-semibold ${diff < -100 ? "text-red-600" : "text-emerald-700"}`}>{diff === 0 ? "Matches · درست" : diff < 0 ? `Short ${rs(-diff)} · کم` : `Over ${rs(diff)} · زیادہ`}</div>}
           </div>
         </section>
 
+        {queued > 0 && (
+          <p className="flex gap-2 rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-800" role="alert"><AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            {queued} sale{queued === 1 ? "" : "s"} still saved on this tablet{queue.online ? " — uploading, wait a moment" : " — connect to the internet first"}. Closing now would count that fuel as cash · <Ur>ٹیبلٹ کی سیل پہلے اپ لوڈ ہونے دیں</Ur></p>
+        )}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" className="btn-secondary min-h-11" onClick={onClose}>Cancel · منسوخ</button>
-          <button className="min-h-12 rounded-xl bg-emerald-600 px-6 py-3 text-lg font-bold text-white shadow active:scale-[.98] disabled:bg-slate-300" disabled={busy || !preview || counted <= 0}>
+          <button className="min-h-12 rounded-xl bg-emerald-600 px-6 py-3 text-lg font-bold text-white shadow active:scale-[.98] disabled:bg-slate-300" disabled={busy || !preview || queued > 0 || (counted <= 0 && !nothingToHandIn)}>
             Close shift & hand in cash · <Ur>شفٹ بند کریں</Ur>
           </button>
         </div>

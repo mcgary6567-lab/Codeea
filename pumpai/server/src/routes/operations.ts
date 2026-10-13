@@ -7,7 +7,7 @@ import { claimForDelivery } from "./claims.js";
 import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, METER, meterName, type Row } from "../db.js";
 import { meterSales } from "./reports.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
-import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt, correctTo15 } from "../services.js";
+import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt, correctTo15, priceOf, type SaleInput } from "../services.js";
 import { productSchema } from "../products.js";
 import { moneyMethods, SPECIAL_METHODS } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -316,6 +316,48 @@ operations.get("/sales", requirePerm("sales.view"), h((req) => {
      LEFT JOIN customers c ON c.id=s.customer_id WHERE st.tenant_id=? ${own ? "AND s.station_id=" + Number(own) : ""} ORDER BY s.id DESC LIMIT ?`, tid(req), limit);
 }));
 
+/**
+ * A POS sale made without internet that reaches the server after its shift was closed. At close the meters booked
+ * every litre not on the POS as CASH, so:
+ *  - a late cash sale is already in the books (nothing to add);
+ *  - a late khata / card / online sale is moved out of that meter cash entry: the customer's khata (or the bank) is
+ *    charged at the rate of the time, the shift report shows it, and the cash the salesman owed goes down by the same
+ *    rupees. Stock and meters do not move (the fuel already left at close). Managers are told.
+ */
+function rebookLateSale(req: Request, shift: Row, s: Omit<SaleInput, "shift_id" | "created_by" | "created_at">, at: string): Row {
+  const t = tid(req);
+  if (s.payment_method === "cash") return { covered_by_meter: true, shift_id: shift.id, payment_method: "cash", product: s.product, litres: s.litres ?? null, amount: s.amount ?? null };
+  const rate = priceOf(t, s.product, at);
+  const litres = round2(s.litres ?? (s.amount ? s.amount / rate : 0));
+  if (!(litres > 0)) throw new AppError(400, "Litres or amount required");
+  // the same slip may already have been added on the close screen ("khata slips not entered yet")
+  if (s.payment_method === "khata" && s.customer_id) {
+    const dup = get("SELECT * FROM sales WHERE shift_id=? AND payment_method='khata' AND customer_id=? AND product=? AND at_close=1 AND ABS(litres-?)<0.01 ORDER BY id DESC LIMIT 1", shift.id, s.customer_id, s.product, litres);
+    if (dup) return { ...dup, duplicate: true };
+  }
+  return tx(() => {
+    const meter = get("SELECT * FROM sales WHERE shift_id=? AND product=? AND source='meter' AND created_by IS NULL ORDER BY litres DESC LIMIT 1", shift.id, s.product);
+    if (!meter || meter.litres + 0.01 < litres)
+      throw new AppError(409, `Shift #${shift.id} is already closed and its meter cash has ${meter ? round2(meter.litres) : 0} L of ${PRODUCTS[s.product] ?? s.product} left — this ${litres} L ${s.payment_method} sale cannot be moved. It may already be entered at close; tell the manager.`);
+    const keepL = round2(meter.litres - litres);
+    const keepA = keepL > 0.009 ? round2(keepL * meter.rate) : 0;
+    const freed = round2(meter.amount - keepA);
+    if (keepL > 0.009) run("UPDATE sales SET litres=?, amount=? WHERE id=?", keepL, keepA, meter.id);
+    else run("DELETE FROM sales WHERE id=?", meter.id);
+    // the fuel already left the tank at close: give the litres back first, recordSale takes them out again (net zero)
+    const tank = get("SELECT id FROM tanks WHERE station_id=? AND product=? ORDER BY current_l DESC LIMIT 1", shift.station_id, s.product);
+    if (tank) run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", litres, tank.id);
+    const saved = recordSale(t, { ...s, nozzle_id: null, litres, amount: undefined, shift_id: shift.id, created_by: req.user!.id, created_at: at, source: "pos", at_close: true });
+    const expected = round2((shift.cash_expected ?? 0) - freed);
+    run("UPDATE shifts SET cash_expected=?, variance=? WHERE id=?", expected, round2((shift.cash_actual ?? 0) - expected), shift.id);
+    audit(t, req.user!, "late_sale_rebooked", `SALE-${saved.id}`, { shift_id: shift.id, product: s.product, litres, payment: s.payment_method, customer_id: s.customer_id ?? null, moved_from_meter_cash: freed, offline_at: at });
+    createAlert(t, { station_id: shift.station_id, type: "late_sale", severity: "warning",
+      title: `Late offline ${s.payment_method} sale — ${shift.attendant}`,
+      body: `${litres} L ${PRODUCTS[s.product] ?? s.product} (${pkr(saved.amount)}) made without internet reached after shift #${shift.id} was closed. Moved out of the meter cash: cash expected ${pkr(shift.cash_expected ?? 0)} → ${pkr(expected)}.`, dedupe_key: `late-sale-${saved.id}` });
+    return { ...saved, late_rebooked: true, moved_from_meter_cash: freed, cash_expected: expected };
+  })!;
+}
+
 operations.post("/sales", requirePerm("sales.create"), h((req) => {
   const b = parse(z.object({
     station_id: z.number(), product, litres: z.number().positive().optional(), amount: z.number().positive().optional(),
@@ -355,11 +397,20 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
   // a salesman's sale goes on their own shift (the one open when an offline sale was made); others use the station's open shift
   const shift = salesman
     ? at
-      ? get("SELECT id, status FROM shifts WHERE station_id=? AND attendant=? AND opened_at<=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name, at)
-      : get("SELECT id, status FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name)
-    : get("SELECT id, status FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
+      ? get("SELECT * FROM shifts WHERE station_id=? AND attendant=? AND opened_at<=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name, at)
+      : get("SELECT * FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name)
+    : get("SELECT * FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
   if (salesman && !shift) throw new AppError(400, "Start your shift first (Shifts page) before recording sales");
-  if (shift && shift.status !== "open") throw new AppError(409, "This shift is already closed; its litres were counted from the meter. Tell the manager about this sale.");
+  if (shift && shift.status !== "open") {
+    // a sale made on the tablet without internet that only uploads after the shift was closed: the meters already
+    // settled those litres as cash, so move them to the right book instead of losing the entry
+    if (!(salesman && at)) throw new AppError(409, "This shift is already closed; its litres were counted from the meter. Tell the manager about this sale.");
+    if (b.account_id && !get("SELECT id FROM bank_accounts WHERE id=? AND tenant_id=? AND active=1", b.account_id, tid(req))) throw new AppError(400, "Bank account not found");
+    const { offline_at: _o, ...sale } = b;
+    const late = rebookLateSale(req, shift, sale, at);
+    if (!late.duplicate && !late.covered_by_meter) setImmediate(() => { khataFillReceipt(tid(req), late).catch((e) => console.error("[khata receipt]", e.message)); });
+    return late.covered_by_meter ? late : { ...late, receipt_url: receiptUrl(tid(req), "f", late.id) };
+  }
   if (salesman && !at && get("SELECT id FROM notifications WHERE user_id=? AND type='price_change' AND acked_at IS NULL LIMIT 1", req.user!.id))
     throw new AppError(409, "Fuel price has changed. Update the dispenser and confirm the new price first.");
   if (b.override_limit && !can(req.user, "customers.edit")) throw new AppError(403, "Only a manager can allow more than the vehicle's daily limit");
