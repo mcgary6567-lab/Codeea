@@ -659,7 +659,14 @@ def _rate_and_check(student, parent, teacher, admin):
             assert audits >= 2
         finally:
             s.close()
-        tp = teacher.get("/teacher/qa")
+        # the rating shows to the teacher who taught that class, which is not always teacher1 (cover classes)
+        s = SessionLocal()
+        try:
+            taught_by = s.get(Teacher, snap["teacher_id"]).user.email
+        finally:
+            s.close()
+        with _as(taught_by, "Teacher@123") as class_teacher:
+            tp = class_teacher.get("/teacher/qa")
         assert tp.status_code == 200 and f'data-rated-session="{snap["id"]}"' in tp.text and f"{TAG} too short" in tp.text
         qs = f"date_from={(snap['date'] - timedelta(days=1)).isoformat()}&date_to={(snap['date'] + timedelta(days=1)).isoformat()}"
         dash = admin.get(f"/qa/dashboard?{qs}")

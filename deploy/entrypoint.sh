@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Container entrypoint. Mirrors render-build.sh: migrate, seed once, rotate passwords when they change, serve.
 #   SEED_MODE=core|demo        what to seed on first start (default core)
-#   SEED_ON_START=auto|true    auto = seed only when the users table is empty (default)
+#   SEED_ON_START=auto|true    auto = full seed only when the users table is empty (default); on every
+#                              other start only the core seed runs (roles, permissions, settings - it is
+#                              idempotent), so an upgrade brings new roles and permissions with it, as
+#                              render-build.sh does. true = run the full SEED_MODE seed again.
 #   ROTATE_CREDENTIALS=true    force deploy_secure.py to re-apply ADMIN_PASSWORD/DEMO_PASSWORD/ADMIN_EMAIL
 #                              (it already re-applies on its own whenever those values change)
 #   SKIP_BOOTSTRAP=true        skip migrate/seed (second container sharing the database, e.g. jobs)
@@ -31,8 +34,13 @@ if [ "${SKIP_BOOTSTRAP:-false}" != "true" ]; then
   fi
 
   if [ "$seed_now" = "true" ]; then
-    echo "[entrypoint] first start: seeding (SEED_MODE=${SEED_MODE:-core})"
+    echo "[entrypoint] seeding (SEED_MODE=${SEED_MODE:-core})"
     if [ "${SEED_MODE:-core}" = "demo" ]; then python seed.py; else python seed.py --core; fi
+  else
+    # New releases add roles, permissions and settings through the core seed; it only fills in what is
+    # missing and never overrides what an administrator changed (app/services/roles.py sync_system_roles).
+    echo "[entrypoint] refreshing roles, permissions and settings"
+    python seed.py --core
   fi
 
   # Applies ADMIN_PASSWORD / DEMO_PASSWORD / ADMIN_EMAIL only when they differ from the last applied

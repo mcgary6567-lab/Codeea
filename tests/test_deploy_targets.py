@@ -189,6 +189,37 @@ def test_deploy_secure_applies_only_when_credentials_change(db, monkeypatch):
     assert deploy_secure.stored_fingerprint(db)["fingerprint"] == deploy_secure.fingerprint("Another@12345", "Demo@12345", "")
 
 
+def test_a_reseeded_account_never_keeps_its_published_password(db, monkeypatch):
+    """Requested 12 Oct 2026 (Hostinger VPS): the seed runs on every start, so an account an administrator
+    deleted, or admin@oqc.local after the owner was renamed, must not come back with its documented password."""
+    from app.core.security import hash_password, verify_password
+    from app.models.core import Role
+    from app.seed import core as core_seed
+    first = deploy_secure.apply(db, "Rotate@12345", "Demo@12345", "")
+    assert first["applied"] is True
+    # an administrator deleted teacher7; the next deploy's seed re-creates it with Teacher@123
+    role = db.query(Role).filter(Role.slug == "teacher").one()
+    back = User(email="teacher7777@oqc.local", username="teacher7777", full_name="Re-seeded", role_id=role.id,
+                hashed_password=hash_password("Teacher@123"))
+    real = User(email="teacher7778@oqc.local", username="teacher7778", full_name="Own password", role_id=role.id,
+                hashed_password=hash_password("Mine@98765"))
+    db.add_all([back, real])
+    db.flush()
+    again = deploy_secure.apply(db, "Rotate@12345", "Demo@12345", "")
+    assert again["applied"] is False and again["late_accounts"] == 1
+    assert verify_password("Demo@12345", back.hashed_password) and not verify_password("Teacher@123", back.hashed_password)
+    assert verify_password("Mine@98765", real.hashed_password), "a password someone chose is never touched"
+    # the owner was renamed: the core seed must not bring admin@oqc.local back as a second superuser
+    owner = db.query(User).filter(User.email == "admin@oqc.local").one()
+    owner.email = "owner-test@example.com"
+    db.flush()
+    monkeypatch.setattr(db, "commit", db.flush)  # core.run commits; keep everything inside the rolled-back test session
+    core_seed.run(db)
+    assert db.query(User).filter(User.email == "admin@oqc.local").first() is None
+    assert deploy_secure.seed_password("parent12@oqc.local") == "Parent@123"
+    assert deploy_secure.seed_password("teacher1@example.com") is None
+
+
 def test_deploy_secure_without_credentials_is_a_noop(db):
     assert deploy_secure.apply(db, "", "", "") == {"applied": False, "reason": "not configured"}
 

@@ -132,6 +132,10 @@ def run(db: Session) -> None:
     for email, pwd, name, role_slug, dept in wanted:
         if db.query(User).filter(User.email == email).first():
             continue
+        # deploy_secure.py may have renamed admin@oqc.local to the owner's address. Re-creating it would add a
+        # second superuser with the published default password, so the owner account is only seeded once.
+        if role_slug == "super_admin" and db.query(User).filter(User.is_superuser.is_(True)).first():
+            continue
         db.add(User(email=email, username=email.split("@")[0], full_name=name, hashed_password=hash_password(pwd),
                     role_id=role_by_slug[role_slug].id, department_id=dept_by_code[dept].id if dept else None,
                     branch_id=branch.id if branch else None, is_superuser=(role_slug == "super_admin"), timezone="Asia/Karachi"))

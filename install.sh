@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Online Quran College - one-line installer for Ubuntu 22.04 / 24.04 (Docker edition).
+# Online Quran College - one-line installer for Ubuntu 22.04 / 24.04 or Debian 12 (Docker edition).
+# Tested target: a fresh Hostinger KVM VPS with the plain Ubuntu 24.04 template (see docs/HOSTINGER_VPS.md).
 #   curl -fsSL https://raw.githubusercontent.com/mcgary6567-lab/Codeea/main/install.sh | bash
 # Installs Docker if missing, clones the repository to /opt/oqc, writes .env with generated secrets,
 # starts PostgreSQL + app + Caddy (HTTPS) + nightly pg_dump, waits for the first start (migrations and
@@ -10,6 +11,8 @@ set -euo pipefail
 REPO_URL="${OQC_REPO:-https://github.com/mcgary6567-lab/Codeea.git}"
 BRANCH="${OQC_BRANCH:-main}"
 INSTALL_DIR="${OQC_DIR:-/opt/oqc}"
+# an explicit SEED_MODE=... skips the demo-data question
+SEED_MODE_SET="${SEED_MODE:+1}"
 SEED_MODE="${SEED_MODE:-core}"
 SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 
@@ -17,9 +20,19 @@ say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
 . /etc/os-release
 case "${ID:-}-${VERSION_ID:-}" in
-  ubuntu-22.04|ubuntu-24.04) ;;
-  *) echo "This installer targets Ubuntu 22.04 / 24.04 (found ${PRETTY_NAME:-unknown}). Use docker compose by hand on other systems."; exit 1 ;;
+  ubuntu-22.04|ubuntu-24.04|debian-12) ;;
+  *) echo "This installer targets Ubuntu 22.04 / 24.04 or Debian 12 (found ${PRETTY_NAME:-unknown}). Use docker compose by hand on other systems."; exit 1 ;;
 esac
+
+# A control-panel template (CloudPanel, cPanel, CyberPanel, Plesk...) already owns ports 80 and 443, and
+# Caddy cannot get a certificate without them. Only our own Caddy container may hold them.
+busy="$($SUDO ss -ltnpH '( sport = :80 or sport = :443 )' 2>/dev/null | grep -v docker-proxy || true)"
+if [ -n "$busy" ]; then
+  echo "Ports 80/443 are already in use on this server:"
+  echo "$busy"
+  echo "Reinstall the VPS with the plain Ubuntu 24.04 template (no control panel), or stop that web server first."
+  exit 1
+fi
 
 say "1/6  Base packages"
 $SUDO apt-get update -qq
@@ -47,7 +60,21 @@ else
   # stdin is the curl pipe: prompts must come from the terminal
   read -rp "Domain for HTTPS, e.g. os.example.com (leave blank for plain HTTP on port 80 - demo only): " DOMAIN </dev/tty
   read -rp "Admin e-mail (becomes the owner sign-in; blank keeps admin@oqc.local): " ADMIN_EMAIL </dev/tty
-  DOMAIN="$(printf '%s' "$DOMAIN" | tr -d '[:space:]')"
+  DOMAIN="$(printf '%s' "$DOMAIN" | tr -d '[:space:]' | sed -E 's#^https?://##; s#/.*$##')"
+  if [ -z "${SEED_MODE_SET:-}" ]; then
+    read -rp "Load the demo data (sample families, teachers, classes)? Choose no for real use. [y/N]: " DEMO </dev/tty
+    case "$DEMO" in [yY]*) SEED_MODE=demo ;; *) SEED_MODE=core ;; esac
+  fi
+  if [ -n "$DOMAIN" ]; then
+    # Let's Encrypt only issues the certificate once the domain points here.
+    MY_IPS=" $(hostname -I 2>/dev/null) "
+    DNS_IP="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk 'NR==1{print $1}')"
+    if [ -z "$DNS_IP" ]; then
+      echo "WARNING: $DOMAIN does not resolve yet. Add an A record pointing to$(echo "$MY_IPS" | awk '{print " "$1}'); HTTPS starts once it does."
+    elif [ "${MY_IPS#* $DNS_IP }" = "$MY_IPS" ]; then
+      echo "WARNING: $DOMAIN points to $DNS_IP, not to this server ($(echo "$MY_IPS" | xargs)). Fix the A record; HTTPS starts once it matches."
+    fi
+  fi
   ADMIN_EMAIL="$(printf '%s' "$ADMIN_EMAIL" | tr -d '[:space:]' | tr 'A-Z' 'a-z')"
 
   # Only letters and digits so the values are safe in .env, URLs and shells. The app's rule for a
@@ -106,6 +133,11 @@ AI_PROVIDER=simulated
 AI_API_KEY=
 EOF
   $SUDO chmod 600 .env
+fi
+
+# ufw (when the image has it switched on) must let the web in; Docker publishes 80/443 itself.
+if command -v ufw >/dev/null 2>&1 && $SUDO ufw status 2>/dev/null | grep -q "Status: active"; then
+  $SUDO ufw allow 80/tcp >/dev/null; $SUDO ufw allow 443/tcp >/dev/null; $SUDO ufw allow 443/udp >/dev/null
 fi
 
 say "5/6  Build and start"

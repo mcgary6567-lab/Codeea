@@ -18,19 +18,25 @@ variables on the host (Render: Environment tab, then redeploy; Docker: edit .env
 rotation path.
 
 Idempotent: re-running only rewrites passwords, never creates or deletes accounts.
+
+Late seed accounts: the seed runs again on every deploy and re-creates a seeded account an administrator
+deleted, with its published development password. When the fingerprint is unchanged, accounts created
+after the last application that still carry their seed password get the configured password too
+(``secure_late_accounts``), so no deploy can bring a documented password back.
 It is a no-op when neither password variable is set, so local development is unaffected.
 """
 from __future__ import annotations
 
 import hashlib
 import os
+import secrets
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.database import SessionLocal
 from app.models.core import AuditEvent, Setting, User, UserSession
 from app.services.system import get_setting, set_setting
@@ -58,6 +64,48 @@ def stored_fingerprint(db: Session) -> dict | None:
     return value if isinstance(value, dict) and value.get("fingerprint") else None
 
 
+def seed_password(email: str) -> str | None:
+    """The published development password the seed gives this address, or None for a non-seed account."""
+    from app.seed.core import DEV_ONLY_USERS, USERS
+    known = {e: p for e, p, *_ in USERS + DEV_ONLY_USERS}
+    email = (email or "").lower()
+    if email in known:
+        return known[email]
+    local, _, domain = email.partition("@")
+    if domain != "oqc.local":
+        return None
+    return {"teacher": "Teacher@123", "parent": "Parent@123", "student": "Student@123"}.get(local.rstrip("0123456789"))
+
+
+def secure_late_accounts(db: Session, admin_pw: str, demo_pw: str, applied_at: str | None) -> int:
+    """Give the configured passwords to seed accounts created since ``applied_at`` that still have their seed password."""
+    if not applied_at:
+        return 0
+    try:
+        since = datetime.fromisoformat(applied_at).astimezone(timezone.utc).replace(tzinfo=None)
+    except ValueError:
+        return 0
+    fixed = 0
+    for u in db.query(User).filter(User.created_at >= since - timedelta(minutes=1)):
+        default = seed_password(u.email)
+        if not default or not verify_password(default, u.hashed_password):
+            continue
+        new_pw = admin_pw if u.is_superuser else demo_pw
+        if new_pw:
+            u.hashed_password = hash_password(new_pw)
+            u.must_change_password = bool(u.is_superuser)
+        else:  # nothing configured for this kind of account: lock it until an administrator resets it
+            u.hashed_password = hash_password(secrets.token_urlsafe(24))
+            u.must_change_password = True
+        fixed += 1
+    if fixed:
+        db.add(AuditEvent(actor_name="deploy", action="password_change", module="security", severity="critical",
+                          is_consequential=True, description=f"{fixed} re-seeded account(s) lost their development password",
+                          rationale="The seed re-created accounts after the last credential rotation"))
+        db.flush()
+    return fixed
+
+
 def apply(db: Session, admin_pw: str, demo_pw: str, admin_email: str = "", force: bool = False) -> dict:
     """Apply the credentials inside the caller's transaction (flush only, no commit).
 
@@ -74,7 +122,8 @@ def apply(db: Session, admin_pw: str, demo_pw: str, admin_email: str = "", force
     fp = fingerprint(admin_pw, demo_pw, admin_email)
     previous = stored_fingerprint(db)
     if previous and previous.get("fingerprint") == fp and not force:
-        return {"applied": False, "reason": "unchanged", "applied_at": previous.get("applied_at")}
+        late = secure_late_accounts(db, admin_pw, demo_pw, previous.get("applied_at"))
+        return {"applied": False, "reason": "unchanged", "applied_at": previous.get("applied_at"), "late_accounts": late}
 
     changed_admin = changed_demo = 0
 
@@ -138,6 +187,9 @@ def main() -> int:
     try:
         result = apply(db, admin_pw, demo_pw, admin_email, force=force)
         if not result["applied"]:
+            if result.get("late_accounts"):
+                db.commit()
+                print(f"deploy_secure: {result['late_accounts']} re-seeded account(s) had a development password; replaced.")
             print(f"deploy_secure: credentials unchanged since {result.get('applied_at') or 'the last run'}, nothing to do"
                   " (set ROTATE_CREDENTIALS=true to re-apply).")
             return 0

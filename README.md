@@ -11,7 +11,8 @@ marketing, governance and an executive command center.
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/REPLACE_WITH_TEMPLATE_CODE)
 
 ```bash
-# Ubuntu 22.04 / 24.04 server: Docker + PostgreSQL + HTTPS (Caddy) + nightly pg_dump, asks for domain and admin e-mail
+# Ubuntu 22.04 / 24.04 or Debian 12 server (e.g. a Hostinger KVM VPS): Docker + PostgreSQL + HTTPS (Caddy)
+# + nightly pg_dump; asks for the domain, the admin e-mail and whether to load demo data
 curl -fsSL https://raw.githubusercontent.com/mcgary6567-lab/Codeea/main/install.sh | bash
 ```
 
@@ -23,6 +24,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 | Target | One action | Files |
 |---|---|---|
 | Render (free tier works) | Button above, then **Apply** | `render.yaml`, `render-build.sh`, `runtime.txt`, `deploy_secure.py`, `docs/RENDER_DEPLOY.md` |
+| Hostinger VPS (recommended) | Step by step: `docs/HOSTINGER_VPS.md` | same files as the next row |
 | Ubuntu VPS with Docker | `curl ... install.sh \| bash` | `install.sh`, `docker-compose.yml`, `Dockerfile`, `deploy/entrypoint.sh`, `deploy/Caddyfile`, `deploy/backup.sh`, `upgrade.sh`, `deploy/smoke.sh` |
 | Docker Desktop (laptop) | `cp .env.example .env`, add `POSTGRES_PASSWORD=...` and `APP_ENV=staging`, then `docker compose up -d --build` | `docker-compose.yml`, `Dockerfile` |
 | Railway | Button above (template), or New Project → GitHub repo + PostgreSQL + volume at `/app/storage` | `railway.json`, `Dockerfile` |
@@ -30,8 +32,9 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 | Ubuntu VPS without Docker | Manual runbook | `docs/DEPLOYMENT.md`, `upgrade.sh`, `deploy/smoke.sh` |
 | Windows demo laptop | `install.ps1` (or `start.bat`) | `install.ps1`, `start.bat` |
 
-Every target runs the same bootstrap: `alembic upgrade head` → `seed.py` (`SEED_MODE=core` or `demo`,
-first start only) → `deploy_secure.py` (applies `ADMIN_PASSWORD` / `DEMO_PASSWORD` / `ADMIN_EMAIL` whenever
+Every target runs the same bootstrap: `alembic upgrade head` → `seed.py` (`SEED_MODE=core` or `demo` on
+the first start; afterwards the Docker image re-runs only the core seed, which adds new roles and permissions)
+→ `deploy_secure.py` (applies `ADMIN_PASSWORD` / `DEMO_PASSWORD` / `ADMIN_EMAIL` whenever
 they change) → `uvicorn app.main:app` with one worker. Sign in with the generated `ADMIN_PASSWORD`; the app
 forces a password change on the first page. The Railway button needs a template code: create the template
 once from a working project (Settings → Create template) and replace `REPLACE_WITH_TEMPLATE_CODE`.

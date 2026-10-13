@@ -44,13 +44,54 @@ def _schema():
     init_db()
     # The leave tests below create a family leave on every run; remove them afterwards, so repeated runs do not pile
     # up duplicate leaves on the seeded students (they showed on the student journey timeline).
+    # The approval tests below move the first live subscription (student1's) to a new slot, days and teacher and
+    # rebuild its future classes. Remember it all and put it back, or the student keeps a teacher who never taught
+    # its past classes and other tests (class ratings on the teacher's page) fail. Found 13 Oct 2026.
+    from app.models.academic import TeacherAssignment
+    from app.models.scheduling import ClassSession, Schedule
     s = SessionLocal()
     start_id = s.query(func.max(Leave.id)).scalar() or 0
     start_case = s.query(func.max(Case.id)).scalar() or 0
+    start_assignment = s.query(func.max(TeacherAssignment.id)).scalar() or 0
+    start_time_req = s.query(func.max(TimeChangeRequest.id)).scalar() or 0
+    start_teacher_req = s.query(func.max(TeacherChangeRequest.id)).scalar() or 0
+    sub = s.query(Subscription).filter(Subscription.status.notin_(["cancelled", "expired"])).first()
+    saved = None
+    if sub is not None:
+        sch = s.get(Schedule, sub.schedule_id) if sub.schedule_id else None
+        stu = s.get(Student, sub.student_id) if sub.student_id else None
+        saved = {"sub": (sub.id, sub.slot_id, list(sub.days_of_week or []), sub.teacher_id),
+                 "sch": (sch.id, sch.start_time, sch.duration_minutes, list(sch.days_of_week or []), sch.teacher_id) if sch else None,
+                 "student": (stu.id, stu.teacher_id) if stu else None}
     s.close()
     yield
     from tests.conftest import purge_cases
     s = SessionLocal()
+    if saved:
+        from app.services import scheduling as sched_svc
+        sub_id, slot_id, days, teacher_id = saved["sub"]
+        sub = s.get(Subscription, sub_id)
+        sub.slot_id, sub.days_of_week, sub.teacher_id = slot_id, days, teacher_id
+        if saved["student"]:
+            s.get(Student, saved["student"][0]).teacher_id = saved["student"][1]
+            s.query(TeacherAssignment).filter(TeacherAssignment.student_id == saved["student"][0],
+                                              TeacherAssignment.id > start_assignment).delete(synchronize_session=False)
+            s.query(ClassSession).filter(ClassSession.student_id == saved["student"][0], ClassSession.status == "pending",
+                                         ClassSession.date >= date.today()).update({ClassSession.teacher_id: teacher_id},
+                                                                                   synchronize_session=False)
+        if saved["sch"]:
+            sch_id, start_time, duration, sch_days, sch_teacher = saved["sch"]
+            sch = s.get(Schedule, sch_id)
+            sch.start_time, sch.duration_minutes, sch.days_of_week, sch.teacher_id = start_time, duration, sch_days, sch_teacher
+            # every class still to come on this schedule, including one the new slot put earlier today (regeneration
+            # only replaces classes whose start is still ahead). Matched by date, not by id: SQLite reuses the ids
+            # of the classes the approval deleted, so an id watermark misses the new ones.
+            s.query(ClassSession).filter(ClassSession.schedule_id == sch_id, ClassSession.status == "pending",
+                                         ClassSession.date >= date.today()).delete(synchronize_session=False)
+            s.flush()
+            sched_svc.regenerate_future_sessions(s, sch)  # the future classes as the original schedule makes them
+        s.query(TimeChangeRequest).filter(TimeChangeRequest.id > start_time_req).delete(synchronize_session=False)
+        s.query(TeacherChangeRequest).filter(TeacherChangeRequest.id > start_teacher_req).delete(synchronize_session=False)
     s.query(Leave).filter(Leave.id > start_id, Leave.person_type == "student",
                           Leave.reason.in_(["Family travelling for a wedding.", "Half term abroad."])).delete(synchronize_session=False)
     purge_cases(s, [i for (i,) in s.query(Case.id).filter(Case.id > start_case,
