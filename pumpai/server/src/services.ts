@@ -98,6 +98,10 @@ export interface SaleInput {
   pending?: boolean;
   /** A fixed (lump-sum) rupee discount for a khata customer. The khata is billed the net: litres*rate − discount. */
   discount?: number;
+  /** khata = lump-sum on a khata fill (default when the method is khata); direct = walk-in discount on cash / card / online. */
+  discount_kind?: "khata" | "direct";
+  /** direct discount: who got it / why (free text) — may be added right after the sale. */
+  discount_ref?: string | null;
 }
 
 export function recordSale(tenantId: number, s: SaleInput): Row {
@@ -122,7 +126,9 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   // a fixed rupee discount for a khata customer: the khata is billed the net (litres*rate − discount)
   const discount = round2(s.discount ?? 0);
   if (discount < 0) throw new AppError(400, "Discount cannot be negative");
-  if (discount > 0 && s.payment_method !== "khata") throw new AppError(400, "Discount is only for khata customers");
+  const discountKind = discount > 0 ? (s.discount_kind ?? (s.payment_method === "khata" ? "khata" : "direct")) : null;
+  if (discountKind === "khata" && s.payment_method !== "khata") throw new AppError(400, "A khata discount needs a khata customer — use Direct discount for a walk-in");
+  if (discountKind === "direct" && ["khata", "coupon", "loyalty"].includes(s.payment_method)) throw new AppError(400, "Direct discount is for cash / card / online sales (a khata fill has its own discount)");
   if (discount >= gross) throw new AppError(400, `Discount ${pkr(discount)} is more than the fuel amount ${pkr(gross)}`);
   const amount = round2(gross - discount); // the net charged to the khata
   const customer = s.customer_id ? get("SELECT * FROM customers WHERE id=? AND tenant_id=?", s.customer_id, tenantId) : undefined;
@@ -164,10 +170,11 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     // a bank account only applies to a card / digital (POS machine) sale — never cash / khata / coupon etc.
     const accountId = s.account_id && digitalMethods(tenantId).includes(s.payment_method) ? s.account_id : null;
     const { id } = run(
-      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,discount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,photo_id,at_close,account_id,pending,over_limit,created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,discount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,photo_id,at_close,account_id,pending,over_limit,created_at,discount_kind,discount_ref)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       s.station_id, s.shift_id ?? null, customer?.id ?? null, s.nozzle_id ?? null, s.product,
       round2(litres), rate, amount, discount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), coupon?.id ?? null, photoId, s.at_close ? 1 : null, accountId, pending ? 1 : 0, s.override_limit ? 1 : 0, ts,
+      discountKind, discountKind === "direct" ? (s.discount_ref?.trim() || null) : null,
     );
     if (coupon && run("UPDATE fuel_coupons SET status='used', sale_id=?, used_at=?, used_by=? WHERE id=? AND status='active'", id, ts, String(s.created_by ?? ""), coupon.id).changes !== 1)
       throw new AppError(409, `Coupon ${coupon.code} was just used`);

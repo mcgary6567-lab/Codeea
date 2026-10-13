@@ -264,6 +264,8 @@ export function migrate() {
   addColumn("sales", "discount", "REAL NOT NULL DEFAULT 0");
   // 1 = a manager/CEO allowed this sale over the vehicle's daily litre limit (for the discount & override audit report)
   addColumn("sales", "over_limit", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("sales", "discount_kind", "TEXT"); // khata (lump-sum on a khata fill) | direct (walk-in: cash / card / online)
+  addColumn("sales", "discount_ref", "TEXT"); // direct discount: who / why (free text, typed right after the sale)
   // khata security: a post-dated cheque or a personal guarantor held against a credit account
   db.exec(`CREATE TABLE IF NOT EXISTS khata_guarantees (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL REFERENCES customers(id),

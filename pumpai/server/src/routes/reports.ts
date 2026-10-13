@@ -343,7 +343,8 @@ reports.get("/reports/discounts", h((req) => {
   const to = q.to ? new Date(q.to).toISOString() : new Date().toISOString();
   const from = q.from ? new Date(q.from).toISOString() : new Date(Date.parse(to) - 30 * DAY).toISOString();
   const t = tid(req);
-  const rows = all(`SELECT s.id, s.created_at, s.product, s.litres, s.rate, s.amount, s.discount, s.over_limit, s.vehicle_no,
+  const rows = all(`SELECT s.id, s.created_at, s.product, s.litres, s.rate, s.amount, s.discount, s.over_limit, s.vehicle_no, s.payment_method,
+      COALESCE(s.discount_kind, CASE WHEN s.discount > 0 THEN 'khata' END) discount_kind, s.discount_ref,
       c.name customer_name, u.name by_name, u.role by_role
     FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN customers c ON c.id=s.customer_id LEFT JOIN users u ON u.id=s.created_by
     WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? AND (s.discount > 0 OR s.over_limit = 1)
@@ -364,9 +365,20 @@ reports.get("/reports/discounts", h((req) => {
     const e = byCustomer.get(k) ?? { name: k, count: 0, total: 0 };
     e.count++; e.total = round2(e.total + r.discount); byCustomer.set(k, e);
   }
+  // direct (walk-in) discounts: who got them, by the reference the salesman typed
+  const direct = discounts.filter((r) => r.discount_kind === "direct");
+  const byRef = new Map<string, { ref: string; count: number; total: number }>();
+  for (const r of direct) {
+    const k = (r.discount_ref ?? "").trim() || "— (no reference)";
+    const e = byRef.get(k) ?? { ref: k, count: 0, total: 0 };
+    e.count++; e.total = round2(e.total + r.discount); byRef.set(k, e);
+  }
   return {
     from, to,
     discount_total: round2(discounts.reduce((a, r) => a + r.discount, 0)),
+    khata_total: round2(discounts.filter((r) => r.discount_kind !== "direct").reduce((a, r) => a + r.discount, 0)),
+    direct_total: round2(direct.reduce((a, r) => a + r.discount, 0)), direct_count: direct.length,
+    by_reference: [...byRef.values()].sort((a, b) => b.total - a.total),
     discount_count: discounts.length,
     override_count: overrides.length,
     by_person: [...byPerson.values()].sort((a, b) => b.total - a.total),

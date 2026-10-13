@@ -63,7 +63,9 @@ test("khata lump-sum discount: net billed, booked gross with a discount line, sa
   const silly = await call("admin", "POST", "/api/sales", { station_id: 1, product: "PMG", litres: 1, payment_method: "khata", customer_id: cust.id, discount: 9999 });
   assert.equal(silly.status, 400, "discount > amount rejected");
 
-  // discount on a non-khata sale is rejected
-  const cash = await call("admin", "POST", "/api/sales", { station_id: 1, product: "PMG", litres: 10, payment_method: "cash", discount: 100 });
-  assert.equal(cash.status, 400, "discount only for khata");
+  // a KHATA-kind discount on a cash sale is rejected; a plain discount on a cash sale is a DIRECT (walk-in) discount
+  const cash = await call("admin", "POST", "/api/sales", { station_id: 1, product: "PMG", litres: 10, payment_method: "cash", discount: 100, discount_kind: "khata" });
+  assert.equal(cash.status, 400, "khata discount only for khata");
+  const direct = await call("admin", "POST", "/api/sales", { station_id: 1, product: "PMG", litres: 10, payment_method: "cash", discount: 100 });
+  assert.equal(direct.status, 200); assert.equal(direct.data.discount_kind, "direct");
 });

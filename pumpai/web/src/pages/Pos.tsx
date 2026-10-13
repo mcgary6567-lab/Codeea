@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera, Printer } from "lucide-react";
+import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera, Printer, Percent } from "lucide-react";
 import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
-import { Loading, useAction, useToast } from "../components/ui";
-import { newUid, isOffline, queueSale, dropQueued, dismissFailed, useOfflineQueue, cacheGet, cacheSet } from "../lib/offline";
+import { Loading, Modal, useAction, useToast } from "../components/ui";
+import { newUid, isOffline, queueSale, dropQueued, patchQueued, dismissFailed, useOfflineQueue, cacheGet, cacheSet } from "../lib/offline";
 import { num, pkr, PRODUCTS, PRODUCT_COLORS, PRODUCT_UR, activeProducts } from "../lib/format";
 import { iconMap, labelMap, useLookups, type LookupEntry } from "../lib/lookups";
 import { useAuth } from "../App";
@@ -78,6 +78,10 @@ export default function Pos() {
   const [entry, setEntry] = useState("");
   const [pay, setPay] = useState<string | null>(null);
   const [khata, setKhata] = useState<{ account: any; vehicle: string; slip: string; photo_id?: number | null; pending?: boolean; discount?: number } | null>(null);
+  // direct (walk-in) discount on a cash / card / online sale: fixed rupees or Rs per litre; the reference (who / why) is typed right after saving
+  const [direct, setDirect] = useState<{ mode: "rs" | "perL"; value: number } | null>(null);
+  const [pickDirect, setPickDirect] = useState(false);
+  const [refText, setRefText] = useState("");
   const [pickKhata, setPickKhata] = useState(false);
   const [scan, setScan] = useState(false);
   const [done, setDone] = useState<any>(null);
@@ -137,9 +141,14 @@ export default function Pos() {
   const litres = mode === "litres" ? value : rate ? value / rate : 0;
   const amount = mode === "amount" ? value : value * rate;
   const khataDiscount = pay === "khata" && !khata?.pending ? (khata?.discount ?? 0) : 0;
-  const net = Math.max(0, amount - khataDiscount); // what is actually charged to the khata after a lump-sum discount
-  const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata) && (pay !== "loyalty" || pointsCust) && (pay !== "coupon" || coupon) && (pay !== "wallet" || walletAcct)) && (!khataDiscount || khataDiscount < amount);
-  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); setPointsCust(null); setCoupon(null); setWalletAcct(null); setCardBank(null); };
+  const directAllowed = Boolean(pay) && !["khata", "coupon", "loyalty"].includes(pay ?? "");
+  const directDiscount = directAllowed && direct ? Math.round((direct.mode === "perL" ? direct.value * litres : direct.value) * 100) / 100 : 0;
+  const discount = khataDiscount || directDiscount;
+  const net = Math.max(0, amount - discount); // what is actually charged / collected after the discount
+  const directMax = d?.direct_discount_max ?? null;
+  const directOver = directMax != null && directDiscount > directMax;
+  const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata) && (pay !== "loyalty" || pointsCust) && (pay !== "coupon" || coupon) && (pay !== "wallet" || walletAcct)) && (!discount || discount < amount) && !directOver;
+  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); setPointsCust(null); setCoupon(null); setWalletAcct(null); setCardBank(null); setDirect(null); setRefText(""); };
 
   /** Fill the POS from a spoken sentence; the salesman checks it and presses Save. */
   const applyVoice = async (v: any) => {
@@ -183,7 +192,8 @@ export default function Pos() {
     if (pay === "coupon" && coupon) body.coupon_code = coupon.code;
     if (pay === "wallet" && walletAcct) body.customer_id = walletAcct.id;
     if (pay && isBankPay(pay) && cardBank) body.account_id = cardBank.id;
-    const shown = { product, litres, rate, amount: net, discount: khataDiscount, payment_method: pay, khata_name: khata?.account.name ?? walletAcct?.name, bank_name: cardBank?.name, pending: khata?.pending, client_uid: body.client_uid };
+    if (directDiscount > 0) Object.assign(body, { discount: directDiscount, discount_kind: "direct" });
+    const shown = { product, litres, rate, amount: net, discount, discount_kind: directDiscount > 0 ? "direct" : khataDiscount > 0 ? "khata" : null, discount_ref: null, payment_method: pay, khata_name: khata?.account.name ?? walletAcct?.name, bank_name: cardBank?.name, pending: khata?.pending, client_uid: body.client_uid };
     if (training) { setDone({ ...shown, training: true }); reset(); return; }
     setSaving(true);
     try {
@@ -199,7 +209,14 @@ export default function Pos() {
     } finally { setSaving(false); }
     reset();
   };
-  useEffect(() => { if (!done) return; const id = setTimeout(() => setDone(null), 6000); return () => clearTimeout(id); }, [done]);
+  useEffect(() => { if (!done || (done.discount_kind === "direct" && !done.discount_ref && !done.training)) return; const id = setTimeout(() => setDone(null), 6000); return () => clearTimeout(id); }, [done]);
+  /** Direct discount: the reference (who / why) typed on the "saved" screen — online to the server, offline into the queued sale. */
+  const saveRef = async () => {
+    const ref = refText.trim();
+    if (ref.length < 2 || !done) return;
+    if (done.offline) { patchQueued(done.client_uid, { discount_ref: ref }); setDone({ ...done, discount_ref: ref }); toast("ok", "Reference saved on tablet"); return; }
+    if (await run(() => api(`/sales/${done.id}/discount-ref`, { body: { ref } }), "Reference saved · حوالہ محفوظ")) { setDone({ ...done, discount_ref: ref }); today.reload(); }
+  };
   const undo = async (sale: any) => {
     if (sale.offline) { dropQueued(sale.client_uid); setDone(null); toast("ok", "Sale removed"); return; }
     if (await run(() => api(sale.shop ? `/shop/sales/${sale.id}/undo` : `/sales/${sale.id}/undo`, { body: {} }), "Sale undone · سیل واپس")) { setDone(null); today.reload(); }
@@ -363,7 +380,21 @@ export default function Pos() {
                   <Ur className="text-sm leading-loose">{p.ur}</Ur>
                 </button>
               ))}
+              {/* direct (walk-in) discount — not a payment method: it reduces what is collected on the chosen method */}
+              <button aria-pressed={Boolean(direct)} disabled={!directAllowed} onClick={() => setPickDirect(true)} title={directAllowed ? "" : "Pehle cash / card / online chunein"}
+                className={`flex flex-col items-center justify-center rounded-2xl py-3 text-white shadow transition active:scale-95 bg-rose-600 disabled:opacity-40 ${direct ? "scale-[1.03] ring-4 ring-slate-900 ring-offset-2" : pay && !direct ? "opacity-90" : ""}`}>
+                <Percent size={28} />
+                <span className="mt-1 text-base font-bold">Direct discount</span>
+                <Ur className="text-sm leading-loose">ڈائریکٹ رعایت</Ur>
+              </button>
             </div>
+            {direct && directAllowed && (
+              <button onClick={() => setPickDirect(true)} className={`mt-3 flex w-full items-center gap-3 rounded-xl p-3 text-left ring-1 ${directOver ? "bg-red-50 ring-red-300" : "bg-rose-50 ring-rose-300"}`}>
+                <Percent className="text-rose-600" /><span className="flex-1"><b>Direct discount {direct.mode === "perL" ? `Rs ${direct.value}/L` : `Rs ${direct.value}`}</b>
+                  <span className="block text-sm text-slate-600">{pkr(amount)} − {pkr(directDiscount)} = <b>{pkr(net)}</b>{directOver ? <span className="ml-2 font-semibold text-red-600">· limit {pkr(directMax!)} — manager se karwayen</span> : ""}</span></span>
+                <span className="text-sm text-rose-700 underline">Change</span>
+              </button>
+            )}
             {pay === "loyalty" && pointsCust && (
               <button onClick={() => setPickPoints(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-pink-50 p-3 text-left ring-1 ring-pink-300">
                 <Gift className="text-pink-600" /><span className="flex-1"><b>{pointsCust.name}</b><span className="block text-sm text-slate-600">{pointsCust.loyalty_points} points = Rs {pointsCust.loyalty_points}</span></span>
@@ -419,7 +450,7 @@ export default function Pos() {
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-1.5 ring-1 ring-emerald-200 sm:block sm:py-2 sm:text-right">
                   <div className="text-sm text-emerald-800">{pay === "khata" && khata?.pending ? <>Pending — bill later · <Ur>بعد میں</Ur></> : pay === "khata" ? <>Add to khata · <Ur>کھاتے میں</Ur></> : <>Collect · <Ur>وصول کریں</Ur></>}</div>
-                  {khataDiscount > 0 && <div className="text-xs font-medium text-amber-700 sm:text-sm">{pkr(amount)} − {pkr(khataDiscount)} discount</div>}
+                  {discount > 0 && <div className="text-xs font-medium text-amber-700 sm:text-sm">{pkr(amount)} − {pkr(discount)} {directDiscount > 0 ? "direct discount" : "discount"}</div>}
                   <div className="text-2xl font-extrabold tabular-nums text-emerald-800 sm:text-3xl">{pkr(net)}</div>
                 </div>
               </div>
@@ -466,8 +497,9 @@ export default function Pos() {
       {pickPoints && <PointsPicker onClose={() => { setPickPoints(false); if (!pointsCust) setPay(null); }} onPick={(c) => { setPointsCust(c); setPickPoints(false); }} />}
       {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} discountMax={d.discount_max ?? null} fuelAmount={amount} fuel />}
       {pickBank && <BankPosPicker accounts={bankAccounts} onClose={() => setPickBank(false)} onPick={(a) => { setCardBank(a); setPickBank(false); }} />}
+      {pickDirect && <DirectDiscountPicker initial={direct} litres={litres} amount={amount} max={directMax} onClose={() => setPickDirect(false)} onPick={(v) => { setDirect(v); setPickDirect(false); }} />}
       {done && (
-        <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.training ? "bg-amber-500/95" : done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => setDone(null)}>
+        <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.training ? "bg-amber-500/95" : done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => { if (done.discount_kind === "direct" && !done.discount_ref && !done.training) return; setDone(null); }}>
           <div>
             <div className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white ${done.offline ? "text-slate-800" : "text-emerald-600"}`}>{done.offline ? <WifiOff size={56} /> : <Check size={64} strokeWidth={3} />}</div>
             <div className="mt-4 text-3xl font-bold">{done.training ? <>Practice sale · <Ur>مشق</Ur></> : done.offline ? <>Saved on tablet · <Ur>ٹیبلٹ میں محفوظ</Ur></> : <>Sale saved · <Ur>سیل محفوظ</Ur></>}</div>
@@ -475,10 +507,21 @@ export default function Pos() {
             {done.offline && <div className="mt-1 text-lg">No internet — it will upload by itself</div>}
             {done.shop
               ? <div className="mt-2 text-xl">{done.lines.map((l: any) => `${num(l.qty)} × ${l.name}`).join(", ")}</div>
-              : <div className="mt-2 text-2xl">{fuelOf(done.product).en} {num(done.litres, 2)} L × Rs {done.rate}{done.discount > 0 ? <span className="block text-lg">− Rs {done.discount} discount</span> : null}</div>}
+              : <div className="mt-2 text-2xl">{fuelOf(done.product).en} {num(done.litres, 2)} L × Rs {done.rate}{done.discount > 0 ? <span className="block text-lg">− Rs {done.discount} {done.discount_kind === "direct" ? "direct discount" : "discount"}</span> : null}</div>}
             <div className="text-5xl font-bold tabular-nums">{pkr(done.shop ? done.total : done.amount)}</div>
             <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}${done.pending ? " · CARD PENDING" : ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.bank_name && isBankPay(done.payment_method) ? `${done.payment_method} — ${done.bank_name}` : done.payment_method}</div>
-            {done.pending && !done.training && <div className="mt-1 text-base text-white/90">Card aaye to clear karein — us din ke rate par bill hoga</div>}
+            {Boolean(done.pending) && !done.training && <div className="mt-1 text-base text-white/90">Card aaye to clear karein — us din ke rate par bill hoga</div>}
+            {done.discount_kind === "direct" && !done.training && (
+              <div className="mx-auto mt-4 max-w-md rounded-2xl bg-white p-3 text-left text-slate-900" onClick={(e) => e.stopPropagation()}>
+                <div className="text-sm font-semibold">Reference — kis ko / kyun · <Ur>حوالہ</Ur> {!done.discount_ref && <span className="text-rose-600">(required)</span>}</div>
+                {done.discount_ref
+                  ? <div className="mt-1 flex items-center gap-2 text-base"><span className="flex-1">📝 {done.discount_ref}</span><button className="text-sm text-brand-700 underline" onClick={() => setDone({ ...done, discount_ref: null, _ref: done.discount_ref })}>Edit</button></div>
+                  : <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); saveRef(); }}>
+                      <input autoFocus className="input min-h-11 flex-1 text-base" placeholder="e.g. Rickshaw union, Dukandar Aslam, Police mobile" value={refText} onChange={(e) => setRefText(e.target.value)} aria-label="Discount reference" />
+                      <button type="submit" disabled={refText.trim().length < 2} className="rounded-xl bg-rose-600 px-4 text-base font-bold text-white disabled:bg-slate-300">Save</button>
+                    </form>}
+              </div>
+            )}
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
             {(done.receipt_url || done.offline) && !done.training && !done.pending && (
               <div className="mt-4" onClick={(e) => e.stopPropagation()}>
@@ -498,7 +541,7 @@ export default function Pos() {
               {!done.training && <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
                 <Undo2 size={24} /> Undo · <Ur>واپس</Ur>
               </button>}
-              <button onClick={() => setDone(null)} className="rounded-xl bg-white px-8 py-4 text-xl font-bold text-emerald-700 active:scale-95">OK</button>
+              <button onClick={(e) => { e.stopPropagation(); if (done.discount_kind === "direct" && !done.discount_ref && !done.training) { toast("err", "Pehle reference likhein · حوالہ لکھیں"); return; } setDone(null); }} className="rounded-xl bg-white px-8 py-4 text-xl font-bold text-emerald-700 active:scale-95">OK</button>
             </div>
             {!done.offline && !done.training && <div className="mt-2 text-sm text-white/80">Wrong entry? Undo within 2 minutes</div>}
           </div>
@@ -595,7 +638,7 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
           {d.recent.map((r: any) => (
             <li key={r.id} className="flex items-center gap-2 py-2 text-sm">
               <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: fuelOf(r.product).color }} />
-              <span className="flex-1"><b>{num(r.litres, 2)} L</b> {fuelOf(r.product).en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.bank_name ? `${r.payment_method} · ${r.bank_name}` : r.payment_method}</span></span>
+              <span className="flex-1"><b>{num(r.litres, 2)} L</b> {fuelOf(r.product).en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.bank_name ? `${r.payment_method} · ${r.bank_name}` : r.payment_method}{r.discount_kind === "direct" ? <span className="text-rose-600"> · −Rs {num(r.discount, 0)} {r.discount_ref ? `(${r.discount_ref})` : "(no ref)"}</span> : null}</span></span>
               <span className="font-semibold tabular-nums">{pkr(r.amount)}</span>
               {r.payment_method === "khata" && (r.photo_id
                 ? <PhotoThumb id={r.photo_id} size={8} />
@@ -969,5 +1012,41 @@ function BarcodeScanner({ onCode, onClose }: { onCode: (code: string) => void; o
         </form>
       </div>
     </div>
+  );
+}
+
+
+/** Direct (walk-in) discount: fixed rupees or rupees per litre; shows gross − discount = net and the salesman's limit. */
+function DirectDiscountPicker({ initial, litres, amount, max, onClose, onPick }: { initial: { mode: "rs" | "perL"; value: number } | null; litres: number; amount: number; max: number | null; onClose: () => void; onPick: (v: { mode: "rs" | "perL"; value: number } | null) => void }) {
+  const [mode, setMode] = useState<"rs" | "perL">(initial?.mode ?? "rs");
+  const [val, setVal] = useState<string>(initial ? String(initial.value) : "");
+  const v = Number(val) || 0;
+  const disc = Math.round((mode === "perL" ? v * litres : v) * 100) / 100;
+  const over = max != null && disc > max;
+  const tooBig = disc >= amount && amount > 0;
+  return (
+    <Modal open onClose={onClose} title="Direct discount · ڈائریکٹ رعایت">
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          {([["rs", "Rupay (fixed)", "مقررہ رقم"], ["perL", "Rs per litre", "فی لیٹر"]] as const).map(([k, en, ur]) => (
+            <button key={k} type="button" onClick={() => setMode(k)} aria-pressed={mode === k} className={`rounded-xl px-3 py-3 text-base font-semibold ring-2 ${mode === k ? "bg-rose-600 text-white ring-rose-600" : "bg-white text-slate-700 ring-slate-200"}`}>{en}<Ur className="block text-sm">{ur}</Ur></button>
+          ))}
+        </div>
+        <input autoFocus className="input min-h-14 w-full text-center text-3xl tabular-nums" type="number" inputMode="decimal" min={0} step={mode === "perL" ? "0.5" : "1"} placeholder={mode === "perL" ? "Rs / L" : "Rs"} value={val} onChange={(e) => setVal(e.target.value)} aria-label="Discount value" />
+        <div className="flex flex-wrap gap-2">{(mode === "perL" ? [1, 2, 3, 5] : [20, 50, 100, 200]).map((q) => <button key={q} type="button" onClick={() => setVal(String(q))} className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold">{mode === "perL" ? `Rs ${q}/L` : `Rs ${q}`}</button>)}</div>
+        <div className="rounded-xl bg-slate-50 p-3 text-sm">
+          <div className="flex justify-between"><span>Fuel {num(litres, 2)} L</span><span className="tabular-nums">{pkr(amount)}</span></div>
+          <div className="flex justify-between text-rose-700"><span>− Direct discount</span><span className="tabular-nums">{pkr(disc)}</span></div>
+          <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-lg font-bold"><span>Customer pays · <Ur>گاہک دے گا</Ur></span><span className="tabular-nums">{pkr(Math.max(0, amount - disc))}</span></div>
+        </div>
+        {max != null && <p className={`text-sm ${over ? "font-semibold text-red-600" : "text-slate-500"}`}>Aap ki limit per sale: {pkr(max)}{over ? " — is se zyada manager / CEO dete hain" : ""}</p>}
+        {tooBig && <p className="text-sm font-semibold text-red-600">Discount fuel ki raqam se zyada nahi ho sakta</p>}
+        <p className="text-xs text-slate-500">Save ke baad reference likhna hoga (kis ko / kyun) — report mein isi naam se jama hoga.</p>
+        <div className="flex gap-2">
+          {initial && <button type="button" className="btn-secondary min-h-12" onClick={() => onPick(null)}>Remove</button>}
+          <button type="button" disabled={!(disc > 0) || over || tooBig} className="min-h-12 flex-1 rounded-xl bg-rose-600 text-lg font-bold text-white disabled:bg-slate-300" onClick={() => onPick({ mode, value: v })}><Check className="inline" size={22} /> Apply · <Ur>لاگو کریں</Ur></button>
+        </div>
+      </div>
+    </Modal>
   );
 }

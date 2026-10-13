@@ -111,6 +111,8 @@ export function profitAndLoss(t: number, month: string, showPrivate = true) {
   const byCategory = expAccts.map((x) => ({ category: x.account.replace("Expense: ", ""), amount: r0(x.balance) })).filter((x) => x.amount).sort((a, b) => b.amount - a.amount);
   // lump-sum khata discounts given this month (already netted off fuel revenue; shown so the owner can see the rebate)
   const discountGiven = r0(J.trial_balance.find((x) => x.account === "Discount given — khata")?.balance ?? 0);
+  // direct (walk-in) discounts given at the POS — also already netted off revenue; shown as its own line
+  const discountDirect = r0(J.trial_balance.find((x) => x.account === "Discount given — direct")?.balance ?? 0);
   // income the pump earns beyond fuel/shop: shop rent and carriage/kiraya (booked in the ledger, so add them to profit)
   const toIso = new Date(to).toISOString();
   // CEO "other income" (misc money the pump earned) adds to profit; "other discount" (concessions given) reduces it.
@@ -126,6 +128,7 @@ export function profitAndLoss(t: number, month: string, showPrivate = true) {
     other_income: otherIncome,
     other_income_ceo: ceoIncome,
     discount_given: discountGiven,
+    discount_direct: discountDirect,
     other_discount_ceo: ceoDiscount,
     expenses: { total: expensesTotal, by_category: byCategory },
     net_profit: net,

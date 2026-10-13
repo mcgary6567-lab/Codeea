@@ -22,6 +22,8 @@ export const isOffline = (e: unknown) => !(e instanceof ApiError);
 export function queueSale(body: any, label: string) {
   write(QUEUE, [...read(QUEUE), { body: { ...body, offline_at: new Date().toISOString() }, queued_at: new Date().toISOString(), label }]);
 }
+/** Change a sale still waiting on the tablet (e.g. add the direct-discount reference typed after saving). */
+export function patchQueued(uid: string, patch: Record<string, unknown>) { write(QUEUE, read(QUEUE).map((q) => (q.body.client_uid === uid ? { ...q, body: { ...q.body, ...patch } } : q))); }
 export function dropQueued(uid: string) { write(QUEUE, read(QUEUE).filter((q) => q.body.client_uid !== uid)); }
 export function dismissFailed(uid: string) { write(FAILED, read(FAILED).filter((q) => q.body.client_uid !== uid)); }
 

@@ -35,6 +35,10 @@
     {
      "en": "Press Save. The receipt is ready to print, and stock, meter and the customer's khata update automatically.",
      "ur": "محفوظ دبائیں۔ رسید پرنٹ کے لیے تیار، اور اسٹاک، میٹر اور گاہک کا کھاتہ خود اپ ڈیٹ ہو جاتے ہیں۔"
+    },
+    {
+     "en": "Walk-in discount: pick the payment, press 'Direct discount' (rupees or Rs/litre), save — then type the reference (who / why). It is required and shows in the owner's report.",
+     "ur": "رعایت: ادائیگی چنیں، 'ڈائریکٹ رعایت' دبائیں، محفوظ کریں، پھر حوالہ لکھیں (کس کو / کیوں)۔ یہ لازمی ہے۔"
     }
    ],
    "tips": [

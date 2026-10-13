@@ -332,6 +332,7 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
                 ))}
                 <div className="rounded-xl bg-slate-800 p-3 text-white">
                   <Row k="Cash sales (fuel + shop)" v={rs(preview.summary.cash_sales)} />
+                  {preview.summary.direct_discount > 0 && <div className="flex justify-between gap-3 text-xs text-white/70"><span>Direct discounts given ({preview.summary.direct_discount_n}) — already taken off · <Ur>رعایت</Ur></span><span className="tabular-nums">{rs(preview.summary.direct_discount)}</span></div>}
                   {preview.summary.expenses_total > 0 && <Row k="− Expenses paid from the bag · خرچے" v={rs(preview.summary.expenses_total)} />}
                   <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-white/30 pt-1 text-lg font-bold"><span className="min-w-0">Should be in the bag · <Ur>تھیلے میں</Ur></span><span className="shrink-0 whitespace-nowrap tabular-nums">{rs(preview.cash_expected)}</span></div>
                 </div>

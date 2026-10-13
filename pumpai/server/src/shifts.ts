@@ -72,6 +72,8 @@ export function shiftSummary(shiftId: number) {
   const shopSum = (m: string[]) => round2(shopBy.filter((p) => m.includes(p.method)).reduce((a, p) => a + p.amount, 0));
   const shop = { total: shopSum(["cash", "easypaisa", "jazzcash", "raast", "card", "khata"]), cash: shopSum(["cash"]), digital: shopSum(["easypaisa", "jazzcash", "raast", "card"]), khata: shopSum(["khata"]), sales: shopBy.reduce((a, p) => a + p.n, 0) };
   const cashSales = round2(sum(["cash"]) + shop.cash);
+  // direct (walk-in) discounts this shift: amounts above are already net, this is the rupees given away, for the report
+  const dd = get("SELECT COALESCE(SUM(discount),0) v, COUNT(*) n FROM sales WHERE shift_id=? AND discount_kind='direct'", shiftId)!;
   const expensesTotal = round2(expenses.reduce((a, e) => a + e.amount, 0));
   // POS / card money this shift, split by the bank machine it was taken on (null = not tagged to a bank)
   const posByBank = all(`SELECT s.account_id, b.bank, b.title, b.account_no, ROUND(SUM(s.amount),2) amount, COUNT(*) n
@@ -83,6 +85,7 @@ export function shiftSummary(shiftId: number) {
     by_product: byProduct, by_payment: byPayment, pos_by_bank: posByBank,
     litres: round2(byProduct.reduce((a, p) => a + p.litres, 0)), amount: round2(byProduct.reduce((a, p) => a + p.amount, 0)),
     cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]), points: sum(["loyalty"]), prepaid: sum(["coupon", "wallet"]), shop,
+    direct_discount: round2(dd.v), direct_discount_n: dd.n,
     expenses, expenses_total: expensesTotal,
     // what must be in the cash bag at the end: cash sales minus expenses paid from that cash
     cash_expected: round2(cashSales - expensesTotal),

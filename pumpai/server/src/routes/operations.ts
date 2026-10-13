@@ -372,19 +372,23 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     client_uid: z.string().min(8).max(64).nullable().optional(),
     /** khata "card pending": fuel out now at the meter rate, billed to the khata only when the card is brought in (at that day's rate) */
     pending: z.boolean().optional(),
-    /** a fixed rupee discount for a khata customer (the khata is billed the net) */
+    /** a fixed rupee discount: khata (lump-sum on a khata fill) or direct (walk-in on cash / card / online) */
     discount: z.number().min(0).optional(),
+    discount_kind: z.enum(["khata", "direct"]).optional(),
+    /** direct discount: who / why — free text; can also be added right after with POST /sales/:id/discount-ref */
+    discount_ref: z.string().trim().max(120).optional().nullable(),
     /** when the sale was made on a tablet without internet; billed at the price in force then */
     offline_at: z.string().datetime({ offset: true }).nullable().optional(),
   }), req.body);
   if (!([...SPECIAL_METHODS] as string[]).includes(b.payment_method) && !moneyMethods(tid(req)).includes(b.payment_method))
     throw new AppError(400, `Unknown payment method: ${b.payment_method} — add it in Settings → Lists`);
   b.station_id = scopedStation(req, b.station_id)!;
-  // a khata discount above the salesman's limit needs a manager / CEO (checked early, before the shift lookup)
+  // a discount above the salesman's limit needs a manager / CEO (checked early, before the shift lookup)
   if (b.discount && b.discount > 0) {
-    const max = Number(getSetting(tid(req), "khata_discount_max", "500"));
+    const direct = (b.discount_kind ?? (b.payment_method === "khata" ? "khata" : "direct")) === "direct";
+    const max = Number(getSetting(tid(req), direct ? "direct_discount_max" : "khata_discount_max", "500"));
     if (b.discount > max && !can(req.user, "customers.edit"))
-      throw new AppError(403, `Discount above ${pkr(max)} needs the manager / CEO. Ask them to enter it.`);
+      throw new AppError(403, `${direct ? "Direct discount" : "Discount"} above ${pkr(max)} needs the manager / CEO. Ask them to enter it.`);
   }
   const at = b.offline_at ? new Date(b.offline_at).toISOString() : null;
   if (at && (Date.parse(at) > Date.now() + 60_000 || Date.parse(at) < Date.now() - 48 * 3600_000))
@@ -417,12 +421,36 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
   if (b.account_id && !get("SELECT id FROM bank_accounts WHERE id=? AND tenant_id=? AND active=1", b.account_id, tid(req))) throw new AppError(400, "Bank account not found");
   const { offline_at: _o, ...sale } = b;
   const saved = recordSale(tid(req), { ...sale, shift_id: shift?.id ?? null, created_by: req.user!.id, ...(at ? { created_at: at } : {}) });
+  if (!saved.duplicate && saved.discount_kind === "direct") directDiscountWatch(tid(req), saved);
   if (!saved.duplicate) setImmediate(() => {
     khataFillReceipt(tid(req), saved).catch((e) => console.error("[khata receipt]", e.message));
     walletAfterFill(tid(req), saved).catch((e) => console.error("[wallet]", e.message));
     askRating(tid(req), saved).catch((e) => console.error("[rating]", e.message));
   });
   return { ...saved, receipt_url: receiptUrl(tid(req), "f", saved.id) };
+}));
+
+/** Direct discounts given in one shift add up past the owner's alert line → tell the managers once per shift. */
+function directDiscountWatch(t: number, sale: Row) {
+  if (!sale.shift_id) return;
+  const limit = Number(getSetting(t, "direct_discount_alert", "2000"));
+  const tot = get("SELECT COALESCE(SUM(discount),0) v, COUNT(*) n FROM sales WHERE shift_id=? AND discount_kind='direct'", sale.shift_id)!;
+  if (tot.v < limit) return;
+  const sh = get("SELECT attendant FROM shifts WHERE id=?", sale.shift_id);
+  createAlert(t, { station_id: sale.station_id, type: "direct_discount", severity: "warning", title: `Direct discounts ${pkr(tot.v)} this shift — ${sh?.attendant ?? ""}`,
+    body: `${tot.n} sales with a direct discount on shift #${sale.shift_id} (alert line ${pkr(limit)}). See Reports → Discounts & overrides.`, dedupe_key: `direct-disc-${sale.shift_id}` });
+}
+
+/** Direct discount: who / why — the salesman types it right after saving the sale; a manager may fix it later. */
+operations.post("/sales/:id/discount-ref", requirePerm("sales.create"), h((req) => {
+  const b = parse(z.object({ ref: z.string().trim().min(2, "Reference likhein — kis ko / kyun").max(120) }), req.body);
+  const sale = get(`SELECT s.*, sh.status shift_status FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN shifts sh ON sh.id=s.shift_id WHERE s.id=? AND st.tenant_id=?`, Number(req.params.id), tid(req));
+  if (!sale) throw new AppError(404, "Sale not found");
+  if (sale.discount_kind !== "direct") throw new AppError(400, "This sale has no direct discount");
+  if (!can(req.user, "customers.edit") && (sale.created_by !== req.user!.id || sale.shift_status !== "open")) throw new AppError(403, "Only your own sales of the open shift. Ask the manager.");
+  run("UPDATE sales SET discount_ref=? WHERE id=?", b.ref, sale.id);
+  if (sale.discount_ref && sale.discount_ref !== b.ref) audit(tid(req), req.user!, "discount_ref_changed", `SALE-${sale.id}`, { from: sale.discount_ref, to: b.ref });
+  return { ok: true, id: sale.id, discount_ref: b.ref };
 }));
 
 /** Attach the khata slip photo afterwards (the salesman took it after the rush): to the sale and its khata entry. */
