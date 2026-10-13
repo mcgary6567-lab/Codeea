@@ -562,8 +562,11 @@ def security_dashboard(db: Session) -> dict:
     for i in range(13, -1, -1):
         d = (now - timedelta(days=i)).date()
         labels.append(d.strftime("%d %b"))
+        # a range on the timestamp, not date(created_at) == 'YYYY-MM-DD': PostgreSQL has no date = varchar operator
+        start = datetime.combine(d, datetime.min.time())
         series.append(db.query(func.count(SecurityIncident.id)).filter(SecurityIncident.incident_type.in_(["login_failed", "lockout"]),
-                                                                       func.date(SecurityIncident.created_at) == d.isoformat()).scalar() or 0)
+                                                                       SecurityIncident.created_at >= start,
+                                                                       SecurityIncident.created_at < start + timedelta(days=1)).scalar() or 0)
     return {"open_total": open_q.count(), "by_type": by_type, "by_severity": by_sev, "failed_24h": failed_24h,
             "locked": locked, "active_sessions": active_sessions, "priv_no_2fa": priv_no_2fa, "with_ips": with_ips,
             "trend_labels": labels, "trend_series": series, "force_2fa": bool(get_setting_value(db, "security_force_2fa_privileged", False))}
@@ -812,7 +815,9 @@ def audit_stats(db: Session, days: int = 30) -> dict:
     for i in range(days - 1, -1, -1):
         d = (datetime.utcnow() - timedelta(days=i)).date()
         labels.append(d.strftime("%d %b"))
-        series.append(db.query(func.count(AuditEvent.id)).filter(func.date(AuditEvent.created_at) == d.isoformat()).scalar() or 0)
+        start = datetime.combine(d, datetime.min.time())  # range, not date() == text: see security_dashboard
+        series.append(db.query(func.count(AuditEvent.id)).filter(AuditEvent.created_at >= start,
+                                                                 AuditEvent.created_at < start + timedelta(days=1)).scalar() or 0)
     total = db.query(func.count(AuditEvent.id)).filter(AuditEvent.created_at >= since).scalar() or 0
     consequential = db.query(func.count(AuditEvent.id)).filter(AuditEvent.created_at >= since, AuditEvent.is_consequential.is_(True)).scalar() or 0
     return {"by_module": by_module, "by_actor": by_actor, "by_action": by_action, "by_severity": by_severity,

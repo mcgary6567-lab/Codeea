@@ -747,6 +747,9 @@ def online_class(request: Request, day: str = "", teacher_id: int | None = None,
     from app.models.erp import CLASS_QUERY_TYPES, ClassActivity, ClassQuery
     from app.services import classes as class_svc
     from app.services import scheduling as sched
+    if not ctx.teacher and not db.query(Teacher.id).first():
+        # a new installation has no teachers yet: say what to do instead of a 404 from the staff menu
+        return redirect("/teachers", "Add a teacher first; the class schedule shows a teacher's day.", "info")
     t = _online_teacher(db, user, ctx, teacher_id)
     the_day = parse_date(day, date.today())
     rows = (db.query(ClassSession).filter(ClassSession.teacher_id == t.id, ClassSession.date == the_day)
