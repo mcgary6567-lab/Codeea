@@ -126,7 +126,7 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
   const recents = recent.filter((to) => !pins.includes(to)).map(byTo).filter(Boolean) as NavItem[];
   const section = (label: string, ur: string, kids: NavItem[]) => kids.length ? (
     <div key={label} className="pt-1">
-      <div className="flex items-center justify-between px-3 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200/60"><span>{label}</span><span lang="ur" dir="rtl" className="font-urdu normal-case tracking-normal">{ur}</span></div>
+      <div className="flex items-center justify-between px-3 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200/60"><span>{label}</span><span lang="ur" dir="rtl" className="font-urdu text-[13px] normal-case tracking-normal">{ur}</span></div>
       {kids.map((n) => link(n, 16, true))}
     </div>
   ) : null;
@@ -147,7 +147,7 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
             <button type="button" onClick={() => toggle(g.key)} aria-expanded={open}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${active ? "bg-white/10 text-white" : "text-emerald-100/90"} hover:bg-white/10`}>
               <g.icon size={17} className="shrink-0" />
-              <span className="min-w-0 flex-1 leading-tight"><span className="block truncate font-medium">{g.label}</span><span lang="ur" dir="rtl" className="font-urdu block truncate text-left text-[11px] opacity-70">{g.ur}</span></span>
+              <span className="min-w-0 flex-1 leading-tight"><span className="block truncate font-medium">{g.label}</span><span lang="ur" dir="rtl" className="font-urdu block truncate text-left text-[13px] leading-5 opacity-80">{g.ur}</span></span>
               {!open && <Badge n={count} />}
               <ChevronDown size={15} className={`opacity-70 transition ${open ? "rotate-180" : ""}`} />
             </button>

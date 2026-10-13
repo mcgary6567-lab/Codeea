@@ -8,7 +8,7 @@ export default {
         brand: Object.fromEntries([50, 100, 500, 600, 700, 900].map((k) => [k, `rgb(var(--brand-${k}) / <alpha-value>)`])),
         wa: { bg: "#efeae2", out: "#d9fdd3" },
       },
-      fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"], urdu: ["\"Noto Nastaliq Urdu\"", "\"Noto Naskh Arabic\"", "serif"] },
+      fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"], urdu: ["\"Noto Naskh Arabic\"", "\"Noto Nastaliq Urdu\"", "serif"], nastaliq: ["\"Noto Nastaliq Urdu\"", "\"Noto Naskh Arabic\"", "serif"] },
     },
   },
   plugins: [],
