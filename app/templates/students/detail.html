@@ -47,7 +47,7 @@
                 ('Sabaq position', s.sabaq_position or '—'), ('Guardian consent', 'Recorded' if s.guardian_consent else 'Missing')]) }}
         </div>
       </div>
-      {% if s.client %}<p class="mt-3 text-xs text-slate-500">Client Form: <a href="/clients/{{ s.client_id }}" class="text-brand-600 hover:underline">{{ s.client.full_name }}</a> · Family Status {{ ui.badge(s.client.status, s.client.status|label('client')) }} · {{ s.client.shift|titleize }} shift</p>{% endif %}
+      {% if s.client %}<p class="mt-3 text-xs text-slate-500">Client Form: {% if has_perm(user, 'clients.view') %}<a href="/clients/{{ s.client_id }}" class="text-brand-600 hover:underline">{{ s.client.full_name }}</a>{% else %}{{ s.client.full_name }}{% endif %} · Family Status {{ ui.badge(s.client.status, s.client.status|label('client')) }} · {{ s.client.shift|titleize }} shift</p>{% endif %}
       {% if s.notes %}<p class="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">{{ s.notes }}</p>{% endif %}
     {% endcall %}
     {% call ui.card('Risk factors', 'Churn model inputs refreshed ' ~ (s.risk_computed_at|ago if s.risk_computed_at else 'not yet')) %}
@@ -75,7 +75,7 @@
     {% call ui.card('Teacher') %}
       {% if s.teacher %}
       <div class="flex items-center gap-3">{{ ui.avatar(s.teacher.full_name) }}
-        <div><a href="/teachers/{{ s.teacher_id }}" class="font-medium hover:text-brand-600">{{ s.teacher.full_name }}</a>
+        <div>{% if has_perm(user, 'teachers.view') and not (s.teacher.user_id == user.id) %}<a href="/teachers/{{ s.teacher_id }}" class="font-medium hover:text-brand-600">{{ s.teacher.full_name }}</a>{% else %}<span class="font-medium">{{ s.teacher.full_name }}</span>{% endif %}
           <div class="text-xs text-slate-500">{{ s.teacher.teacher_code }} · Grade {{ s.teacher.grade }} · {{ s.teacher.shift|titleize }}</div></div>
       </div>
       {% if last_match %}<p class="mt-3 text-xs text-slate-500">Matched {{ last_match.created_at|date }}{% if last_match.overridden %} · <span class="text-amber-600">override</span>{% endif %}{% if last_match.match_score %} · score {{ last_match.match_score }}{% endif %}</p>{% endif %}
@@ -83,7 +83,7 @@
     {% endcall %}
     {% call ui.card('Guardian') %}
       {% if s.client %}
-      <a href="/clients/{{ s.client_id }}" class="font-medium hover:text-brand-600">{{ s.client.full_name }}</a>
+      {% if has_perm(user, 'clients.view') %}<a href="/clients/{{ s.client_id }}" class="font-medium hover:text-brand-600">{{ s.client.full_name }}</a>{% else %}<span class="font-medium">{{ s.client.full_name }}</span>{% endif %}
       <div class="mt-1 font-mono text-xs text-slate-500">{{ s.client.client_code }}</div>
       <dl class="mt-3 space-y-1.5 text-sm">
         <div class="flex justify-between"><dt class="text-slate-500">Relationship</dt><dd>{{ s.client.relationship_to_student|titleize }}</dd></div>
@@ -139,7 +139,7 @@
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ sub.next_billing_date|date if sub.next_billing_date else '—' }}</td>
   <td class="px-3 py-2 text-center">{{ sub.trial_days }}</td>
   <td class="px-3 py-2 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ sub.remarks or sub.notes or '' }}">{{ sub.remarks or sub.notes or '—' }}</td>
-  <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/finance/subscriptions/' ~ sub.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+  <td class="px-3 py-2 text-right">{% if has_perm(user, 'subscriptions.view') %}{{ ui.button('Open', href='/finance/subscriptions/' ~ sub.id, variant='ghost', size='sm', icon='arrow-right') }}{% endif %}</td>
 </tr>
 {% else %}{{ ui.empty('No subscriptions for this student yet.', 14, 'repeat') }}{% endfor %}
 {{ ui.table_end() }}

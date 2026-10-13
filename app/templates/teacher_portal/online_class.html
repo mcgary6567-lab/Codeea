@@ -50,7 +50,7 @@
               <input type="hidden" name="action" value="available">
               {{ ui.button('Mark Available', size='sm', variant='secondary', icon='hand') }}
             </form>
-            {{ ui.button('Start', href='/teacher/sessions/' ~ c.id ~ '/join', size='sm', variant='primary', icon='play') }}
+            {% if t.user_id == user.id %}{{ ui.button('Start', href='/teacher/sessions/' ~ c.id ~ '/join', size='sm', variant='primary', icon='play') }}{% endif %}
             {% endif %}
             {% if c.status in ('pending', 'available', 'started') %}
             <form method="post" action="/teacher/online-class/{{ c.id }}/status" class="inline">

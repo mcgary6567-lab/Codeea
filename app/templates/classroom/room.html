@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}Classroom · {{ s.room_name }}{% endblock %}
 {% block content %}
-{% call ui.page_header("Live classroom", (s.student.full_name if s.student else '—') ~ " with " ~ (s.teacher.full_name if s.teacher else '—') ~ " · " ~ s.date.strftime('%d %b %Y') ~ " " ~ s.start_time.strftime('%H:%M'), back='/classes/' ~ s.id) %}
+{% call ui.page_header("Live classroom", (s.student.full_name if s.student else '—') ~ " with " ~ (s.teacher.full_name if s.teacher else '—') ~ " · " ~ s.date.strftime('%d %b %Y') ~ " " ~ s.start_time.strftime('%H:%M'), back=links.back) %}
   {{ ui.badge(s.status) }}
   {% if can_end and s.status in ('pending','started') %}
   <form method="post" action="/classroom/{{ s.id }}/end" onsubmit="return confirm('End the class and mark it done?')" class="inline">
@@ -45,12 +45,13 @@
       <div class="mt-4 space-y-2 text-sm">
         <a href="/academics/arabic-view/{{ s.student_id }}?session={{ s.id }}" class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 hover:border-brand-400 dark:border-slate-700">
           <i data-lucide="book-open" class="h-4 w-4 text-brand-600"></i>Shared Arabic lesson view</a>
-        <a href="/classes?student_id={{ s.student_id }}" class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 hover:border-brand-400 dark:border-slate-700">
+        <a href="{{ links.history }}" class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 hover:border-brand-400 dark:border-slate-700">
           <i data-lucide="history" class="h-4 w-4 text-slate-500"></i>Class history</a>
       </div>
       {% if s.student and s.student.sabaq_position %}<p class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">Current position: {{ s.student.sabaq_position }}</p>{% endif %}
     {% endcall %}
 
+    {% if can_plan %}{# teacher notes are for staff; families and students do not see or edit the plan #}
     {% call ui.card("Lesson plan", "Saved against today's plan") %}
       <form method="post" action="/classroom/{{ s.id }}/lesson-plan" class="space-y-3">
         {{ ui.textarea('planned_content', 'Planned content', plan.planned_content if plan else '', rows=2, required=True) }}
@@ -61,11 +62,12 @@
         {{ ui.button('Save lesson plan', icon='notebook-pen', size='sm') }}
       </form>
     {% endcall %}
+    {% endif %}
 
     {% call ui.card("Recent classes") %}
       <ul class="space-y-2 text-sm">
         {% for r in recent %}
-        <li class="flex items-center justify-between"><a href="/classes/{{ r.id }}" class="hover:text-brand-700">{{ r.date|date }} {{ r.start_time|time }}</a>{{ ui.badge(r.status) }}</li>
+        <li class="flex items-center justify-between">{% if links.detail %}<a href="{{ links.detail }}{{ r.id }}" class="hover:text-brand-700">{{ r.date|date }} {{ r.start_time|time }}</a>{% else %}<span>{{ r.date|date }} {{ r.start_time|time }}</span>{% endif %}{{ ui.badge(r.status) }}</li>
         {% else %}<li class="py-3 text-center text-slate-400">No previous completed classes.</li>{% endfor %}
       </ul>
     {% endcall %}

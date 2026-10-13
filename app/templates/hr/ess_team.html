@@ -22,8 +22,8 @@
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
   {{ ui.stat('Direct Reports', directs, icon='user-round', color=palette(0)) }}
   {{ ui.stat('My Team', team_size, icon='users-round', color=palette(1), hint='everyone beneath you') }}
-  {{ ui.stat('Pending Violations', pending_violations, icon='shield-alert', color=palette(7), href='/hr/violations?status=pending') }}
-  {{ ui.stat('Pending Bonuses', pending_bonuses, icon='gift', color=palette(3), href='/hr/bonuses?status=pending') }}
+  {{ ui.stat('Pending Violations', pending_violations, icon='shield-alert', color=palette(7), href=('/hr/violations?status=pending' if has_perm(user, 'violations.view') else None)) }}
+  {{ ui.stat('Pending Bonuses', pending_bonuses, icon='gift', color=palette(3), href=('/hr/bonuses?status=pending' if has_perm(user, 'payroll.view') else None)) }}
 </div>
 
 {% call ui.card('My Team', 'The reporting line beneath you, nested to its real depth.') %}

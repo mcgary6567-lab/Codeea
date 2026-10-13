@@ -7,7 +7,7 @@
                        back="/students/" ~ s.id) %}
   {{ ui.badge(s.status) }}
   {{ ui.button('Arabic view', href='/academics/arabic-view/' ~ s.id, icon='book-open', variant='secondary', size='sm') }}
-  {{ ui.button('New lesson plan', href='/academics/lesson-plans/new?student_id=' ~ s.id, icon='notebook-pen', size='sm') }}
+  {% if has_perm(user, 'lesson_plans.add') %}{{ ui.button('New lesson plan', href='/academics/lesson-plans/new?student_id=' ~ s.id, icon='notebook-pen', size='sm') }}{% endif %}
 {% endcall %}
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">

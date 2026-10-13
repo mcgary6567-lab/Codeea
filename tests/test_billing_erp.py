@@ -148,9 +148,9 @@ def families() -> dict:
         s.flush()
         student_id = s.query(Student).filter(Student.client_id == a.id).order_by(Student.id).first().id
         s.add_all([
-            Subscription(subscription_code=f"SUB-{TAG}-1", client_id=a.id, student_id=student_id,
+            Subscription(subscription_code=f"SUB-{TAG[-8:]}-1", client_id=a.id, student_id=student_id,
                          currency="GBP", price=100, status="active", notes=TAG),
-            Subscription(subscription_code=f"SUB-{TAG}-2", client_id=a.id, student_id=student_id,
+            Subscription(subscription_code=f"SUB-{TAG[-8:]}-2", client_id=a.id, student_id=student_id,
                          currency="GBP", price=100, status="cancelled", notes=TAG),
         ])
         s.add(WhatsAppSender(description=f"Billing sender {TAG}", number=f"+9230000{TAG[-4:]}",
@@ -240,7 +240,8 @@ def test_the_date_range_bounds_only_the_period_figures(session, families):
 
 
 def test_saved_views_select_the_right_families(session, families):
-    clients = session.query(Client).filter(Client.id.in_(list(families.values()))).all()
+    ids = [v for v in families.values() if isinstance(v, int)]  # the fixture also carries a client code (PostgreSQL rejects it)
+    clients = session.query(Client).filter(Client.id.in_(ids)).all()
     rows = billing.client_financial_summary(session, clients)
     codes = lambda view: {r["client"].id for r in billing.apply_summary_view(rows, view)}  # noqa: E731
     assert codes("all") >= {families["a"], families["b"], families["c"]}

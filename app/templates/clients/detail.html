@@ -6,7 +6,7 @@
   {{ ui.button('Change Log', href=change_log_url, icon='history', variant='secondary') }}
   {% if has_perm(user, 'students.add') %}{{ ui.button('Add student', href='/students/new?client_id=' ~ c.id, icon='user-plus', variant='secondary') }}{% endif %}
   {% if has_perm(user, 'clients.update') %}
-    {{ ui.button('Basic Detail', href='/clients/' ~ c.id ~ '/edit', icon='pencil', variant='secondary') }}
+    {% if has_perm(user, 'clients.update') %}{{ ui.button('Basic Detail', href='/clients/' ~ c.id ~ '/edit', icon='pencil', variant='secondary') }}{% endif %}
     {% if not c.user %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/portal-login', 'Create portal login', icon='key-round', variant='primary', message='Create a parent portal login? A temporary password will be shown once.', size='md') }}
     {% else %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reset-portal-password', 'Reset portal password', icon='key-round', variant='secondary', message='Reset the portal password? The parent will need the new temporary password.', size='md') }}{% endif %}
     {% if c.status in ('inactive', 'churned') %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reactivate', 'Reactivate', icon='rotate-ccw', variant='success', message='Reactivate this client (Regular) and their portal login?', size='md') }}

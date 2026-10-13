@@ -197,6 +197,13 @@ def render(request: Request, template: str, context: Optional[dict] = None, stat
         else:
             ctx["unread_count"] = 0
     resp = templates.TemplateResponse(request, template, ctx, status_code=status_code)
+    if user is not None and not getattr(user, "is_superuser", False):
+        # links this user cannot open are dropped or turned into text (app/core/link_guard.py)
+        from app.core.link_guard import filter_links
+        body = filter_links(resp.body.decode("utf-8"), user).encode("utf-8")
+        if body != resp.body:
+            resp.body = body
+            resp.headers["content-length"] = str(len(body))
     if ctx["flash_messages"]:
         resp.delete_cookie("oqc_flash")
     return resp

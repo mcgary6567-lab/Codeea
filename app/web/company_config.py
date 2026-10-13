@@ -38,7 +38,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action, snapshot
-from app.core.deps import PermissionDenied, csrf_protect, get_current_user, require
+from app.core.deps import PermissionDenied, csrf_protect, require, require_staff
 from app.core.templating import render
 from app.core.utils import next_code, paginate, parse_bool, parse_float, parse_int, redirect
 from app.database import get_db
@@ -654,7 +654,7 @@ async def sender_disconnect(sid: int, request: Request, db: Session = Depends(ge
 @router.get("/support-tickets", include_in_schema=False)
 def support_tickets(request: Request, status: str = "", priority: str = "", module: str = "",
                     ticket_type: str = "", q: str = "", page: int = 1,
-                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+                    db: Session = Depends(get_db), user: User = Depends(require_staff)):
     query = db.query(SupportTicket)
     if status:
         query = query.filter(SupportTicket.status == status)
@@ -682,7 +682,7 @@ def support_tickets(request: Request, status: str = "", priority: str = "", modu
 
 
 @router.post("/support-tickets/new", include_in_schema=False)
-async def ticket_create(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+async def ticket_create(request: Request, db: Session = Depends(get_db), user: User = Depends(require_staff)):
     """Any member of staff may raise a ticket."""
     form = await request.form()
     subject = (form.get("subject") or "").strip()
@@ -710,7 +710,7 @@ async def ticket_create(request: Request, db: Session = Depends(get_db), user: U
 
 @router.post("/support-tickets/{tid}/status", include_in_schema=False)
 async def ticket_status(tid: int, request: Request, db: Session = Depends(get_db),
-                        user: User = Depends(get_current_user)):
+                        user: User = Depends(require_staff)):
     """Change a ticket's status and write the developer remarks. System administrators only."""
     if not is_system_administrator(user):
         raise PermissionDenied("settings.configure")
@@ -736,7 +736,7 @@ async def ticket_status(tid: int, request: Request, db: Session = Depends(get_db
 
 @router.get("/support-tickets/{tid}", include_in_schema=False)
 def ticket_detail(tid: int, request: Request, db: Session = Depends(get_db),
-                  user: User = Depends(get_current_user)):
+                  user: User = Depends(require_staff)):
     ticket = _get(db, SupportTicket, tid, "Support ticket")
     return render(request, "company_config/ticket_detail.html", {
         "user": user, "t": ticket,

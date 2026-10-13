@@ -4,7 +4,7 @@
 {% block content %}
 <div class="mx-auto max-w-5xl">
   {% call ui.page_header("Dashboards", "Employee Management, Attendance Management and Financial Management") %}
-    {{ ui.button("HR Configurations", href="/hr/config", icon="settings", variant="secondary") }}
+    {% if has_perm(user, 'employees.configure') or has_perm(user, 'employees.update') %}{{ ui.button("HR Configurations", href="/hr/config", icon="settings", variant="secondary") }}{% endif %}
   {% endcall %}
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {% for c in cards %}

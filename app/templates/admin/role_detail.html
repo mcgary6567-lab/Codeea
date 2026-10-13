@@ -5,7 +5,7 @@
 {% call ui.page_header(obj.name, user_count ~ " user(s) on this role · " ~ summary_sentence, back="/admin/roles") %}
   {{ ui.badge(obj.portal) }}
   {{ ui.badge('active' if obj.is_system else 'draft', 'System role' if obj.is_system else 'Custom role') }}
-  {{ ui.button('Clone', href='/admin/roles/new?clone=' ~ obj.id, icon='copy', variant='secondary', size='sm') }}
+  {% if has_perm(user, 'roles.add') %}{{ ui.button('Clone', href='/admin/roles/new?clone=' ~ obj.id, icon='copy', variant='secondary', size='sm') }}{% endif %}
   {{ ui.button('Compare', href='/admin/roles/compare?a=' ~ obj.id, icon='git-compare', variant='secondary', size='sm') }}
 {% endcall %}
 

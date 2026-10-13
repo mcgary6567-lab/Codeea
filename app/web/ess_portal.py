@@ -27,7 +27,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
-from app.core.deps import PermissionDenied, UserContext, csrf_protect, get_user_context, require
+from app.core.deps import PermissionDenied, UserContext, csrf_protect, get_user_context, require, require_staff
 from app.core.notify import notify
 from app.core.templating import render
 from app.core.utils import month_key, paginate, parse_date, parse_float, parse_int, redirect
@@ -38,7 +38,7 @@ from app.models.ops import Task, TaskComment
 from app.models.people import Bonus, Employee, Violation
 from app.services import hr_dashboards as dash
 
-router = APIRouter(prefix="/hr/me", dependencies=[Depends(csrf_protect)])
+router = APIRouter(prefix="/hr/me", dependencies=[Depends(csrf_protect), Depends(require_staff)])
 
 # Kept in step with app/web/hr.py: the HR queue reads the proposed fine back off action_taken when it
 # approves the violation, so a fine agreed by the manager here survives through to payroll.

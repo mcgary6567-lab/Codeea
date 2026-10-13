@@ -346,7 +346,8 @@ def student_detail(id: int, request: Request, tab: str = "overview", db: Session
     if tab == "journey":
         return redirect(f"/students/{s.id}/journey")
     today = date.today()
-    ctx: dict = {"user": user, "s": s, "tab": tab, "tabs": [(k, l, {"basic": f"/students/{s.id}/edit", "journey": f"/students/{s.id}/journey"}.get(k, f"/students/{s.id}?tab={k}")) for k, l in TABS],
+    ctx: dict = {"user": user, "s": s, "tab": tab, "tabs": [(k, l, {"basic": f"/students/{s.id}/edit", "journey": f"/students/{s.id}/journey"}.get(k, f"/students/{s.id}?tab={k}")) for k, l in TABS
+                                                            if k != "basic" or rbac.has_permission(user, "students.update")],
                  "attendance_pct": student_attendance_pct(db, s.id, 30), "statuses": [(x, status_label(x, "student")) for x in STATUSES],
                  "show_contact": rbac.has_permission(user, "clients.update") or rbac.is_management(user),
                  "change_log_url": f"/admin/audit/entity/Student/{s.id}" if rbac.has_permission(user, "audit.view") else f"/students/{s.id}?tab=audit",

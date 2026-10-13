@@ -5,7 +5,7 @@
 {% call ui.page_header("Leads & Pipeline", "Module 3 — capture, score, assign, convert. " ~ stats.total ~ " leads in view.") %}
   {{ ui.button('KPIs', href='/crm/leads/kpis', icon='target', variant='secondary') }}
   {{ ui.button('Export', href='/crm/leads/export', icon='download', variant='secondary') }}
-  {{ ui.button('New lead', href='/crm/leads/new', icon='plus') }}
+  {% if has_perm(user, 'leads.add') %}{{ ui.button('New lead', href='/crm/leads/new', icon='plus') }}{% endif %}
 {% endcall %}
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">

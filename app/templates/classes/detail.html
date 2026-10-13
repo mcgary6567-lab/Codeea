@@ -7,7 +7,7 @@
                        back='/classes') %}
   {% if s.status in ('pending','started') %}{{ ui.button('Open classroom', href='/classroom/' ~ s.id, icon='video') }}{% endif %}
   {% if s.recording %}{{ ui.button('Recording', href='/recordings/' ~ s.recording.id, icon='film', variant='secondary') }}{% endif %}
-  {% if s.ai_analysis %}{{ ui.button('AI analysis', href='/ai-monitoring/' ~ s.ai_analysis.id, icon='brain-circuit', variant='secondary') }}{% endif %}
+  {% if s.ai_analysis and has_perm(user, 'ai_monitoring.view') %}{{ ui.button('AI analysis', href='/ai-monitoring/' ~ s.ai_analysis.id, icon='brain-circuit', variant='secondary') }}{% endif %}
 {% endcall %}
 
 <div class="mb-6 flex flex-wrap items-center gap-2">
@@ -196,7 +196,7 @@
       <hr class="my-4 border-slate-100 dark:border-slate-800">
       {% for r in reviews %}
       <div class="mb-2 flex items-center justify-between text-sm">
-        <a href="/qa/{{ r.id }}" class="hover:text-brand-700">QA review #{{ r.id }} · {{ r.sample_type|titleize }}</a>
+        {% if has_perm(user, 'qa.view') %}<a href="/qa/{{ r.id }}" class="hover:text-brand-700">QA review #{{ r.id }} · {{ r.sample_type|titleize }}</a>{% else %}<span>QA review #{{ r.id }} · {{ r.sample_type|titleize }}</span>{% endif %}
         <span>{{ ui.badge(r.status) }} {% if r.overall_score is not none %}<b class="ml-1">{{ r.overall_score }}</b>{% endif %}</span>
       </div>
       {% else %}<p class="text-sm text-slate-400">No QA review for this class.</p>{% endfor %}

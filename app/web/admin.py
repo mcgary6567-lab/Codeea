@@ -722,7 +722,7 @@ async def settings_run_job(job_id: str, request: Request, db: Session = Depends(
 @router.get("/notifications", include_in_schema=False)
 def notifications_page(request: Request, tab: str = "templates", page: int = 1, channel: str = "", status: str = "",
                        event: str = "", start: str = "", end: str = "", db: Session = Depends(get_db),
-                       user: User = Depends(require("notifications.view"))):
+                       user: User = Depends(require("settings.view"))):
     templates = db.query(NotificationTemplate).order_by(NotificationTemplate.event_type, NotificationTemplate.channel).all()
     log_q = db.query(Notification).outerjoin(User, Notification.user_id == User.id)
     if channel:
@@ -755,14 +755,14 @@ def notifications_page(request: Request, tab: str = "templates", page: int = 1, 
 
 
 @router.get("/notifications/templates/new", include_in_schema=False)
-def template_new(request: Request, db: Session = Depends(get_db), user: User = Depends(require("notifications.add"))):
+def template_new(request: Request, db: Session = Depends(get_db), user: User = Depends(require("settings.update"))):
     return render(request, "admin/notification_template.html", {"user": user, "obj": None, "preview": None,
                                                                "triggers": sys_svc.TRIGGER_CATALOGUE})
 
 
 @router.get("/notifications/templates/{tpl_id}", include_in_schema=False)
 def template_detail(tpl_id: int, request: Request, db: Session = Depends(get_db),
-                    user: User = Depends(require("notifications.view"))):
+                    user: User = Depends(require("settings.view"))):
     obj = db.get(NotificationTemplate, tpl_id)
     if not obj:
         raise PermissionDenied("notifications.view")
@@ -774,7 +774,7 @@ def template_detail(tpl_id: int, request: Request, db: Session = Depends(get_db)
 
 
 @router.post("/notifications/templates/save", include_in_schema=False)
-async def template_save(request: Request, db: Session = Depends(get_db), user: User = Depends(require("notifications.update"))):
+async def template_save(request: Request, db: Session = Depends(get_db), user: User = Depends(require("settings.update"))):
     form = await request.form()
     tid = parse_int(form.get("id"))
     obj = db.get(NotificationTemplate, tid) if tid else None
@@ -800,7 +800,7 @@ async def template_save(request: Request, db: Session = Depends(get_db), user: U
 
 @router.post("/notifications/templates/{tpl_id}/delete", include_in_schema=False)
 async def template_delete(tpl_id: int, request: Request, db: Session = Depends(get_db),
-                          user: User = Depends(require("notifications.delete"))):
+                          user: User = Depends(require("settings.delete"))):
     obj = db.get(NotificationTemplate, tpl_id)
     if not obj:
         raise PermissionDenied("notifications.delete")
@@ -815,7 +815,7 @@ async def template_delete(tpl_id: int, request: Request, db: Session = Depends(g
 
 @router.post("/notifications/log/{note_id}/retry", include_in_schema=False)
 async def notification_retry(note_id: int, request: Request, db: Session = Depends(get_db),
-                             user: User = Depends(require("notifications.execute"))):
+                             user: User = Depends(require("settings.update"))):
     n = db.get(Notification, note_id)
     if not n:
         raise PermissionDenied("notifications.execute")
@@ -828,7 +828,7 @@ async def notification_retry(note_id: int, request: Request, db: Session = Depen
 
 @router.post("/notifications/broadcast", include_in_schema=False)
 async def notifications_broadcast(request: Request, db: Session = Depends(get_db),
-                                  user: User = Depends(require("notifications.execute"))):
+                                  user: User = Depends(require("settings.update"))):
     form = await request.form()
     target = form.get("target") or ""
     title = (form.get("title") or "").strip()

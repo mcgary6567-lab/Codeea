@@ -46,7 +46,7 @@
   <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.slot.label if c.slot else (c.start_time|time ~ ' - ' ~ (c.end_time|time)) }}</td>
   <td class="px-3 py-1.5"><a href="/classes/{{ c.id }}" class="font-medium hover:text-brand-700">{{ c.student.full_name if c.student else '-' }}</a>
     {% if c.is_trial %}<span class="ml-1 rounded bg-sky-50 px-1 text-[10px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-600/20">Trial</span>{% endif %}</td>
-  <td class="px-3 py-1.5 text-xs">{% if c.student and c.student.client %}<a href="/clients/{{ c.student.client_id }}" class="hover:text-brand-700">{{ c.student.client.full_name }}</a>{% else %}-{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{% if c.student and c.student.client and not has_perm(user, 'clients.view') %}{{ c.student.client.full_name }}{% elif c.student and c.student.client %}<a href="/clients/{{ c.student.client_id }}" class="hover:text-brand-700">{{ c.student.client.full_name }}</a>{% else %}-{% endif %}</td>
   <td class="px-3 py-1.5 text-xs">{{ c.teacher.full_name if c.teacher else '-' }}
     {% if c.arrangement_id or c.substitute_for_teacher_id %}<span class="ml-1 rounded bg-amber-50 px-1 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">Arr.</span>{% endif %}</td>
   <td class="px-3 py-1.5 text-xs">{{ c.course.name if c.course else '-' }}</td>

@@ -346,8 +346,8 @@ def test_panel_create_edit_toggle(admin, db):
 
 def test_schedule_an_interview_and_record_the_outcome(admin, db):
     a = _make_application(admin, db)
-    panel = db.query(InterviewPanel).filter(InterviewPanel.status == "active",
-                                            InterviewPanel.member_ids != []).first()
+    # filtered in Python: PostgreSQL has no equality operator for json, so member_ids != [] fails there
+    panel = next((p for p in db.query(InterviewPanel).filter(InterviewPanel.status == "active") if p.member_ids), None)
     when = date.today() + timedelta(days=3)
     r = admin.post("/hr/interviews/new", data={
         "application_id": str(a.id), "panel_id": str(panel.id), "interview_date": str(when),

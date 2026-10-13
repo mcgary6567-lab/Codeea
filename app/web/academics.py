@@ -466,12 +466,17 @@ def _read_lesson(form) -> dict:
 
 
 @router.get("/curriculum/lessons/{lid}", include_in_schema=False)
-def lesson_detail(lid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("curriculum.view"))):
+def lesson_detail(lid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("curriculum.view")),
+                  ctx: UserContext = Depends(get_user_context)):
     les = _get(db, Lesson, lid, "Lesson")
-    learners = (db.query(StudentProgress).filter(StudentProgress.lesson_id == les.id)
-                .order_by(StudentProgress.updated_at.desc()).limit(30).all())
-    counts = dict(db.query(StudentProgress.status, func.count(StudentProgress.id))
-                  .filter(StudentProgress.lesson_id == les.id).group_by(StudentProgress.status).all())
+    # a teacher sees only their own students on this lesson (the progress page refuses the others anyway)
+    scope = _scope_ids(user, ctx)
+    learners_q = db.query(StudentProgress).filter(StudentProgress.lesson_id == les.id)
+    if scope is not None:
+        learners_q = learners_q.filter(StudentProgress.student_id.in_(scope or [-1]))
+    learners = learners_q.order_by(StudentProgress.updated_at.desc()).limit(30).all()
+    counts = dict(learners_q.with_entities(StudentProgress.status, func.count(StudentProgress.id))
+                  .order_by(None).group_by(StudentProgress.status).all())
     return render(request, "academics/lesson_detail.html", {
         "user": user, "les": les, "path": svc.lesson_path(les), "lines": svc.lesson_words(les), "legend": svc.TAJWEED_LEGEND,
         "learners": learners, "counts": counts, "course": les.chapter.book.course if les.chapter and les.chapter.book else None,
@@ -1272,7 +1277,12 @@ def _view_lesson(db: Session, student: Student, lesson_id: Optional[int]) -> Opt
     return svc.current_lesson_for(db, student)
 
 
-@router.get("/arabic-view/{student_id}", include_in_schema=False)
+# who may ever open the shared lesson view; _arabic_view_access then limits it to the right student. Declared on
+# the route so pages stop linking it for staff who can never open it (app/core/link_guard.py).
+_ARABIC_VIEWERS = require("arabic_view.view", "portal_teacher.view", "portal_client.view", "portal_student.view", any_of=True)
+
+
+@router.get("/arabic-view/{student_id}", include_in_schema=False, dependencies=[Depends(_ARABIC_VIEWERS)])
 def arabic_view(student_id: int, request: Request, lesson_id: int = 0, db: Session = Depends(get_db),
                 user: User = Depends(get_current_user), ctx: UserContext = Depends(get_user_context)):
     student = _get(db, Student, student_id, "Student")
@@ -1291,7 +1301,7 @@ def arabic_view(student_id: int, request: Request, lesson_id: int = 0, db: Sessi
                              or rbac.has_permission(user, "arabic_view.update"))})
 
 
-@router.get("/arabic-view/{student_id}/annotations.json", include_in_schema=False)
+@router.get("/arabic-view/{student_id}/annotations.json", include_in_schema=False, dependencies=[Depends(_ARABIC_VIEWERS)])
 def arabic_annotations(student_id: int, lesson_id: int = 0, db: Session = Depends(get_db),
                        user: User = Depends(get_current_user), ctx: UserContext = Depends(get_user_context)):
     student = _get(db, Student, student_id, "Student")

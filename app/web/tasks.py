@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core import rbac
 from app.core.audit import log_action
@@ -128,10 +128,22 @@ def _workload(db: Session, user: User) -> dict:
     }
 
 
+def _can_open(user: User, task: Task, team: set[int] | None = None) -> bool:
+    """May the user read this task: management, its assignee or creator, or the lead of the assignee's team."""
+    if _can_see_all(user) or task.assignee_id == user.id or task.creator_id == user.id:
+        return True
+    if team is None:
+        db = object_session(task)
+        team = set(_team_user_ids(db, user)) if db is not None else set()
+    return task.assignee_id in team
+
+
 def _guard(user: User, task: Task, write: bool = False) -> None:
     if _can_see_all(user):
         return
     if task.assignee_id == user.id or task.creator_id == user.id:
+        return
+    if not write and _can_open(user, task):
         return
     raise PermissionDenied("tasks.view")
 
@@ -200,7 +212,9 @@ def project_detail(project_id: int, request: Request, db: Session = Depends(get_
     done = len([t for t in tasks if t.status == "done"])
     sprints = db.query(Sprint).filter(Sprint.project_id == p.id).order_by(Sprint.start_date.desc()).all()
     milestones = db.query(Milestone).filter(Milestone.project_id == p.id).order_by(Milestone.due_date).all()
-    board = {c[0]: [t for t in tasks if t.status == c[0]] for c in BOARD_COLUMNS}
+    # the board shows the cards this user can open; the progress figures above still count the whole project
+    team = set(_team_user_ids(db, user))
+    board = {c[0]: [t for t in tasks if t.status == c[0] and _can_open(user, t, team)] for c in BOARD_COLUMNS}
     return render(request, "tasks/project_detail.html", {
         "user": user, "p": p, "tasks": tasks, "board": board, "columns": BOARD_COLUMNS, "sprints": sprints,
         "milestones": milestones, "pct": int(round(100 * done / total)) if total else 0, "total": total, "done": done,

@@ -252,6 +252,12 @@ def has_permission(user: "User", perm: str) -> bool:
     return any(_matches(p, perm) for p in grants)
 
 
+def can_read_grievances(user) -> bool:
+    """The confidential grievance channel: People & Culture head, HR officers and the CEO (app/web/hr.py grievance_guard)."""
+    return bool(user and (user.is_superuser or user.role_slug in ("hod_people", "super_admin", "hr_officer"))
+                and has_permission(user, "grievances.view"))
+
+
 def has_explicit_permission(user: "User", perm: str) -> bool:
     """Like has_permission, but a module-wide wildcard such as ``*.view`` does not count.
 

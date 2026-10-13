@@ -22,7 +22,7 @@
   <td class="px-4 py-2 text-xs">{{ r.schedules }}</td>
   <td class="px-4 py-2 text-xs">{{ r.upcoming }}</td>
   <td class="px-4 py-2">{% if r.breach %}<span class="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">Breach</span>{% else %}<span class="text-xs text-emerald-600">Clean</span>{% endif %}</td>
-  <td class="px-4 py-2 text-right">{{ ui.button('Reassign', href='/schedules/bulk-teacher-change?from_teacher_id=' ~ r.teacher.id, size='sm', variant='ghost') }}</td>
+  <td class="px-4 py-2 text-right">{% if has_perm(user, 'schedules.assign') or has_perm(user, 'schedules.update') %}{{ ui.button('Reassign', href='/schedules/bulk-teacher-change?from_teacher_id=' ~ r.teacher.id, size='sm', variant='ghost') }}{% endif %}</td>
 </tr>
 {% else %}{{ ui.empty('Every teacher has passed background verification.', 7, 'shield-check') }}{% endfor %}
 {{ ui.table_end() }}

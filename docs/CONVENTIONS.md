@@ -159,3 +159,17 @@ line, and a skipped send must say why.
 Every page lives in the business module whose staff do the work; Configuration holds only system-wide settings.
 See `docs/MODULE_STRUCTURE.md` for the map, what moved, the redirect table and the permissions. When a page
 moves, keep its old address as a permanent redirect (GET 301, POST 307) and rename its user-guide key.
+
+## PostgreSQL and access (added 13 Oct 2026)
+Production runs PostgreSQL 16; the tests mostly run on SQLite, which accepts things PostgreSQL refuses.
+- Never compare a date or timestamp with a string (`func.date(col) == d.isoformat()`): filter a range on the
+  column (`col >= start, col < start + 1 day`). Never compare JSON columns in SQL (`ids != []`): filter in Python.
+  Keep strings inside their column length; SQLite does not check it.
+- Every `notifications.*` and `portal_*` permission is held by families and students. A staff page must be
+  guarded by a staff permission or `require_staff`, never by `notifications.*` alone.
+- Links are filtered per user on render (`app/core/link_guard.py`): a link to a route the user's permissions
+  refuse is dropped (buttons) or flattened to text. Declare who may open a page with `require(...)`,
+  `require_staff` or `dependencies=[...]` on the route so the guard can see it; scope checks made inside the
+  route (own students only) stay invisible to it, so lists must show only rows the user can open.
+- To check a change against PostgreSQL locally: initdb a PostgreSQL 16 data directory, set
+  `DATABASE_URL=postgresql+psycopg://...`, run `alembic upgrade head`, `seed.py`, then pytest.

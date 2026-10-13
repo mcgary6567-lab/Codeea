@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.config import BASE_DIR
 from app.core import rbac
 from app.core.audit import log_action, snapshot
-from app.core.deps import require, csrf_protect, get_user_context, UserContext, PermissionDenied
+from app.core.deps import require, require_staff, csrf_protect, get_user_context, UserContext, PermissionDenied
 from app.core.notify import notify
 from app.core.templating import render
 from app.core.utils import redirect, paginate, parse_date, parse_int, parse_float, parse_bool, month_key, month_bounds, next_code
@@ -608,7 +608,7 @@ async def employee_provision(id: int, request: Request, db: Session = Depends(ge
 
 
 # ============================================================================== SELF SERVICE
-@router.get("/me", include_in_schema=False)
+@router.get("/me", include_in_schema=False, dependencies=[Depends(require_staff)])  # employees only, never a family login
 def me(request: Request, tab: str = "overview", month: str = "", date_from: str = "", date_to: str = "",
        attendance_type: str = "", db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context)):
     user = ctx.user
@@ -813,7 +813,7 @@ async def me_advance(request: Request, db: Session = Depends(get_db), ctx: UserC
 
 
 # ------------------------------------------------------------------ Account Ledger
-@router.get("/me/ledger", include_in_schema=False)
+@router.get("/me/ledger", include_in_schema=False, dependencies=[Depends(require_staff)])
 def me_ledger(request: Request, date_from: str = "", date_to: str = "", q: str = "", print_view: int = 0,
               db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context)):
     """Their Account Ledger: Srl., Date, VID, Description, Amount Dr., Amount Cr., Balance, with Print.
@@ -3080,7 +3080,7 @@ async def violation_close(id: int, request: Request, db: Session = Depends(get_d
 # ============================================================================== GRIEVANCES (confidential)
 def grievance_guard(user: User = Depends(require("grievances.view"))) -> User:
     """Confidential channel: only People & Culture head, the CEO, and HR officers (limited) may read grievances."""
-    if not (user.is_superuser or user.role_slug in ("hod_people", "super_admin", "hr_officer")):
+    if not rbac.can_read_grievances(user):
         raise PermissionDenied("grievances.confidential")
     return user
 

@@ -364,6 +364,9 @@ def rescheduled(request: Request, page: int = 1, status: str = "", date_from: st
                 teacher_id: int | None = None, db: Session = Depends(get_db), user: User = Depends(require("classes.view"))):
     df, dt = parse_date(date_from), parse_date(date_to)
     q = db.query(RescheduleRequest)
+    teacher_ids = svc.scoped_teacher_ids(db, user)  # a teacher sees their own requests, as on the class pages
+    if teacher_ids is not None:
+        q = q.filter(RescheduleRequest.old_teacher_id.in_(teacher_ids or [-1]) | RescheduleRequest.new_teacher_id.in_(teacher_ids or [-1]))
     if df:
         q = q.filter(RescheduleRequest.new_date >= df)
     if dt:
@@ -659,8 +662,18 @@ def classroom(session_id: int, request: Request, db: Session = Depends(get_db),
     recent = (db.query(ClassSession).filter(ClassSession.student_id == s.student_id, ClassSession.id != s.id,
                                             ClassSession.status == "done")
               .order_by(ClassSession.scheduled_start.desc()).limit(5).all())
+    # staff pages (/classes) are not open to families and students: send them to their own portal pages instead
+    if rbac.has_permission(user, "classes.view"):
+        links = {"back": f"/classes/{s.id}", "history": f"/classes?student_id={s.student_id}", "detail": "/classes/"}
+    elif ctx.client:
+        links = {"back": "/portal/schedule", "history": "/portal/schedule", "detail": None}
+    elif ctx.student:
+        links = {"back": "/student/classes", "history": "/student/classes", "detail": None}
+    else:
+        links = {"back": "/teacher/classes", "history": "/teacher/classes", "detail": None}
+    can_plan = any(rbac.has_permission(user, p) for p in ("lesson_plans.add", "lesson_plans.update", "classes.update"))
     return render(request, "classroom/room.html", {
-        "user": user, "s": s, "side": side, "plan": plan, "recent": recent,
+        "user": user, "s": s, "side": side, "plan": plan, "recent": recent, "links": links, "can_plan": can_plan,
         "provider": settings.VIDEO_PROVIDER, "jitsi_domain": settings.JITSI_DOMAIN,
         "display_name": user.full_name, "room": s.room_name or class_svc.room_name_for(s),
         "can_end": side == "teacher" or rbac.has_permission(user, "classes.update")})

@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header("Class recordings", "Retention " ~ retention_days ~ " days · every open is purpose-logged for safeguarding") %}
   {{ ui.button("Ingest recordings", href="/recordings/ingest", icon="download", variant="secondary") }}
-  {{ ui.button("Access log", href="/safeguarding/recording-access", icon="scroll-text", variant="secondary") }}
+  {% if has_perm(user, 'safeguarding.view') %}{{ ui.button("Access log", href="/safeguarding/recording-access", icon="scroll-text", variant="secondary") }}{% endif %}
 {% endcall %}
 
 <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

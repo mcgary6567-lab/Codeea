@@ -339,7 +339,7 @@ ADMIN_NAV = [
     {"slug": "system", "label": "Configuration", "icon": "settings", "blurb": "System-wide settings, integrations, security", "items": [
         _i("Lookups", "/config/lookups", "list", "settings.view"),
         _i("Setup", "/config/branch-properties", "sliders-horizontal", "settings.view"),
-        _i("Notification Templates", "/admin/notifications", "mail", "notifications.view"),
+        _i("Notification Templates", "/admin/notifications", "mail", "settings.view"),
         _i("Support Ticket", "/config/support-tickets", "life-buoy", "settings.view"),
         _i("WhatsApp Numbers", "/config/whatsapp-senders", "message-circle", "settings.view"),
         _i("OTP Configuration", "/config/otp", "shield-check", "security.view"),
@@ -428,8 +428,13 @@ def _source(user) -> list[dict]:
     return {"teacher": TEACHER_NAV, "client": CLIENT_NAV, "student": STUDENT_NAV}.get(portal, ADMIN_NAV)
 
 
+# pages whose route checks more than the permission: the menu must not offer them to anyone the route refuses
+_EXTRA_CHECKS = {"/hr/grievances": lambda user: rbac.can_read_grievances(user)}
+
+
 def _allowed(user, items: list[dict]) -> list[dict]:
-    return [dict(item, color=palette(j)) for j, item in enumerate(items) if rbac.has_permission(user, item["perm"])]
+    return [dict(item, color=palette(j)) for j, item in enumerate(items)
+            if rbac.has_permission(user, item["perm"]) and _EXTRA_CHECKS.get(item["url"], lambda u: True)(user)]
 
 
 def nav_for(user) -> list[dict]:

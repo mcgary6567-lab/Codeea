@@ -41,7 +41,7 @@
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ s.join_date|date }}</td>
   <td class="px-3 py-2 text-center">{{ s.trial_days }}</td>
   <td class="px-3 py-2 text-xs">{{ s.email or '—' }}</td>
-  <td class="px-3 py-2 text-xs">{% if s.client %}<a href="/clients/{{ s.client_id }}" class="font-medium hover:text-brand-600">{{ s.client.full_name }}</a>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{% if s.client and has_perm(user, 'clients.view') %}<a href="/clients/{{ s.client_id }}" class="font-medium hover:text-brand-600">{{ s.client.full_name }}</a>{% elif s.client %}{{ s.client.full_name }}{% else %}—{% endif %}</td>
   <td class="px-3 py-2 text-xs">{{ s.client.state if s.client and s.client.state else '—' }}</td>
   <td class="px-3 py-2 text-xs">{{ s.gender|titleize }}</td>
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ s.date_of_birth|date if s.date_of_birth else '—' }}</td>

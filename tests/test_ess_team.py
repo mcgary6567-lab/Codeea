@@ -570,7 +570,7 @@ def test_the_seed_built_a_reporting_line_with_depth(session):
     assert managers, "no reporting line at all - run seed.ess_team"
     deep = session.query(Employee).filter(Employee.manager_id.in_(managers)).count()
     assert deep >= 1, "the reporting line is only one level deep"
-    assert session.query(Task).filter(Task.collaborator_ids != []).count() >= 1
+    assert any(t.collaborator_ids for t in session.query(Task)), "no task has collaborators"  # json has no != in PostgreSQL
 
 
 def test_an_account_with_no_employee_record_is_told_so(session):

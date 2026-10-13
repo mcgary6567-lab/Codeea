@@ -137,6 +137,13 @@ def require(*perms: str, any_of: bool = False):
     return _dep
 
 
+def require_staff(user: User = Depends(get_current_user)) -> User:
+    """Staff only (admin and teacher portals): families and students have their own portal and never see staff pages."""
+    if user.portal in ("client", "student"):
+        raise PermissionDenied("staff_only")
+    return user
+
+
 def require_ceo(user: User = Depends(get_current_user)) -> User:
     if not rbac.is_ceo(user):
         raise PermissionDenied("ceo_only")
