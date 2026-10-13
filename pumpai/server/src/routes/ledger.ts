@@ -155,8 +155,10 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     add(day(r.created_at), "Purchase", `Bypass fuel — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.cost_rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass stock", r.amount), cr("Bypass suppliers payable", r.amount)]);
   }
   // delivered out of the bypass stock: its share of the cost moves from stock to cost of sales
-  for (const r of all(`SELECT * FROM bypass_drops WHERE tenant_id=? AND voided=0 AND cost_amount > 0 AND created_at >= ? AND created_at < ?`, ...P)) {
-    add(day(r.created_at), "Journal", `Bypass delivered — ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.unit_cost}`, [dr("Bypass fuel cost", r.cost_amount), cr("Bypass stock", r.cost_amount)]);
+  for (const r of all(`SELECT d.*, tk.name tank_name FROM bypass_drops d LEFT JOIN tanks tk ON tk.id=d.tank_id WHERE d.tenant_id=? AND d.voided=0 AND d.cost_amount > 0 AND d.created_at >= ? AND d.created_at < ?`, ...P)) {
+    // leftover unloaded into our own tank: the fuel becomes pump stock (bought at the bypass average cost), not a bypass sale
+    if (r.tank_id) add(day(r.created_at), "Journal", `Bypass leftover to pump stock — ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.unit_cost} → ${r.tank_name ?? "tank"}`, [dr("Fuel purchases", r.cost_amount), cr("Bypass stock", r.cost_amount)]);
+    else add(day(r.created_at), "Journal", `Bypass delivered — ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.unit_cost}`, [dr("Bypass fuel cost", r.cost_amount), cr("Bypass stock", r.cost_amount)]);
   }
   for (const r of all(`SELECT b.*, s.name FROM bypass_supplier_payments b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.created_at >= ? AND b.created_at < ?`, ...P)) {
     const d = day(r.created_at);

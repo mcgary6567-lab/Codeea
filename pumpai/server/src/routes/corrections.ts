@@ -121,6 +121,7 @@ corrections.post("/corrections/delivery/:id/void", requirePerm("corrections.mana
   const d = get(`SELECT d.*, tk.id tank_id2, tk.name tank, tk.product FROM deliveries d
      JOIN tanks tk ON tk.id=d.tank_id JOIN stations st ON st.id=tk.station_id WHERE d.id=? AND st.tenant_id=?`, Number(req.params.id), t);
   if (!d) throw new AppError(404, "Delivery nahi mili");
+  if (d.bypass_drop_id) throw new AppError(400, "Ye bypass ka bacha hua tel hai — Bypass page se 'Undo' karein (bypass stock wapas jayega).");
   const claim = get("SELECT id, status FROM shortage_claims WHERE delivery_id=?", d.id);
   if (claim && claim.status !== "open") throw new AppError(400, `Is delivery ka shortage claim pehle hi '${claim.status}' hai — pehle claim handle karein, phir delivery void karein.`);
   const sup: Row[] = all("SELECT * FROM supplier_txns WHERE tenant_id=? AND delivery_id=?", t, d.id);

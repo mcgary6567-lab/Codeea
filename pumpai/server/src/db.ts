@@ -655,6 +655,11 @@ export function migrate() {
     product TEXT NOT NULL, litres REAL NOT NULL, unit_cost REAL NOT NULL, cost_amount REAL NOT NULL,
     voided INTEGER NOT NULL DEFAULT 0, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_bypass_drops_prod ON bypass_drops(product, txn_date)");
+  // leftover bypass fuel unloaded into OUR tank (client_id NULL): which tank, and the stock-register delivery row it created
+  addColumn("bypass_drops", "tank_id", "INTEGER");
+  addColumn("bypass_drops", "to_delivery_id", "INTEGER");
+  addColumn("bypass_drops", "note", "TEXT");
+  addColumn("deliveries", "bypass_drop_id", "INTEGER"); // this delivery came from bypass stock, not a fresh supplier bill
   // what we pay the bypass supplier: we_pay (from our bank/cash), client_direct (client paid them for us),
   // through_us (client sent it to us, we forwarded) — the client legs also lower that client's due to us.
   db.exec(`CREATE TABLE IF NOT EXISTS bypass_supplier_payments (

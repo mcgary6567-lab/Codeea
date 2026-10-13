@@ -42,6 +42,7 @@ export function BypassPanel() {
         <Stat label={`${stock.data?.month?.year?.year ?? ""} ka munafa`} value={pkrShort(stock.data?.month?.year?.profit ?? 0)} tone={(stock.data?.month?.year?.profit ?? 0) >= 0 ? "green" : "red"}
           hint={stock.data?.month?.year ? `is saal · bika ${pkrShort(stock.data.month.year.billed)} − cost ${pkrShort(stock.data.month.year.cost)}` : "—"} />
       </div>
+      <LeftoverToTank stock={stockLines} onChanged={refresh} />
 
       {/* Bacha hua maal: supplier se jitna liya − client ko jitna diya = jo abhi humare paas ruka hai */}
       <div className="card overflow-hidden">
@@ -463,5 +464,65 @@ function PaySupplier({ id, owed, onClose, onDone }: { id: number; owed: number; 
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Save payment</button></div>
       </form>
     </Modal>
+  );
+}
+
+
+/**
+ * The tanker had more than the clients took: the rest is emptied into OUR tank. Bypass stock goes down at its average
+ * cost, the pump's tank goes up, a stock-register delivery is written at that cost — no new supplier bill.
+ */
+function LeftoverToTank({ stock, onChanged }: { stock: any[]; onChanged: () => void }) {
+  const { can } = useAuth();
+  const stations = useApi<any[]>("/stations");
+  const list = useApi<any[]>("/bypass/to-tank");
+  const { busy, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ product: "", litres: "", tank_id: "", note: "", txn_date: new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10) });
+  const tanks = (stations.data ?? []).flatMap((s: any) => (s.tanks ?? []).map((t: any) => ({ ...t, station: s.name })));
+  const prodTanks = tanks.filter((t: any) => t.product === f.product);
+  const onHand = stock.find((x) => x.product === f.product);
+  const unit = onHand?.avg_cost ?? 0, litres = Number(f.litres) || 0;
+  const rows = (list.data ?? []).filter((r: any) => !r.voided).slice(0, 8);
+  if (!stock.length && !rows.length) return null;
+  return (
+    <div className="card p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="mr-auto font-semibold">Bacha hua tel apne tank mein · <Ur>بچا ہوا تیل اپنے ٹینک میں</Ur></h3>
+        {can("wholesale.manage") && <button className="btn-primary" disabled={!stock.length} onClick={() => { const p = stock[0]?.product ?? ""; setF({ ...f, product: p, tank_id: String(tanks.find((t: any) => t.product === p)?.id ?? "") }); setOpen(true); }}><Plus size={15} /> Unload to tank · <Ur>ٹینک میں ڈالیں</Ur></button>}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">Tanker mein jo tel client ko dene ke baad bach gaya aur apne pump ke tank mein khali kiya: bypass stock se nikal kar pump ke stock mein (average cost par). Supplier ka bill dobara nahi banta.</p>
+      {rows.length > 0 && (
+        <ul className="mt-3 divide-y divide-slate-100 text-sm">
+          {rows.map((r: any) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-2 py-2">
+              <span className="min-w-0 flex-1"><b>{num(r.litres)} L {PRODUCTS[r.product] ?? r.product}</b> → {r.tank} <span className="text-slate-500">· {r.station} · {dt(r.txn_date)} · by {r.created_by}</span>{r.note && <span className="block text-xs text-slate-500">{r.note}</span>}</span>
+              <span className="tabular-nums text-slate-600">@ {num(r.unit_cost, 2)} = {pkr(r.cost_amount)}</span>
+              {can("wholesale.void") && <button className="btn-secondary !px-2 !py-1 text-xs text-red-600" disabled={busy} onClick={() => { const reason = prompt("Undo? Wajah likhein:"); if (reason && reason.trim().length >= 3) run(() => api(`/bypass/to-tank/${r.id}/void`, { body: { reason } }), "Undone — bypass stock aur tank wapas").then(() => { list.reload(); onChanged(); }); }}><Ban size={12} /> Undo</button>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Modal open={open} onClose={() => setOpen(false)} title="Bacha hua tel apne tank mein · بچا ہوا تیل">
+        <form className="space-y-3" onSubmit={async (e) => {
+          e.preventDefault();
+          const r = await run(() => api("/bypass/to-tank", { body: { product: f.product, litres: Number(f.litres), tank_id: Number(f.tank_id), note: f.note || null, txn_date: f.txn_date } }),
+            (x: any) => `${num(x.litres)} L ${PRODUCTS[f.product] ?? f.product} tank mein — pump stock +${num(x.litres)} L, cost ${pkr(x.cost)}`);
+          if (r) { setOpen(false); setF({ ...f, litres: "", note: "" }); list.reload(); onChanged(); }
+        }}>
+          <Field label="Fuel · تیل"><select className="input" value={f.product} onChange={(e) => { const p = e.target.value; setF({ ...f, product: p, tank_id: String(tanks.find((t: any) => t.product === p)?.id ?? "") }); }}>
+            {stock.map((x) => <option key={x.product} value={x.product}>{PRODUCTS[x.product] ?? x.product} — {num(x.litres)} L bypass stock @ Rs {num(x.avg_cost, 2)}</option>)}</select></Field>
+          <Field label="Litres · لیٹر"><input className="input py-3 text-2xl" type="number" inputMode="decimal" min={1} max={onHand?.litres ?? undefined} step="1" required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} placeholder={onHand ? `max ${num(onHand.litres)}` : ""} /></Field>
+          <Field label="Kis tank mein · کون سا ٹینک"><select className="input" required value={f.tank_id} onChange={(e) => setF({ ...f, tank_id: e.target.value })}>
+            <option value="">— tank —</option>{prodTanks.map((t: any) => <option key={t.id} value={t.id}>{t.name} · {t.station} · {num(t.current_l)} / {num(t.capacity_l)} L</option>)}</select></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
+            <Field label="Note (optional)"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. Tanker 1,000 L bacha" /></Field>
+          </div>
+          {litres > 0 && <div className="rounded-xl bg-slate-50 p-3 text-sm"><div className="flex justify-between"><span>Pump stock</span><b>+{num(litres)} L</b></div><div className="flex justify-between"><span>Cost (bypass avg)</span><span className="tabular-nums">{num(litres)} × {num(unit, 2)} = <b>{pkr(litres * unit)}</b></span></div><div className="mt-1 text-xs text-slate-500">Journal: Dr Fuel purchases / Cr Bypass stock. Stock register mein delivery entry banegi.</div></div>}
+          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy || !f.product || !f.tank_id || !(litres > 0)}>Save · <Ur>محفوظ</Ur></button></div>
+        </form>
+      </Modal>
+    </div>
   );
 }

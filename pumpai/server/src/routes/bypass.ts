@@ -12,7 +12,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDate } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { AppError, round2 } from "../services.js";
+import { AppError, round2, audit } from "../services.js";
 import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
@@ -142,6 +142,58 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
   const soldCost = round2(get("SELECT COALESCE(SUM(cost_amount),0) v FROM bypass_drops WHERE delivery_id=?", out.id)!.v as number);
   const billed = round2(priced.reduce((a, d) => a + d.amount, 0));
   return { id: out.id, billed, bought: purCost, sold_cost: soldCost, cost: soldCost, margin: round2(billed - soldCost), drops: out.drops, stock: bypassStock(t), delivery: get("SELECT * FROM bypass_deliveries WHERE id=?", out.id) };
+}));
+
+/* ================= Leftover bypass fuel unloaded into our own tank ================= */
+/**
+ * The tanker had more than the clients took: the rest is emptied into OUR tank. The litres leave the bypass stock at its
+ * average cost (like a drop, but to a tank instead of a client) and enter the pump's stock through a normal stock-register
+ * delivery at that cost — no new supplier bill (the bypass purchase already covers it). Ledger: Dr Fuel purchases / Cr Bypass stock.
+ */
+bypass.post("/bypass/to-tank", requirePerm("wholesale.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({ product, litres: z.number().positive().max(200_000), tank_id: z.number().int(), delivery_id: z.number().int().optional().nullable(), txn_date: day.optional(), note: z.string().max(200).optional().nullable(), tanker_no: z.string().max(30).optional().nullable() }), req.body);
+  const tank = get("SELECT tk.*, s.tenant_id FROM tanks tk JOIN stations s ON s.id=tk.station_id WHERE tk.id=?", b.tank_id);
+  if (!tank || tank.tenant_id !== t) throw new AppError(404, "Tank not found");
+  if (tank.product !== b.product) throw new AppError(400, `${tank.name} is a ${PRODUCTS[tank.product] ?? tank.product} tank — choose the ${PRODUCTS[b.product] ?? b.product} tank`);
+  const st = bypassStock(t, b.product);
+  if (b.litres > st.litres + 0.01) throw new AppError(400, `Only ${st.litres} L ${PRODUCTS[b.product] ?? b.product} bypass stock is on hand — cannot unload ${b.litres} L`);
+  if (tank.current_l + b.litres > tank.capacity_l * 1.001) throw new AppError(400, `${tank.name} would go over its capacity (${Math.round(tank.capacity_l)} L)`);
+  if (b.delivery_id && !get("SELECT id FROM bypass_deliveries WHERE id=? AND tenant_id=?", b.delivery_id, t)) throw new AppError(400, "Bypass delivery not found");
+  const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
+  const unit = st.avg_cost, cost = round2(b.litres * unit);
+  // the supplier named on the stock register: the latest bypass supplier of this fuel
+  const sup = get("SELECT s.id, s.name FROM bypass_purchases p JOIN suppliers s ON s.id=p.supplier_id WHERE p.tenant_id=? AND p.product=? AND p.voided=0 ORDER BY p.id DESC LIMIT 1", t, b.product);
+  const out = tx(() => {
+    const drop = run(`INSERT INTO bypass_drops (tenant_id,delivery_id,wtx_id,client_id,product,litres,unit_cost,cost_amount,created_by,txn_date,created_at,tank_id,note)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, b.delivery_id ?? null, null, null, b.product, round2(b.litres), unit, cost, req.user!.name, ts, now(), tank.id, b.note ?? null).id;
+    const del = run("INSERT INTO deliveries (tank_id,supplier,supplier_id,purchase_rate,tanker_no,invoice_l,received_l,shortage_pct,freight,created_at,bypass_drop_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      tank.id, `${sup?.name ?? "Bypass"} (bypass leftover)`, sup?.id ?? null, unit, b.tanker_no ?? null, round2(b.litres), round2(b.litres), 0, null, ts, drop).id;
+    run("UPDATE bypass_drops SET to_delivery_id=? WHERE id=?", del, drop);
+    run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", round2(b.litres), tank.id);
+    return { drop, del };
+  });
+  audit(t, req.user!, "bypass_to_tank", `bypdrop:${out.drop}`, { product: b.product, litres: b.litres, tank: tank.name, unit_cost: unit, cost, delivery_id: b.delivery_id ?? null });
+  return { ok: true, id: out.drop, delivery_row: out.del, litres: round2(b.litres), unit_cost: unit, cost, tank: get("SELECT id, name, current_l, capacity_l FROM tanks WHERE id=?", tank.id), stock: bypassStock(t, b.product) };
+}));
+/** Transfers so far (newest first). */
+bypass.get("/bypass/to-tank", h((req) => all(`SELECT d.id, d.product, d.litres, d.unit_cost, d.cost_amount, d.voided, d.created_by, d.txn_date, d.note, d.delivery_id, tk.name tank, s.name station
+    FROM bypass_drops d JOIN tanks tk ON tk.id=d.tank_id JOIN stations s ON s.id=tk.station_id WHERE d.tenant_id=? AND d.tank_id IS NOT NULL ORDER BY d.id DESC LIMIT 100`, tid(req))));
+/** Undo a transfer: litres back to the bypass stock, out of the tank, stock-register row removed. */
+bypass.post("/bypass/to-tank/:id/void", requirePerm("wholesale.void"), h((req) => {
+  const t = tid(req);
+  const { reason } = parse(z.object({ reason: z.string().trim().min(3).max(200) }), req.body);
+  const d = get("SELECT * FROM bypass_drops WHERE id=? AND tenant_id=? AND tank_id IS NOT NULL AND voided=0", Number(req.params.id), t);
+  if (!d) throw new AppError(404, "Transfer not found");
+  const tank = get("SELECT * FROM tanks WHERE id=?", d.tank_id)!;
+  if (tank.current_l < d.litres - 0.01) throw new AppError(400, `${tank.name} now holds only ${Math.round(tank.current_l)} L — the ${d.litres} L have already been sold, this cannot be undone`);
+  tx(() => {
+    run("UPDATE bypass_drops SET voided=1, note=COALESCE(note,'') || ? WHERE id=?", ` [void: ${reason}]`, d.id);
+    if (d.to_delivery_id) run("DELETE FROM deliveries WHERE id=?", d.to_delivery_id);
+    run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", d.litres, tank.id);
+  });
+  audit(t, req.user!, "bypass_to_tank_void", `bypdrop:${d.id}`, { reason, litres: d.litres, tank: tank.name });
+  return { ok: true, stock: bypassStock(t, d.product) };
 }));
 
 /** Bypass munafa for a date window: client revenue − delivered cost for drops in [fromIso, toIso). */
