@@ -34,6 +34,8 @@ const payAccount = (t: number, m: string | null | undefined) => {
 /** Money tagged by where it came from: tax paid to FBR clears the tax payable, a recovered claim, a coupon refund. */
 const OTHER_INCOME_CEO = "Other income (CEO)", OTHER_EXPENSE_CEO = "Expense: Other (CEO)", OTHER_DISCOUNT_CEO = "Other discount (CEO)";
 const OWN_CAP = "Owner's capital", OWN_DRAW = "Owner's drawings";
+/** Go-live opening balances (khata, staff advances) are brought forward against this equity account, never P&L. */
+const OPENING_EQ = "Opening balances (go-live)", OPEN_REF = "open:";
 const specialSide = (ref: string | null | undefined) =>
   !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held" : null;
 /** CEO-only "other" markers: income / expense / discount. Hidden from non-admin views (shown as owner capital/drawings). */
@@ -105,6 +107,8 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
   }
   // khata: payments received, and charges other than fuel (late fee, adjustments)
   for (const r of all(`SELECT k.*, c.name FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.created_at >= ? AND k.created_at < ? AND COALESCE(k.ref,'') NOT LIKE 'SALE%' AND COALESCE(k.ref,'') NOT LIKE 'SHOP-%'`, ...P)) {
+    // go-live opening balance: brought forward, not this period's income
+    if (r.ref === OPEN_REF) { add(day(r.created_at), "Opening", `Opening balance — ${r.name}`, r.type === "debit" ? [dr("Khata receivable", r.amount), cr(OPENING_EQ, r.amount)] : [dr(OPENING_EQ, r.amount), cr("Khata receivable", r.amount)]); continue; }
     if (r.type === "credit") {
       const od = isOtherDisc(r.ref);
       const dside = od ? (showPrivate ? OTHER_DISCOUNT_CEO : OWN_DRAW) : via(r.ref, r.account_id);
@@ -200,6 +204,7 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
   for (const r of all(`SELECT l.*, u.name FROM staff_ledger l JOIN users u ON u.id=l.user_id WHERE l.tenant_id=? AND l.created_at >= ? AND l.created_at < ?`, ...P)) {
     const d = day(r.created_at);
     const way = via(r.method, r.account_id);
+    if (r.type === "advance" && r.ref === OPEN_REF) { add(d, "Opening", `Opening advance — ${r.name}`, [dr("Staff advances", r.amount), cr(OPENING_EQ, r.amount)]); continue; }
     if (r.type === "advance") add(d, "Payment", `Advance — ${r.name}`, [dr("Staff advances", r.amount), cr(way, r.amount)]);
     if (r.type === "repayment") add(d, "Receipt", `Advance paid back — ${r.name}`, [dr(way, r.amount), cr("Staff advances", r.amount)]);
     // kept back out of a cash salary (the salary expense was booked in full from cash) — or set off with no cash at all

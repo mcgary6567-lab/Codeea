@@ -143,7 +143,7 @@ export function bankMoves(t: number, accountId?: number | null, showPrivate = tr
     // staff advances / bonus paid, or advances paid back, through a bank or wallet
     ...all(`SELECT x.account_id, x.created_at at, CASE WHEN x.type='repayment' THEN x.amount ELSE -x.amount END amount, 'staff' kind,
         CASE x.type WHEN 'repayment' THEN 'Advance paid back — ' ELSE 'Staff ' || x.type || ' — ' END || u.name text, x.created_by who, 'staff:' || x.id ref
-      FROM staff_ledger x JOIN users u ON u.id=x.user_id WHERE x.tenant_id=? AND x.type IN ('advance','bonus','repayment')${acc}`, t, ...A),
+      FROM staff_ledger x JOIN users u ON u.id=x.user_id WHERE x.tenant_id=? AND x.type IN ('advance','bonus','repayment') AND COALESCE(x.ref,'')<>'open:'${acc}`, t, ...A),
     // fuel coupons sold by bank / wallet: one line per book
     ...all(`SELECT x.account_id, MIN(x.sold_at) at, SUM(x.value) amount, 'receipt' kind, 'Fuel coupons sold — ' || COUNT(*) || ' (' || x.batch || ')' || COALESCE(' to ' || x.buyer, '') text,
         MIN(x.sold_by) who, 'coupons:' || x.batch ref FROM fuel_coupons x WHERE x.tenant_id=?${acc} GROUP BY x.batch, x.account_id`, t, ...A),

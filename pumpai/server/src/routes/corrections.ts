@@ -72,7 +72,7 @@ corrections.get("/corrections/khata", requirePerm("corrections.manage"), h((req)
     .map((k) => {
       // what owns this row decides where it must be undone
       const ref = String(k.ref ?? "");
-      const owner = ref.startsWith("SALE-") ? "sale" : ref.startsWith("oth-disc:") ? "other" : k.via_cashier ? "cashier" : null;
+      const owner = ref.startsWith("SALE-") ? "sale" : ref.startsWith("oth-disc:") ? "other" : ref === "open:" ? "opening" : k.via_cashier ? "cashier" : null;
       return { ...k, via_cashier: undefined, owner, voidable: owner === null };
     });
   return { customer: { id: c.id, name: c.name, balance: round2(c.balance) }, entries: rows };
@@ -87,6 +87,7 @@ corrections.post("/corrections/khata/:id/void", requirePerm("corrections.manage"
   // these belong to another undo path — send the CEO there so nothing is reversed twice
   if (ref.startsWith("SALE-")) throw new AppError(400, "Ye ek sale ki entry hai — ise 'Sale void' se theek karein.");
   if (ref.startsWith("oth-disc:")) throw new AppError(400, "Ye Other-discount ki entry hai — Other entries page se undo karein.");
+  if (ref === "open:") throw new AppError(400, "Ye opening balance (purana baqaya) hai — Opening balances page se badlein.");
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `khata:${k.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani hai — Cashier desk se voucher void karein.");
   tx(() => {
     run("DELETE FROM khata_ledger WHERE id=?", k.id);
