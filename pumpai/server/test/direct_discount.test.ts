@@ -54,8 +54,8 @@ test("salesman: cash sale with a direct discount — customer pays the net, disc
 });
 
 test("limits & rules: salesman capped at direct_discount_max, manager not; not on khata / coupon; per-litre is just rupees", async () => {
-  const over = await call("salesman", "POST", "/api/sales", { station_id: live.shift.station_id, product: "PMG", litres: 20, payment_method: "card", discount: 501, discount_kind: "direct" });
-  assert.equal(over.status, 403); assert.match(over.data.error, /Direct discount above Rs 500/);
+  const over = await call("salesman", "POST", "/api/sales", { station_id: live.shift.station_id, product: "PMG", litres: 20, payment_method: "card", discount: 5001, discount_kind: "direct" });
+  assert.equal(over.status, 403); assert.match(over.data.error, /Direct discount above Rs 5,000/);
   ok(await call("admin", "PUT", "/api/settings", { limits: { direct_discount_max: 1000 } }), "raise limit");
   const s2 = ok(await call("salesman", "POST", "/api/sales", { station_id: live.shift.station_id, product: "PMG", litres: 20, payment_method: "card", discount: 600, discount_kind: "direct", discount_ref: "Dukandar Bilal" }), "card sale with discount");
   assert.equal(s2.discount_ref, "Dukandar Bilal"); near(s2.amount, 20 * rate - 600);

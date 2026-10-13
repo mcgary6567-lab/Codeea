@@ -163,7 +163,7 @@ test("admin renames, switches off and deletes expense categories; limits are set
   // limits
   assert.equal((await call("admin", "PUT", "/api/settings", { limits: { test_limit_l: 25, shortage_min: 250, shortage_tolerance_pct: 0.5, utility_alert_pct: 20, shift_hours: 12, khata_discount_max: 800, pin_admin: true } })).status, 200);
   const l = (await call("admin", "GET", "/api/settings")).data.limits;
-  assert.deepEqual(l, { test_limit_l: 25, shortage_min: 250, utility_alert_pct: 20, shortage_tolerance_pct: 0.5, shift_hours: 12, khata_discount_max: 800, direct_discount_max: 500, direct_discount_alert: 2000, pin_admin: true });
+  assert.deepEqual(l, { test_limit_l: 25, shortage_min: 250, utility_alert_pct: 20, shortage_tolerance_pct: 0.5, shift_hours: 12, khata_discount_max: 800, direct_discount_max: 5000, direct_discount_alert: 10000, pin_admin: true });
   assert.equal((await call("admin", "GET", "/api/claims")).data.tolerance_pct, 0.5, "claims read the same setting");
 });
 

@@ -93,7 +93,7 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
     // operating limits the owner can tune (defaults match what the code assumed before they were settings)
     limits: { test_limit_l: Number(getSetting(t, "test_limit_l", "10")), shortage_min: Number(getSetting(t, "shortage_min", "100")), utility_alert_pct: Number(getSetting(t, "utility_alert_pct", "15")),
       shortage_tolerance_pct: Number(getSetting(t, "shortage_tolerance_pct", "0.2")), shift_hours: Number(getSetting(t, "shift_hours", "24")),
-      khata_discount_max: Number(getSetting(t, "khata_discount_max", "500")), direct_discount_max: Number(getSetting(t, "direct_discount_max", "500")), direct_discount_alert: Number(getSetting(t, "direct_discount_alert", "2000")), pin_admin: getSetting(t, "pin_admin", "0") === "1" },
+      khata_discount_max: Number(getSetting(t, "khata_discount_max", "500")), direct_discount_max: Number(getSetting(t, "direct_discount_max", "5000")), direct_discount_alert: Number(getSetting(t, "direct_discount_alert", "10000")), pin_admin: getSetting(t, "pin_admin", "0") === "1" },
     admin_2fa: getSetting(t, "admin_2fa", "0") === "1",
     sensitivity: sensitivity(t),
     integrations: {

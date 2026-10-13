@@ -386,7 +386,7 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
   // a discount above the salesman's limit needs a manager / CEO (checked early, before the shift lookup)
   if (b.discount && b.discount > 0) {
     const direct = (b.discount_kind ?? (b.payment_method === "khata" ? "khata" : "direct")) === "direct";
-    const max = Number(getSetting(tid(req), direct ? "direct_discount_max" : "khata_discount_max", "500"));
+    const max = Number(getSetting(tid(req), direct ? "direct_discount_max" : "khata_discount_max", direct ? "5000" : "500"));
     if (b.discount > max && !can(req.user, "customers.edit"))
       throw new AppError(403, `${direct ? "Direct discount" : "Discount"} above ${pkr(max)} needs the manager / CEO. Ask them to enter it.`);
   }
@@ -433,7 +433,7 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
 /** Direct discounts given in one shift add up past the owner's alert line → tell the managers once per shift. */
 function directDiscountWatch(t: number, sale: Row) {
   if (!sale.shift_id) return;
-  const limit = Number(getSetting(t, "direct_discount_alert", "2000"));
+  const limit = Number(getSetting(t, "direct_discount_alert", "10000"));
   const tot = get("SELECT COALESCE(SUM(discount),0) v, COUNT(*) n FROM sales WHERE shift_id=? AND discount_kind='direct'", sale.shift_id)!;
   if (tot.v < limit) return;
   const sh = get("SELECT attendant FROM shifts WHERE id=?", sale.shift_id);

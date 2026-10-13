@@ -80,7 +80,7 @@ export default function Pos() {
   const [pay, setPay] = useState<string | null>(null);
   const [khata, setKhata] = useState<{ account: any; vehicle: string; slip: string; photo_id?: number | null; pending?: boolean; discount?: number } | null>(null);
   // direct (walk-in) discount on a cash / card / online sale: fixed rupees or Rs per litre; the reference (who / why) is typed right after saving
-  const [direct, setDirect] = useState<{ mode: "rs" | "perL"; value: number } | null>(null);
+  const [direct, setDirect] = useState<{ value: number } | null>(null);
   const [pickDirect, setPickDirect] = useState(false);
   const [refText, setRefText] = useState("");
   const [pickKhata, setPickKhata] = useState(false);
@@ -143,7 +143,7 @@ export default function Pos() {
   const amount = mode === "amount" ? value : value * rate;
   const khataDiscount = pay === "khata" && !khata?.pending ? (khata?.discount ?? 0) : 0;
   const directAllowed = Boolean(pay) && !["khata", "coupon", "loyalty"].includes(pay ?? "");
-  const directDiscount = directAllowed && direct ? Math.round((direct.mode === "perL" ? direct.value * litres : direct.value) * 100) / 100 : 0;
+  const directDiscount = directAllowed && direct ? Math.round(direct.value * 100) / 100 : 0;
   const discount = khataDiscount || directDiscount;
   const net = Math.max(0, amount - discount); // what is actually charged / collected after the discount
   const directMax = d?.direct_discount_max ?? null;
@@ -382,8 +382,12 @@ export default function Pos() {
                 </button>
               ))}
               {/* direct (walk-in) discount — not a payment method: it reduces what is collected on the chosen method */}
-              <button aria-pressed={Boolean(direct)} disabled={!directAllowed} onClick={() => setPickDirect(true)} title={directAllowed ? "" : "Pehle cash / card / online chunein"}
-                className={`flex flex-col items-center justify-center rounded-2xl py-3 text-white shadow transition active:scale-95 bg-rose-600 disabled:opacity-40 ${direct ? "scale-[1.03] ring-4 ring-slate-900 ring-offset-2" : pay && !direct ? "opacity-90" : ""}`}>
+              <button aria-pressed={Boolean(direct)} onClick={() => {
+                  if (pay && !directAllowed) { toast("err", "Direct discount cash / card / online sale par hota hai (khata ka apna discount hai) · نقد یا کارڈ پر"); return; }
+                  if (!product || !(value > 0)) { toast("err", "Pehle fuel aur raqam dalein · پہلے تیل اور رقم"); return; }
+                  setPickDirect(true);
+                }}
+                className={`flex flex-col items-center justify-center rounded-2xl py-3 text-white shadow transition active:scale-95 bg-rose-600 ${direct ? "scale-[1.03] ring-4 ring-slate-900 ring-offset-2" : ""}`}>
                 <Percent size={28} />
                 <span className="mt-1 text-base font-bold">Direct discount</span>
                 <Ur className="text-sm leading-loose">ڈائریکٹ رعایت</Ur>
@@ -391,7 +395,7 @@ export default function Pos() {
             </div>
             {direct && directAllowed && (
               <button onClick={() => setPickDirect(true)} className={`mt-3 flex w-full items-center gap-3 rounded-xl p-3 text-left ring-1 ${directOver ? "bg-red-50 ring-red-300" : "bg-rose-50 ring-rose-300"}`}>
-                <Percent className="text-rose-600" /><span className="flex-1"><b>Direct discount {direct.mode === "perL" ? `Rs ${direct.value}/L` : `Rs ${direct.value}`}</b>
+                <Percent className="text-rose-600" /><span className="flex-1"><b>Direct discount Rs {direct.value.toLocaleString("en-IN")}</b>
                   <span className="block text-sm text-slate-600">{pkr(amount)} − {pkr(directDiscount)} = <b>{pkr(net)}</b>{directOver ? <span className="ml-2 font-semibold text-red-600">· limit {pkr(directMax!)} — manager se karwayen</span> : ""}</span></span>
                 <span className="text-sm text-rose-700 underline">Change</span>
               </button>
@@ -1018,24 +1022,19 @@ function BarcodeScanner({ onCode, onClose }: { onCode: (code: string) => void; o
 }
 
 
-/** Direct (walk-in) discount: fixed rupees or rupees per litre; shows gross − discount = net and the salesman's limit. */
-function DirectDiscountPicker({ initial, litres, amount, max, onClose, onPick }: { initial: { mode: "rs" | "perL"; value: number } | null; litres: number; amount: number; max: number | null; onClose: () => void; onPick: (v: { mode: "rs" | "perL"; value: number } | null) => void }) {
-  const [mode, setMode] = useState<"rs" | "perL">(initial?.mode ?? "rs");
+/** Direct (walk-in) discount: a rupee amount typed by hand (e.g. 2,000 / 5,000); shows gross − discount = net and the salesman's limit. */
+function DirectDiscountPicker({ initial, litres, amount, max, onClose, onPick }: { initial: { value: number } | null; litres: number; amount: number; max: number | null; onClose: () => void; onPick: (v: { value: number } | null) => void }) {
   const [val, setVal] = useState<string>(initial ? String(initial.value) : "");
   const v = Number(val) || 0;
-  const disc = Math.round((mode === "perL" ? v * litres : v) * 100) / 100;
+  const disc = Math.round(v * 100) / 100;
   const over = max != null && disc > max;
   const tooBig = disc >= amount && amount > 0;
   return (
     <Modal open onClose={onClose} title="Direct discount · ڈائریکٹ رعایت">
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          {([["rs", "Rupay (fixed)", "مقررہ رقم"], ["perL", "Rs per litre", "فی لیٹر"]] as const).map(([k, en, ur]) => (
-            <button key={k} type="button" onClick={() => setMode(k)} aria-pressed={mode === k} className={`rounded-xl px-3 py-3 text-base font-semibold ring-2 ${mode === k ? "bg-rose-600 text-white ring-rose-600" : "bg-white text-slate-700 ring-slate-200"}`}>{en}<Ur className="block text-sm">{ur}</Ur></button>
-          ))}
-        </div>
-        <input autoFocus className="input min-h-14 w-full text-center text-3xl tabular-nums" type="number" inputMode="decimal" min={0} step={mode === "perL" ? "0.5" : "1"} placeholder={mode === "perL" ? "Rs / L" : "Rs"} value={val} onChange={(e) => setVal(e.target.value)} aria-label="Discount value" />
-        <div className="flex flex-wrap gap-2">{(mode === "perL" ? [1, 2, 3, 5] : [20, 50, 100, 200]).map((q) => <button key={q} type="button" onClick={() => setVal(String(q))} className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold">{mode === "perL" ? `Rs ${q}/L` : `Rs ${q}`}</button>)}</div>
+        <p className="text-sm text-slate-600">Kitne rupay ki rewayat? · <Ur>کتنے روپے کی رعایت</Ur></p>
+        <input autoFocus className="input min-h-16 w-full text-center text-4xl font-bold tabular-nums" type="number" inputMode="numeric" min={0} step="1" placeholder="Rs" value={val} onChange={(e) => setVal(e.target.value)} aria-label="Discount value" />
+        <div className="grid grid-cols-4 gap-2">{[500, 1000, 2000, 5000].map((q) => <button key={q} type="button" onClick={() => setVal(String(q))} className="rounded-xl bg-slate-100 py-3 text-base font-semibold active:bg-slate-200">Rs {q.toLocaleString("en-IN")}</button>)}</div>
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <div className="flex justify-between"><span>Fuel {num(litres, 2)} L</span><span className="tabular-nums">{pkr(amount)}</span></div>
           <div className="flex justify-between text-rose-700"><span>− Direct discount</span><span className="tabular-nums">{pkr(disc)}</span></div>
@@ -1046,7 +1045,7 @@ function DirectDiscountPicker({ initial, litres, amount, max, onClose, onPick }:
         <p className="text-xs text-slate-500">Save ke baad reference likhna hoga (kis ko / kyun) — report mein isi naam se jama hoga.</p>
         <div className="flex gap-2">
           {initial && <button type="button" className="btn-secondary min-h-12" onClick={() => onPick(null)}>Remove</button>}
-          <button type="button" disabled={!(disc > 0) || over || tooBig} className="min-h-12 flex-1 rounded-xl bg-rose-600 text-lg font-bold text-white disabled:bg-slate-300" onClick={() => onPick({ mode, value: v })}><Check className="inline" size={22} /> Apply · <Ur>لاگو کریں</Ur></button>
+          <button type="button" disabled={!(disc > 0) || over || tooBig} className="min-h-12 flex-1 rounded-xl bg-rose-600 text-lg font-bold text-white disabled:bg-slate-300" onClick={() => onPick({ value: v })}><Check className="inline" size={22} /> Apply · <Ur>لاگو کریں</Ur></button>
         </div>
       </div>
     </Modal>
