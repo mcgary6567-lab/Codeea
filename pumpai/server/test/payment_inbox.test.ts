@@ -32,7 +32,7 @@ before(async () => {
 after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 test("payment screenshot → inbox → cashier confirms → khata credit, books tally", async () => {
-  const cust = ok(await call(admin, "GET", "/api/customers"), "customers").find((c: any) => c.phone);
+  const cust = ok(await call(admin, "GET", "/api/customers"), "customers").find((c: any) => c.phone && (c.credit_limit > 0 || c.balance));
   assert.ok(cust, "a customer with a phone exists");
   const balBefore = cust.balance;
 
@@ -58,7 +58,7 @@ test("payment screenshot → inbox → cashier confirms → khata credit, books 
 });
 
 test("a screenshot can be rejected without posting anything, and an unknown number is not queued", async () => {
-  const cust = ok(await call(admin, "GET", "/api/customers"), "customers").find((c: any) => c.phone);
+  const cust = ok(await call(admin, "GET", "/api/customers"), "customers").find((c: any) => c.phone && (c.credit_limit > 0 || c.balance));
   const sim = ok(await call(admin, "POST", "/api/whatsapp/simulate", { phone: cust.phone, image: PNG }), "sim2");
   const id = sim.payment_inbox_id;
   assert.equal((await call(admin, "POST", `/api/payment-inbox/${id}/reject`, { reason: "x" })).status, 400, "reason too short");
