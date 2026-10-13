@@ -1,43 +1,60 @@
 import { useEffect, useState } from "react";
 import { PlayCircle, ListOrdered, Download, BookOpen, X } from "lucide-react";
 import { PageHeader, Loading } from "../components/ui";
+import { useAuth, ROLE_LABEL } from "../App";
 
 type Step = { en: string; ur: string };
 type Tip = { icon: string; en: string; ur: string };
-type Mod = { id: string; num: number; route: string; title_en: string; title_ur: string; who: string[]; what_en: string; what_ur: string; steps: Step[]; tips: Tip[] };
+type Mod = { id: string; num: number; route: string; title_en: string; title_ur: string; who: string[]; roles?: string[]; media?: boolean; what_en: string; what_ur: string; steps: Step[]; tips: Tip[] };
+const ROLE_CHIPS: { k: string; en: string; ur: string }[] = [{ k: "admin", en: "CEO / Admin", ur: "مالک" }, { k: "manager", en: "Manager", ur: "مینیجر" }, { k: "salesman", en: "Salesman", ur: "سیلزمین" }, { k: "cashier", en: "Cashier", ur: "کیشیئر" }, { k: "wholesale", en: "Wholesale", ur: "ہول سیل" }];
 
 const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** In-app user guide: one card per module with a playable GIF, bilingual steps and a downloadable PDF. */
 export default function Help() {
+  const { user } = useAuth();
+  const myRole = user?.role ?? "admin";
+  // each user opens on THEIR guide; the owner / manager can switch to any role's guide
+  const [role, setRole] = useState<string>(myRole);
   const [mods, setMods] = useState<Mod[] | null>(null);
   const [open, setOpen] = useState<Record<string, "video" | "steps" | null>>({});
   const [lightbox, setLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/help/guides.json").then((r) => r.json()).then((d) => setMods(d.modules)).catch(() => setMods([]));
-    if (location.hash) setTimeout(() => document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: "smooth" }), 400);
+    if (location.hash) { const id = location.hash.slice(1); setRole("all"); setOpen((o) => ({ ...o, [id]: "steps" })); setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }), 400); }
   }, []);
   if (!mods) return <Loading />;
 
   const toggle = (id: string, which: "video" | "steps") => setOpen((o) => ({ ...o, [id]: o[id] === which ? null : which }));
+  const canSwitch = ["admin", "manager"].includes(myRole);
+  const shown = role === "all" ? mods : mods.filter((m) => !m.roles || m.roles.includes(role));
+  const videos = [
+    { file: "salesman-training-ur", role: "salesman", en: "Salesman", ur: "سیلزمین", min: "~3 min" },
+    { file: "cashier-training-ur", role: "cashier", en: "Cashier", ur: "کیشیئر", min: "~2.5 min" },
+    { file: "manager-training-ur", role: "manager", en: "Manager", ur: "مینیجر", min: "~2.5 min" },
+  ].filter((v) => role === "all" || v.role === role || (role === "admin" && v.role === "manager"));
 
   return (
     <div>
-      <PageHeader title="User Guide · رہنمائی" subtitle="Har module ka asaan guide — Urdu + English, video aur PDF ke saath" />
+      <PageHeader title="User Guide · رہنمائی" subtitle={`Aap ka guide (${ROLE_LABEL[myRole] ?? myRole}) — sirf woh modules jo aap istemal karte hain. Urdu + English, video aur PDF ke saath.`} />
+      {canSwitch && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {ROLE_CHIPS.map((c) => (
+            <button key={c.k} onClick={() => setRole(c.k)} className={`rounded-full px-3 py-1 text-xs font-semibold ${role === c.k ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}>{c.en} · <Ur>{c.ur}</Ur>{c.k === myRole ? " (me)" : ""}</button>
+          ))}
+          <button onClick={() => setRole("all")} className={`rounded-full px-3 py-1 text-xs font-semibold ${role === "all" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}>All modules · <Ur>سب</Ur></button>
+        </div>
+      )}
       <div className="mb-4 flex items-center gap-2 rounded-xl bg-brand-50 p-3 text-sm text-brand-900 ring-1 ring-brand-100">
         <BookOpen size={18} className="shrink-0" /> Har card par <b>▶ Video</b> dekhein, <b>Steps</b> parhein, ya <b>PDF</b> download karein. · <Ur>ہر ماڈیول کی آسان رہنمائی</Ur>
       </div>
 
       {/* Featured: full training videos (Urdu voice) per role */}
-      <h2 className="mb-2 text-base font-bold text-brand-800">🎬 Training videos (Urdu) · <Ur>ٹریننگ ویڈیوز</Ur></h2>
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
-        {[
-          { file: "salesman-training-ur", en: "Salesman", ur: "سیلزمین", min: "~3 min" },
-          { file: "cashier-training-ur", en: "Cashier", ur: "کیشیئر", min: "~2.5 min" },
-          { file: "manager-training-ur", en: "Manager", ur: "مینیجر", min: "~2.5 min" },
-        ].map((v) => (
+      {videos.length > 0 && <h2 className="mb-2 text-base font-bold text-brand-800">🎬 Training video{videos.length > 1 ? "s" : ""} (Urdu) · <Ur>ٹریننگ ویڈیو</Ur></h2>}
+      <div className={`mb-6 grid gap-4 ${videos.length > 1 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+        {videos.map((v) => (
           <div key={v.file} className="overflow-hidden rounded-2xl ring-1 ring-brand-200">
             <div className="flex items-center justify-between gap-2 bg-brand-900 px-3 py-2 text-white">
               <div className="text-sm font-bold">{v.en} · <Ur className="text-emerald-100">{v.ur}</Ur></div>
@@ -49,7 +66,7 @@ export default function Help() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {mods.map((m) => (
+        {shown.map((m) => (
           <div key={m.id} id={m.id} className="card flex flex-col overflow-hidden p-0">
             <div className="flex items-start justify-between gap-2 bg-brand-900 p-3 text-white">
               <div className="min-w-0">
@@ -64,9 +81,10 @@ export default function Help() {
               <Ur className="mt-1 block text-sm text-slate-500">{m.what_ur}</Ur>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => toggle(m.id, "video")} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold ${open[m.id] === "video" ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-800"}`}><PlayCircle size={15} /> Video</button>
+                {m.media !== false && <button onClick={() => toggle(m.id, "video")} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold ${open[m.id] === "video" ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-800"}`}><PlayCircle size={15} /> Video</button>}
                 <button onClick={() => toggle(m.id, "steps")} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold ${open[m.id] === "steps" ? "bg-brand-600 text-white" : "bg-brand-50 text-brand-700"}`}><ListOrdered size={15} /> Steps</button>
-                <a href={`/help/PumpAI-${pad(m.num)}-${m.id}.pdf`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-200"><Download size={15} /> PDF</a>
+                {m.media !== false && <a href={`/help/PumpAI-${pad(m.num)}-${m.id}.pdf`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-200"><Download size={15} /> PDF</a>}
+                <a href={m.route} className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Open page →</a>
               </div>
 
               {open[m.id] === "video" && (
