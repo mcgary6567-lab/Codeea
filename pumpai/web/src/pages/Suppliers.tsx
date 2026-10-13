@@ -5,6 +5,7 @@ import { api, linkToken, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
+import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { Ur } from "../components/VoiceShell";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 
@@ -216,6 +217,7 @@ function SupplierDetail({ id, onClose, onChanged, depots, onDepots }: { id: numb
           <div className="flex flex-wrap items-end gap-3 print:hidden">
             <Stat label="We owe" value={pkr(s.owed)} tone="red" />
             <a className="btn-secondary min-h-10" href={`/api/suppliers/${id}/statement.csv?token=${linkToken()}`}><Download size={15} /> Excel / CSV</a>
+            <WhatsAppDoc kind="supplier" id={Number(id)} className="btn-secondary min-h-10" />
             <button type="button" className="btn-secondary min-h-10" onClick={() => window.print()}><Printer size={15} /> Print statement · <Ur>پرنٹ</Ur></button>
             <form className="grid w-full basis-full grid-cols-2 items-end gap-2 sm:flex sm:min-w-0 sm:flex-1 sm:basis-auto sm:flex-wrap" onSubmit={async (e) => {
               e.preventDefault();

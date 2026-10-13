@@ -110,6 +110,15 @@ export async function fetchMedia(mediaId: string): Promise<{ base64: string; mim
   } catch (e) { console.error("[wa media]", (e as Error).message); return null; }
 }
 
+/** Send a PDF (by public link) as a WhatsApp document to any number; falls back to a text with the link. Live mode only. */
+export async function sendDocumentToPhone(phone: string, link: string, filename: string, caption: string): Promise<{ ok: boolean; id?: string; error?: string; simulated?: boolean; as?: "document" | "text" }> {
+  if (!waLive()) return { ok: true, simulated: true, as: "document" };
+  const r = await graphSend({ messaging_product: "whatsapp", to: phone, type: "document", document: { link, filename, caption: caption.slice(0, 1000) } });
+  if (r.ok) return { ...r, as: "document" };
+  const t = await graphSend({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: `${caption}\n${link}`, preview_url: false } });
+  return { ...t, as: "text", error: t.ok ? undefined : (t.error ?? r.error) };
+}
+
 export async function sendToPhone(phone: string, text: string) {
   if (!waLive()) return { simulated: true };
   return graphSend({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: text } });

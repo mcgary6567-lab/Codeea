@@ -670,6 +670,11 @@ export function migrate() {
     amount REAL NOT NULL, bank TEXT NOT NULL, cheque_no TEXT NOT NULL, cheque_date TEXT NOT NULL, status TEXT NOT NULL, account_id INTEGER,
     txn_ref TEXT, reason TEXT, note TEXT, created_by TEXT, created_at TEXT NOT NULL, deposited_at TEXT, cleared_at TEXT, updated_at TEXT NOT NULL)`);
   // every receipt / payment voucher made at the cashier desk (serial no. for the slip); 'other' cash ones feed the cash book
+  // documents (vouchers, statements, reports…) sent on WhatsApp as PDFs: who sent what to whom, how, and whether it went
+  db.exec(`CREATE TABLE IF NOT EXISTS sent_docs (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, ref_id TEXT NOT NULL, title TEXT NOT NULL, to_phone TEXT NOT NULL, to_name TEXT,
+    link TEXT NOT NULL, channel TEXT NOT NULL, ok INTEGER, error TEXT, sent_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_sent_docs_ref ON sent_docs(tenant_id, kind, ref_id)");
   db.exec(`CREATE TABLE IF NOT EXISTS cashier_vouchers (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, direction TEXT NOT NULL, party_type TEXT NOT NULL, party_id INTEGER, party_name TEXT NOT NULL,
     amount REAL NOT NULL, method TEXT NOT NULL, account_id INTEGER, category TEXT, ref TEXT, note TEXT, src TEXT, voided INTEGER NOT NULL DEFAULT 0,

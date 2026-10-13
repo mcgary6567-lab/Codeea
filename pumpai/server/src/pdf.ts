@@ -4,7 +4,11 @@
  */
 export class Pdf {
   private ops: string[] = [];
+  private pages: string[] = [];
   private img: { data: Buffer; w: number; h: number; comps: number } | null = null;
+  /** Finish the current page and start a new one (the same image object, e.g. the logo, can be drawn again). */
+  newPage() { this.pages.push(this.ops.join("\n")); this.ops = []; return this; }
+  get pageCount() { return this.pages.length + 1; }
 
   /** Size and colour channels of a JPEG (from its SOF marker), or null when it is not a baseline/progressive JPEG. */
   static jpegInfo(b: Buffer) {
@@ -57,23 +61,30 @@ export class Pdf {
     return this;
   }
   build(title = "Document"): Buffer {
-    const content = this.ops.join("\n");
-    const objs = [
+    const contents = [...this.pages, this.ops.join("\n")];
+    // objects: 1 catalog, 2 pages, 3 info, 4 F1, 5 F2, 6 image (optional), then per page: page dict + content stream
+    const imgObj = this.img ? 6 : 0;
+    const first = this.img ? 7 : 6;
+    const pageIds = contents.map((_, i) => first + i * 2);
+    const res = `/Resources << /Font << /F1 4 0 R /F2 5 0 R >>${this.img ? ` /XObject << /Im1 ${imgObj} 0 R >>` : ""} >>`;
+    const objs: string[] = [
       "<< /Type /Catalog /Pages 2 0 R >>",
-      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${Pdf.W} ${Pdf.H}] /Resources << /Font << /F1 5 0 R /F2 6 0 R >>${this.img ? " /XObject << /Im1 8 0 R >>" : ""} >> /Contents 4 0 R >>`,
-      `<< /Length ${Buffer.byteLength(content, "latin1")} >>\nstream\n${content}\nendstream`,
+      `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${contents.length} >>`,
+      `<< /Title (${Pdf.clean(title)}) /Producer (PumpAI) >>`,
       "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
       "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
-      `<< /Title (${Pdf.clean(title)}) /Producer (PumpAI) >>`,
     ];
     if (this.img) objs.push(`<< /Type /XObject /Subtype /Image /Width ${this.img.w} /Height ${this.img.h} /ColorSpace /${this.img.comps === 1 ? "DeviceGray" : this.img.comps === 4 ? "DeviceCMYK" : "DeviceRGB"} /BitsPerComponent 8 /Filter /DCTDecode /Length ${this.img.data.length} >>\nstream\n${this.img.data.toString("latin1")}\nendstream`);
+    contents.forEach((content, i) => {
+      objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${Pdf.W} ${Pdf.H}] ${res} /Contents ${pageIds[i] + 1} 0 R >>`);
+      objs.push(`<< /Length ${Buffer.byteLength(content, "latin1")} >>\nstream\n${content}\nendstream`);
+    });
     let out = "%PDF-1.4\n";
     const offsets: number[] = [];
     objs.forEach((o, i) => { offsets.push(Buffer.byteLength(out, "latin1")); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
     const xref = Buffer.byteLength(out, "latin1");
     out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}`;
-    out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 7 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
     return Buffer.from(out, "latin1");
   }
 }

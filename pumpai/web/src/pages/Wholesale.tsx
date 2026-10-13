@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send, Receipt } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
+import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { WholesaleDashboard } from "../components/WholesaleDashboard";
@@ -417,6 +418,7 @@ function ClientDetail({ id }: { id: string }) {
           <Field label="From"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
           <Field label="To"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
           <a className="btn-secondary" href={csvUrl}><Download size={15} /> Excel / CSV</a>
+          <WhatsAppDoc kind="wholesale" id={Number(id)} from={range.from || undefined} to={range.to || undefined} />
           <button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print</button>
         </div>
         <h2 className="hidden px-4 pt-4 font-semibold print:block">Account statement {range.from && `from ${range.from}`} {range.to && `to ${range.to}`}</h2>

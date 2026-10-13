@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { toWords } from "../lib/words";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
@@ -213,6 +214,7 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
                 <span className="min-w-0 flex-1 truncate">{v.party_name}<span className="block text-xs text-slate-500">{v.method} · {ago(v.created_at)}</span></span>
                 <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
               </button>
+              <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>
               {can("cashier.void") && /^(khata|wholesale|other|supplier|expense|staff)$/.test(v.party_type) && v.method !== "Cheque" && (
                 <button title="Void this voucher (CEO)" aria-label="Void voucher"
                   onClick={async () => { const reason = prompt(`Is voucher ko void karein? (${pkr(v.amount)} ${v.party_name})\nWajah likhein:`); if (reason && reason.trim().length >= 3) { await api(`/cashier/vouchers/${v.id}/void`, { body: { reason: reason.trim() } }); reload(); } }}
@@ -456,6 +458,7 @@ export function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
       </div>
       <div className="mt-4 flex justify-end gap-2 print:hidden">
         <button className="btn-secondary" onClick={onClose}>Close · <Ur>بند</Ur></button>
+        {v.id && <WhatsAppDoc kind="voucher" id={v.id} />}
         <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print 2 copies · <Ur>پرنٹ</Ur></button>
       </div>
     </Modal>

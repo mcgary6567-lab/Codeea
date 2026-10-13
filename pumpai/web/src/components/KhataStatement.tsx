@@ -4,6 +4,7 @@ import { api, linkToken, useApi } from "../lib/api";
 import { ProofThumbs } from "./Capture";
 import { PortalCard } from "./PortalCard";
 import { Field, Loading, Modal, useAction } from "./ui";
+import { WhatsAppDoc } from "./WhatsAppDoc";
 import { PRODUCTS, num, phone, pkr } from "../lib/format";
 
 const pkToday = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
@@ -39,6 +40,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
           <button className="btn-secondary" onClick={openBill}><ExternalLink size={15} /> Bill link · لنک</button>
           <a className="btn-secondary" href={`/cards/${customerId}`} target="_blank" rel="noreferrer"><QrCode size={15} /> QR cards</a>
           <a className="btn-secondary" href={csv}><Download size={15} /> Excel</a>
+          <WhatsAppDoc kind="khata" id={customerId} from={range.from || undefined} to={range.to || undefined} label="WhatsApp PDF" />
           <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print bill · پرنٹ</button>
         </div>
       </div>

@@ -56,6 +56,8 @@ import { otherEntries } from "./routes/otherEntries.js";
 import { books } from "./routes/books.js";
 import { corrections } from "./routes/corrections.js";
 import { opening } from "./routes/opening.js";
+import { docs } from "./routes/docs.js";
+import { docFromToken } from "./docs.js";
 import { paymentInbox } from "./routes/paymentInbox.js";
 import { people, slipPdf } from "./routes/people.js";
 import { setupPublic, business, applyStoredConfig } from "./routes/setup.js";
@@ -191,6 +193,15 @@ app.get("/slip/:token", (req, res) => {
   res.setHeader("content-disposition", "inline; filename=salary-slip.pdf");
   res.end(pdf);
 });
+// any document (voucher, statement, shift report, receipt) by its signed link — what WhatsApp carries
+app.get("/doc/:token", (req, res) => {
+  const d = docFromToken(req.params.token);
+  if (!d) return res.status(404).type("html").send("<p style='font-family:sans-serif'>This document link is not valid.</p>");
+  if (!d.pdf) return res.redirect(d.link!);
+  res.setHeader("content-type", "application/pdf");
+  res.setHeader("content-disposition", `inline; filename="${d.filename}"`);
+  res.end(d.pdf);
+});
 app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
@@ -256,6 +267,7 @@ api.use(otherEntries);
 api.use(books);
 api.use(corrections);
 api.use(opening);
+api.use(docs);
 api.use(paymentInbox);
 api.use(people);
 api.use(business);

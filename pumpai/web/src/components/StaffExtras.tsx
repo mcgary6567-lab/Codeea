@@ -2,6 +2,7 @@ import { useState } from "react";
 import { GraduationCap, HandCoins, FileText, MessageSquareHeart, Send, RefreshCw } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, PageHeader, useAction } from "./ui";
+import { WhatsAppDoc } from "./WhatsAppDoc";
 import { num, pkr } from "../lib/format";
 import { ProofPhotos } from "./Capture";
 
@@ -49,7 +50,7 @@ export function SlipsList({ slips }: { slips: { id: number; month: string; net: 
   if (!slips?.length) return null;
   return (
     <div className="mt-3 flex flex-wrap gap-2">
-      {slips.map((s) => <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm hover:bg-slate-200"><FileText size={13} /> Slip {s.month} · {pkr(s.net)}</a>)}
+      {slips.map((s) => <span key={s.id} className="inline-flex items-center gap-1"><a href={s.url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm hover:bg-slate-200"><FileText size={13} /> Slip {s.month} · {pkr(s.net)}</a><WhatsAppDoc kind="slip" id={s.id} label="" small /></span>)}
     </div>
   );
 }

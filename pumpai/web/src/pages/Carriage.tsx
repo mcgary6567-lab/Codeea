@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Search, Truck, Send, ArrowLeft, Ban, HandCoins, Download, Printer } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, CnicInput, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, useAction } from "../components/ui";
+import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { PRODUCTS, activeProducts, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
@@ -149,6 +150,7 @@ function ThekedarDetail({ id }: { id: number }) {
           <Field label="From"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
           <Field label="To"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
           <a className="btn-secondary" href={csvUrl}><Download size={15} /> Excel / CSV</a>
+          <WhatsAppDoc kind="carriage" id={Number(id)} from={range.from || undefined} to={range.to || undefined} />
           <button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print</button>
         </div>
         <h2 className="hidden px-4 pt-4 text-lg font-semibold print:block">Carriage statement — {k.name}{range.from && ` from ${range.from}`}{range.to && ` to ${range.to}`}</h2>

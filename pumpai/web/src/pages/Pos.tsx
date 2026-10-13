@@ -4,6 +4,7 @@ import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search
 import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
 import { Loading, Modal, useAction, useToast } from "../components/ui";
+import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { newUid, isOffline, queueSale, dropQueued, patchQueued, dismissFailed, useOfflineQueue, cacheGet, cacheSet } from "../lib/offline";
 import { num, pkr, PRODUCTS, PRODUCT_COLORS, PRODUCT_UR, activeProducts } from "../lib/format";
 import { iconMap, labelMap, useLookups, type LookupEntry } from "../lib/lookups";
@@ -528,6 +529,7 @@ export default function Pos() {
                 <button onClick={() => (done.receipt_url ? printReceipt(done.receipt_url) : printOffline(done))} className="mx-auto flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-xl font-bold text-emerald-700 shadow active:scale-95">
                   <Printer size={24} /> Print receipt{done.offline ? " (offline)" : ""} · <Ur>پرچی پرنٹ</Ur>
                 </button>
+                {done.id && !done.offline && <div className="mt-2 flex justify-center"><WhatsAppDoc kind="receipt" id={done.id} label="WhatsApp receipt" className="rounded-xl bg-white/20 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/60" /></div>}
                 <div className="mt-2 flex items-center justify-center gap-2 text-sm text-white/90">
                   <span>Printer roll:</span>
                   {["58", "80"].map((w) => (

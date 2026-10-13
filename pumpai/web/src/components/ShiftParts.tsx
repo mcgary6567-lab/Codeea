@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Printer, Trash2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, useAction } from "./ui";
+import { WhatsAppDoc } from "./WhatsAppDoc";
 import { PhotoButton, ProofThumbs, PhotoThumb } from "./Capture";
 import { PRODUCTS, ago, dt, num, pkr } from "../lib/format";
 
@@ -162,7 +163,7 @@ export function ShiftReport({ id, onClose }: { id: number; onClose: () => void }
   return (
     <Modal open onClose={onClose} title={`Shift report #${id}`} wide>
       {!r ? <Loading /> : <ReportBody r={r} />}
-      <div className="mt-4 flex justify-end gap-2 print:hidden"><button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print</button><button className="btn-primary" onClick={onClose}>Done</button></div>
+      <div className="mt-4 flex flex-wrap justify-end gap-2 print:hidden"><WhatsAppDoc kind="shift" id={id} /><button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print</button><button className="btn-primary" onClick={onClose}>Done</button></div>
     </Modal>
   );
 }
