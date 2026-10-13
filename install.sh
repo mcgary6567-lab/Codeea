@@ -24,13 +24,21 @@ case "${ID:-}-${VERSION_ID:-}" in
   *) echo "This installer targets Ubuntu 22.04 / 24.04 or Debian 12 (found ${PRETTY_NAME:-unknown}). Use docker compose by hand on other systems."; exit 1 ;;
 esac
 
-# A control-panel template (CloudPanel, cPanel, CyberPanel, Plesk...) already owns ports 80 and 443, and
-# Caddy cannot get a certificate without them. Only our own Caddy container may hold them.
+# A control-panel template (CloudPanel, cPanel, CyberPanel, Plesk...) or Hostinger's Docker template (its Traefik
+# container) already owns ports 80 and 443, and Caddy cannot get a certificate without them. Only our own
+# containers (compose project "oqc", on a re-run) may hold them.
 busy="$($SUDO ss -ltnpH '( sport = :80 or sport = :443 )' 2>/dev/null | grep -v docker-proxy || true)"
+if command -v docker >/dev/null 2>&1; then
+  theirs="$($SUDO docker ps --format '{{.Label "com.docker.compose.project"}}|{{.Names}}|{{.Ports}}' 2>/dev/null \
+            | awk -F'|' '$1 != "oqc" && $3 ~ /:(80|443)->/ {print "container " $2 ": " $3}' || true)"
+  busy="$busy${theirs:+$'\n'$theirs}"
+fi
+busy="$(printf '%s' "$busy" | sed '/^$/d')"
 if [ -n "$busy" ]; then
   echo "Ports 80/443 are already in use on this server:"
   echo "$busy"
-  echo "Reinstall the VPS with the plain Ubuntu 24.04 template (no control panel), or stop that web server first."
+  echo "Reinstall the VPS with the plain Ubuntu 24.04 template (no control panel, no Docker/Traefik application"
+  echo "template; Hostinger: OS & Panel > Operating System), or stop that web server first. See docs/HOSTINGER_VPS.md."
   exit 1
 fi
 

@@ -13,9 +13,12 @@ Time needed: about 20 minutes, most of it waiting.
 | KVM 1 (1 vCPU, 4 GB) | Enough to start, up to a few hundred students |
 | **KVM 2 (2 vCPU, 8 GB)** | Recommended for daily use by all staff, teachers and parents |
 
-When Hostinger asks for the operating system, choose **Ubuntu 24.04** (plain, or "Ubuntu 24.04 with
-Docker"). Do **not** choose a control-panel template (CloudPanel, cPanel, CyberPanel, Plesk): they take
-ports 80 and 443, which the app needs for HTTPS. If the VPS already has a panel, use
+When Hostinger asks for the operating system, choose plain **Ubuntu 24.04** under *Plain OS*. Do **not**
+choose a control-panel template (CloudPanel, cPanel, CyberPanel, Plesk) or the **Docker / Docker Manager**
+application template: they run their own web server (the Docker template runs Traefik) on ports 80 and 443,
+which the app needs for HTTPS. The installer stops with "Ports 80/443 are already in use" if it finds one.
+A server that answers `http://<VPS IP>` with a redirect and "404 page not found" before you installed
+anything has Traefik on it. If the VPS already has a panel, use
 hPanel › VPS › **OS & Panel** › *Operating System* to reinstall it with plain Ubuntu 24.04.
 
 Set a strong root password, or better, add your SSH key, during setup.
