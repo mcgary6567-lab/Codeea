@@ -89,18 +89,19 @@ test("undo: a wrong khata sale is fully reversed — stock, balance and ledger",
   assert.equal((await call("salesman", "POST", `/api/sales/${sale.id}/undo`, {})).status, 404, "only once");
 });
 
-test("undo: salesman only own sale within 2 minutes; manager can while the shift is open", async () => {
+test("undo: salesman can fix his own sale any time while the shift is open; never someone else's", async () => {
   const mine = ok(await call("salesman", "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 1000, payment_method: "cash" }), "sale");
   const byMgr = ok(await call("manager", "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 500, payment_method: "cash" }), "mgr sale");
+  // a salesman may never undo a sale that is not his
   assert.equal((await call("salesman", "POST", `/api/sales/${byMgr.id}/undo`, {})).status, 403);
-  // age the salesman's sale past the window
-  const { run } = await import("../src/db.js");
+  // even well past the 2-minute quick-undo window, he can still fix his own entry while his shift is open
+  const { run, all } = await import("../src/db.js");
   run("UPDATE sales SET created_at=? WHERE id=?", new Date(Date.now() - 3 * 60_000).toISOString(), mine.id);
-  const late = await call("salesman", "POST", `/api/sales/${mine.id}/undo`, {});
-  assert.equal(late.status, 400); assert.match(late.data.error, /2 minutes/);
-  ok(await call("manager", "POST", `/api/sales/${mine.id}/undo`, {}), "manager undo");
-  const log = (await import("../src/db.js")).all("SELECT * FROM audit_log WHERE action='sale_undo'");
-  assert.equal(log.length, 2);
+  ok(await call("salesman", "POST", `/api/sales/${mine.id}/undo`, {}), "salesman undo own while shift open");
+  // the manager can undo their own sale too
+  ok(await call("manager", "POST", `/api/sales/${byMgr.id}/undo`, {}), "manager undo");
+  // two successful undos here, plus one from an earlier test in this file
+  assert.equal(all("SELECT * FROM audit_log WHERE action='sale_undo'").length, 3);
 });
 
 test("offline: a queued sale synced twice is saved once, at the price of the time it was made", async () => {

@@ -611,6 +611,7 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
   const skew = d.server_time ? Date.parse(d.server_time) - Date.now() : 0;
   const [, tick] = useState(0);
   const [confirm, setConfirm] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const toast = useToast();
   const undoable = (r: any) => r.created_by === myId && Date.now() + skew - Date.parse(r.created_at) < (d.undo_seconds ?? 120) * 1000;
   useEffect(() => {
@@ -639,7 +640,10 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
       </div>
       {d.shift && <div id="pos-expenses" className="rounded-2xl bg-white p-3 ring-1 ring-slate-200"><ShiftExpenses shiftId={d.shift.id} expenses={s.expenses} onChange={reload} preset={expPreset} /></div>}
       <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
-        <h3 className="mb-2 font-semibold">Last sales · <Ur className="text-slate-500">آخری سیل</Ur></h3>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="font-semibold">Last sales · <Ur className="text-slate-500">آخری سیل</Ur></h3>
+          {d.shift && <button onClick={() => setShowAll(true)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">All today · <Ur>آج کی ساری</Ur></button>}
+        </div>
         <ul className="divide-y divide-slate-100">
           {d.recent.map((r: any) => (
             <li key={r.id} className="flex items-center gap-2 py-2 text-sm">
@@ -659,7 +663,89 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
           {!d.recent.length && <li className="py-4 text-center text-sm text-slate-500">No sales yet</li>}
         </ul>
       </div>
+      {showAll && <AllEntries stationId={d.station?.id} onClose={() => setShowAll(false)} onChange={reload} />}
     </aside>
+  );
+}
+
+/**
+ * The whole day's entries for the open shift, so the salesman can check them and fix a mistake before closing:
+ * change the litres or the payment method of a wrong entry, or remove it. Editing is done safely on the server
+ * (undo + re-record), so stock, khata and the books stay balanced.
+ */
+function AllEntries({ stationId, onClose, onChange }: { stationId?: number; onClose: () => void; onChange: () => void }) {
+  const { data, reload } = useApi<any>(stationId ? `/pos/entries?station_id=${stationId}` : "/pos/entries");
+  const money = useLookups("payment_method").list;
+  const [edit, setEdit] = useState<any>(null); // { id, litres, payment_method, vehicle_no, slip_no }
+  const [confirm, setConfirm] = useState<number | null>(null);
+  const { busy, run } = useAction();
+  const refresh = () => { reload(); onChange(); };
+  const save = async () => {
+    const body: any = { litres: Number(edit.litres), payment_method: edit.payment_method };
+    if (edit.payment_method === "khata") { body.vehicle_no = edit.vehicle_no || null; body.slip_no = edit.slip_no || null; }
+    if (await run(() => api(`/sales/${edit.id}/edit`, { body }), "Entry fixed · درستی ہو گئی")) { setEdit(null); refresh(); }
+  };
+  const del = async (id: number) => { if (await run(() => api(`/sales/${id}/undo`, { body: {} }), "Entry removed · ہٹا دی گئی")) { setConfirm(null); refresh(); } };
+  const s = data?.summary;
+  return (
+    <Modal open onClose={onClose} title="Today's entries · آج کی ساری انٹریاں" wide>
+      {!data ? <Loading /> : !data.shift ? <p className="py-6 text-center text-slate-500">No open shift.</p> : (
+        <div className="space-y-3">
+          <div className="flex flex-wrap justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm">
+            <span><b className="tabular-nums">{data.entries.length}</b> entries</span>
+            <span>Litres <b className="tabular-nums">{num(s?.litres ?? 0, 1)} L</b></span>
+            <span>Sales <b className="tabular-nums">{pkr(s?.amount ?? 0)}</b></span>
+            <span>Cash in bag <b className="tabular-nums">{pkr(s?.cash_expected ?? 0)}</b></span>
+          </div>
+          <p className="text-xs text-slate-500">Fix a wrong litres or payment method, or remove an entry, before you close the shift. The totals above update at once · <Ur>شفٹ بند کرنے سے پہلے غلط اندراج ٹھیک کریں یا ہٹا دیں</Ur></p>
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+            {data.entries.map((r: any) => (
+              <li key={r.id} className="px-3 py-2.5 text-sm">
+                {edit?.id === r.id ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 font-medium"><span className="h-3 w-3 rounded-full" style={{ background: fuelOf(r.product).color }} />{fuelOf(r.product).en}</span>
+                      <label className="flex items-center gap-1">Litres <input className="input w-24 py-1 text-right tabular-nums" type="number" min={0.01} step="0.01" inputMode="decimal" value={edit.litres} onChange={(e) => setEdit({ ...edit, litres: e.target.value })} aria-label="Litres" /></label>
+                    </div>
+                    {r.payment_method === "khata" ? (
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                        <span>📒 {r.customer_name}</span>
+                        <input className="input w-28 py-1 uppercase" placeholder="Vehicle" value={edit.vehicle_no} onChange={(e) => setEdit({ ...edit, vehicle_no: e.target.value })} aria-label="Vehicle" />
+                        <input className="input w-24 py-1" placeholder="Slip" value={edit.slip_no} onChange={(e) => setEdit({ ...edit, slip_no: e.target.value })} aria-label="Slip" />
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {money.map((m: LookupEntry) => (
+                          <button key={m.key} type="button" onClick={() => setEdit({ ...edit, payment_method: m.key })}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize ${edit.payment_method === m.key ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700"}`}>{m.label || m.key}</button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <button className="btn-secondary min-h-9 !py-1 text-xs" onClick={() => setEdit(null)}>Cancel</button>
+                      <button className="btn-primary min-h-9 !py-1 text-xs" disabled={busy || !(Number(edit.litres) > 0)} onClick={save}>Save · محفوظ</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: fuelOf(r.product).color }} />
+                    <span className="min-w-0 flex-1"><b>{num(r.litres, 2)} L</b> {fuelOf(r.product).en}
+                      <span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.bank_name ? `${r.payment_method} · ${r.bank_name}` : r.payment_method}{r.source === "meter" ? " · meter" : ""}{!r.mine ? " · other salesman" : ""}</span></span>
+                    <span className="shrink-0 font-semibold tabular-nums">{pkr(r.amount)}</span>
+                    {r.can_edit && <button onClick={() => setEdit({ id: r.id, litres: String(r.litres), payment_method: r.payment_method, vehicle_no: r.vehicle_no ?? "", slip_no: r.slip_no ?? "" })} className="shrink-0 rounded-lg bg-slate-100 px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">Fix · <Ur>ٹھیک</Ur></button>}
+                    {r.can_undo && (confirm === r.id
+                      ? <button onClick={() => del(r.id)} disabled={busy} className="shrink-0 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-bold text-white">Sure?</button>
+                      : <button onClick={() => { setConfirm(r.id); setTimeout(() => setConfirm(null), 4000); }} aria-label="Remove entry" className="shrink-0 rounded-lg bg-slate-100 p-1.5 text-slate-600 hover:bg-slate-200"><Undo2 size={16} /></button>)}
+                  </div>
+                )}
+              </li>
+            ))}
+            {!data.entries.length && <li className="py-6 text-center text-slate-500">No entries yet</li>}
+          </ul>
+        </div>
+      )}
+      <div className="mt-4 flex justify-end"><button className="btn-primary" onClick={onClose}>Done · ہو گیا</button></div>
+    </Modal>
   );
 }
 

@@ -49,8 +49,13 @@
     },
     {
      "icon": "↩️",
-     "en": "Mistake? Tap Undo within 2 minutes to cancel a wrong sale.",
-     "ur": "غلط سیل 2 منٹ کے اندر Undo سے واپس کریں۔"
+     "en": "Mistake? Tap Undo within 2 minutes to cancel a wrong sale right away.",
+     "ur": "غلط سیل فوراً 2 منٹ کے اندر Undo سے واپس کریں۔"
+    },
+    {
+     "icon": "📝",
+     "en": "Fix before closing: tap “All today” on the Last sales card to see every entry of your shift. Any of your own entries can be fixed (wrong litres or payment method) or removed right up until you close the shift — no need to call the manager. Stock, khata and the cash in the bag update at once.",
+     "ur": "بند کرنے سے پہلے درستی: ”آخری سیل“ کارڈ پر ”آج کی ساری“ دبائیں اور اپنی شفٹ کی ہر انٹری دیکھیں۔ اپنی کوئی بھی انٹری (غلط لیٹر یا ادائیگی کا طریقہ) شفٹ بند کرنے تک خود ٹھیک یا ہٹا سکتے ہیں — مینیجر کو بلانے کی ضرورت نہیں۔ اسٹاک، کھاتہ اور بیگ کا نقد فوراً اپ ڈیٹ ہو جاتا ہے۔"
     },
     {
      "icon": "🎓",

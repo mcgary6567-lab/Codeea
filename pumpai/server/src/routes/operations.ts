@@ -476,7 +476,8 @@ operations.post("/sales/:id/undo", requirePerm("sales.create"), h((req) => {
   if (!sale) throw new AppError(404, "Sale not found");
   const salesman = req.user!.role === "salesman";
   if (salesman && sale.created_by !== req.user!.id) throw new AppError(403, "You can only undo your own sales");
-  if (salesman && Date.now() - Date.parse(sale.created_at) > UNDO_SECONDS * 1000) throw new AppError(400, "Undo time (2 minutes) has passed. Ask the manager.");
+  // a salesman may fix his own mistakes any time while his shift is still open; a sale not tied to an open shift keeps the 2-minute window
+  if (salesman && !(sale.shift_id && sale.shift_status === "open") && Date.now() - Date.parse(sale.created_at) > UNDO_SECONDS * 1000) throw new AppError(400, "Undo time (2 minutes) has passed. Ask the manager.");
   if (sale.shift_id && sale.shift_status !== "open") throw new AppError(400, "The shift is closed; this sale can no longer be undone");
   if (!sale.created_by) throw new AppError(400, "Meter settlement entries cannot be undone");
   if (sale.shift_id && get("SELECT id FROM meter_readings WHERE shift_id=? AND checkpoint IS NOT NULL AND checkpoint_at > ? LIMIT 1", sale.shift_id, sale.created_at))
@@ -485,6 +486,64 @@ operations.post("/sales/:id/undo", requirePerm("sales.create"), h((req) => {
   audit(tid(req), req.user!, "sale_undo", `SALE-${sale.id}`, { product: sale.product, litres: sale.litres, amount: sale.amount, payment: sale.payment_method, customer_id: sale.customer_id });
   return { ok: true, undone: sale.id, summary: sale.shift_id ? shiftSummary(sale.shift_id) : null };
 }));
+
+/**
+ * Fix a mistake in a sale before the shift is closed. A salesman may correct his OWN sale any time while his
+ * shift is open; a manager may correct any sale on an open shift. The fix is done safely as undo + re-record,
+ * so stock, the nozzle meter, the khata and the ledger all stay in balance (tally never moves). The corrected
+ * entry keeps the original time and who entered it, and the change is written to the audit log.
+ * Special-money sales (coupon / wallet / loyalty / card-pending) can't be edited — undo them and enter afresh.
+ */
+const EDITABLE_METHODS = (t: number) => [...moneyMethods(t), "khata"];
+operations.post("/sales/:id/edit", requirePerm("sales.create"), h((req) => {
+  const b = parse(z.object({
+    product: product.optional(), litres: z.number().positive().max(60000).optional(), amount: z.number().positive().max(100_000_000).optional(),
+    payment_method: z.string().max(40).optional(), customer_id: z.number().int().positive().nullable().optional(),
+    vehicle_no: z.string().max(40).nullable().optional(), slip_no: z.string().max(40).nullable().optional(),
+    account_id: z.number().int().positive().nullable().optional(),
+    discount: z.number().min(0).optional(), discount_kind: z.enum(["khata", "direct"]).optional(), discount_ref: z.string().trim().max(120).nullable().optional(),
+  }), req.body);
+  const t = tid(req);
+  const sale = get(`SELECT s.*, sh.status shift_status FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN shifts sh ON sh.id=s.shift_id
+    WHERE s.id=? AND st.tenant_id=?`, Number(req.params.id), t);
+  if (!sale) throw new AppError(404, "Sale not found");
+  const salesman = req.user!.role === "salesman";
+  if (salesman && sale.created_by !== req.user!.id) throw new AppError(403, "You can only fix your own sales");
+  if (!sale.created_by) throw new AppError(400, "Meter settlement entries cannot be edited");
+  if (!sale.shift_id || sale.shift_status !== "open") throw new AppError(400, "This sale's shift is closed; ask the manager to adjust instead");
+  // special-money sales are too entangled (coupon value, wallet balance, loyalty points, a pending card hold) to edit in place
+  const special = (m: string) => (["coupon", "wallet", "loyalty"] as string[]).includes(m) || (m === "khata" && sale.pending);
+  if (special(sale.payment_method)) throw new AppError(400, `A ${sale.payment_method}${sale.pending ? " (card-pending)" : ""} sale can't be edited — undo it and enter it again`);
+  if (get("SELECT id FROM meter_readings WHERE shift_id=? AND checkpoint IS NOT NULL AND checkpoint_at > ? LIMIT 1", sale.shift_id, sale.created_at))
+    throw new AppError(400, "Prices changed after this sale and the meters were settled; ask the manager to adjust instead");
+  // merged new values: anything not sent keeps the original
+  const method = b.payment_method ?? sale.payment_method;
+  if (!EDITABLE_METHODS(t).includes(method)) throw new AppError(400, `A sale can only be changed to cash / card / online / khata — not ${method}. For a coupon / wallet / loyalty sale, undo and enter afresh.`);
+  const litres = b.litres ?? (b.amount ? undefined : sale.litres);
+  const customer_id = b.customer_id !== undefined ? b.customer_id : sale.customer_id;
+  if (method === "khata" && !customer_id) throw new AppError(400, "A khata sale needs a customer");
+  const discount = b.discount ?? sale.discount ?? 0;
+  if (discount > 0) {
+    const direct = (b.discount_kind ?? sale.discount_kind ?? (method === "khata" ? "khata" : "direct")) === "direct";
+    const max = Number(getSetting(t, direct ? "direct_discount_max" : "khata_discount_max", direct ? "5000" : "500"));
+    if (discount > max && !can(req.user, "customers.edit")) throw new AppError(403, `${direct ? "Direct discount" : "Discount"} above ${pkr(max)} needs the manager / CEO.`);
+  }
+  if (account_idInvalid(t, b.account_id)) throw new AppError(400, "Bank account not found");
+  const before = { product: sale.product, litres: sale.litres, amount: sale.amount, payment: sale.payment_method, customer_id: sale.customer_id, vehicle_no: sale.vehicle_no, slip_no: sale.slip_no };
+  // undo + re-record in the same (single-threaded, synchronous) request: stock / meter / khata / ledger stay balanced
+  undoSale(sale);
+  const saved = recordSale(t, {
+    station_id: sale.station_id, product: b.product ?? sale.product, litres, amount: b.amount, payment_method: method,
+    customer_id: method === "khata" ? customer_id : null, nozzle_id: sale.nozzle_id, shift_id: sale.shift_id,
+    vehicle_no: b.vehicle_no !== undefined ? b.vehicle_no : sale.vehicle_no, slip_no: b.slip_no !== undefined ? b.slip_no : sale.slip_no,
+    account_id: b.account_id !== undefined ? b.account_id : sale.account_id, photo_id: sale.photo_id,
+    created_at: sale.created_at, created_by: sale.created_by,
+    ...(discount > 0 ? { discount, discount_kind: b.discount_kind ?? sale.discount_kind ?? (method === "khata" ? "khata" : "direct"), discount_ref: b.discount_ref !== undefined ? b.discount_ref : sale.discount_ref } : {}),
+  });
+  audit(t, req.user!, "sale_edit", `SALE-${sale.id}`, { before, after: { product: saved.product, litres: saved.litres, amount: saved.amount, payment: saved.payment_method, customer_id: saved.customer_id, vehicle_no: saved.vehicle_no, slip_no: saved.slip_no }, new_sale_id: saved.id });
+  return { ok: true, edited: sale.id, sale: saved, summary: shiftSummary(sale.shift_id) };
+}));
+const account_idInvalid = (t: number, id?: number | null) => id != null && !get("SELECT id FROM bank_accounts WHERE id=? AND tenant_id=? AND active=1", id, t);
 
 /* ---------------- Khata "card pending" holds ---------------- */
 /**

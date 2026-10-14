@@ -110,6 +110,14 @@ Salesman can dip each tank at shift **open** and **close** alongside the meter; 
 - **Alert**: at close, any tank with `|variance_l| ≥ sens_shift_dip_alert_l` (Settings → Alert sensitivity, default **40 L**, in `SENSITIVITY_DEFAULTS`) raises alert type `dip_variance` (critical ≥ 3× the limit) to managers/admin.
 - Web: `StartShiftSheet` (open) + `CloseShift` (close, with live recon per tank from `preview.dip_recon`) collapsible "dip of each tank" sections; `ShiftReport` dip-vs-meter table. `test/shift_dip.test.ts` (558 tests, books tally after close).
 
+## Salesman fixes his own entries before close (never regress)
+
+Lets a salesman review the whole shift's entries and correct a mistake himself, any time **while his shift is still open** — no 2-minute wall, no calling the manager. Done safely so the books never move.
+- **See all** — `GET /pos/entries` (`routes/pos.ts`, perm `sales.create`): every sale of the salesman's open shift (manager: the station's open shift) newest-first, each flagged `mine` / `can_edit` / `can_undo`. `can_edit` = own + live + not a meter settlement row + not special-money (coupon/wallet/loyalty/card-pending); `can_undo` = own + not a meter row.
+- **Fix** — `POST /sales/:id/edit`: editable = litres/amount, payment_method (money methods + khata), customer_id, vehicle_no/slip_no, account_id, discount. Implemented as `undoSale` + `recordSale` **in the same synchronous request** (single-threaded node:sqlite → effectively atomic), preserving the original `created_at`/`created_by`/`shift_id`. Guards mirror undo (own, shift open, not meter, no post-sale price-change settlement); refuses coupon/wallet/loyalty/card-pending (undo + re-enter those). Salesman discount over the limit still needs `customers.edit`. Audit `sale_edit` logs before/after + new_sale_id.
+- **Undo window relaxed**: the 2-minute `UNDO_SECONDS` cap now only applies to a salesman's sale **not** on an open shift; while the shift is open he can undo his own sales freely (other undo guards unchanged). Manager/admin unaffected.
+- Web: `AllEntries` modal in `Pos.tsx` (opened from "All today" on the Last-sales card) — inline Fix (litres + payment method, or vehicle/slip for khata) and Remove per row, live shift totals. POS help guide updated. `test/sale_edit.test.ts` (560 tests, books/check tallies after edit + delete).
+
 ## Opening balances (go-live on an already-running pump) — CEO-only (never regress)
 
 `routes/opening.ts` + perm `opening.manage` (ADMIN) + web `OpeningBalances.tsx` (`/opening-balances`, System group). Brings the old register forward WITHOUT touching P&L:

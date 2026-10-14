@@ -102,3 +102,26 @@ pos.get("/pos/today", h((req) => {
       FROM sales s LEFT JOIN customers c ON c.id=s.customer_id LEFT JOIN bank_accounts b ON b.id=s.account_id WHERE s.shift_id=? ORDER BY s.id DESC LIMIT 12`, shift.id) : [],
   };
 }));
+
+/**
+ * Every entry of the salesman's open shift — so he can check the whole day's work and fix a mistake before closing.
+ * A salesman sees only his own open shift; a manager sees the station's open shift. Each row says whether it can be
+ * edited / removed here (own, live, not a meter settlement row, not a special-money sale).
+ */
+pos.get("/pos/entries", h((req) => {
+  const u = req.user!;
+  const stationId = u.role === "salesman" ? scopedStation(req) : Number(req.query.station_id) || get("SELECT id FROM stations WHERE tenant_id=? ORDER BY id LIMIT 1", tid(req))!.id;
+  const shift = u.role === "salesman"
+    ? get("SELECT * FROM shifts WHERE station_id=? AND attendant=? AND status='open' ORDER BY id DESC LIMIT 1", stationId, u.name)
+    : get("SELECT * FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", stationId);
+  if (!shift) return { shift: null, entries: [], summary: null };
+  const salesman = u.role === "salesman";
+  const entries = all(`SELECT s.id, s.product, s.litres, s.rate, s.amount, s.discount, s.discount_kind, s.discount_ref, s.payment_method, s.customer_id, s.account_id, s.vehicle_no, s.slip_no, s.photo_id, s.pending, s.created_at, s.created_by, s.source, c.name customer_name, b.bank bank_name
+    FROM sales s LEFT JOIN customers c ON c.id=s.customer_id LEFT JOIN bank_accounts b ON b.id=s.account_id WHERE s.shift_id=? ORDER BY s.id DESC`, shift.id).map((s) => {
+    const mine = Boolean(s.created_by) && (!salesman || s.created_by === u.id);
+    const meterRow = !s.created_by || s.source === "meter";
+    const specialMoney = (["coupon", "wallet", "loyalty"] as string[]).includes(s.payment_method) || (s.payment_method === "khata" && s.pending);
+    return { ...s, mine, can_edit: mine && !meterRow && !specialMoney, can_undo: mine && !meterRow };
+  });
+  return { shift: { id: shift.id, attendant: shift.attendant }, entries, summary: shiftSummary(shift.id) };
+}));
