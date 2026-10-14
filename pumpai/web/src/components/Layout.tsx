@@ -81,13 +81,21 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
   const [pins, setPins] = useState<string[]>(() => readList(PINS_KEY));
   const togglePin = (to: string) => setPins((cur) => { const next = cur.includes(to) ? cur.filter((x) => x !== to) : [...cur, to].slice(-8); writeList(PINS_KEY, next); return next; });
   const [recent, setRecent] = useState<string[]>(() => readList(RECENT_KEY));
-  // remember the last pages opened (not the home page), newest first
+  const byTo = (to: string) => items.find((n) => n.to === to);
+  // a nav target can be a top-level page or a sub-shortcut (e.g. /cashier?tab=pay); resolve either to a renderable entry
+  const resolve = (to: string): { to: string; label: string; icon: any; ur?: string; perm?: string; badge?: string } | undefined => {
+    if (to.includes("?")) { const base = to.slice(0, to.indexOf("?")); const x = (SUBS[base] ?? []).find((s) => s.to === to); return x && byTo(base) ? { to: x.to, label: x.label, icon: x.icon, ur: x.ur, perm: x.perm } : undefined; }
+    const n = byTo(to); return n ? { to: n.to, label: n.label, icon: n.icon, ur: NAV_UR[n.to], perm: (n as any).perm, badge: (n as any).badge } : undefined;
+  };
+  const okTarget = (to: string) => { const t = resolve(to); return !!t && (!t.perm || can(t.perm)); };
+  const activeOf = (to: string) => { if (to.includes("?")) { const base = to.slice(0, to.indexOf("?")); return loc.pathname === base && loc.search === to.slice(base.length); } return isOn(to, (byTo(to) as any)?.end); };
+  // remember the last pages/shortcuts opened (not the home page), newest first — for every role, not just the owner
   useEffect(() => {
-    if (!grouped) return;
-    const base = loc.pathname;
-    if (base === "/" || base === "/help" || !items.some((n) => n.to === base)) return;
-    setRecent((cur) => { const next = [base, ...cur.filter((x) => x !== base)].slice(0, 4); writeList(RECENT_KEY, next); return next; });
-  }, [loc.pathname, grouped]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (loc.pathname === "/" || loc.pathname === "/help") return;
+    const key = (SUBS[loc.pathname] ?? []).find((x) => x.to === loc.pathname + loc.search)?.to ?? loc.pathname;
+    if (!okTarget(key)) return;
+    setRecent((cur) => { const next = [key, ...cur.filter((x) => x !== key)].slice(0, 4); writeList(RECENT_KEY, next); return next; });
+  }, [loc.pathname, loc.search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const link = (n: NavItem, size = 17, pinnable = false) => (
     <div key={n.to} className="group/item relative">
@@ -108,33 +116,62 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
   const sub = (base: string) => (
     <div key={`${base}-sub`} className="ml-4 space-y-0.5 border-l border-white/15 pl-2">
       {SUBS[base].filter((x) => can(x.perm)).map((x) => (
-        <Link key={x.to} to={x.to} onClick={onGo} className={itemCls(loc.pathname === base && loc.search === x.to.slice(base.length))}>
-          <x.icon size={16} /><span className="min-w-0 flex-1 truncate">{x.label}</span>
-          {!grouped && <span lang="ur" dir="rtl" className="font-urdu shrink-0 text-sm opacity-70">{x.ur}</span>}
-        </Link>
+        <div key={x.to} className="group/item relative">
+          <Link to={x.to} onClick={onGo} className={`${itemCls(loc.pathname === base && loc.search === x.to.slice(base.length))} pr-8`}>
+            <x.icon size={16} className="shrink-0" /><span className="min-w-0 flex-1 truncate">{x.label}</span>
+            {!grouped && <span lang="ur" dir="rtl" className="font-urdu shrink-0 text-sm opacity-70">{x.ur}</span>}
+          </Link>
+          <button type="button" onClick={(e) => { e.preventDefault(); togglePin(x.to); }} aria-label={pins.includes(x.to) ? "Unpin" : "Pin to top"} title={pins.includes(x.to) ? "Unpin · ہٹائیں" : "Pin to top · اوپر رکھیں"}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 transition ${pins.includes(x.to) ? "text-amber-300" : "text-white/0 group-hover/item:text-emerald-100/70 hover:!text-amber-300"}`}>
+            <Star size={14} fill={pins.includes(x.to) ? "currentColor" : "none"} />
+          </button>
+        </div>
       ))}
     </div>
   );
-  const withSub = (n: NavItem, size?: number, pinnable = false) => (SUBS[n.to] ? [link(n, size, pinnable), sub(n.to)] : [link(n, size, pinnable)]);
-
-  if (!grouped) return <>{items.flatMap((n) => withSub(n))}</>;
-
-  const byTo = (to: string) => items.find((n) => n.to === to);
-  const inGroup = new Set([...GROUPS.flatMap((g) => g.items), ...TOP, ...BOTTOM]);
-  const strays = items.filter((n) => !inGroup.has(n.to)); // anything new that nobody filed yet still shows
-  const pinned = pins.map(byTo).filter(Boolean) as NavItem[];
-  const recents = recent.filter((to) => !pins.includes(to)).map(byTo).filter(Boolean) as NavItem[];
-  const section = (label: string, ur: string, kids: NavItem[]) => kids.length ? (
+  // a Pinned / Recent entry (works for a page or a sub-shortcut)
+  const pinEntry = (to: string) => {
+    const t = resolve(to); if (!t || (t.perm && !can(t.perm))) return null;
+    return (
+      <div key={`pin-${to}`} className="group/item relative">
+        <Link to={t.to} onClick={onGo} title={t.ur ? `${t.label} · ${t.ur}` : t.label} className={`${itemCls(activeOf(to))} pr-8`}>
+          <t.icon size={16} className="shrink-0" /><span className="min-w-0 flex-1 truncate">{t.label}</span>
+          {t.ur && <span lang="ur" dir="rtl" className="font-urdu shrink-0 text-sm opacity-70">{t.ur}</span>}
+          {t.badge && <Badge n={badges[t.badge] ?? 0} />}
+        </Link>
+        <button type="button" onClick={(e) => { e.preventDefault(); togglePin(to); }} aria-label={pins.includes(to) ? "Unpin" : "Pin"} title={pins.includes(to) ? "Unpin · ہٹائیں" : "Pin to top · اوپر رکھیں"}
+          className={`absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 transition ${pins.includes(to) ? "text-amber-300" : "text-white/0 group-hover/item:text-emerald-100/70 hover:!text-amber-300"}`}>
+          <Star size={14} fill={pins.includes(to) ? "currentColor" : "none"} />
+        </button>
+      </div>
+    );
+  };
+  const pinSection = (label: string, ur: string, tos: string[]) => tos.length ? (
     <div key={label} className="pt-1">
       <div className="flex items-center justify-between px-3 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200/60"><span>{label}</span><span lang="ur" dir="rtl" className="font-urdu text-[13px] normal-case tracking-normal">{ur}</span></div>
-      {kids.map((n) => link(n, 16, true))}
+      {tos.map(pinEntry)}
     </div>
   ) : null;
+  const pinnedTos = pins.filter(okTarget);
+  const recentTos = recent.filter((to) => !pins.includes(to) && okTarget(to));
+  const withSub = (n: NavItem, size?: number, pinnable = false) => (SUBS[n.to] ? [link(n, size, pinnable), sub(n.to)] : [link(n, size, pinnable)]);
+
+  if (!grouped) return (
+    <>
+      {pinSection("Pinned", "پسندیدہ", pinnedTos)}
+      {pinSection("Recent", "حالیہ", recentTos)}
+      {(pinnedTos.length || recentTos.length) ? <div className="my-1 border-t border-white/10" /> : null}
+      {items.flatMap((n) => withSub(n, 17, true))}
+    </>
+  );
+
+  const inGroup = new Set([...GROUPS.flatMap((g) => g.items), ...TOP, ...BOTTOM]);
+  const strays = items.filter((n) => !inGroup.has(n.to)); // anything new that nobody filed yet still shows
   return (
     <>
       {TOP.map(byTo).filter(Boolean).map((n) => link(n as NavItem))}
-      {section("Pinned", "پسندیدہ", pinned)}
-      {section("Recent", "حالیہ", recents)}
+      {pinSection("Pinned", "پسندیدہ", pinnedTos)}
+      {pinSection("Recent", "حالیہ", recentTos)}
       <div className="my-1 border-t border-white/10" />
       {GROUPS.map((g) => {
         const kids = g.items.map(byTo).filter(Boolean) as NavItem[];
