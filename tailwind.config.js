@@ -5,7 +5,7 @@
  */
 module.exports = {
   darkMode: 'class',
-  content: ['./app/templates/**/*.html', './app/**/*.py'],
+  content: ['./app/templates/**/*.html', './app/**/*.py', './app/static/js/**/*.js'],
   theme: {
     extend: {
       fontFamily: {

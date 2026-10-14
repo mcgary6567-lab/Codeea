@@ -586,3 +586,16 @@ def test_every_mutation_is_audited(db):
     actions = {a for (a,) in db.query(AuditEvent.action).filter(AuditEvent.module == "configuration").distinct().all()}
     for expected in ["create", "update", "status_change", "execute"]:
         assert expected in actions, f"no '{expected}' audit event was written by the configuration area"
+
+
+def test_a_sender_that_never_sent_is_always_ready():
+    """Found 14 Oct 2026: pick_sender compared next_send_at() (which read the clock again) with an earlier `now`,
+    so a brand-new sender was 'not ready' whenever the clock ticked in between (a flaky billing test showed it)."""
+    from datetime import datetime, timedelta
+    from app.models.config_erp import WhatsAppSender
+    from app.web.company_config import sender_is_ready
+    fresh = WhatsAppSender(description="never sent", number="+920000000000", interval_seconds=60, messages_per_cycle=1)
+    assert sender_is_ready(fresh, now=datetime(2000, 1, 1))
+    busy = WhatsAppSender(description="just sent", number="+920000000001", interval_seconds=60, messages_per_cycle=1,
+                          last_message_sent_at=datetime.utcnow())
+    assert not sender_is_ready(busy) and sender_is_ready(busy, now=datetime.utcnow() + timedelta(seconds=61))

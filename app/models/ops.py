@@ -282,3 +282,34 @@ class MigrationJob(Base, PKMixin, TimestampMixin):
     errors: Mapped[list] = mapped_column(JSON, default=list)
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+
+class ReportView(Base, PKMixin, TimestampMixin):
+    """A saved interactive-report view of one list page (docs/INTERACTIVE_REPORTS.md): visible columns, filters,
+    sort, highlights, rows per page. Private to its owner unless shared with everyone who can open the page."""
+    __tablename__ = "report_views"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE", name="fk_report_views_user"), index=True)
+    path: Mapped[str] = mapped_column(String(300), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    is_shared: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    user = relationship("User")
+
+
+class ReportSubscription(Base, PKMixin, TimestampMixin):
+    """E-mail a list page as CSV on a schedule. The page is rendered as the subscriber, so it carries exactly
+    what they may see; the saved columns, filters and sort are applied before the file is built."""
+    __tablename__ = "report_subscriptions"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE", name="fk_report_subscriptions_user"), index=True)
+    path: Mapped[str] = mapped_column(String(300), index=True)
+    query: Mapped[Optional[str]] = mapped_column(String(1000))
+    name: Mapped[str] = mapped_column(String(120))
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    emails: Mapped[str] = mapped_column(String(500))
+    frequency: Mapped[str] = mapped_column(String(10), default="weekly")  # daily | weekly | monthly
+    next_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+    last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_status: Mapped[Optional[str]] = mapped_column(String(300))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    user = relationship("User")

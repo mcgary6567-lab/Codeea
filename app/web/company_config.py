@@ -216,6 +216,10 @@ def next_send_at(sender: WhatsAppSender) -> datetime:
 
 
 def sender_is_ready(sender: WhatsAppSender, now: Optional[datetime] = None) -> bool:
+    # A sender that has never sent is ready. Comparing next_send_at() (which reads the clock again) with a
+    # `now` taken earlier made a brand-new sender "not ready" whenever the clock ticked in between.
+    if sender is None or not sender.last_message_sent_at:
+        return True
     return next_send_at(sender) <= (now or datetime.utcnow())
 
 

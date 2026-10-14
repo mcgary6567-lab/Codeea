@@ -188,6 +188,15 @@ def render(request: Request, template: str, context: Optional[dict] = None, stat
     ctx["current_path"] = request.url.path
     # The ERP keeps a sidebar of the current area's pages beside every page; this is what it lists.
     ctx["current_section"] = section_for_path(user, request.url.path) if user else None
+    # interactive reports (static/js/report.js): staff get the toolbar; a list page that has an import sheet gets
+    # an "Import CSV" button when the user may run imports
+    ctx["ir_staff"] = bool(user and getattr(user, "portal", "admin") not in ("client", "student"))
+    ctx["ir_import"] = None
+    if ctx["ir_staff"]:
+        from app.services.migration import ENTITIES, entity_for_path
+        entity = entity_for_path(request.url.path)
+        if entity and rbac.has_permission(user, "migration.add"):
+            ctx["ir_import"] = {"entity": entity, "label": ENTITIES[entity]["label"]}
     ctx.update(_layout_globals())
     if user is not None and "unread_count" not in ctx:
         db: Optional[Session] = getattr(request.state, "db", None)

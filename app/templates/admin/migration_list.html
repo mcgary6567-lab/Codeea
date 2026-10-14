@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}Data migration{% endblock %}
 {% block content %}
-{% call ui.page_header("Data migration", "Import legacy clients, students, leads, teachers, invoices and payments — upload, map, validate, import, reconcile") %}
+{% call ui.page_header("Data migration", "Import legacy clients, students, leads, teachers, employees, subscriptions, courses, packages, invoices and payments — upload, map, validate, import, reconcile", back=back or None) %}
   {{ ui.button("Cutover checklist", href="/admin/migration/checklist", icon="list-checks", variant="secondary") }}
   {% if has_perm(user, 'migration.add') %}
   <button type="button" @click="$dispatch('open-modal','upload')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="upload" class="h-4 w-4"></i>New import</button>
@@ -76,8 +76,10 @@
 {% if has_perm(user, 'migration.add') %}
 {% set entity_options = [] %}{% for key, meta in entities.items() %}{% set _ = entity_options.append((key, meta.get('label', key))) %}{% endfor %}
 {% call ui.modal('upload', 'Start a new import') %}
+{% if preselect %}<span x-init="$nextTick(() => $dispatch('open-modal', 'upload'))"></span>{% endif %}
 <form method="post" action="/admin/migration/upload" enctype="multipart/form-data" class="grid gap-4 sm:grid-cols-2">
-  {{ ui.select('entity', 'Entity', entity_options, none, required=True, placeholder='— what are you importing? —') }}
+  {{ ui.select('entity', 'Entity', entity_options, preselect, required=True, placeholder='— what are you importing? —') }}
+  <input type="hidden" name="back" value="{{ back }}">
   {{ ui.input('source_system', 'Source system', 'legacy_erp', help='Recorded on the job for traceability.') }}
   <div class="sm:col-span-2">{{ ui.input('name', 'Job name (optional)', '', placeholder='Clients — first cutover batch') }}</div>
   <div class="sm:col-span-2">

@@ -1435,12 +1435,19 @@ def backups_runbook(request: Request, db: Session = Depends(get_db), user: User 
 
 
 # ============================================================================= MIGRATION
+def _local_back(raw) -> str:
+    """A same-site path to return to after an import started from a list page's "Import CSV" button."""
+    s = str(raw or "")
+    return s[:300] if s.startswith("/") and not s.startswith("//") else ""
+
+
 @router.get("/migration", include_in_schema=False)
-def migration_page(request: Request, page: int = 1, db: Session = Depends(get_db),
+def migration_page(request: Request, page: int = 1, entity: str = "", back: str = "", db: Session = Depends(get_db),
                    user: User = Depends(require("migration.view"))):
     pg = paginate(db.query(MigrationJob).order_by(MigrationJob.created_at.desc()), page, 25)
     return render(request, "admin/migration_list.html", {
         "user": user, "page": pg, "base_url": "/admin/migration", "entities": mig.ENTITIES,
+        "preselect": entity if entity in mig.ENTITIES else None, "back": _local_back(back),
         "imported": db.query(func.coalesce(func.sum(MigrationJob.records_imported), 0)).scalar() or 0,
         "skipped": db.query(func.coalesce(func.sum(MigrationJob.records_skipped), 0)).scalar() or 0,
         "jobs_total": db.query(func.count(MigrationJob.id)).scalar() or 0})
@@ -1503,11 +1510,12 @@ async def migration_upload(request: Request, db: Session = Depends(get_db), user
     log_action(db, user, "create", "migration", entity=job,
                description=f"Uploaded {upload.filename} for {entity} ({len(rows)} rows)", request=request)
     db.commit()
-    return redirect(f"/admin/migration/{job.id}", f"File uploaded: {len(rows)} data rows detected.")
+    back = _local_back(form.get("back"))
+    return redirect(f"/admin/migration/{job.id}" + (f"?back={back}" if back else ""), f"File uploaded: {len(rows)} data rows detected.")
 
 
 @router.get("/migration/{job_id}", include_in_schema=False)
-def migration_job(job_id: int, request: Request, db: Session = Depends(get_db),
+def migration_job(job_id: int, request: Request, back: str = "", db: Session = Depends(get_db),
                   user: User = Depends(require("migration.view"))):
     job = db.get(MigrationJob, job_id)
     if not job:
@@ -1519,7 +1527,7 @@ def migration_job(job_id: int, request: Request, db: Session = Depends(get_db),
         "columns": mig.entity_columns(job.entity), "mapping": job.field_mapping or {},
         "entity_meta": mig.ENTITIES.get(job.entity, {}),
         "report": mig.reconciliation(db, job) if job.status in ("imported", "reconciled") else None,
-        "errors": (job.errors or [])[:200]})
+        "errors": (job.errors or [])[:200], "back": _local_back(back)})
 
 
 @router.post("/migration/{job_id}/mapping", include_in_schema=False)

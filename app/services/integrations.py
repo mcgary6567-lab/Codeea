@@ -153,12 +153,25 @@ def send_whatsapp(db: Session, to: str, body: str, template: Optional[str] = Non
 
 
 # ----------------------------------------------------------------------------- Email
-def send_email(db: Session, to: str, subject: str, body: str, html: bool = False) -> dict:
+def send_email(db: Session, to: str, subject: str, body: str, html: bool = False,
+               attachments: list[tuple[str, bytes, str]] | None = None) -> dict:
+    """Send one e-mail; ``attachments`` are (filename, content, mime type), e.g. a report subscription's CSV."""
     if not settings.SMTP_HOST:
-        log.info("[SIMULATED Email] to=%s subject=%s", to, subject)
+        log.info("[SIMULATED Email] to=%s subject=%s attachments=%s", to, subject, [a[0] for a in attachments or []])
         _record(db, "smtp", True, simulated=True)
-        return {"simulated": True}
-    msg = MIMEText(body, "html" if html else "plain", "utf-8")
+        return {"simulated": True, "attachments": [a[0] for a in attachments or []]}
+    text = MIMEText(body, "html" if html else "plain", "utf-8")
+    if attachments:
+        from email.mime.application import MIMEApplication
+        from email.mime.multipart import MIMEMultipart
+        msg = MIMEMultipart()
+        msg.attach(text)
+        for filename, content, mime in attachments:
+            part = MIMEApplication(content, _subtype=(mime.split("/", 1)[1] if "/" in mime else "octet-stream"))
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
+    else:
+        msg = text
     msg["Subject"], msg["From"], msg["To"] = subject, settings.SMTP_FROM, to
     try:
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as s:

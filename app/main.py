@@ -50,6 +50,32 @@ class DropEmptyQueryParamsMiddleware:
         await self.app(scope, receive, send)
 
 
+class RowsParamMiddleware:
+    """The interactive-report Rows selector: ``?rows=`` on any page sets the page size paginate() uses.
+
+    ASGI rather than BaseHTTPMiddleware so the context variable is set in the same context the endpoint runs in.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        token = None
+        if scope["type"] == "http" and b"rows=" in (scope.get("query_string") or b""):
+            from urllib.parse import parse_qs
+            from app.core.utils import ROWS_OVERRIDE, parse_rows
+            values = parse_qs(scope["query_string"].decode("latin-1")).get("rows")
+            rows = parse_rows(values[-1]) if values else None
+            if rows:
+                token = ROWS_OVERRIDE.set(rows)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            if token is not None:
+                from app.core.utils import ROWS_OVERRIDE
+                ROWS_OVERRIDE.reset(token)
+
+
 class DBSessionMiddleware(BaseHTTPMiddleware):
     """One SQLAlchemy session per request, available as request.state.db."""
 
@@ -118,6 +144,7 @@ def create_app() -> FastAPI:
     app.add_middleware(DBSessionMiddleware)
     # Added last so it runs first: the query string must be cleaned before routing and validation.
     app.add_middleware(DropEmptyQueryParamsMiddleware)
+    app.add_middleware(RowsParamMiddleware)
     app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
     # storage/ (invoices, payslips, result cards, uploads, backups) is NOT a static mount: every file under it is
     # served by the permission-checked route in app.web.storage_files, one access rule per folder. The folder is

@@ -19,7 +19,7 @@
   <script src="/static/vendor/lucide.min.js"></script>
   {% block head %}{% endblock %}
 </head>
-<body class="h-full bg-[#f4f6f9] text-slate-800 antialiased font-sans">
+<body class="h-full bg-[#f4f6f9] text-slate-800 antialiased font-sans"{% if ir_staff %} data-ir-staff{% endif %}{% if ir_import %} data-ir-import="{{ ir_import.entity }}" data-ir-import-label="{{ ir_import.label }}"{% endif %}>
 {% if user %}
 <div class="min-h-full flex flex-col">
 
@@ -158,6 +158,7 @@
 {% block public %}{% endblock %}
 {% endif %}
 <script src="/static/js/app.js?v={{ asset_version }}"></script>
+{% if ir_staff %}<script src="/static/js/report.js?v={{ asset_version }}"></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import json
 import math
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta
 from typing import Any, Optional, Type
 
@@ -63,9 +64,30 @@ class Page:
         return len(self.items)
 
 
+# The interactive-report Rows selector (?rows=50|100|500|1000|all) applies to every paginated list: a small
+# ASGI middleware (app/main.py) puts the choice here for the request and paginate() honours it. "All" is capped
+# so one click cannot render a whole audit trail; the CSV export fetches large lists in chunks instead.
+MAX_ROWS = 10000
+ROW_CHOICES = (10, 25, 50, 100, 500, 1000)
+ROWS_OVERRIDE: ContextVar[Optional[int]] = ContextVar("rows_override", default=None)
+
+
+def parse_rows(value: Any) -> Optional[int]:
+    """The ?rows= value as a page size: a number from 1 to MAX_ROWS, or "all"; None when absent or unusable."""
+    raw = str(value or "").strip().lower()
+    if raw == "all":
+        return MAX_ROWS
+    try:
+        n = int(raw)
+    except ValueError:
+        return None
+    return max(1, min(MAX_ROWS, n)) if n > 0 else None
+
+
 def paginate(query: Query, page: int = 1, per_page: int = 25) -> Page:
     page = max(1, int(page or 1))
-    per_page = max(1, min(200, int(per_page or 25)))
+    override = ROWS_OVERRIDE.get()
+    per_page = override if override else max(1, min(200, int(per_page or 25)))
     total = query.order_by(None).count()
     items = query.offset((page - 1) * per_page).limit(per_page).all()
     return Page(items, total, page, per_page)

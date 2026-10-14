@@ -140,7 +140,131 @@ ENTITIES: dict[str, dict] = {
             ("notes", "Notes", "str", False),
         ],
     },
+    "employees": {
+        "label": "Employees (staff)",
+        "icon": "id-card",
+        "match_on": "employee_code / email",
+        "columns": [
+            ("employee_code", "Legacy employee code", "str", False),
+            ("full_name", "Full name", "str", True),
+            ("designation", "Designation", "str", True),
+            ("department", "Department (name or code)", "str", False),
+            ("email", "Email", "email", False),
+            ("phone", "Phone", "phone", False),
+            ("gender", "Gender", "str", False),
+            ("father_name", "Father name", "str", False),
+            ("cnic", "CNIC / national ID", "str", False),
+            ("address", "Address", "str", False),
+            ("join_date", "Join date", "date", False),
+            ("employment_type", "Employment type (full_time/part_time/contract)", "str", False),
+            ("shift", "Shift (morning/evening/night)", "str", False),
+            ("base_salary", "Basic salary", "decimal", False),
+            ("currency", "Salary currency", "str", False),
+            ("bank_name", "Bank name", "str", False),
+            ("bank_account_no", "Bank account number", "str", False),
+            ("status", "Status (active/probation/resigned)", "str", False),
+        ],
+    },
+    "subscriptions": {
+        "label": "Subscriptions",
+        "icon": "repeat",
+        "match_on": "subscription_code",
+        "financial_field": "price",
+        "columns": [
+            ("subscription_code", "Legacy subscription code", "str", False),
+            ("student_code", "Student code", "str", True),
+            ("client_code", "Client code (when it differs from the student's)", "str", False),
+            ("package", "Package name", "str", False),
+            ("course", "Course (code or name)", "str", False),
+            ("teacher_code", "Teacher code", "str", False),
+            ("sessions_per_week", "Classes per week", "int", False),
+            ("session_minutes", "Minutes per class", "int", False),
+            ("days", "Days (Mon,Wed,Fri or 0,2,4)", "str", False),
+            ("price", "Monthly fee", "decimal", True),
+            ("currency", "Currency", "str", False),
+            ("start_date", "Start date", "date", False),
+            ("next_billing_date", "Next billing date", "date", False),
+            ("status", "Status (active/frozen/cancelled/expired)", "str", False),
+            ("notes", "Notes", "str", False),
+        ],
+    },
+    "courses": {
+        "label": "Courses",
+        "icon": "book-open",
+        "match_on": "code",
+        "columns": [
+            ("code", "Course code", "str", True),
+            ("name", "Course name", "str", True),
+            ("course_type", "Type (Islamic Courses / Academics Tutoring)", "str", False),
+            ("default_session_minutes", "Default minutes per class", "int", False),
+            ("fee", "Default monthly fee", "decimal", False),
+            ("completion_target_months", "Target months to complete", "int", False),
+            ("description", "Description", "str", False),
+            ("is_active", "Active (yes/no)", "str", False),
+        ],
+    },
+    "packages": {
+        "label": "Packages",
+        "icon": "package",
+        "match_on": "name + currency + country",
+        "columns": [
+            ("name", "Package name", "str", True),
+            ("course", "Course (code or name)", "str", False),
+            ("sessions_per_week", "Classes per week", "int", False),
+            ("session_minutes", "Minutes per class", "int", False),
+            ("price", "Price", "decimal", True),
+            ("currency", "Currency", "str", False),
+            ("billing_cycle", "Billing cycle (monthly/quarterly)", "str", False),
+            ("country", "Country (country-specific price)", "str", False),
+            ("is_trial", "Trial package (yes/no)", "str", False),
+            ("description", "Description", "str", False),
+        ],
+    },
 }
+
+# The list page each sheet belongs to: that page shows an "Import CSV" button opening the import for its sheet.
+PAGE_ENTITIES: dict[str, str] = {
+    "/clients": "clients", "/students": "students", "/crm/leads": "leads", "/teachers": "teachers",
+    "/finance/invoices": "invoices", "/finance/receipts": "payments", "/finance/payments": "payments",
+    "/hr/employees": "employees", "/finance/subscriptions": "subscriptions", "/subscriptions": "subscriptions",
+    "/academics/courses": "courses", "/academics/config/courses": "courses",
+    "/academics/packages": "packages", "/academics/config/packages": "packages",
+}
+
+
+def entity_for_path(path: str) -> str | None:
+    return PAGE_ENTITIES.get((path or "").rstrip("/") or "/")
+
+
+_DAY_NAMES = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+
+
+def _days(raw) -> list[int]:
+    out = []
+    for part in re.split(r"[,;/\s]+", str(raw or "")):
+        p = part.strip().lower()
+        if not p:
+            continue
+        if p.isdigit() and 0 <= int(p) <= 6:
+            out.append(int(p))
+        elif p[:3] in _DAY_NAMES:
+            out.append(_DAY_NAMES[p[:3]])
+    return sorted(set(out))
+
+
+def _yes(raw, default: bool) -> bool:
+    if raw in (None, ""):
+        return default
+    return str(raw).strip().lower() in ("yes", "y", "true", "1", "active")
+
+
+def _course(db: Session, raw):
+    from app.models.academic import Course
+    if not raw:
+        return None
+    s = str(raw).strip()
+    return (db.query(Course).filter(func.upper(Course.code) == s.upper()).first()
+            or db.query(Course).filter(func.lower(Course.name) == s.lower()).first())
 
 DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%d %b %Y", "%d %B %Y", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S"]
 
@@ -336,6 +460,14 @@ def _dup_key(entity: str, data: dict) -> Optional[str]:
         return (data.get("invoice_number") or "").lower() or None
     if entity == "payments":
         return (data.get("payment_number") or data.get("reference") or "").lower() or None
+    if entity == "employees":
+        return (data.get("employee_code") or data.get("email") or "").lower() or None
+    if entity == "subscriptions":
+        return (data.get("subscription_code") or "").lower() or None
+    if entity == "courses":
+        return (data.get("code") or "").lower() or None
+    if entity == "packages":
+        return f"{data.get('name', '')}|{data.get('currency', '')}|{data.get('country', '')}".lower() if data.get("name") else None
     return None
 
 
@@ -380,6 +512,30 @@ def _exists_in_db(db: Session, entity: str, data: dict) -> bool:
             return True
         ref = data.get("reference")
         return bool(ref and db.query(Payment.id).filter(Payment.reference == ref).first())
+    if entity == "employees":
+        from app.models.people import Employee
+        code, email = data.get("employee_code"), data.get("email")
+        if code and db.query(Employee.id).filter(Employee.employee_code == code).first():
+            return True
+        return bool(email and db.query(Employee.id).filter(func.lower(Employee.email) == str(email).lower()).first())
+    if entity == "subscriptions":
+        from app.models.finance import Subscription
+        code = data.get("subscription_code")
+        return bool(code and db.query(Subscription.id).filter(Subscription.subscription_code == code).first())
+    if entity == "courses":
+        from app.models.academic import Course
+        code = data.get("code")
+        return bool(code and db.query(Course.id).filter(func.upper(Course.code) == str(code).upper()).first())
+    if entity == "packages":
+        from app.models.academic import Package
+        name = data.get("name")
+        if not name:
+            return False
+        q = db.query(Package.id).filter(func.lower(Package.name) == str(name).lower())
+        if data.get("currency"):
+            q = q.filter(Package.currency == str(data["currency"]).upper())
+        q = q.filter(Package.country == data["country"]) if data.get("country") else q.filter(Package.country.is_(None))
+        return bool(q.first())
     return False
 
 
@@ -550,6 +706,95 @@ def _import_row(db: Session, entity: str, clean: dict, actor: Optional[User]) ->
         _ledger(db, client.id, received, "payment", f"Payment {obj.payment_number} (migrated)", credit=amount,
                 currency=obj.currency, ref_type="Payment", ref_id=obj.id)
         return obj.payment_number
+    if entity == "employees":
+        from app.models.core import Department
+        from app.models.people import Employee
+        dept = None
+        if clean.get("department"):
+            d = str(clean["department"]).strip()
+            dept = (db.query(Department).filter(func.lower(Department.code) == d.lower()).first()
+                    or db.query(Department).filter(func.lower(Department.name) == d.lower()).first())
+            if dept is None:
+                raise ValueError(f"no department '{d}' (add it under Human Resource > Departments first)")
+        obj = Employee(employee_code=clean.get("employee_code") or next_code(db, Employee, "employee_code", "E-"),
+                       full_name=clean["full_name"], designation=clean["designation"], department_id=dept.id if dept else None,
+                       email=clean.get("email"), phone=clean.get("phone"), gender=(clean.get("gender") or "male").lower(),
+                       father_name=clean.get("father_name"), cnic=clean.get("cnic"), address=clean.get("address"),
+                       join_date=clean.get("join_date") or date.today(),
+                       employment_type=(clean.get("employment_type") or "full_time").lower(),
+                       shift=(clean.get("shift") or "morning").lower(), base_salary=clean.get("base_salary") or 0,
+                       currency=(clean.get("currency") or "PKR").upper()[:3], bank_name=clean.get("bank_name"),
+                       bank_account_no=clean.get("bank_account_no"), status=(clean.get("status") or "active").lower())
+        if db.query(Employee).filter(Employee.employee_code == obj.employee_code).first():
+            raise ValueError(f"employee_code {obj.employee_code} already exists")
+        db.add(obj)
+        db.flush()
+        return obj.employee_code
+    if entity == "subscriptions":
+        from app.models.academic import Package
+        from app.models.finance import Subscription
+        from app.services.billing import convert_to_base
+        student = db.query(Student).filter(Student.student_code == clean["student_code"]).first()
+        if student is None:
+            raise ValueError(f"no student {clean['student_code']} (import the students first)")
+        client = db.query(Client).filter(Client.client_code == clean["client_code"]).first() if clean.get("client_code") else student.client
+        if client is None:
+            raise ValueError("the student has no family and no client_code was given")
+        package = db.query(Package).filter(func.lower(Package.name) == str(clean["package"]).lower()).first() if clean.get("package") else None
+        if clean.get("package") and package is None:
+            raise ValueError(f"no package '{clean['package']}'")
+        course = _course(db, clean.get("course")) or (package.course if package else None)
+        if clean.get("course") and course is None:
+            raise ValueError(f"no course '{clean['course']}'")
+        teacher = db.query(Teacher).filter(Teacher.teacher_code == clean["teacher_code"]).first() if clean.get("teacher_code") else None
+        if clean.get("teacher_code") and teacher is None:
+            raise ValueError(f"no teacher {clean['teacher_code']}")
+        currency = (clean.get("currency") or (package.currency if package else None) or client.currency or settings.BASE_CURRENCY).upper()[:3]
+        price = float(clean["price"])
+        start = clean.get("start_date") or date.today()
+        status = (clean.get("status") or "active").lower()
+        obj = Subscription(subscription_code=clean.get("subscription_code") or next_code(db, Subscription, "subscription_code", "SUB-"),
+                           client_id=client.id, student_id=student.id, package_id=package.id if package else None,
+                           course_id=course.id if course else None, teacher_id=teacher.id if teacher else None,
+                           sessions_per_week=clean.get("sessions_per_week") or (package.sessions_per_week if package else 5),
+                           session_minutes=clean.get("session_minutes") or (package.session_minutes if package else 30),
+                           list_price=price, price=price, currency=currency, price_in_base=convert_to_base(db, price, currency),
+                           start_date=start, next_billing_date=clean.get("next_billing_date"), status=status,
+                           days_of_week=_days(clean.get("days")), notes=clean.get("notes") or "Imported from legacy system",
+                           cancelled_at=date.today() if status == "cancelled" else None)
+        if db.query(Subscription).filter(Subscription.subscription_code == obj.subscription_code).first():
+            raise ValueError(f"subscription_code {obj.subscription_code} already exists")
+        db.add(obj)
+        db.flush()
+        if teacher and not student.teacher_id and status == "active":
+            student.teacher_id = teacher.id
+        return obj.subscription_code
+    if entity == "courses":
+        from app.models.academic import Course
+        obj = Course(code=str(clean["code"]).strip().upper()[:20], name=clean["name"],
+                     course_type=clean.get("course_type") or "Islamic Courses",
+                     default_session_minutes=clean.get("default_session_minutes") or 30, fee=clean.get("fee") or 0,
+                     completion_target_months=clean.get("completion_target_months"), description=clean.get("description"),
+                     is_active=_yes(clean.get("is_active"), True),
+                     order=(db.query(func.max(Course.order)).scalar() or 0) + 1)
+        db.add(obj)
+        db.flush()
+        return obj.code
+    if entity == "packages":
+        from app.models.academic import Package
+        course = _course(db, clean.get("course"))
+        if clean.get("course") and course is None:
+            raise ValueError(f"no course '{clean['course']}'")
+        per_week = clean.get("sessions_per_week") or 5
+        obj = Package(name=clean["name"], course_id=course.id if course else None, sessions_per_week=per_week,
+                      session_minutes=clean.get("session_minutes") or 30, price=clean["price"],
+                      currency=(clean.get("currency") or settings.BASE_CURRENCY).upper()[:3],
+                      billing_cycle=(clean.get("billing_cycle") or "monthly").lower(), country=clean.get("country"),
+                      is_trial=_yes(clean.get("is_trial"), False), description=clean.get("description"),
+                      min_days=min(per_week, 7), max_days=min(per_week, 7))
+        db.add(obj)
+        db.flush()
+        return obj.name
     raise ValueError(f"unsupported entity {entity}")
 
 

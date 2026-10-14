@@ -6,6 +6,7 @@
   {{ ui.badge(job.status) }}
   {% if job.errors %}{{ ui.button('Error CSV', href='/admin/migration/' ~ job.id ~ '/errors.csv', icon='download', variant='secondary', size='sm') }}{% endif %}
   {{ ui.button('CSV template', href='/admin/migration/template/' ~ job.entity ~ '.csv', icon='file-down', variant='secondary', size='sm') }}
+  {% if back %}{{ ui.button('Back to the list', href=back, icon='arrow-left', variant='secondary', size='sm') }}{% endif %}
 {% endcall %}
 
 {% set steps = [(1,'Upload','upload'),(2,'Map fields','git-merge'),(3,'Validate','shield-check'),(4,'Import','database-zap'),(5,'Reconcile','scale')] %}
