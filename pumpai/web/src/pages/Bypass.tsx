@@ -207,6 +207,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
   const stations = useApi<any[]>("/stations");
   const orders = useApi<any>("/wholesale/orders");
   const [station, setStation] = useState("");
+  const [txnDate, setTxnDate] = useState(() => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10));
   const [fl, setFl] = useState<any>({ tanker_id: "", driver_id: "", vehicle_no: "" });
   const [note, setNote] = useState("");
   const [buys, setBuys] = useState([{ supplier_id: "", product: "HSD", litres: "", amount: "" }]);
@@ -254,7 +255,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
       <form className="space-y-4" onSubmit={async (e) => {
         e.preventDefault();
         const body = {
-          station_id: Number(station), ...fleetBody(fl), note: note || null, photo_ids: photos,
+          station_id: Number(station), ...fleetBody(fl), note: note || null, photo_ids: photos, txn_date: txnDate,
           purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), amount: Number(b.amount) })),
           drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), order_id: d.order_id ?? null, location: d.location || null })),
           to_tank: validToTank.map((r) => ({ tank_id: Number(r.tank_id), product: r.product, litres: Number(r.litres), note: null })),
@@ -263,6 +264,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
         if (saved) onDone(saved);
       }}>
         <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Tareekh · تاریخ"><input className="input" type="date" value={txnDate} max={new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10)} onChange={(e) => setTxnDate(e.target.value)} /></Field>
           <Field label="Station (books under) *"><select className="input" required value={station} onChange={(e) => setStation(e.target.value)}>
             <option value="">— choose —</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
           <FleetPicker f={fl} setF={setFl} />
