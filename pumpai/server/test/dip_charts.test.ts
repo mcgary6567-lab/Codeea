@@ -35,7 +35,9 @@ let chartId = 0, tankId = 0;
 
 test("templates are listed and the HSD 14,370 L sheet is complete", async () => {
   const d = ok(await call("manager", "GET", "/api/dip-charts"), "list");
-  assert.ok(d.templates.length >= 1);
+  assert.ok(d.templates.length >= 2);
+  const pet = d.templates.find((x: any) => x.key === "ug-1700-petrol");
+  assert.equal(pet.rows, 171); assert.equal(pet.max_mm, 1700);
   const t = d.templates.find((x: any) => x.key === "ug-14370-hsd");
   assert.equal(t.rows, 443); // 0 mm + 442 steps of 5 mm
   const full = ok(await call("manager", "GET", "/api/dip-charts/templates/ug-14370-hsd"), "template");
