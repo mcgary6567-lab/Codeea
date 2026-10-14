@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-10",
+ "updated": "2026-10-14",
  "modules": [
   {
    "id": "pos",
@@ -56,6 +56,10 @@
      "icon": "🎓",
      "en": "Practice: Use Training mode to learn — nothing is saved.",
      "ur": "سیکھنے کے لیے ٹریننگ موڈ — کچھ محفوظ نہیں ہوتا۔"
+    },
+    {
+     "en": "Walk-in customer discount: tap the pink “Direct discount”, enter the rupees (quick 500/1000/2000/5000), then type a reference after saving. Cash/card/online only.",
+     "ur": "واک اِن گاہک کو چھوٹ: گلابی ”ڈائریکٹ ڈسکاؤنٹ“ دبائیں، روپے لکھیں (فوری 500/1000/2000/5000)، سیو کے بعد حوالہ لکھیں۔ صرف کیش/کارڈ/آن لائن پر۔"
     }
    ],
    "roles": [
@@ -160,6 +164,14 @@
      "icon": "👔",
      "en": "Cashier, manager and wholesale staff are exempt from the selfie — the manager marks them on the kiosk.",
      "ur": "کیشیئر، مینیجر اور ہول سیل عملہ سیلفی سے مستثنیٰ — مینیجر کیوسک پر لگاتا ہے۔"
+    },
+    {
+     "en": "Login screen: pick your portal (Salesman / Cashier / Wholesale / Manager / Admin), then sign in with your PIN or email.",
+     "ur": "لاگ اِن اسکرین: اپنا پورٹل چنیں (سیلزمین / کیشیئر / ہول سیل / مینیجر / ایڈمن)، پھر اپنے پن یا ای میل سے سائن اِن کریں۔"
+    },
+    {
+     "en": "Menu: tap the star on any page or task to pin it to the top (Pinned); pages you opened recently appear under Recent.",
+     "ur": "مینو: کسی بھی صفحے یا کام پر ستارہ دبا کر اُسے اوپر (پسندیدہ) میں رکھیں؛ حال ہی میں کھولے صفحے ”حالیہ“ میں آتے ہیں۔"
     }
    ],
    "roles": [
@@ -212,6 +224,14 @@
      "icon": "🚗",
      "en": "Add a vehicle with a daily litre limit so a driver can't over-fill.",
      "ur": "گاڑی کی روزانہ لیٹر لمٹ لگائیں تاکہ ڈرائیور زیادہ نہ بھروائے۔"
+    },
+    {
+     "en": "New khata: the opening balance can be “Due” (they owe you) or “Advance” (they paid cash up front). An advance is eaten by each khata sale first; cash/bank taken today is also recorded.",
+     "ur": "نیا کھاتہ: اوپننگ بیلنس ”ڈیو“ (اُن کے ذمے) یا ”ایڈوانس“ (اُنہوں نے پہلے کیش دیا) ہو سکتا ہے۔ ایڈوانس ہر سیل سے پہلے کٹتا ہے؛ آج لیا گیا کیش/بینک بھی درج ہوتا ہے۔"
+    },
+    {
+     "en": "Every khata statement has a “WhatsApp” button next to Print — send the PDF straight to the customer.",
+     "ur": "ہر کھاتہ اسٹیٹمنٹ کے ساتھ ”واٹس ایپ“ بٹن ہے — پی ڈی ایف سیدھا گاہک کو بھیجیں۔"
     }
    ],
    "roles": [
@@ -305,6 +325,10 @@
      "icon": "🌡",
      "en": "Temperature correction is applied so day/night expansion isn't mistaken for loss.",
      "ur": "ٹمپریچر کریکشن لگتا ہے تاکہ دن/رات کا پھیلاؤ نقصان نہ سمجھا جائے۔"
+    },
+    {
+     "en": "A tank's dip chart (stick mm/cm → litres) is now built on the separate “Dip charts” page and assigned to the tank.",
+     "ur": "ٹینک کا ڈپ چارٹ (اسٹک mm/cm → لیٹر) اب الگ ”ڈپ چارٹ“ صفحے پر بنتا ہے اور ٹینک پر لگایا جاتا ہے۔"
     }
    ],
    "roles": [
@@ -354,6 +378,18 @@
      "icon": "🏷",
      "en": "Rates can be a fixed price or linked to the pump rate with a differential.",
      "ur": "ریٹ فکسڈ ہو سکتا ہے یا پمپ ریٹ سے فرق کے ساتھ جُڑا۔"
+    },
+    {
+     "en": "A client's opening balance can also be Due or Advance; an advance is used up by supplies before any credit.",
+     "ur": "کلائنٹ کا اوپننگ بیلنس بھی ڈیو یا ایڈوانس ہو سکتا ہے؛ ایڈوانس پہلے سپلائی سے کٹتا ہے، اُس کے بعد اُدھار۔"
+    },
+    {
+     "en": "Leftover bypass fuel: use “Unload to tank” to move it into your own tank — stock and the ledger adjust automatically.",
+     "ur": "بائی پاس کا بچا ہوا تیل: ”اَن لوڈ ٹو ٹینک“ سے اپنے ٹینک میں ڈالیں — اسٹاک اور لیجر خود درست ہو جاتے ہیں۔"
+    },
+    {
+     "en": "Client statements send as a PDF with the “WhatsApp” button.",
+     "ur": "کلائنٹ اسٹیٹمنٹ ”واٹس ایپ“ بٹن سے پی ڈی ایف بن کر چلی جاتی ہے۔"
     }
    ],
    "roles": [
@@ -443,6 +479,10 @@
      "icon": "🧮",
      "en": "Every voucher is double-entry, so the books always tally to the rupee.",
      "ur": "ہر واؤچر ڈبل انٹری ہے، اس لیے بُکس ہمیشہ روپے تک برابر رہتی ہیں۔"
+    },
+    {
+     "en": "Each voucher has a “WhatsApp” button — send the receipt/voucher PDF to the party on the spot.",
+     "ur": "ہر واؤچر کے ساتھ ”واٹس ایپ“ بٹن ہے — رسید/واؤچر پی ڈی ایف فوراً پارٹی کو بھیجیں۔"
     }
    ],
    "roles": [
@@ -577,6 +617,10 @@
      "icon": "🔎",
      "en": "The Profit Explainer page breaks down exactly how net profit is calculated.",
      "ur": "پرافٹ ایکسپلینر صفحہ بتاتا ہے کہ خالص منافع کیسے نکلا۔"
+    },
+    {
+     "en": "The Discounts & overrides report shows direct (walk-in) and khata discounts separately, each with its reference.",
+     "ur": "ڈسکاؤنٹس اینڈ اوور رائیڈز رپورٹ میں ڈائریکٹ (واک اِن) اور کھاتہ ڈسکاؤنٹ الگ، ہر ایک اپنے حوالے کے ساتھ دکھتے ہیں۔"
     }
    ],
    "roles": [
@@ -836,6 +880,54 @@
     }
    ],
    "num": 18
+  },
+  {
+   "id": "dip-charts",
+   "num": 19,
+   "route": "/dip-charts",
+   "login": "manager",
+   "title_en": "Dip charts",
+   "title_ur": "ڈپ چارٹ",
+   "who": [
+    "📊 Manager / Owner",
+    "🛢️ Tank calibration (mm → litres)",
+    "📷 Read from a photo (AI)"
+   ],
+   "what_en": "A dip chart turns the stick reading (mm or cm) into litres for each tank. Build one from a built-in template, a photo of the oil company's printed sheet (AI reads every row), or by pasting the rows. One chart can serve every tank of the same size.",
+   "what_ur": "ڈپ چارٹ اسٹک کی ریڈنگ (mm یا cm) کو ہر ٹینک کے لیے لیٹر میں بدلتا ہے۔ اسے تیار ٹیمپلیٹ سے، آئل کمپنی کی چھپی شیٹ کی تصویر سے (اے آئی ہر سطر پڑھتا ہے)، یا سطریں پیسٹ کر کے بنائیں۔ ایک چارٹ ایک ہی سائز کے ہر ٹینک پر چل سکتا ہے۔",
+   "steps": [
+    {
+     "en": "Open Stock & prices → Dip charts and press “New chart”.",
+     "ur": "اسٹاک و ریٹ → ڈپ چارٹ کھولیں اور ”نیا چارٹ“ دبائیں۔"
+    },
+    {
+     "en": "Choose how: a built-in Petrol/Diesel template, a photo of the printed sheet (AI reads it), paste cm/mm + litres, or an approximate chart from the tank diameter.",
+     "ur": "طریقہ چنیں: تیار پیٹرول/ڈیزل ٹیمپلیٹ، چھپی شیٹ کی تصویر (اے آئی پڑھتا ہے)، cm/mm اور لیٹر پیسٹ کریں، یا ٹینک کے قطر سے اندازاً چارٹ۔"
+    },
+    {
+     "en": "Check the rows in the grid — a repeated depth, falling litres, a missing step or an odd jump are flagged in colour — then Save.",
+     "ur": "گرڈ میں سطریں چیک کریں — دہری گہرائی، گھٹتے لیٹر، چھوٹی ہوئی سطر یا عجیب اچھال رنگ سے نمایاں ہوتے ہیں — پھر سیو کریں۔"
+    },
+    {
+     "en": "Assign the chart to the tank(s). On Tanks & Stock the dip in mm/cm is now turned into litres through it.",
+     "ur": "چارٹ کو ٹینک(وں) پر لگائیں۔ ٹینک و اسٹاک پر اب mm/cm کا ڈپ اِسی سے لیٹر میں بدل جاتا ہے۔"
+    }
+   ],
+   "tips": [
+    {
+     "en": "Built-in Petrol and Diesel charts are ready — pick, check, done.",
+     "ur": "تیار پیٹرول اور ڈیزل چارٹ موجود ہیں — چنیں، چیک کریں، ہو گیا۔"
+    },
+    {
+     "en": "Type a dip in the lookup box to instantly see the litres and % full; “Fill steps” turns a 10 mm chart into 5 mm.",
+     "ur": "لُک اَپ باکس میں ڈپ لکھیں تو فوراً لیٹر اور % بھرا نظر آتا ہے؛ ”فِل اسٹیپس“ 10 mm چارٹ کو 5 mm بنا دیتا ہے۔"
+    }
+   ],
+   "roles": [
+    "manager",
+    "admin"
+   ],
+   "media": false
   }
  ]
 }

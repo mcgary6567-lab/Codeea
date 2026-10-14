@@ -62,7 +62,7 @@ const PINS_KEY = "pumpai.nav.pins", RECENT_KEY = "pumpai.nav.recent";
 const readList = (k: string): string[] => { try { return JSON.parse(localStorage.getItem(k) ?? "[]"); } catch { return []; } };
 const writeList = (k: string, v: string[]) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } };
 /** Which user-guide module explains a page (Help page anchors). */
-export const ROUTE_GUIDE: Record<string, string> = { "/pos": "pos", "/shifts": "shifts", "/my-account": "attendance", "/kiosk": "attendance", "/customers": "customers", "/khata": "customers", "/prices": "prices", "/stock": "stock", "/dip-charts": "stock", "/register": "stock",
+export const ROUTE_GUIDE: Record<string, string> = { "/pos": "pos", "/shifts": "shifts", "/my-account": "attendance", "/kiosk": "attendance", "/customers": "customers", "/khata": "customers", "/prices": "prices", "/stock": "stock", "/dip-charts": "dip-charts", "/register": "stock",
   "/wholesale": "wholesale", "/carriage": "carriage", "/cashier": "cashier", "/accounts": "banks", "/cash": "banks", "/expenses": "expenses", "/owner-report": "reports", "/reports": "reports", "/insights": "reports", "/profit": "reports",
   "/suppliers": "suppliers", "/settings": "settings", "/users": "settings", "/opening-balances": "opening", "/corrections": "corrections", "/other-entries": "other-entries" };
 const itemCls = (on: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${on ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`;
