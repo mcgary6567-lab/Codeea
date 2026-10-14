@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown, Ban,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText, BookOpenCheck,
-  Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp,
+  Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp, Ruler,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -40,7 +40,7 @@ const NAV_UR: Record<string, string> = {
   "/margins": "مارجن و ہدف", "/profit": "منافع کی وضاحت", "/suggestions": "تجاویز", "/inbox": "واٹس ایپ",
   "/pos": "سیل", "/shifts": "شفٹ", "/customers": "گاہک", "/khata": "کھاتہ", "/prepaid": "کوپن و والٹ", "/card-pending": "کارڈ پینڈنگ", "/bookings": "بکنگ",
   "/wholesale": "ہول سیل", "/carriage": "کرایہ", "/cashier": "کیشیئر", "/expenses": "خرچے", "/cash": "کیش بک", "/accounts": "اکاؤنٹس و ٹیکس", "/suppliers": "سپلائر", "/property": "جائیداد و کرایہ",
-  "/orders": "آرڈر", "/complaints": "شکایات", "/campaigns": "مہم", "/stock": "ٹینک و اسٹاک", "/register": "اسٹاک رجسٹر", "/shop": "شاپ", "/prices": "ریٹ", "/alerts": "الرٹ",
+  "/orders": "آرڈر", "/complaints": "شکایات", "/campaigns": "مہم", "/stock": "ٹینک و اسٹاک", "/dip-charts": "ڈپ چارٹ", "/register": "اسٹاک رجسٹر", "/shop": "شاپ", "/prices": "ریٹ", "/alerts": "الرٹ",
   "/automations": "آٹومیشن", "/staff": "عملہ کھاتہ", "/kiosk": "حاضری", "/roster": "ڈیوٹی روسٹر", "/team": "ریٹنگ و کمیشن", "/checklist": "روزانہ چیک", "/compliance": "لائسنس",
   "/machines": "مشینیں", "/my-account": "میرا حساب", "/help": "رہنمائی", "/users": "صارفین", "/audit": "آڈٹ لاگ", "/corrections": "درستگی", "/opening-balances": "پرانا حساب", "/lists": "لسٹیں", "/settings": "سیٹنگز",
 };
@@ -49,7 +49,7 @@ const GROUPS: { key: string; label: string; ur: string; icon: any; items: string
   { key: "sales", label: "Sales & shifts", ur: "سیل و شفٹ", icon: Fuel, items: ["/pos", "/shifts", "/bookings", "/card-pending"] },
   { key: "customers", label: "Customers & khata", ur: "گاہک و کھاتہ", icon: Users, items: ["/customers", "/khata", "/prepaid", "/orders", "/complaints", "/campaigns"] },
   { key: "wholesale", label: "Wholesale & carriage", ur: "ہول سیل و کرایہ", icon: Container, items: ["/wholesale", "/carriage"] },
-  { key: "stock", label: "Stock & prices", ur: "اسٹاک و ریٹ", icon: Droplets, items: ["/stock", "/register", "/prices", "/shop", "/suppliers"] },
+  { key: "stock", label: "Stock & prices", ur: "اسٹاک و ریٹ", icon: Droplets, items: ["/stock", "/dip-charts", "/register", "/prices", "/shop", "/suppliers"] },
   { key: "money", label: "Money & accounts", ur: "پیسہ و حساب", icon: Landmark, items: ["/cashier", "/cash", "/expenses", "/accounts", "/property", "/other-entries"] },
   { key: "reports", label: "Reports & profit", ur: "رپورٹ و منافع", icon: FileBarChart, items: ["/reports", "/insights", "/owner-report", "/profit", "/margins", "/discounts-report", "/suggestions"] },
   { key: "staff", label: "Staff", ur: "عملہ", icon: Wallet, items: ["/staff", "/kiosk", "/roster", "/team", "/my-account"] },
@@ -62,7 +62,7 @@ const PINS_KEY = "pumpai.nav.pins", RECENT_KEY = "pumpai.nav.recent";
 const readList = (k: string): string[] => { try { return JSON.parse(localStorage.getItem(k) ?? "[]"); } catch { return []; } };
 const writeList = (k: string, v: string[]) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } };
 /** Which user-guide module explains a page (Help page anchors). */
-export const ROUTE_GUIDE: Record<string, string> = { "/pos": "pos", "/shifts": "shifts", "/my-account": "attendance", "/kiosk": "attendance", "/customers": "customers", "/khata": "customers", "/prices": "prices", "/stock": "stock", "/register": "stock",
+export const ROUTE_GUIDE: Record<string, string> = { "/pos": "pos", "/shifts": "shifts", "/my-account": "attendance", "/kiosk": "attendance", "/customers": "customers", "/khata": "customers", "/prices": "prices", "/stock": "stock", "/dip-charts": "stock", "/register": "stock",
   "/wholesale": "wholesale", "/carriage": "carriage", "/cashier": "cashier", "/accounts": "banks", "/cash": "banks", "/expenses": "expenses", "/owner-report": "reports", "/reports": "reports", "/insights": "reports", "/profit": "reports",
   "/suppliers": "suppliers", "/settings": "settings", "/users": "settings", "/opening-balances": "opening", "/corrections": "corrections", "/other-entries": "other-entries" };
 const itemCls = (on: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${on ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`;
@@ -196,6 +196,7 @@ const NAV = [
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, perm: "complaints.manage" },
   { to: "/campaigns", label: "Campaigns", icon: Megaphone, perm: "campaigns.manage" },
   { to: "/stock", label: "Tanks & Stock", icon: Droplets, perm: "stock.manage" },
+  { to: "/dip-charts", label: "Dip charts", icon: Ruler, perm: "stock.manage" },
   { to: "/register", label: "Stock register", icon: ScrollText, perm: "stock.manage" },
   { to: "/shop", label: "Shop & lubricants", icon: ShoppingBasket, perm: "stock.manage" },
   { to: "/prices", label: "Prices", icon: Tag, perm: "prices.update" },

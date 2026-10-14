@@ -17,6 +17,7 @@ import Campaigns from "./pages/Campaigns";
 import Pos from "./pages/Pos";
 import Shifts from "./pages/Shifts";
 import Stock from "./pages/Stock";
+import DipCharts from "./pages/DipCharts";
 import Prices from "./pages/Prices";
 import Alerts from "./pages/Alerts";
 import Automations from "./pages/Automations";
@@ -154,6 +155,7 @@ export default function App() {
               <Route path="pos" element={<Need perm="sales.create"><Pos /></Need>} />
               <Route path="shifts" element={<Need perm="shifts.manage"><Shifts /></Need>} />
               <Route path="stock" element={<Need perm="stock.manage"><Stock /></Need>} />
+              <Route path="dip-charts" element={<Need perm="stock.manage"><DipCharts /></Need>} />
               <Route path="prices" element={<Need perm="prices.update"><Prices /></Need>} />
               <Route path="alerts" element={<Need perm="alerts.view"><Alerts /></Need>} />
               <Route path="automations" element={<Need perm="automations.manage"><Automations /></Need>} />

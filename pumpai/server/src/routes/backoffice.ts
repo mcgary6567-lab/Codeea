@@ -196,8 +196,11 @@ export function closeOrderOnDelivery(t: number, supplierId: number | null, tankI
 
 /* ================= Dip charts ================= */
 export function litresFromCm(tankId: number, cm: number): number {
-  const rows = all("SELECT cm, litres FROM tank_charts WHERE tank_id=? ORDER BY cm", tankId) as { cm: number; litres: number }[];
-  if (rows.length < 2) throw new AppError(400, "This tank has no dip chart yet. Add it on the Tanks & Stock page.");
+  const chartId = get("SELECT dip_chart_id FROM tanks WHERE id=?", tankId)?.dip_chart_id;
+  const rows = chartId
+    ? (all("SELECT depth_mm/10.0 cm, litres FROM dip_chart_rows WHERE chart_id=? ORDER BY depth_mm", chartId) as { cm: number; litres: number }[])
+    : (all("SELECT cm, litres FROM tank_charts WHERE tank_id=? ORDER BY cm", tankId) as { cm: number; litres: number }[]);
+  if (rows.length < 2) throw new AppError(400, "This tank has no dip chart yet. Open Dip charts and assign one to this tank · ڈپ چارٹ لگائیں");
   if (cm < rows[0].cm || cm > rows[rows.length - 1].cm) throw new AppError(400, `Dip must be between ${rows[0].cm} and ${rows[rows.length - 1].cm} cm`);
   const i = rows.findIndex((r) => r.cm >= cm);
   if (rows[i].cm === cm) return rows[i].litres;
@@ -222,6 +225,7 @@ const ownTank = (t: number, id: number) => {
 };
 backoffice.get("/tanks/:id/chart", requirePerm("stock.manage"), h((req) => {
   const tank = ownTank(tid(req), Number(req.params.id));
+  if (tank.dip_chart_id) return { tank, chart_id: tank.dip_chart_id, rows: all("SELECT depth_mm/10.0 cm, litres FROM dip_chart_rows WHERE chart_id=? ORDER BY depth_mm", tank.dip_chart_id) };
   return { tank, rows: all("SELECT cm, litres FROM tank_charts WHERE tank_id=? ORDER BY cm", tank.id) };
 }));
 backoffice.put("/tanks/:id/chart", requirePerm("stock.manage"), h((req) => {
@@ -234,6 +238,7 @@ backoffice.put("/tanks/:id/chart", requirePerm("stock.manage"), h((req) => {
   for (let i = 1; i < rows.length; i++)
     if (rows[i].cm === rows[i - 1].cm || rows[i].litres < rows[i - 1].litres) throw new AppError(400, `Chart row ${i + 1}: cm must go up and litres must not go down`);
   tx(() => {
+    run("UPDATE tanks SET dip_chart_id=NULL WHERE id=?", tank.id);
     run("DELETE FROM tank_charts WHERE tank_id=?", tank.id);
     for (const r of rows) run("INSERT INTO tank_charts (tank_id,cm,litres) VALUES (?,?,?)", tank.id, r.cm, r.litres);
   });

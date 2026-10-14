@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Ruler } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS } from "../lib/format";
@@ -16,19 +18,21 @@ export default function Stock() {
   const { can } = useAuth();
   const { busy, run } = useAction();
   const [dip, setDip] = useState({ tank_id: "", measured_l: "", cm: "", temp: "" });
+  // the stick is read in mm on most OMC charts, in cm on older ones; the API takes cm
+  const [dipUnit, setDipUnit] = useState<"mm" | "cm">(() => { try { return (localStorage.getItem("pumpai.dip.unit") as "mm" | "cm") || "mm"; } catch { return "mm"; } });
+  const toCm = (v: string) => (dipUnit === "mm" ? Number(v) / 10 : Number(v));
   const [dipPhotos, setDipPhotos] = useState<number[]>([]);
   const [dipL, setDipL] = useState<{ litres?: number; error?: string } | null>(null);
   const [dipSure, setDipSure] = useState(false);
   const [order, setOrder] = useState<any>(null);
-  const [chart, setChart] = useState<any>(null);
   const orders = useApi<any[]>("/stock/orders");
   const dipTank = Number(dip.tank_id) || dash.data?.tanks[0]?.id;
   // dip in cm → litres from the tank's chart, as you type
   useEffect(() => {
     if (!dip.cm || !dipTank) { setDipL(null); return; }
-    const id = setTimeout(() => api(`/tanks/${dipTank}/dip-litres?cm=${Number(dip.cm)}`).then((x) => setDipL({ litres: x.litres })).catch((e) => setDipL({ error: e.message })), 250);
+    const id = setTimeout(() => api(`/tanks/${dipTank}/dip-litres?cm=${toCm(dip.cm)}`).then((x) => setDipL({ litres: x.litres })).catch((e) => setDipL({ error: e.message })), 250);
     return () => clearTimeout(id);
-  }, [dip.cm, dipTank]);
+  }, [dip.cm, dipTank, dipUnit]);
   const [del, setDel] = useState<any>({ tank_id: "", invoice_l: "", received_l: "", tanker_no: "", supplier_id: "", purchase_rate: "", freight: "", photo_id: null });
   if (!dash.data || !stock.data) return <Loading />;
   const tanks = dash.data.tanks;
@@ -63,23 +67,25 @@ export default function Stock() {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <form className="card min-w-0 space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
-          const body: any = { ...(dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) }), photo_ids: dipPhotos, confirm: dipSure };
+          const body: any = { ...(dip.cm ? { tank_id: dipTank, measured_cm: toCm(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) }), photo_ids: dipPhotos, confirm: dipSure };
           if (dip.temp !== "") body.temperature = Number(dip.temp);
           const r = await run(() => api("/stock/dip", { body }), (x: any) => `Dip saved: ${num(x.measured_l)} L. Variance ${x.variance_pct}%${x.corrected_l != null ? ` · 15°C ≈ ${num(x.corrected_l)} L` : ""}`);
           if (r) { setDip({ ...dip, measured_l: "", cm: "", temp: "" }); setDipPhotos([]); setDipSure(false); refresh(); }
         }}>
           <div className="flex items-center justify-between"><h2 className="font-semibold">Record dip reading</h2>
-            <button type="button" className="-my-2 min-h-9 px-1 text-xs text-brand-600 hover:underline" onClick={() => api(`/tanks/${dipTank}/chart`).then(setChart)}>Dip chart</button></div>
+            <Link to={`/dip-charts?tank=${dipTank}`} className="-my-2 inline-flex min-h-9 items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-2.5 text-xs font-medium text-brand-700 hover:bg-brand-100"><Ruler size={14} /> Dip chart · <span lang="ur" dir="rtl" className="font-urdu">ڈپ چارٹ</span></Link></div>
           <Field label="Tank · ٹینک"><select className="input" value={dip.tank_id || String(dipTank ?? "")} onChange={(e) => { setDip({ ...dip, tank_id: e.target.value }); setDipSure(false); }}>{tankOpts}</select></Field>
           {(() => { const tk = tanks.find((t: any) => t.id === dipTank); return tk ? <p className="-mt-1 text-xs text-slate-500">Book stock now · <span lang="ur" dir="rtl" className="font-urdu">سسٹم میں</span> <b className="tabular-nums">{num(tk.current_l)} L</b> of {num(tk.capacity_l)} L</p> : null; })()}
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Dip stick (cm) · ڈپ"><input className="input py-3 text-xl" type="number" step="0.1" min={0} value={dip.cm} onChange={(e) => { setDip({ ...dip, cm: e.target.value, measured_l: "" }); setDipSure(false); }} /></Field>
+            <div><div className="mb-1 flex items-center justify-between"><span className="label">Dip stick · ڈپ</span>
+              <span className="flex overflow-hidden rounded-md border border-slate-300 text-xs">{(["mm", "cm"] as const).map((u) => <button key={u} type="button" className={`px-2 py-0.5 ${dipUnit === u ? "bg-brand-600 text-white" : "bg-white text-slate-600"}`} onClick={() => { setDipUnit(u); try { localStorage.setItem("pumpai.dip.unit", u); } catch { /* private mode */ } }}>{u}</button>)}</span></div>
+              <input className="input py-3 text-xl" type="number" step={dipUnit === "mm" ? 1 : 0.1} min={0} placeholder={dipUnit === "mm" ? "e.g. 1000" : "e.g. 100.0"} value={dip.cm} onChange={(e) => { setDip({ ...dip, cm: e.target.value, measured_l: "" }); setDipSure(false); }} /></div>
             <Field label="…or litres"><input className="input py-3 text-xl" type="number" min={0} disabled={Boolean(dip.cm)} required={!dip.cm} value={dip.cm && dipL?.litres != null ? String(dipL.litres) : dip.measured_l} onChange={(e) => { setDip({ ...dip, measured_l: e.target.value }); setDipSure(false); }} /></Field>
           </div>
           <Field label="Tank temperature (°C) — optional · درجہ حرارت"><input className="input" type="number" step="0.1" min={-10} max={70} placeholder="e.g. 32" value={dip.temp} onChange={(e) => setDip({ ...dip, temp: e.target.value })} /></Field>
           {dip.temp !== "" && <p className="-mt-1 text-xs text-slate-500">Garmi/sardi ka asar: 15°C par volume correct ho kar dikhega, taake phailao ko loss na samjha jaye.</p>}
           {dipL?.error && <p className="text-xs text-red-600">{dipL.error}</p>}
-          {dip.cm && dipL?.litres != null && <p className="text-sm text-slate-600">{dip.cm} cm = <b>{num(dipL.litres)} L</b> from the dip chart</p>}
+          {dip.cm && dipL?.litres != null && <p className="text-sm text-slate-600">{dip.cm} {dipUnit} = <b>{num(dipL.litres)} L</b> from the dip chart</p>}
           {(() => {
             const tk = tanks.find((t: any) => t.id === dipTank);
             const m = dip.cm ? dipL?.litres : dip.measured_l !== "" ? Number(dip.measured_l) : undefined;
@@ -143,7 +149,6 @@ export default function Stock() {
       </div>
       <VarianceTrend />
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
-      {chart && <ChartModal c={chart} onClose={() => setChart(null)} />}
       {addSup && <SupplierForm onClose={() => setAddSup(false)} onSaved={(sp: any) => { setAddSup(false); suppliers.reload(); if (sp?.id) setDel((x: any) => ({ ...x, supplier_id: String(sp.id) })); }} />}
     </div>
   );
@@ -202,34 +207,6 @@ function OrderModal({ s, suppliers, onClose, onDone }: { s: any; suppliers: any[
         <Field label="Note for supplier (optional)"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. deliver before 6pm" /></Field>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Send order</button></div>
       </form>
-    </Modal>
-  );
-}
-
-/** Dip chart editor: paste the OMC chart (cm and litres per line) or make one from the tank diameter. */
-function ChartModal({ c, onClose }: { c: any; onClose: () => void }) {
-  const [text, setText] = useState(c.rows.map((r: any) => `${r.cm} ${r.litres}`).join("\n"));
-  const [diameter, setDiameter] = useState("");
-  const { busy, run } = useAction();
-  const save = (body: any) => run(() => api(`/tanks/${c.tank.id}/chart`, { method: "PUT", body }), (x: any) => `Chart saved: ${x.rows} rows, full = ${num(x.max_litres)} L`).then((x) => x && onClose());
-  return (
-    <Modal open onClose={onClose} title={`Dip chart — ${c.tank.name}`} wide>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <Field label="One row per line: cm litres (from the oil company's chart)">
-            <textarea className="input h-72 font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} />
-          </Field>
-          <button className="btn-primary mt-2" disabled={busy} onClick={() => {
-            const rows = text.split(/\n+/).map((l: string) => l.trim().split(/[\s,;\t]+/).map(Number)).filter((x: number[]) => x.length >= 2 && !x.some(isNaN)).map(([cm, litres]: number[]) => ({ cm, litres }));
-            save({ rows });
-          }}>Save chart</button>
-        </div>
-        <div className="space-y-3 rounded-lg bg-slate-50 p-3 text-sm">
-          <p>No chart yet? Make an approximate one from the tank's inside diameter (horizontal round tank, {num(c.tank.capacity_l)} L). Replace it with the oil company's chart when you have it.</p>
-          <Field label="Inside diameter (cm)"><input className="input" type="number" min={50} max={600} value={diameter} onChange={(e) => setDiameter(e.target.value)} /></Field>
-          <button className="btn-secondary" disabled={busy || !diameter} onClick={() => save({ diameter_cm: Number(diameter) })}>Make chart</button>
-        </div>
-      </div>
     </Modal>
   );
 }

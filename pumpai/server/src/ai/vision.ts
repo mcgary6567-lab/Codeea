@@ -46,8 +46,24 @@ async function record<T>(parts: NeutralPart[], description: string, schema: Reco
   return claudeRecord<T>(parts, description, schema);
 }
 
-export type PhotoKind = "meter" | "invoice" | "receipt" | "bill" | "slip" | "payment";
+export type PhotoKind = "meter" | "invoice" | "receipt" | "bill" | "slip" | "payment" | "dipchart";
 const PROMPTS: Record<PhotoKind, { text: string; description: string; schema: Record<string, unknown> }> = {
+  dipchart: {
+    text: "This is a photo or scan of a fuel tank DIP CHART (calibration table) from a Pakistani petrol pump: columns of depth (mm or cm) and litres, often several column pairs side by side. Read EVERY row: go down each column pair in order, left pair first, before moving to the next pair. Copy the numbers exactly. Also read the header: tank name/size, internal length and diameter, storing capacity for petrol and HSD, and whether depth is in mm or cm. Depth should increase steadily (usually 5 mm or 1 cm steps) and litres should never go down; if a printed value is smudged, give your best reading and list that depth in `unclear`.",
+    description: "Record the dip chart rows and header read from the calibration sheet.",
+    schema: {
+      properties: {
+        title: { type: "string" },
+        unit: { type: "string", enum: ["mm", "cm"] },
+        length_mm: { type: "number" }, diameter_mm: { type: "number" },
+        capacity_petrol_l: { type: "number" }, capacity_hsd_l: { type: "number" },
+        rows: { type: "array", items: { type: "object", properties: { depth: { type: "number" }, litres: { type: "number" } }, required: ["depth", "litres"] } },
+        unclear: { type: "array", items: { type: "number" } },
+        confidence: { type: "string", enum: ["high", "medium", "low"] },
+      },
+      required: ["rows", "unit", "confidence"],
+    },
+  },
   meter: {
     text: "This is a close-up photo of the TOTALIZER on a fuel dispenser at a Pakistani petrol pump (the cumulative litres counter) — the cashier aligned it inside a scan box, so it is usually a single row of digits. Read that number, not the sale amount or the price per litre. If more than one totalizer is visible, return each one with its side or label. Copy every digit exactly, including decimals. If a digit is unclear, say so in the note and lower the confidence.",
     description: "Record the totalizer reading(s) read from the dispenser photo.",
