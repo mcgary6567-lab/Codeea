@@ -143,3 +143,7 @@ Party balances are signed everywhere: positive = they owe us, negative = their a
 ## Number entry on phones (never regress)
 
 Every `<input type="number">` carries `inputMode="decimal"` (phone keypad); `main.tsx` also sets `inputmode` on any number input added later (MutationObserver), blurs a focused number input on mouse wheel and swallows ArrowUp/ArrowDown on it, so a typed figure never changes by a stray scroll or key. `index.css`: spinner arrows removed for all browsers, `font-variant-numeric: tabular-nums`, `input/select/textarea { min-width:0; max-width:100% }`, grid children `min-width:0` (no horizontal overflow), and `.input` is 16px under 640px (no iOS focus zoom). The QuickAdd `AccountForm` (mobile "Add customer") has the same `OpeningBalanceField` as `CustomerForm`.
+
+## Offline fonts (never regress)
+
+`web/public/sw.js` runtime-caches Google Fonts (Inter + Noto Naskh/Nastaliq Urdu) in a separate `FONT_CACHE` (cache-first, cross-origin, keeps opaque responses), so after one online load the app reads right **offline** too; the `activate` handler keeps both `CACHE` and `FONT_CACHE`. Tailwind `fontFamily` still falls back to system-ui / serif if the CDN was never reached.

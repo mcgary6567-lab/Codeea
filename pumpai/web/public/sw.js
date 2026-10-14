@@ -1,15 +1,23 @@
 // PumpAI service worker: keeps the app shell available so the POS opens without internet.
 // API calls are never cached here (the POS keeps its own copy of today's prices and queues sales).
 const CACHE = "pumpai-shell-v3";
+const FONT_CACHE = "pumpai-fonts-v1"; // Google Fonts (Inter + Urdu Naskh/Nastaliq) so the app reads right offline too
+const FONT_HOST = /(^|\.)fonts\.(googleapis|gstatic)\.com$/;
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== FONT_CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   const url = new URL(req.url);
+  // Google Fonts: cache-first into their own cache (cross-origin), so the fonts survive offline after one online load
+  if (req.method === "GET" && FONT_HOST.test(url.hostname)) {
+    e.respondWith(caches.open(FONT_CACHE).then((c) => c.match(req).then((hit) =>
+      hit || fetch(req).then((res) => { if (res && (res.ok || res.type === "opaque")) c.put(req, res.clone()); return res; }).catch(() => hit))));
+    return;
+  }
   // pages made by the server (customer khata, bills, receipts, reports, slips, legal) are never stored as the app shell
   const SERVER_PAGES = /^\/(api|webhooks|bill|w|k|r|day|portal|board|slip|privacy|terms|branding|manifest|version)(\/|\.|$)/;
   if (req.method !== "GET" || url.origin !== location.origin || SERVER_PAGES.test(url.pathname)) return;
