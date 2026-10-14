@@ -219,11 +219,11 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
   // tanks across all stations, for the "unload into our own tank" rows
   const stTanks = useMemo(() => (stations.data ?? []).flatMap((s: any) => (s.tanks ?? []).map((tk: any) => ({ ...tk, station: s.name }))), [stations.data]);
   const [toTank, setToTank] = useState<any[]>([]);
-  const toTankSum = useMemo(() => sumBy(toTank), [toTank]);
 
   const sumBy = (rows: { product: string; litres: string }[]) => rows.reduce((m, r) => { const p = r.product; m[p] = (m[p] ?? 0) + (Number(r.litres) || 0); return m; }, {} as Record<string, number>);
   const bought = useMemo(() => sumBy(buys), [buys]);
   const dropped = useMemo(() => sumBy(drops), [drops]);
+  const toTankSum = useMemo(() => sumBy(toTank), [toTank]);
   // a drop can draw from the stock already held plus what is being bought right now
   const needBy = useMemo(() => { const m: Record<string, number> = { ...dropped }; for (const [p, l] of Object.entries(toTankSum)) m[p] = (m[p] ?? 0) + l; return m; }, [dropped, toTankSum]);
   const overBy = useMemo(() => Object.entries(needBy).filter(([p, l]) => l > held(p) + (bought[p] ?? 0) + 0.01).map(([p, l]) => ({ p, l, have: held(p) + (bought[p] ?? 0) })), [needBy, bought, stock.data]);
