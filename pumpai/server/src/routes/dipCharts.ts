@@ -12,7 +12,7 @@ import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, audit, round2 } from "../services.js";
 import { aiEnabled } from "../config.js";
 import { readPhoto } from "../ai/vision.js";
-import { DIP_CHART_TEMPLATES } from "../data/dipChartTemplates.js";
+import { DIP_CHART_TEMPLATES } from "../dipChartTemplates.js";
 
 export const dipCharts = Router();
 const MAX_BYTES = 8 * 1024 * 1024;
