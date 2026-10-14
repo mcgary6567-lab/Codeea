@@ -261,7 +261,7 @@ compliance.post("/attendance/kiosk/check-out", requireAny("staff.manage", "sales
 
 /** Month summary for one person: present, late, leave, weekly off and unpaid absent days so far. */
 export function attendanceMonth(t: number, userId: number, month = pkDate().slice(0, 7)) {
-  const u = get("SELECT id, name, duty_start, weekly_off, salary, leave_quota, created_at FROM users WHERE id=? AND tenant_id=?", userId, t)!;
+  const u = get("SELECT id, name, duty_start, weekly_off, duty_hours, salary, leave_quota, created_at FROM users WHERE id=? AND tenant_id=?", userId, t)!;
   const rows = all("SELECT * FROM attendance WHERE user_id=? AND day LIKE ? ORDER BY day", userId, `${month}-%`);
   const leaves = all("SELECT * FROM leaves WHERE user_id=? AND status='approved' AND from_day <= ? AND to_day >= ?", userId, `${month}-31`, `${month}-01`);
   const today = pkDate();
@@ -269,6 +269,15 @@ export function attendanceMonth(t: number, userId: number, month = pkDate().slic
   // count from the month start, or from when the person joined (or their first check-in, if earlier)
   const joined = [u.created_at.slice(0, 10), rows[0]?.day].filter(Boolean).sort()[0] as string;
   const start = joined > `${month}-01` ? joined : `${month}-01`;
+  // 24h duty = alternate-day (24h on / 24h off): a missing day next to a worked day is his OFF, not an absence.
+  // worked days, widened one day past the month on each side so month-boundary off-days are judged right.
+  const alternate = u.duty_hours === 24;
+  const shift1 = (day: string, n: number) => new Date(Date.parse(`${day}T12:00:00+05:00`) + n * DAY).toISOString().slice(0, 10);
+  const worked = new Set<string>(
+    alternate
+      ? all("SELECT day FROM attendance WHERE user_id=? AND check_in IS NOT NULL AND day BETWEEN ? AND ?", userId, shift1(`${month}-01`, -1), shift1(`${month}-${String(last).padStart(2, "0")}`, 1)).map((r) => r.day as string)
+      : [],
+  );
   const days: { day: string; status: string; late: number }[] = [];
   // attendance is only counted for staff with a duty time set
   for (let d = 1; d <= last && u.duty_start; d++) {
@@ -277,7 +286,9 @@ export function attendanceMonth(t: number, userId: number, month = pkDate().slic
     const a = rows.find((r) => r.day === day);
     const lv = leaves.find((l) => l.from_day <= day && l.to_day >= day);
     const dow = new Date(`${day}T12:00:00+05:00`).getUTCDay();
-    const status = a ? (a.late_minutes > 15 ? "late" : "present") : lv ? `leave_${lv.type}` : u.weekly_off === dow ? "off" : day === today ? "not_yet" : "absent";
+    // on a 24h-duty roster, an unmarked day flanked by a worked day is the off day of the 24-on/24-off cycle (no cut)
+    const altOff = alternate && !a && !lv && u.weekly_off !== dow && (worked.has(shift1(day, -1)) || worked.has(shift1(day, 1)));
+    const status = a ? (a.late_minutes > 15 ? "late" : "present") : lv ? `leave_${lv.type}` : (u.weekly_off === dow || altOff) ? "off" : day === today ? "not_yet" : "absent";
     days.push({ day, status, late: a?.late_minutes ?? 0 });
   }
   const count = (s: string) => days.filter((d) => d.status === s).length;
@@ -298,7 +309,7 @@ export function attendanceMonth(t: number, userId: number, month = pkDate().slic
     taken += Math.floor((Date.parse(to) - Date.parse(f)) / DAY) + 1;
   }
   return {
-    user: { id: u.id, name: u.name, duty_start: u.duty_start, weekly_off: u.weekly_off }, month, days, tracked: Boolean(u.duty_start),
+    user: { id: u.id, name: u.name, duty_start: u.duty_start, weekly_off: u.weekly_off, duty_hours: u.duty_hours ?? 12 }, month, days, tracked: Boolean(u.duty_start),
     present: count("present") + count("late"), late: count("late"), absent: count("absent"), off: count("off"),
     paid_leave: count("leave_paid") + count("leave_sick"), unpaid_leave: count("leave_unpaid"),
     unpaid_days: unpaid, salary_cut: u.salary ? round2((u.salary / 30) * unpaid) : 0,
@@ -367,11 +378,12 @@ compliance.get("/attendance/calendar", requirePerm("staff.manage"), h((req) => {
   return { month, today, days: dayList, staff };
 }));
 compliance.patch("/staff/:id/duty", requirePerm("staff.manage"), h((req) => {
-  const b = parse(z.object({ duty_start: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(), weekly_off: z.number().int().min(0).max(6).nullable().optional(), leave_quota: z.number().int().min(0).max(60).nullable().optional() }), req.body);
+  const b = parse(z.object({ duty_start: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(), weekly_off: z.number().int().min(0).max(6).nullable().optional(), duty_hours: z.union([z.literal(12), z.literal(24)]).nullable().optional(), leave_quota: z.number().int().min(0).max(60).nullable().optional() }), req.body);
   const u = get("SELECT id FROM users WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!u) throw new AppError(404, "Staff member not found");
   if (b.duty_start !== undefined) run("UPDATE users SET duty_start=? WHERE id=?", b.duty_start, u.id);
   if (b.weekly_off !== undefined) run("UPDATE users SET weekly_off=? WHERE id=?", b.weekly_off, u.id);
+  if (b.duty_hours !== undefined) run("UPDATE users SET duty_hours=? WHERE id=?", b.duty_hours, u.id);
   if (b.leave_quota !== undefined) run("UPDATE users SET leave_quota=? WHERE id=?", b.leave_quota, u.id);
   return attendanceMonth(tid(req), u.id);
 }));

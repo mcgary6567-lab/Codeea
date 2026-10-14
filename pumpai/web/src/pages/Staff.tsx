@@ -62,7 +62,7 @@ function Attendance() {
         {data.staff.map((s: any) => (
           <li key={s.user.id} className="px-4 py-3">
             <div className="flex items-start justify-between gap-2">
-              <span className="min-w-0"><span className="block font-semibold">{s.user.name}</span><span className="text-xs text-slate-500">Duty {s.user.duty_start ?? "not set"}{s.user.weekly_off != null && ` · off ${WEEK[s.user.weekly_off]}`}</span></span>
+              <span className="min-w-0"><span className="block font-semibold">{s.user.name}</span><span className="text-xs text-slate-500">Duty {s.user.duty_start ?? "not set"}{s.user.duty_hours === 24 ? " · 24h (day on/off)" : ""}{s.user.weekly_off != null && ` · off ${WEEK[s.user.weekly_off]}`}</span></span>
               <span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{s.salary_cut ? pkr(s.salary_cut) : "—"}</span><span className="text-[11px] text-slate-500">Salary cut · <Ur>کٹوتی</Ur></span></span>
             </div>
             <div className="mt-1.5 flex flex-wrap gap-0.5">{s.days.map((x: any) => <span key={x.day} title={`${x.day}: ${DAY_STATUS[x.status]?.label}`} className={`h-3 w-3 rounded-sm ${DAY_STATUS[x.status]?.cls}`} />)}</div>
@@ -79,7 +79,7 @@ function Attendance() {
           <tbody>{data.staff.map((s: any) => (
             <tr key={s.user.id}>
               <td className="td font-medium">{s.user.name}</td>
-              <td className="td text-xs text-slate-600">{s.user.duty_start ?? <span className="text-slate-400">not set</span>}{s.user.weekly_off != null && ` · off ${WEEK[s.user.weekly_off]}`}</td>
+              <td className="td text-xs text-slate-600">{s.user.duty_start ?? <span className="text-slate-400">not set</span>}{s.user.duty_hours === 24 ? " · 24h" : ""}{s.user.weekly_off != null && ` · off ${WEEK[s.user.weekly_off]}`}</td>
               <td className="td"><div className="flex flex-wrap gap-0.5">{s.days.map((x: any) => <span key={x.day} title={`${x.day}: ${DAY_STATUS[x.status]?.label}`} className={`h-3 w-3 rounded-sm ${DAY_STATUS[x.status]?.cls}`} />)}</div></td>
               <td className="td text-right tabular-nums">{s.present}</td><td className="td text-right tabular-nums">{s.late}</td>
               <td className={`td text-right tabular-nums ${s.absent ? "font-semibold text-red-600" : ""}`}>{s.absent}</td><td className="td text-right tabular-nums">{s.paid_leave + s.unpaid_leave}</td>
@@ -348,10 +348,15 @@ function EditStaffMember({ u, onClose, onSaved }: { u: any; onClose: () => void;
 function DutyForm({ u, att, onSaved }: { u: any; att: any; onSaved: () => void }) {
   const [start, setStart] = useState(att?.user.duty_start ?? "");
   const [off, setOff] = useState(att?.user.weekly_off == null ? "" : String(att.user.weekly_off));
+  const [hours, setHours] = useState(String(att?.user.duty_hours ?? 12));
   const { run } = useAction();
   return (
-    <form className="mt-4 flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3" onSubmit={(e) => { e.preventDefault(); run(() => api(`/staff/${u.id}/duty`, { method: "PATCH", body: { duty_start: start || null, weekly_off: off === "" ? null : Number(off) } }), "Duty saved").then(onSaved); }}>
+    <form className="mt-4 flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3" onSubmit={(e) => { e.preventDefault(); run(() => api(`/staff/${u.id}/duty`, { method: "PATCH", body: { duty_start: start || null, weekly_off: off === "" ? null : Number(off), duty_hours: Number(hours) } }), "Duty saved").then(onSaved); }}>
       <Field label="Duty starts"><input className="input" type="time" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
+      <Field label="Shift"><select className="input" value={hours} onChange={(e) => setHours(e.target.value)}>
+        <option value="12">12 hours — daily (دو شفٹیں)</option>
+        <option value="24">24 hours — a day on, a day off (24 گھنٹے، ایک دن چھوڑ)</option>
+      </select></Field>
       <Field label="Weekly off"><select className="input" value={off} onChange={(e) => setOff(e.target.value)}><option value="">None</option>{WEEK.map((w, i) => <option key={w} value={i}>{w}</option>)}</select></Field>
       <button className="btn-secondary">Save duty</button>
       {att?.tracked && <span className="ml-auto text-sm text-slate-600">This month: present {att.present}, late {att.late}, absent {att.absent}</span>}

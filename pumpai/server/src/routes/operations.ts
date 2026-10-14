@@ -741,6 +741,8 @@ operations.get("/shifts/:id/live", requirePerm("shifts.manage"), h((req) => {
   const shift = ownOpenShift(req, Number(req.params.id));
   return {
     shift, hours_open: round2((Date.parse(shift.closed_at ?? now()) - Date.parse(shift.opened_at)) / 3600_000),
+    // the salesman's own duty length (12 or 24h) — the "shift over" banner uses it, falling back to the pump-wide default
+    duty_hours: Number(get("SELECT duty_hours FROM users WHERE tenant_id=? AND role='salesman' AND name=? AND station_id=?", tid(req), shift.attendant, shift.station_id)?.duty_hours) || Number(getSetting(tid(req), "shift_hours", "24")) || 24,
     readings: shiftReadings(shift.id), summary: shiftSummary(shift.id),
     prices: Object.fromEntries(Object.entries(currentPrices(tid(req))).map(([k, v]) => [k, v.price])),
     // what was already entered on the POS this shift: the close screen starts from these, nothing is typed twice

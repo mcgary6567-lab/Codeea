@@ -171,6 +171,11 @@
      "ur": "حاضری صرف پمپ کی جگہ سے لگتی ہے — دور سے نہیں۔"
     },
     {
+     "icon": "🕛",
+     "en": "Shift type (manager): on the Attendance page set each salesman's duty to 12 hours (daily, two shifts a day) or 24 hours (a day on, a day off). For a 24-hour man the system treats his off-day as off — NOT absent — so his salary is not wrongly cut; only a real missed on-day is counted and cut.",
+     "ur": "شفٹ کی قسم (مینیجر): حاضری کے صفحے پر ہر سیلزمین کی ڈیوٹی 12 گھنٹے (روزانہ، دن میں دو شفٹیں) یا 24 گھنٹے (ایک دن ڈیوٹی، ایک دن چھٹی) مقرر کریں۔ 24 گھنٹے والے کا چھٹی والا دن سسٹم ”آف“ گنتا ہے، ”غیر حاضر“ نہیں — اس لیے تنخواہ غلط نہیں کٹتی؛ صرف اصل غیر حاضری کٹتی ہے۔"
+    },
+    {
      "icon": "👔",
      "en": "Cashier, manager and wholesale staff are exempt from the selfie — the manager marks them on the kiosk.",
      "ur": "کیشیئر، مینیجر اور ہول سیل عملہ سیلفی سے مستثنیٰ — مینیجر کیوسک پر لگاتا ہے۔"

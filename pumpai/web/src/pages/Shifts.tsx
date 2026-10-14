@@ -111,7 +111,8 @@ function MyShift({ id, onEnd }: { id: number; onEnd: () => void }) {
   const { data, reload } = useApi<any>(`/shifts/${id}/live`, 60_000);
   if (!data) return <Loading />;
   const s = data.summary;
-  const over = data.hours_open >= 12;
+  const dutyHours = data.duty_hours ?? 12;
+  const over = data.hours_open >= dutyHours;
   return (
     <div className={`card p-5 ${over ? "border-red-300" : ""}`}>
       <div className="flex flex-wrap items-center gap-4">
@@ -122,7 +123,7 @@ function MyShift({ id, onEnd }: { id: number; onEnd: () => void }) {
         </div>
         <button className="btn-primary px-5 py-3 text-base" onClick={onEnd}>End shift</button>
       </div>
-      {over && <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-red-700"><AlertTriangle size={16} /> 12 hours are over — please end your shift with the meter readings and cash.</div>}
+      {over && <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-red-700"><AlertTriangle size={16} /> {dutyHours} hours are over — please end your shift with the meter readings and cash.</div>}
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <div className="mb-1 font-semibold">Entered on POS so far</div>

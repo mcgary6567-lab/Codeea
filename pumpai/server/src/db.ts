@@ -367,6 +367,7 @@ export function migrate() {
   addColumn("users", "duty_start", "TEXT"); // "08:00"
   addColumn("users", "job_title", "TEXT"); // e.g. "Chowkidar (night)", "Cleaner" — shown in payroll
   addColumn("users", "weekly_off", "INTEGER"); // 0 = Sunday … 6 = Saturday
+  addColumn("users", "duty_hours", "INTEGER"); // 12 = daily shift, 24 = alternate-day (24h on / 24h off); null = 12 (daily)
   addColumn("users", "leave_quota", "INTEGER"); // annual paid-leave days (null = tenant default)
   // weekly duty roster: who works which shift slot on which weekday, at which station
   db.exec(`CREATE TABLE IF NOT EXISTS roster (

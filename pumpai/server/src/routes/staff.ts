@@ -41,7 +41,7 @@ function ownUser(tenantId: number, id: number) {
 
 staffRouter.get("/staff", h((req) => {
   const month = pkDate().slice(0, 7);
-  return all(`SELECT u.id, u.name, u.role, u.job_title, u.phone, u.salary, u.duty_start, u.weekly_off, u.active, s.name station_name FROM users u LEFT JOIN stations s ON s.id=u.station_id
+  return all(`SELECT u.id, u.name, u.role, u.job_title, u.phone, u.salary, u.duty_start, u.weekly_off, u.duty_hours, u.active, s.name station_name FROM users u LEFT JOIN stations s ON s.id=u.station_id
     WHERE u.tenant_id=? ORDER BY u.active DESC, CASE u.role WHEN 'salesman' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, u.name`, tid(req)).map((u) => ({
     ...u, balance: staffBalance(u.id),
     shortages_this_month: round2(get("SELECT COALESCE(SUM(amount),0) s FROM staff_ledger WHERE user_id=? AND type='shortage' AND created_at >= ?", u.id, new Date(`${month}-01T00:00:00+05:00`).toISOString())!.s),

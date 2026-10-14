@@ -28,7 +28,7 @@ export const staff = (tenantId: number, roles: string[], excludeUserId?: number)
 
 /** The salesman user account behind a shift (shifts store the attendant's name). */
 export const shiftUser = (tenantId: number, shift: Row) =>
-  get("SELECT id, name, role, phone, station_id FROM users WHERE tenant_id=? AND active=1 AND role='salesman' AND name=? AND station_id=?", tenantId, shift.attendant, shift.station_id);
+  get("SELECT id, name, role, phone, station_id, duty_hours FROM users WHERE tenant_id=? AND active=1 AND role='salesman' AND name=? AND station_id=?", tenantId, shift.attendant, shift.station_id);
 
 /**
  * Tell other staff that something new was added (khata account, supplier, station...).

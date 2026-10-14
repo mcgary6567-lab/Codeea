@@ -118,6 +118,13 @@ Lets a salesman review the whole shift's entries and correct a mistake himself, 
 - **Undo window relaxed**: the 2-minute `UNDO_SECONDS` cap now only applies to a salesman's sale **not** on an open shift; while the shift is open he can undo his own sales freely (other undo guards unchanged). Manager/admin unaffected.
 - Web: `AllEntries` modal in `Pos.tsx` (opened from "All today" on the Last-sales card) — inline Fix (litres + payment method, or vehicle/slip for khata) and Remove per row, live shift totals. POS help guide updated. `test/sale_edit.test.ts` (560 tests, books/check tallies after edit + delete).
 
+## Per-salesman duty length: 12h daily vs 24h alternate-day (never regress)
+
+Fixes wrong salary deduction on pumps where some salesmen work **24h on / 24h off** (a day on, a day off) instead of a 12h daily shift. Per-user column `users.duty_hours` (12 = daily, 24 = alternate-day; NULL = 12).
+- **Absence/salary** (`attendanceMonth` in `compliance.ts`): for a `duty_hours === 24` salesman, an unmarked day with no leave and not the weekly off is counted **off (no cut)** if a worked check-in exists on the day before OR after it (the alternating off-day of the 24/24 cycle). Only a missed on-day whose both neighbours are unworked is a real **absent** (and cut at salary/30). Derived from real check-ins — no anchor date. 12h/NULL duty is unchanged (every unworked non-off day = absent). The widened worked-day window (±1 day past the month) keeps month-boundary off-days right.
+- **"Shift over" reminder** (`automation/jobs.ts` `shift_due`/`shift_overdue`) and the salesman's live banner (`Shifts.tsx` MyShift via `GET /shifts/:id/live` `duty_hours`) now use the salesman's own `duty_hours` (falling back to the pump-wide `shift_hours` setting), so a 24h man isn't nagged at 12h. `shiftUser` selects `duty_hours`.
+- Set it in **Attendance → duty form** (`DutyForm` in `Staff.tsx` → `PATCH /staff/:id/duty {duty_hours:12|24}`); shown in the staff list (" · 24h"). `attendanceMonth` returns `user.duty_hours`. `test/duty_hours.test.ts` (561 tests).
+
 ## Opening balances (go-live on an already-running pump) — CEO-only (never regress)
 
 `routes/opening.ts` + perm `opening.manage` (ADMIN) + web `OpeningBalances.tsx` (`/opening-balances`, System group). Brings the old register forward WITHOUT touching P&L:
