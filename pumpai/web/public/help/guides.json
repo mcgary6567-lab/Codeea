@@ -84,16 +84,16 @@
    "what_ur": "شفٹ ایک سیلزمین کی ڈیوٹی کا وقت ہے۔ شروع میں میٹر ریڈنگ لیں اور آخر میں بند کریں — بکنے والے لیٹر، کھاتہ، آن لائن اور کیش خود نکل آتے ہیں۔",
    "steps": [
     {
-     "en": "Open shift: enter the opening meter reading handed over by the last salesman.",
-     "ur": "شفٹ شروع: پچھلے سیلزمین کی دی ہوئی اوپننگ میٹر ریڈنگ لکھیں۔"
+     "en": "Open shift: enter the opening meter reading handed over by the last salesman. (Optional) open “Opening dip of each tank” and write each tank's dip in litres.",
+     "ur": "شفٹ شروع: پچھلے سیلزمین کی دی ہوئی اوپننگ میٹر ریڈنگ لکھیں۔ (اختیاری) ”ہر ٹینک کی شروع کی ڈپ“ کھول کر ہر ٹینک کی ڈپ لیٹر میں لکھیں۔"
     },
     {
      "en": "Record sales through the POS during your shift as normal.",
      "ur": "شفٹ کے دوران پی او ایس سے معمول کے مطابق سیل درج کرتے رہیں۔"
     },
     {
-     "en": "Close shift: write the closing meter reading and count the cash.",
-     "ur": "شفٹ ختم: کلوزنگ میٹر ریڈنگ لکھیں اور کیش گنیں۔"
+     "en": "Close shift: write the closing meter reading and count the cash. (Optional) open “Closing dip of each tank” and write each tank's dip — the app at once shows the meter sale vs the fuel the tank actually lost.",
+     "ur": "شفٹ ختم: کلوزنگ میٹر ریڈنگ لکھیں اور کیش گنیں۔ (اختیاری) ”ہر ٹینک کی آخری ڈپ“ کھول کر ڈپ لکھیں — ایپ فوراً میٹر کی سیل اور ٹینک سے واقعی کم ہوئے تیل کا موازنہ دکھا دیتی ہے۔"
     },
     {
      "en": "The app shows litres sold, test litres, khata, online, expenses and cash short/over automatically.",
@@ -114,6 +114,11 @@
      "icon": "⚖️",
      "en": "Cash short/over is flagged to the manager at once.",
      "ur": "کیش کم/زیادہ فوراً مینیجر کو دکھتا ہے۔"
+    },
+    {
+     "icon": "🛢️",
+     "en": "The dip is optional, but doing it at open and close lets the system catch a leak, evaporation or theft: the sale still stays on the meter, only the tank stock is set to your closing dip. A big gap alerts the manager.",
+     "ur": "ڈپ اختیاری ہے، مگر شروع اور آخر میں ڈپ کرنے سے سسٹم لیک، اُڑان یا چوری پکڑ لیتا ہے: سیل میٹر پر ہی رہتی ہے، صرف ٹینک اسٹاک آپ کی آخری ڈپ کے مطابق ہوتا ہے۔ بڑا فرق مینیجر کو اطلاع دیتا ہے۔"
     }
    ],
    "roles": [

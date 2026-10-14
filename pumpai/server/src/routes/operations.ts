@@ -18,7 +18,7 @@ import { khataFillReceipt, wholesaleRateMessage, receiptUrl } from "../billing.j
 import { chargeShortage } from "./staff.js";
 import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
 import { linkPhotos, photosFor, proofPhotos, proofCol } from "./capture.js";
-import { settleShift, shiftReadings, shiftSummary, shiftReport, shiftFuels } from "../shifts.js";
+import { settleShift, shiftReadings, shiftSummary, shiftReport, shiftFuels, shiftDipRecon } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
 
 export const operations = Router();
@@ -565,7 +565,7 @@ operations.get("/shifts/handover", requirePerm("shifts.manage"), h((req) => {
     nozzles: all("SELECT n.*, t.product, t.name tank FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? AND n.active=1 ORDER BY n.meter_no, n.id", stationId).map((n) => {
       const last = get(`SELECT sh.attendant, sh.closed_at, r.closing FROM meter_readings r JOIN shifts sh ON sh.id=r.shift_id
         WHERE r.nozzle_id=? AND sh.status='closed' AND r.closing IS NOT NULL ORDER BY sh.closed_at DESC LIMIT 1`, n.id);
-      return { nozzle_id: n.id, meter_no: n.meter_no, code: n.label, label: meterName(n as any), product: n.product, tank: n.tank, last_reading: n.totalizer, handed_over_by: last?.attendant ?? null, handed_over_at: last?.closed_at ?? null, busy: busy.has(n.id) };
+      return { nozzle_id: n.id, meter_no: n.meter_no, code: n.label, label: meterName(n as any), product: n.product, tank: n.tank, tank_id: n.tank_id, last_reading: n.totalizer, handed_over_by: last?.attendant ?? null, handed_over_at: last?.closed_at ?? null, busy: busy.has(n.id) };
     }),
   };
 }));
@@ -576,7 +576,8 @@ operations.get("/shifts/handover", requirePerm("shifts.manage"), h((req) => {
  * without a sale: stock is reduced and managers are alerted.
  */
 operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
-  const b = parse(z.object({ station_id: z.number().optional(), attendant: z.string().min(2).optional(), readings: z.record(z.string(), z.number().min(0)).optional(), photo_ids: z.array(z.number()).max(20).optional() }), req.body);
+  const dipRow = z.object({ tank_id: z.number().int(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional() }).refine((x) => x.measured_l !== undefined || x.measured_cm !== undefined, "Enter the dip in litres or cm");
+  const b = parse(z.object({ station_id: z.number().optional(), attendant: z.string().min(2).optional(), readings: z.record(z.string(), z.number().min(0)).optional(), photo_ids: z.array(z.number()).max(20).optional(), dips: z.array(dipRow).max(20).optional() }), req.body);
   const isSalesman = req.user!.role === "salesman";
   const stationId = isSalesman ? scopedStation(req, b.station_id)! : b.station_id;
   const attendant = isSalesman ? req.user!.name : b.attendant;
@@ -614,6 +615,13 @@ operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
     const body = `${gaps.map((g) => `${g.label} (${PRODUCTS[g.product]}): ${g.litres} L`).join(", ")} moved on the meter between shifts and were not billed. Started by ${attendant} at ${st.name}.`;
     const a = createAlert(tid(req), { station_id: stationId, type: "handover_gap", severity: "critical", title: `⚠️ Meter gap at shift handover — ${round2(gaps.reduce((x, g) => x + g.litres, 0))} L`, body, dedupe_key: `gap-${shift.id}` });
     if (a) await notify(tid(req), staff(tid(req), ["admin", "manager"]), { type: "handover_gap", data: { shift_id: shift.id }, title: a.title, body });
+  }
+  // opening dip per tank (optional) — the salesman's physical stock at shift start, for wet-stock reconciliation at close
+  for (const d of b.dips ?? []) {
+    const tk = get("SELECT t.id, t.station_id FROM tanks t WHERE t.id=? AND t.station_id=?", d.tank_id, stationId);
+    if (!tk) throw new AppError(400, "Dip tank is not on this station");
+    const litres = d.measured_cm !== undefined ? litresFromCm(d.tank_id, d.measured_cm) : d.measured_l!;
+    run("INSERT INTO shift_dips (shift_id,tank_id,phase,measured_l,measured_cm,created_at) VALUES (?,?,?,?,?,?)", shift.id, d.tank_id, "open", round2(litres), d.measured_cm ?? null, now());
   }
   linkPhotos(tid(req), b.photo_ids, `shift-open:${shift.id}`);
   // attendance is NOT marked by opening a shift: it needs the salesman's own live selfie + location
@@ -710,6 +718,8 @@ const closeBody = z.object({
     photo_id: z.number().int().positive().nullable().optional(),
   }).refine((k) => k.litres || k.amount, "Litres or amount on each khata slip")).max(200).optional(),
   cash_notes: z.record(z.string().regex(/^\d+$/), z.number().int().min(0).max(100_000)).optional(),
+  // closing dip per tank (optional) — wet-stock reconciliation: dip replaces the tank's physical stock, meter sale is compared to it
+  dips: z.array(z.object({ tank_id: z.number().int(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional() }).refine((x) => x.measured_l !== undefined || x.measured_cm !== undefined, "Enter the dip in litres or cm")).max(20).optional(),
 });
 type CloseInput = z.infer<typeof closeBody>;
 class DryRun { constructor(public result: unknown) {} }
@@ -775,11 +785,21 @@ function closeShiftCore(req: Request, shift: Row, b: CloseInput, dryRun: boolean
     // 3) the rest of the meters is cash
     settleShift(t, shift, b.readings, () => undefined, backToTank);
     for (const r of shiftReadings(shift.id)) run("UPDATE meter_readings SET closing=?, test_l=? WHERE id=?", b.readings[String(r.nozzle_id)], tests.find((x) => x.id === r.id)?.litres ?? null, r.id);
+    // closing dips (optional): the dip is the tank's real stock, so it replaces the book stock; the meter sale is reconciled against it
+    const shiftTankIds = new Set(all(`SELECT DISTINCT n.tank_id id FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=?`, shift.id).map((x) => x.id));
+    for (const d of b.dips ?? []) {
+      if (!shiftTankIds.has(d.tank_id)) throw new AppError(400, "Closing dip is for a tank that is not on this shift");
+      const tk = get("SELECT * FROM tanks WHERE id=?", d.tank_id)!;
+      const measured = round2(d.measured_cm !== undefined ? litresFromCm(d.tank_id, d.measured_cm) : d.measured_l!);
+      run("INSERT INTO shift_dips (shift_id,tank_id,phase,measured_l,measured_cm,created_at) VALUES (?,?,?,?,?,?)", shift.id, d.tank_id, "close", measured, d.measured_cm ?? null, stamp);
+      run("INSERT INTO dip_readings (tank_id,measured_l,measured_cm,temperature,corrected_l,book_l,variance_pct,created_at) VALUES (?,?,?,?,?,?,?,?)", d.tank_id, measured, d.measured_cm ?? null, null, null, tk.current_l, tk.current_l ? round2(((measured - tk.current_l) / tk.current_l) * 100) : 0, stamp);
+      run("UPDATE tanks SET current_l=? WHERE id=?", measured, d.tank_id);
+    }
     // the full picture per fuel, from what is now saved
     const fuels = shiftFuels(shift.id, (p) => prices[p]?.price ?? null);
     const sold = all(`SELECT payment_method m, ROUND(SUM(amount),2) a FROM sales WHERE shift_id=? GROUP BY payment_method`, shift.id);
     const summary = shiftSummary(shift.id);
-    return { fuels, summary, cash_expected: summary.cash_expected, digital_by_method: Object.fromEntries(DIGITAL.map((m) => [m, round2(sold.filter((x) => x.m === m).reduce((a, x) => a + x.a, 0))])) };
+    return { fuels, summary, cash_expected: summary.cash_expected, dip_recon: shiftDipRecon(shift.id), digital_by_method: Object.fromEntries(DIGITAL.map((m) => [m, round2(sold.filter((x) => x.m === m).reduce((a, x) => a + x.a, 0))])) };
   };
   if (dryRun) {
     try { tx(() => { throw new DryRun(run_()); }); } catch (e) { if (e instanceof DryRun) return e.result as ReturnType<typeof run_>; throw e; }
@@ -793,6 +813,13 @@ function closeShiftCore(req: Request, shift: Row, b: CloseInput, dryRun: boolean
     return r;
   })!;
 }
+
+/** Wet-stock reconciliation for a shift: per tank, meter sale vs dip-measured drop (for the shift report). */
+operations.get("/shifts/:id/dip-recon", requirePerm("shifts.manage"), h((req) => {
+  const shift = get("SELECT sh.* FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE sh.id=? AND s.tenant_id=?", Number(req.params.id), tid(req));
+  if (!shift) throw new AppError(404, "Shift not found");
+  return { shift_id: shift.id, rows: shiftDipRecon(shift.id) };
+}));
 
 /** What closing with these readings would give — nothing is saved. */
 operations.post("/shifts/:id/preview", requirePerm("shifts.manage"), h((req) => {
@@ -808,6 +835,15 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
   if (shift.status !== "open") throw new AppError(400, "Shift is not open");
   const result = closeShiftCore(req, shift, b, false);
   linkPhotos(t, b.photo_ids, `shift-close:${shift.id}`);
+  // wet-stock: dip vs meter — alert the manager/owner when a tank's variance is over the limit (litres)
+  const dipAlertL = Number(getSetting(t, "sens_shift_dip_alert_l", "40"));
+  const bigVar = (result.dip_recon ?? []).filter((d: any) => d.variance_l != null && Math.abs(d.variance_l) >= dipAlertL);
+  if (bigVar.length) {
+    const body = bigVar.map((d: any) => `${d.tank} (${PRODUCTS[d.product] ?? d.product}): meter ${Math.round(d.meter_l)}L vs dip ${Math.round(d.dip_sold_l)}L → ${d.variance_l > 0 ? "meter zyada" : "tank mein kami"} ${Math.round(Math.abs(d.variance_l))}L`).join(" · ");
+    const a = createAlert(t, { station_id: shift.station_id, type: "dip_variance", severity: bigVar.some((d: any) => Math.abs(d.variance_l) >= dipAlertL * 3) ? "critical" : "warning",
+      title: `🛢️ Dip vs meter farq — ${shift.attendant} (${shift.station_name})`, body, dedupe_key: `dipvar-${shift.id}` });
+    if (a) await notify(t, staff(t, ["admin", "manager"], req.user!.id), { type: "dip_variance", data: { shift_id: shift.id }, title: a.title, body });
+  }
   const closed = get("SELECT * FROM shifts WHERE id=?", shift.id)!;
   const summary = shiftSummary(shift.id);
   const v = closed.variance;
@@ -825,7 +861,7 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
   // check-out is NOT marked by closing the shift: it needs the salesman's own live selfie + location
   const att = get("SELECT id FROM users WHERE tenant_id=? AND name=? AND role='salesman'", t, shift.attendant);
   const notCheckedOut = Boolean(att && get("SELECT id FROM attendance WHERE user_id=? AND check_out IS NULL", att.id));
-  return { ...closed, summary, fuels: result.fuels, readings: shiftReadings(shift.id), checkout_missing: notCheckedOut };
+  return { ...closed, summary, fuels: result.fuels, readings: shiftReadings(shift.id), dip_recon: result.dip_recon, checkout_missing: notCheckedOut };
 }));
 
 /* ---------------- Stock: dips & deliveries ---------------- */

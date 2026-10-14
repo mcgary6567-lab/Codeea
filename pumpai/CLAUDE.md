@@ -102,6 +102,14 @@ Inbound WhatsApp images are now handled. `whatsapp/cloud.ts`: `InboundMessage.im
 - Web: `useOfflineQueue()` also runs in `Layout.tsx`, so queued tablet sales upload from any page; the shift-close modal (`Shifts.tsx` `CloseShift`) blocks "Close shift" while sales are still queued on the tablet.
 - **Zero-sale shift** (strike / pump closed): the close button is enabled with Rs 0 counted when `preview.cash_expected <= 0`; the cashier's handover `pending` list skips shifts with cash_actual=0 AND cash_expected=0. `test/late_sale_zero_shift.test.ts` guards all of it (522 tests).
 
+## Per-shift wet-stock dip reconciliation (never regress)
+
+Salesman can dip each tank at shift **open** and **close** alongside the meter; the system compares the meter sale with the fuel the tank actually lost. **Dips are OPERATIONAL only — they never post ledger entries, so tally never moves.** `shift_dips(id, shift_id, tank_id, phase 'open'|'close', measured_l, measured_cm, created_at)` in `db.ts`.
+- **Recon** (`shiftDipRecon(shiftId)` in `shifts.ts`): per tank of the shift's nozzles — `meter_l` = Σ(closing−opening)−test over that tank's nozzles; `dip_sold_l` = opening dip + deliveries during the shift − closing dip; `variance_l` = meter − dip_sold (− = tank lost more than sold: leak/evaporation/theft; + = less: water/meter over-run). A tank missing either dip returns `dip_sold_l/variance_l = null`. `shiftReadings` now also selects `n.tank_id`; handover nozzles expose `tank_id`; `shiftReport` adds `dip_recon` (only tanks with both dips).
+- **Open** (`POST /shifts/open`, optional `dips:[{tank_id, measured_l|measured_cm}]`): stored phase `open` after the main tx (cm → `litresFromCm`). **Close/preview** (`closeBody.dips`): closing dips validated against the shift's tanks, stored phase `close`, a `dip_readings` history row added, and **`tanks.current_l` set to the closing dip** (physical truth wins over book). Close returns `dip_recon`; preview returns it inside the dry-run rollback (nothing persisted). `GET /shifts/:id/dip-recon` (perm `shifts.manage`).
+- **Alert**: at close, any tank with `|variance_l| ≥ sens_shift_dip_alert_l` (Settings → Alert sensitivity, default **40 L**, in `SENSITIVITY_DEFAULTS`) raises alert type `dip_variance` (critical ≥ 3× the limit) to managers/admin.
+- Web: `StartShiftSheet` (open) + `CloseShift` (close, with live recon per tank from `preview.dip_recon`) collapsible "dip of each tank" sections; `ShiftReport` dip-vs-meter table. `test/shift_dip.test.ts` (558 tests, books tally after close).
+
 ## Opening balances (go-live on an already-running pump) — CEO-only (never regress)
 
 `routes/opening.ts` + perm `opening.manage` (ADMIN) + web `OpeningBalances.tsx` (`/opening-balances`, System group). Brings the old register forward WITHOUT touching P&L:

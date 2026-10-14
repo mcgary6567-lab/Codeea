@@ -295,6 +295,7 @@ const SENS: [string, string, string][] = [
   ["cash_short_crit", "Cash short — serious at (Rs)", "A bigger shortage is flagged as serious."],
   ["sales_drop_pct", "Sales drop — alert at (%)", "Yesterday's litres falling this far below the 4-week average raises an alert."],
   ["low_stock_days", "Low stock — alert when days to reorder ≤", "A tank this many days from its reorder level raises a low-stock alert."],
+  ["shift_dip_alert_l", "Shift dip vs meter — alert at (litres)", "At shift close, if the salesman's tank dip and the meter sale differ by more than this many litres, the manager is alerted (possible leak, evaporation or theft)."],
 ];
 /** How touchy the loss / fraud / low-stock alerts are. */
 function AlertSensitivity({ s, onSaved }: { s?: Record<string, number>; onSaved: () => void }) {

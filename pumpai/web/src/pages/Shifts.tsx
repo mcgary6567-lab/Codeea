@@ -172,17 +172,22 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [direct, setDirect] = useState("");
   const [photos, setPhotos] = useState<number[]>([]);
+  const [dips, setDips] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<any>(null);
   const [perr, setPerr] = useState("");
   const { busy, run } = useAction();
 
   const allFilled = !!data && data.readings.every((r: any) => readings[r.nozzle_id] !== undefined && readings[r.nozzle_id] !== "" && Number(readings[r.nozzle_id]) >= (r.checkpoint ?? r.opening));
+  // one closing dip (optional) per tank the shift's nozzles run
+  const tanks = useMemo(() => !data ? [] : Array.from(new Map((data.readings as any[]).filter((r) => r.tank_id).map((r) => [r.tank_id, { tank_id: r.tank_id, tank: r.tank, product: r.product }])).values()), [data]);
+  const dipRows = useMemo(() => tanks.filter((t: any) => dips[t.tank_id] !== undefined && dips[t.tank_id] !== "" && Number(dips[t.tank_id]) >= 0).map((t: any) => ({ tank_id: t.tank_id, measured_l: Number(dips[t.tank_id]) })), [tanks, dips]);
   const body = useMemo(() => ({
     readings: Object.fromEntries(Object.entries(readings).map(([k, v]) => [k, Number(v)])),
     digital: Object.fromEntries(Object.entries(digital).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)])),
     test: Object.fromEntries(Object.entries(test).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)])),
     khata: slips.map(({ name: _n, ...k }) => k),
-  }), [readings, digital, test, slips]);
+    ...(dipRows.length ? { dips: dipRows } : {}),
+  }), [readings, digital, test, slips, dipRows]);
   // the server works it out (nothing saved) whenever something changes
   useEffect(() => {
     if (!allFilled) { setPreview(null); return; }
@@ -243,6 +248,31 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
             })}
           </div>
           {!showTest && <button type="button" className="mt-1 py-2 text-sm text-brand-700 underline" onClick={() => setShowTest(true)}>+ Litres put back in the tank after a test · <Ur>ٹیسٹ کا تیل واپس</Ur></button>}
+          {tanks.length > 0 && (
+            <details className="mt-3 rounded-xl border border-slate-200" open={dipRows.length > 0}>
+              <summary className="cursor-pointer px-3 py-2 text-sm font-medium">🛢️ Closing dip of each tank <span className="text-slate-500">(optional) · <Ur>آخری ڈپ</Ur></span></summary>
+              <div className="space-y-2 border-t border-slate-100 p-3">
+                <p className="text-xs text-slate-500">Dip the tank now (litres from the dip chart). The system checks it against the meter and sets the tank to this reading · <Ur>اختیاری — ڈپ لکھیں تو ٹینک اسی پر سیٹ ہو گا</Ur></p>
+                {tanks.map((t: any) => {
+                  const rec = (preview?.dip_recon ?? []).find((d: any) => d.tank_id === t.tank_id);
+                  return (
+                    <div key={t.tank_id} className="space-y-1">
+                      <label className="flex items-center gap-2 text-sm">
+                        <span className="min-w-0 flex-1 truncate">{t.tank} <span className="text-xs text-slate-500">{PRODUCTS[t.product]}</span></span>
+                        <input className="input w-32 shrink-0 text-right tabular-nums" type="number" min={0} step="1" inputMode="decimal" placeholder="Litres"
+                          value={dips[t.tank_id] ?? ""} onChange={(e) => setDips({ ...dips, [t.tank_id]: e.target.value })} aria-label={`${t.tank} closing dip litres`} />
+                      </label>
+                      {rec && rec.variance_l != null && (
+                        <div className={`rounded-lg px-2 py-1 text-xs ${Math.abs(rec.variance_l) < 0.5 ? "bg-emerald-50 text-emerald-700" : Math.abs(rec.variance_l) >= 40 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>
+                          Meter sold <b className="tabular-nums">{num(rec.meter_l, 1)} L</b> · tank lost <b className="tabular-nums">{num(rec.dip_sold_l, 1)} L</b>{rec.deliveries_l > 0 ? ` (incl. ${num(rec.deliveries_l, 0)} L delivery)` : ""} · {Math.abs(rec.variance_l) < 0.5 ? "matches ✓" : <>{rec.variance_l < 0 ? "tank short" : "tank extra"} <b className="tabular-nums">{num(Math.abs(rec.variance_l), 1)} L</b></>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
         </section>
 
         {/* ---------- step 2 ---------- */}

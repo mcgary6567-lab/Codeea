@@ -10,7 +10,7 @@ import { AppError, recordSale, round2 } from "./services.js";
 
 export function shiftReadings(shiftId: number) {
   return all(
-    `SELECT r.*, ${METER} label, n.meter_no, t.product, t.name tank FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks t ON t.id=n.tank_id
+    `SELECT r.*, ${METER} label, n.meter_no, n.tank_id, t.product, t.name tank FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks t ON t.id=n.tank_id
      WHERE r.shift_id=? ORDER BY n.meter_no, n.id`, shiftId);
 }
 
@@ -62,6 +62,30 @@ export function settleShift(tenantId: number, shift: Row, readings: Record<strin
  * Totals for a shift: litres and amount by product, money by payment method, khata accounts,
  * expenses paid from the shift's cash, and the cash the salesman must hand over.
  */
+/**
+ * Wet-stock reconciliation for a shift: per tank, the meter sale vs the dip-measured drop.
+ *  meter sale  = Σ (closing − opening) − test litres, over that tank's nozzles.
+ *  dip sale    = opening dip + deliveries during the shift − closing dip (physical fuel that left the tank).
+ *  variance    = meter sale − dip sale  (positive = meter says more sold than the tank lost; negative = tank lost more than sold).
+ * Dips are optional; a tank with no opening+closing dip returns dip_sold/variance = null.
+ */
+export function shiftDipRecon(shiftId: number) {
+  const shift = get<Row>("SELECT * FROM shifts WHERE id=?", shiftId);
+  if (!shift) return [];
+  const endIso = shift.closed_at ?? now();
+  const tanks = all<Row>(`SELECT DISTINCT t.id, t.name, t.product FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks t ON t.id=n.tank_id WHERE r.shift_id=? ORDER BY t.name`, shiftId);
+  return tanks.map((t) => {
+    const meter = round2(get<{ v: number }>(`SELECT COALESCE(SUM((COALESCE(r.closing, r.opening) - r.opening) - COALESCE(r.test_l,0)),0) v FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=? AND n.tank_id=?`, shiftId, t.id)!.v);
+    const od = get<{ measured_l: number }>("SELECT measured_l FROM shift_dips WHERE shift_id=? AND tank_id=? AND phase='open' ORDER BY id DESC LIMIT 1", shiftId, t.id)?.measured_l ?? null;
+    const cd = get<{ measured_l: number }>("SELECT measured_l FROM shift_dips WHERE shift_id=? AND tank_id=? AND phase='close' ORDER BY id DESC LIMIT 1", shiftId, t.id)?.measured_l ?? null;
+    const deliveries_l = round2(get<{ v: number }>("SELECT COALESCE(SUM(received_l),0) v FROM deliveries WHERE tank_id=? AND created_at >= ? AND created_at <= ?", t.id, shift.opened_at, endIso)!.v);
+    const hasDips = od != null && cd != null;
+    const dip_sold_l = hasDips ? round2(od + deliveries_l - cd) : null;
+    const variance_l = dip_sold_l != null ? round2(meter - dip_sold_l) : null;
+    return { tank_id: t.id as number, tank: t.name as string, product: t.product as string, meter_l: meter, opening_dip: od, closing_dip: cd, deliveries_l, dip_sold_l, variance_l, variance_pct: variance_l != null && meter ? round2((variance_l / meter) * 100) : null };
+  });
+}
+
 export function shiftSummary(shiftId: number) {
   const byProduct = all(`SELECT product, ROUND(SUM(litres),2) litres, ROUND(SUM(amount),2) amount, COUNT(*) txns FROM sales WHERE shift_id=? GROUP BY product`, shiftId);
   const byPayment = all(`SELECT payment_method method, ROUND(SUM(amount),2) amount, ROUND(SUM(litres),2) litres, COUNT(*) txns FROM sales WHERE shift_id=? GROUP BY payment_method ORDER BY amount DESC`, shiftId);
@@ -145,5 +169,7 @@ export function shiftReport(shiftId: number) {
       WHERE s.shift_id=? AND s.payment_method='khata' GROUP BY c.id ORDER BY amount DESC`, shiftId)
       .map((k) => ({ ...k, slip_nos: String(k.slip_nos ?? "").split(", ").filter(Boolean), photo_ids: String(k.photo_ids ?? "").split(",").filter(Boolean).map(Number) })),
     handover_gaps: readings.filter((r) => (r.handover_gap ?? 0) > 0.01).map((r) => ({ label: r.label, product: r.product, litres: r.handover_gap, previous: r.handover_prev, opening: r.opening })),
+    // wet-stock reconciliation: meter sale vs the dip-measured drop per tank (only tanks with both opening + closing dip carry a variance)
+    dip_recon: shiftDipRecon(shiftId).filter((d) => d.dip_sold_l != null),
   };
 }

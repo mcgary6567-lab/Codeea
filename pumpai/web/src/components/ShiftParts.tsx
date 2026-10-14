@@ -17,6 +17,7 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
   const [vals, setVals] = useState<Record<number, string>>({});
   const [use, setUse] = useState<Record<number, boolean>>({});
   const [photos, setPhotos] = useState<number[]>([]);
+  const [dips, setDips] = useState<Record<number, string>>({});
   const { busy, run } = useAction();
   /** a meter photo may show several totalizers: take the one that fits this nozzle's last reading */
   const fromPhoto = (n: any) => (r: any, id: number) => {
@@ -33,10 +34,14 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
   const chosen = data.nozzles.filter((n: any) => use[n.nozzle_id] && !n.busy);
   const gaps = chosen.map((n: any) => ({ n, gap: Number(vals[n.nozzle_id]) - n.last_reading })).filter((g: any) => Math.abs(g.gap) > 0.009);
   const last = data.nozzles.find((n: any) => n.handed_over_by);
+  // the tanks the chosen nozzles run — one opening dip (optional) per tank
+  const chosenTanks = Array.from(new Map(chosen.filter((n: any) => n.tank_id).map((n: any) => [n.tank_id, { tank_id: n.tank_id, tank: n.tank, product: n.product }])).values());
 
   const start = async () => {
     const readings = Object.fromEntries(chosen.map((n: any) => [n.nozzle_id, Number(vals[n.nozzle_id])]));
-    const r: any = await run(() => api("/shifts/open", { body: { station_id: data.station_id, attendant, readings, photo_ids: photos } }),
+    const dipRows = chosenTanks.filter((t: any) => dips[t.tank_id] !== undefined && dips[t.tank_id] !== "" && Number(dips[t.tank_id]) >= 0)
+      .map((t: any) => ({ tank_id: t.tank_id, measured_l: Number(dips[t.tank_id]) }));
+    const r: any = await run(() => api("/shifts/open", { body: { station_id: data.station_id, attendant, readings, photo_ids: photos, ...(dipRows.length ? { dips: dipRows } : {}) } }),
       (x: any) => (x.handover_gaps?.length ? `Shift started. Manager alerted about ${x.handover_gaps.reduce((a: number, g: any) => a + g.litres, 0)} L meter gap.` : "Shift started")
         + (x.attendance_missing ? ` · ${x.attendant}: attendance not marked — check in with selfie in My account · حاضری لگائیں` : ""));
     if (r) onStarted(r);
@@ -70,6 +75,21 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
           );
         })}
       </div>
+      {chosenTanks.length > 0 && (
+        <details className="rounded-xl border border-slate-200">
+          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">🛢️ Opening dip of each tank <span className="text-slate-500">(optional) · <Ur>شروع کی ڈپ</Ur></span></summary>
+          <div className="space-y-2 border-t border-slate-100 p-3">
+            <p className="text-xs text-slate-500">Dip the tank now (litres from your dip chart). At the end the system compares the meter sale with the fuel the tank actually lost · <Ur>اختیاری — چاہیں تو ڈپ لکھیں</Ur></p>
+            {chosenTanks.map((t: any) => (
+              <label key={t.tank_id} className="flex items-center gap-2 text-sm">
+                <span className="min-w-0 flex-1 truncate">{t.tank} <span className="text-xs text-slate-500">{PRODUCTS[t.product]}</span></span>
+                <input className="input w-32 shrink-0 text-right tabular-nums" type="number" min={0} step="1" inputMode="decimal" placeholder="Litres"
+                  value={dips[t.tank_id] ?? ""} onChange={(e) => setDips({ ...dips, [t.tank_id]: e.target.value })} aria-label={`${t.tank} opening dip litres`} />
+              </label>
+            ))}
+          </div>
+        </details>
+      )}
       {photos.length > 0 && <p className="text-xs text-slate-500">📷 {photos.length} meter photo{photos.length === 1 ? "" : "s"} will be kept with this shift.</p>}
       {gaps.length > 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Litres pumped between shifts are taken out of tank stock and reported to the manager.</p>}
       {/* stays on screen while the nozzle list scrolls */}
@@ -190,6 +210,27 @@ function ReportBody({ r }: { r: any }) {
         </div>
       )}
       {r.handover_gaps.length > 0 && <div className="rounded-lg bg-amber-50 p-2 text-sm text-amber-800">⚠ Meter gap at handover: {r.handover_gaps.map((g: any) => `${g.label} ${num(g.litres, 2)} L`).join(", ")} (not billed)</div>}
+
+      {r.dip_recon?.length > 0 && (
+        <div>
+          <h3 className="mb-1 text-sm font-semibold">Dip vs meter (wet stock) · <Ur>ڈپ اور میٹر کا موازنہ</Ur></h3>
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full text-sm"><thead><tr>{["Tank", "Opening dip", "Delivery", "Closing dip", "Tank lost", "Meter sold", "Difference"].map((h, i) => <th key={h} className={`th ${i > 0 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+              <tbody>{r.dip_recon.map((d: any) => (
+                <tr key={d.tank_id}>
+                  <td className="td">{d.tank} <span className="text-xs text-slate-500">{PRODUCTS[d.product]}</span></td>
+                  <td className="td text-right tabular-nums">{num(d.opening_dip, 0)}</td>
+                  <td className="td text-right tabular-nums">{d.deliveries_l > 0 ? `+${num(d.deliveries_l, 0)}` : "—"}</td>
+                  <td className="td text-right tabular-nums">{num(d.closing_dip, 0)}</td>
+                  <td className="td text-right tabular-nums">{num(d.dip_sold_l, 1)}</td>
+                  <td className="td text-right tabular-nums">{num(d.meter_l, 1)}</td>
+                  <td className={`td text-right font-semibold tabular-nums ${Math.abs(d.variance_l) < 0.5 ? "text-emerald-700" : Math.abs(d.variance_l) >= 40 ? "text-red-600" : "text-amber-700"}`}>{Math.abs(d.variance_l) < 0.5 ? "✓" : `${d.variance_l < 0 ? "−" : "+"}${num(Math.abs(d.variance_l), 1)} L`}</td>
+                </tr>
+              ))}</tbody></table>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">Difference = meter sale − fuel the tank lost. Minus means the tank lost more than was sold (leak / evaporation / theft); plus means less (water / meter over-run). The sale stays on the meter; only the tank stock is set to the dip · <Ur>سیل میٹر پر ہی رہتی ہے، صرف ٹینک اسٹاک ڈپ کے مطابق ہوتا ہے</Ur></p>
+        </div>
+      )}
 
       <div>
         <h3 className="mb-1 text-sm font-semibold">Meter readings</h3>

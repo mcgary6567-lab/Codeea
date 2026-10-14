@@ -138,7 +138,7 @@ export function scoreCustomers(tenantId: number) {
 }
 
 /** How touchy the loss / fraud / low-stock alerts are — all set by the owner in Settings. */
-export const SENSITIVITY_DEFAULTS = { dip_var_warn: 0.5, dip_var_crit: 1, delivery_short_warn: 0.3, delivery_short_crit: 0.8, cash_short_warn: 2000, cash_short_crit: 5000, sales_drop_pct: 30, low_stock_days: 1.5 } as const;
+export const SENSITIVITY_DEFAULTS = { dip_var_warn: 0.5, dip_var_crit: 1, delivery_short_warn: 0.3, delivery_short_crit: 0.8, cash_short_warn: 2000, cash_short_crit: 5000, sales_drop_pct: 30, low_stock_days: 1.5, shift_dip_alert_l: 40 } as const;
 export type Sensitivity = typeof SENSITIVITY_DEFAULTS;
 export function sensitivity(tenantId: number): Sensitivity {
   return Object.fromEntries((Object.keys(SENSITIVITY_DEFAULTS) as (keyof Sensitivity)[]).map((k) => [k, Number(getSetting(tenantId, `sens_${k}`, String(SENSITIVITY_DEFAULTS[k])))])) as Sensitivity;

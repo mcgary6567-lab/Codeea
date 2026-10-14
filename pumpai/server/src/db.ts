@@ -322,6 +322,9 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, supplier_id INTEGER NOT NULL, station_id INTEGER NOT NULL, tank_id INTEGER NOT NULL,
     product TEXT NOT NULL, litres REAL NOT NULL, status TEXT NOT NULL DEFAULT 'ordered', note TEXT, ordered_by TEXT,
     delivery_id INTEGER, delivered_at TEXT, created_at TEXT NOT NULL)`);
+  // per-shift dip readings (wet-stock reconciliation): the salesman's dip at shift open and close, per tank
+  db.exec(`CREATE TABLE IF NOT EXISTS shift_dips (id INTEGER PRIMARY KEY, shift_id INTEGER NOT NULL, tank_id INTEGER NOT NULL, phase TEXT NOT NULL, measured_l REAL NOT NULL, measured_cm REAL, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_shift_dips ON shift_dips(shift_id, tank_id, phase)");
   db.exec(`CREATE TABLE IF NOT EXISTS tank_charts (tank_id INTEGER NOT NULL, cm REAL NOT NULL, litres REAL NOT NULL, PRIMARY KEY (tank_id, cm))`);
   // Dip charts (pro): one calibration table per tank model, shared by every tank of that size, depth in mm.
   // tank_charts (cm) stays as the legacy per-tank table; a tank with dip_chart_id uses the chart below instead.
