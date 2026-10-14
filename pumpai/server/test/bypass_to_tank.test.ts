@@ -128,3 +128,28 @@ test("one delivery can buy, drop to a client AND unload into our own tank — ma
   const petrolTank = db.get("SELECT id FROM tanks WHERE station_id=? AND product='PMG' LIMIT 1", tk.station_id);
   if (petrolTank) { const wf = await call("admin", "POST", "/api/bypass/deliveries", { station_id: tk.station_id, purchases: [{ supplier_id: supplierId, product: "HSD", litres: 50, cost_rate: 250 }], to_tank: [{ tank_id: petrolTank.id, product: "HSD", litres: 50 }] }); assert.equal(wf.status, 400); }
 });
+
+test("own-tank unload with a typed amount: that value flows to the stock register, ledger and journal; books tally", async () => {
+  const tk = db.get("SELECT tk.* FROM tanks tk JOIN stations s ON s.id=tk.station_id WHERE s.tenant_id=1 AND tk.product='HSD' ORDER BY tk.id LIMIT 1");
+  db.run("UPDATE tanks SET current_l = 1000 WHERE id=?", tk.id);
+  // buy 500 L @ 250 and unload 500 L into our own tank at a TYPED amount of 130,000 (not 500×250=125,000)
+  const r = ok(await call("admin", "POST", "/api/bypass/deliveries", {
+    station_id: tk.station_id, txn_date: today,
+    purchases: [{ supplier_id: supplierId, product: "HSD", litres: 500, cost_rate: 250 }],
+    to_tank: [{ tank_id: tk.id, product: "HSD", litres: 500, amount: 130000 }],
+  }), "delivery with typed own-tank amount");
+  // the bypass_drop for the tank carries exactly the typed amount at amount/litres
+  const drop = db.get("SELECT * FROM bypass_drops WHERE delivery_id=? AND tank_id IS NOT NULL ORDER BY id DESC LIMIT 1", r.id);
+  near(drop.cost_amount, 130000, "drop cost = typed amount");
+  near(drop.unit_cost, 260, "unit = amount / litres");
+  // the stock-register delivery row is valued at the same per-litre
+  const del = db.get("SELECT * FROM deliveries WHERE bypass_drop_id=?", drop.id);
+  near(del.purchase_rate, 260, "stock register rate = amount / litres");
+  // ledger journal: Dr Fuel purchases / Cr Bypass stock at the typed amount
+  const j = ok(await call("admin", "GET", `/api/ledger?from=${today}&to=${today}`), "journal");
+  const v = j.vouchers.find((x: any) => /Bypass leftover to pump stock/.test(x.narration ?? x.memo ?? JSON.stringify(x)) && JSON.stringify(x).includes("130000"));
+  assert.ok(v, "journal voucher carries the typed amount");
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("bypass own-tank typed amount");
+  assert.equal(ok(await call("admin", "GET", "/api/books/check"), "books").ok, true, "books tally with a typed own-tank amount");
+});

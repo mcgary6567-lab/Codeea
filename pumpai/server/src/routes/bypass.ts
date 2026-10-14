@@ -65,13 +65,15 @@ bypass.get("/bypass/suppliers", h((req) => {
 
 /** Move bypass stock into OUR own tank inside a tx: a tank-side bypass_drop + a stock-register delivery + fill the tank.
  *  Caller must have validated the tank, its capacity and that the stock is available. No new supplier bill — the bypass purchase already covers it. */
-function unloadToTank(t: number, by: string, a: { tank: any; product: string; litres: number; unit: number; delivery_id: number | null; note: string | null; ts: string; tanker_no?: string | null }) {
-  const litres = round2(a.litres), cost = round2(litres * a.unit);
+function unloadToTank(t: number, by: string, a: { tank: any; product: string; litres: number; unit: number; amount?: number | null; delivery_id: number | null; note: string | null; ts: string; tanker_no?: string | null }) {
+  // the value (cost) of the fuel going into our tank: a typed amount wins, else litres × the bypass average cost
+  const litres = round2(a.litres), cost = a.amount != null ? round2(a.amount) : round2(litres * a.unit);
+  const unit = litres > 0 ? round2(cost / litres) : round2(a.unit);
   const sup = get("SELECT s.id, s.name FROM bypass_purchases p JOIN suppliers s ON s.id=p.supplier_id WHERE p.tenant_id=? AND p.product=? AND p.voided=0 ORDER BY p.id DESC LIMIT 1", t, a.product);
   const drop = run(`INSERT INTO bypass_drops (tenant_id,delivery_id,wtx_id,client_id,product,litres,unit_cost,cost_amount,created_by,txn_date,created_at,tank_id,note)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, a.delivery_id ?? null, null, null, a.product, litres, a.unit, cost, by, a.ts, now(), a.tank.id, a.note ?? null).id;
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, a.delivery_id ?? null, null, null, a.product, litres, unit, cost, by, a.ts, now(), a.tank.id, a.note ?? null).id;
   const del = run("INSERT INTO deliveries (tank_id,supplier,supplier_id,purchase_rate,tanker_no,invoice_l,received_l,shortage_pct,freight,created_at,bypass_drop_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-    a.tank.id, `${sup?.name ?? "Bypass"} (bypass leftover)`, sup?.id ?? null, a.unit, a.tanker_no ?? null, litres, litres, 0, null, a.ts, drop).id;
+    a.tank.id, `${sup?.name ?? "Bypass"} (bypass leftover)`, sup?.id ?? null, unit, a.tanker_no ?? null, litres, litres, 0, null, a.ts, drop).id;
   run("UPDATE bypass_drops SET to_delivery_id=? WHERE id=?", del, drop);
   run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", litres, a.tank.id);
   return { drop, del, cost };
@@ -88,7 +90,7 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
     // where it was dropped (optional — can deliver from the held stock with no fresh purchase). Enter the full sale amount, or a per-litre rate.
     drops: z.array(z.object({ client_id: z.number().int(), product: product.optional(), litres: z.number().positive(), rate: z.number().positive().optional(), amount: z.number().positive().optional(), location: z.string().max(120).optional().nullable(), ref: z.string().max(60).optional().nullable(), order_id: z.number().int().optional().nullable(), override_limit: z.boolean().optional() })).max(30).default([]),
     // some of the load emptied into OUR own tank (not sold to a client) — bypass stock → pump tank at its average cost, no client bill
-    to_tank: z.array(z.object({ tank_id: z.number().int(), product: product.optional(), litres: z.number().positive().max(200_000), note: z.string().max(200).optional().nullable() })).max(10).default([]),
+    to_tank: z.array(z.object({ tank_id: z.number().int(), product: product.optional(), litres: z.number().positive().max(200_000), amount: z.number().positive().max(100_000_000).optional(), note: z.string().max(200).optional().nullable() })).max(10).default([]),
   }), req.body);
   if (!b.purchases.length && !b.drops.length && !b.to_tank.length) throw new AppError(400, "Add a purchase, a drop, or an own-tank unload");
   if (!get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, t)) throw new AppError(400, "Station not found");
@@ -117,7 +119,7 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
     const tank = get("SELECT tk.*, s.tenant_id FROM tanks tk JOIN stations s ON s.id=tk.station_id WHERE tk.id=?", r.tank_id);
     if (!tank || tank.tenant_id !== t) throw new AppError(400, "Tank not found");
     if (tank.product !== prod) throw new AppError(400, `${tank.name} is a ${PRODUCTS[tank.product] ?? tank.product} tank — choose the ${PRODUCTS[prod] ?? prod} tank`);
-    return { ...r, product: prod, litres: round2(r.litres), tank };
+    return { ...r, product: prod, litres: round2(r.litres), amount: r.amount != null ? round2(r.amount) : null, tank };
   });
   const tankProd = byProd(tankRows);
   const capAdd: Record<number, number> = {};
@@ -169,7 +171,7 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
       drops.push(txn);
     }
     // own-tank unloads (part of the same delivery) — removed from bypass stock at the same batch average cost
-    for (const r of tankRows) unloadToTank(t, by, { tank: r.tank, product: r.product, litres: r.litres, unit: avg[r.product] ?? bypassStock(t, r.product).avg_cost, delivery_id: id, note: r.note ?? null, ts, tanker_no: fl.vehicle_no });
+    for (const r of tankRows) unloadToTank(t, by, { tank: r.tank, product: r.product, litres: r.litres, unit: avg[r.product] ?? bypassStock(t, r.product).avg_cost, amount: r.amount, delivery_id: id, note: r.note ?? null, ts, tanker_no: fl.vehicle_no });
     return { id, drops };
   });
   const purCost = round2(purchases.reduce((a, p) => a + p.amount, 0));
@@ -187,7 +189,7 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
  */
 bypass.post("/bypass/to-tank", requirePerm("wholesale.manage"), h((req) => {
   const t = tid(req);
-  const b = parse(z.object({ product, litres: z.number().positive().max(200_000), tank_id: z.number().int(), delivery_id: z.number().int().optional().nullable(), txn_date: day.optional(), note: z.string().max(200).optional().nullable(), tanker_no: z.string().max(30).optional().nullable() }), req.body);
+  const b = parse(z.object({ product, litres: z.number().positive().max(200_000), amount: z.number().positive().max(100_000_000).optional(), tank_id: z.number().int(), delivery_id: z.number().int().optional().nullable(), txn_date: day.optional(), note: z.string().max(200).optional().nullable(), tanker_no: z.string().max(30).optional().nullable() }), req.body);
   const tank = get("SELECT tk.*, s.tenant_id FROM tanks tk JOIN stations s ON s.id=tk.station_id WHERE tk.id=?", b.tank_id);
   if (!tank || tank.tenant_id !== t) throw new AppError(404, "Tank not found");
   if (tank.product !== b.product) throw new AppError(400, `${tank.name} is a ${PRODUCTS[tank.product] ?? tank.product} tank — choose the ${PRODUCTS[b.product] ?? b.product} tank`);
@@ -196,8 +198,10 @@ bypass.post("/bypass/to-tank", requirePerm("wholesale.manage"), h((req) => {
   if (tank.current_l + b.litres > tank.capacity_l * 1.001) throw new AppError(400, `${tank.name} would go over its capacity (${Math.round(tank.capacity_l)} L)`);
   if (b.delivery_id && !get("SELECT id FROM bypass_deliveries WHERE id=? AND tenant_id=?", b.delivery_id, t)) throw new AppError(400, "Bypass delivery not found");
   const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
-  const unit = st.avg_cost, cost = round2(b.litres * unit);
-  const out = tx(() => unloadToTank(t, req.user!.name, { tank, product: b.product, litres: b.litres, unit, delivery_id: b.delivery_id ?? null, note: b.note ?? null, ts, tanker_no: b.tanker_no ?? null }));
+  // the value of the fuel put in the tank: a typed amount wins, else litres × the bypass average cost
+  const cost = b.amount != null ? round2(b.amount) : round2(b.litres * st.avg_cost);
+  const unit = round2(cost / b.litres);
+  const out = tx(() => unloadToTank(t, req.user!.name, { tank, product: b.product, litres: b.litres, unit: st.avg_cost, amount: b.amount, delivery_id: b.delivery_id ?? null, note: b.note ?? null, ts, tanker_no: b.tanker_no ?? null }));
   audit(t, req.user!, "bypass_to_tank", `bypdrop:${out.drop}`, { product: b.product, litres: b.litres, tank: tank.name, unit_cost: unit, cost, delivery_id: b.delivery_id ?? null });
   return { ok: true, id: out.drop, delivery_row: out.del, litres: round2(b.litres), unit_cost: unit, cost, tank: get("SELECT id, name, current_l, capacity_l FROM tanks WHERE id=?", tank.id), stock: bypassStock(t, b.product) };
 }));

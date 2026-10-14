@@ -238,7 +238,8 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
   const buyValBy = useMemo(() => buys.reduce((m: Record<string, number>, b) => { m[b.product] = (m[b.product] ?? 0) + (Number(b.amount) || 0); return m; }, {}), [buys]);
   const costPerL = (prod: string) => { const hl = held(prod), bl = bought[prod] ?? 0, denom = hl + bl; return denom > 0 ? (hl * heldAvg(prod) + (buyValBy[prod] ?? 0)) / denom : 0; };
   const toTankL = toTank.reduce((a, r) => a + (Number(r.litres) || 0), 0);
-  const toTankCost = toTank.reduce((a, r) => a + (Number(r.litres) || 0) * costPerL(r.product), 0);
+  // value of fuel put into our own tank: a typed amount wins, else litres × the blended cost
+  const toTankCost = toTank.reduce((a, r) => a + (Number(r.amount) > 0 ? Number(r.amount) : (Number(r.litres) || 0) * costPerL(r.product)), 0);
   // client profit = what the clients pay − cost of ONLY the litres dropped to clients (own-tank fuel is stock, not a loss)
   const clientCost = drops.reduce((a, d) => a + Number(d.litres || 0) * costPerL(d.product), 0);
   const clientProfit = Math.round((dropAmt - clientCost) * 100) / 100;
@@ -258,7 +259,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           station_id: Number(station), ...fleetBody(fl), note: note || null, photo_ids: photos, txn_date: txnDate,
           purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), amount: Number(b.amount) })),
           drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), order_id: d.order_id ?? null, location: d.location || null })),
-          to_tank: validToTank.map((r) => ({ tank_id: Number(r.tank_id), product: r.product, litres: Number(r.litres), note: null })),
+          to_tank: validToTank.map((r) => ({ tank_id: Number(r.tank_id), product: r.product, litres: Number(r.litres), ...(Number(r.amount) > 0 ? { amount: Number(r.amount) } : {}), note: null })),
         };
         const saved = await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Bought ${pkr(r.bought)}, billed ${pkr(r.billed)}, munafa ${pkr(r.margin)}${r.to_tank_litres ? `, apne tank ${num(r.to_tank_litres)} L` : ""}`);
         if (saved) onDone(saved);
@@ -352,11 +353,14 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
             {toTank.map((r, i) => { const tk = tankOf(r.tank_id); const bad = r.tank_id && tk && tk.product !== r.product; return (
               <div key={i} className="grid grid-cols-12 gap-2">
                 <select className="input col-span-3" value={r.product} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, product: e.target.value, tank_id: "" } : x))}>{activeProducts.map((pr) => <option key={pr.code} value={pr.code}>{pr.name}</option>)}</select>
-                <select className="input col-span-6" value={r.tank_id} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, tank_id: e.target.value } : x))}>
+                <select className="input col-span-5" value={r.tank_id} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, tank_id: e.target.value } : x))}>
                   <option value="">— apna tank —</option>{stTanks.filter((tk: any) => tk.product === r.product).map((tk: any) => <option key={tk.id} value={tk.id}>{tk.name} · {tk.station} ({num(tk.current_l)}/{num(tk.capacity_l)} L)</option>)}</select>
-                <input className="input col-span-3" type="number" inputMode="decimal" min={0} step="0.01" placeholder="litre" value={r.litres} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
+                <input className="input col-span-2" type="number" inputMode="decimal" min={0} step="0.01" placeholder="litre" value={r.litres} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
+                <input className="input col-span-2" type="number" inputMode="numeric" min={0} step="0.01" placeholder="Rs amount" value={r.amount ?? ""} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
                 <div className="col-span-12 -mt-1 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">{bad ? <span className="text-rose-600">Yeh {PRODUCTS[r.product]} tank nahi</span> : Number(r.litres) > 0 && costPerL(r.product) > 0 ? `Cost Rs ${num(Math.round(costPerL(r.product) * 100) / 100, 2)}/L — ye stock hai, loss nahi` : ""}</span>
+                  <span className="text-xs text-slate-500">{bad ? <span className="text-rose-600">Yeh {PRODUCTS[r.product]} tank nahi</span>
+                    : Number(r.amount) > 0 && Number(r.litres) > 0 ? `Rs ${num(Math.round((Number(r.amount) / Number(r.litres)) * 100) / 100, 2)}/L — ye stock hai, loss nahi`
+                    : Number(r.litres) > 0 && costPerL(r.product) > 0 ? `Amount khali chhoden to cost Rs ${num(Math.round(costPerL(r.product) * 100) / 100, 2)}/L lagegi — ye stock hai, loss nahi` : ""}</span>
                   <button type="button" className="text-xs text-red-600" onClick={() => setToTank(toTank.filter((_, j) => j !== i))}>Remove</button>
                 </div>
               </div>
