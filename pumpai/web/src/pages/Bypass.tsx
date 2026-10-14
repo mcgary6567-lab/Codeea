@@ -287,7 +287,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
               </div>
             ))}
           </div>
-          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setBuys([...buys, { supplier_id: "", product: "HSD", litres: "", amount: "" }])}>+ Add supplier</button>
+          <button type="button" className="mt-2 inline-flex items-center gap-1 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 active:scale-95" onClick={() => setBuys([...buys, { supplier_id: "", product: "HSD", litres: "", amount: "" }])}><Plus size={14} /> Add supplier</button>
           <div className="mt-1 text-xs text-slate-500">Khareeda: {Object.entries(bought).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Supplier ko dene hain {pkr(buyAmt)}</div>
         </div>
 
@@ -338,7 +338,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
               </div>
             );})}
           </div>
-          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "", amount: "", order_id: undefined, location: "" }])}>+ Add drop</button>
+          <button type="button" className="mt-2 inline-flex items-center gap-1 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 active:scale-95" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "", amount: "", order_id: undefined, location: "" }])}><Plus size={14} /> Add drop</button>
           <div className="mt-1 text-xs text-slate-500">Diya: {Object.entries(dropped).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Client se lene hain {pkr(dropAmt)}{Object.keys({ ...dropped }).map((p) => held(p) > 0 ? ` · ${PRODUCTS[p]} held stock ${num(held(p))} L` : "").join("")}</div>
           <p className="mt-1 text-xs text-slate-400">Client ka rate uske apne rate card (CRM) se uthta hai — litre × rate = amount. Rate badalna ho to client ke rate card me badlein. Jitna khareeda + held stock se zyada drop nahi ho sakta.</p>
         </div>
@@ -360,7 +360,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
               </div>
             ); })}
           </div>
-          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setToTank([...toTank, { product: buys[0]?.product ?? "HSD", litres: "", tank_id: "" }])}>+ Apne tank mein khali karein</button>
+          <button type="button" className="mt-2 inline-flex items-center gap-1 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 active:scale-95" onClick={() => setToTank([...toTank, { product: buys[0]?.product ?? "HSD", litres: "", tank_id: "" }])}><Plus size={14} /> Apne tank mein khali karein</button>
           {stTanks.length === 0 && <p className="mt-1 text-xs text-slate-400">Koi tank nahi mila — pehle Settings me tank add karein.</p>}
         </div>
 
