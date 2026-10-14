@@ -100,7 +100,7 @@ function SellCoupons({ onClose, onDone }: { onClose: () => void; onDone: () => v
         if (r) { onDone(); location.assign(`/coupons/${(r as any).batch}`); }
       }}>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="How many coupons"><input className="input" type="number" min={1} max={500} step={1} required value={f.count} onChange={(e) => setF({ ...f, count: e.target.value })} /></Field>
+          <Field label="How many coupons"><input className="input" type="number" inputMode="decimal" min={1} max={500} step={1} required value={f.count} onChange={(e) => setF({ ...f, count: e.target.value })} /></Field>
           <Field label="Value of each (Rs)">
             <div className="flex gap-1">{[500, 1000, 2000, 5000].map((v) => <button type="button" key={v} onClick={() => setF({ ...f, value: String(v) })} className={`flex-1 rounded-lg py-2 text-sm ${f.value === String(v) ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{v.toLocaleString()}</button>)}</div>
           </Field>
@@ -205,7 +205,7 @@ function WalletModal({ w, onClose }: { w: any; onClose: () => void }) {
       {!data ? <Loading /> : <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3 rounded-xl bg-sky-50 p-3">
           <span className="flex-1 text-sm text-slate-600">Balance<b className="block text-3xl text-slate-900 tabular-nums">{pkr(data.wallet_balance)}</b></span>
-          <label className="text-sm">WhatsApp when below Rs<div className="flex gap-1"><input className="input w-28" type="number" min={0} value={low} onChange={(e) => setLow(e.target.value)} />
+          <label className="text-sm">WhatsApp when below Rs<div className="flex gap-1"><input className="input w-28" type="number" inputMode="decimal" min={0} value={low} onChange={(e) => setLow(e.target.value)} />
             <button className="btn-secondary" onClick={() => run(() => api(`/customers/${w.id}/wallet`, { method: "PATCH", body: { wallet_low: Number(low) } }), "Saved").then(reload)}>Save</button></div></label>
         </div>
         <form className="grid grid-cols-1 gap-2 sm:grid-cols-5" onSubmit={async (e) => {
@@ -213,7 +213,7 @@ function WalletModal({ w, onClose }: { w: any; onClose: () => void }) {
           if (await run(() => api(`/customers/${w.id}/wallet/deposit`, { body: { amount: Number(f.amount), method: f.method, ref: f.ref || null, type: f.type, account_id: account } }), f.type === "deposit" ? "Deposit saved — customer told on WhatsApp" : "Saved")) { setF({ ...f, amount: "", ref: "" }); reload(); }
         }}>
           <select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} aria-label="Type"><option value="deposit">Deposit</option><option value="refund">Refund (money back)</option></select>
-          <input className="input" type="number" min={1} required placeholder="Amount Rs" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+          <input className="input" type="number" inputMode="decimal" min={1} required placeholder="Amount Rs" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
           <select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })} aria-label="Method">{METHODS.map((m) => <option key={m}>{m}</option>)}</select>
           <input className="input" placeholder="Ref / TID" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} />
           <button className="btn-primary" disabled={busy}>Save</button>

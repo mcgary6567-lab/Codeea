@@ -144,7 +144,7 @@ function SettleClaim({ c, onClose, onDone }: { c: any; onClose: () => void; onDo
           <p className="mt-1 text-xs text-slate-500">{{ credit_note: "Taken off what we owe this depot (their next bill).", cash: "Goes into today's cash book.", bank: "Goes into the bank account you pick." }[method]}</p>
         </fieldset>
         {method === "bank" && <AccountPicker method="bank" label="Into which bank account? · کس بینک میں" value={account} onChange={setAccount} required />}
-        <Field label={`Amount recovered (up to ${pkr(left)})`}><input className="input text-lg" type="number" min={1} max={left} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+        <Field label={`Amount recovered (up to ${pkr(left)})`}><input className="input text-lg" type="number" inputMode="decimal" min={1} max={left} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
         <ProofPhotos value={photos} onChange={setPhotos} hint={method === "credit_note" ? "credit note / depot letter" : method === "bank" ? "bank slip / SMS" : "receipt"} />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
@@ -245,8 +245,8 @@ function Tax() {
           }}>
             <div className="col-span-2 text-xs text-slate-600">Other withholding (rent, services). Supplier payments: enter "Tax withheld" when paying the supplier.</div>
             <input className="input" placeholder="Paid to" required value={w.payee} onChange={(e) => setW({ ...w, payee: e.target.value })} />
-            <input className="input" type="number" min={1} placeholder="Gross amount" required value={w.gross} onChange={(e) => setW({ ...w, gross: e.target.value })} />
-            <input className="input" type="number" min={0} step={0.5} placeholder="Rate %" required value={w.rate} onChange={(e) => setW({ ...w, rate: e.target.value })} />
+            <input className="input" type="number" inputMode="decimal" min={1} placeholder="Gross amount" required value={w.gross} onChange={(e) => setW({ ...w, gross: e.target.value })} />
+            <input className="input" type="number" inputMode="decimal" min={0} step={0.5} placeholder="Rate %" required value={w.rate} onChange={(e) => setW({ ...w, rate: e.target.value })} />
             <input className="input" placeholder="Section e.g. 155" value={w.section} onChange={(e) => setW({ ...w, section: e.target.value })} />
             <button className="btn-secondary col-span-2" disabled={busy}>Add</button>
           </form>
@@ -261,12 +261,12 @@ function Tax() {
           <h3 className="font-semibold sm:col-span-4">Tax settings</h3>
           <Field label="NTN"><input className="input" value={f.ntn} onChange={(e) => setF({ ...f, ntn: e.target.value })} /></Field>
           <Field label="STRN"><input className="input" value={f.strn} onChange={(e) => setF({ ...f, strn: e.target.value })} /></Field>
-          <Field label="Shop GST %"><input className="input" type="number" min={0} max={30} value={f.gst_pct} onChange={(e) => setF({ ...f, gst_pct: e.target.value })} /></Field>
-          <Field label="Fuel GST % (usually 0)"><input className="input" type="number" min={0} max={30} value={f.fuel_gst_pct} onChange={(e) => setF({ ...f, fuel_gst_pct: e.target.value })} /></Field>
+          <Field label="Shop GST %"><input className="input" type="number" inputMode="decimal" min={0} max={30} value={f.gst_pct} onChange={(e) => setF({ ...f, gst_pct: e.target.value })} /></Field>
+          <Field label="Fuel GST % (usually 0)"><input className="input" type="number" inputMode="decimal" min={0} max={30} value={f.fuel_gst_pct} onChange={(e) => setF({ ...f, fuel_gst_pct: e.target.value })} /></Field>
           <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={f.prices_include_tax} onChange={(e) => setF({ ...f, prices_include_tax: e.target.checked })} /> Shop prices already include GST</label>
           <Field label="Exempt categories (comma)"><input className="input" placeholder="tuck, service" value={f.exempt} onChange={(e) => setF({ ...f, exempt: e.target.value })} /></Field>
           <Field label="Default WHT section"><input className="input" value={f.wht_section} onChange={(e) => setF({ ...f, wht_section: e.target.value })} /></Field>
-          <Field label="Default WHT %"><input className="input" type="number" min={0} max={20} step="0.5" value={f.wht_pct ?? ""} onChange={(e) => setF({ ...f, wht_pct: e.target.value })} /></Field>
+          <Field label="Default WHT %"><input className="input" type="number" inputMode="decimal" min={0} max={20} step="0.5" value={f.wht_pct ?? ""} onChange={(e) => setF({ ...f, wht_pct: e.target.value })} /></Field>
           <div className="sm:col-span-4"><button className="btn-primary" disabled={busy}>Save tax settings</button> <span className="text-xs text-slate-500">NTN / STRN and the tax line are printed on every shop receipt.</span></div>
         </form>
       )}

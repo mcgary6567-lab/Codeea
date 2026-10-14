@@ -158,7 +158,7 @@ function ExpenseForm({ categories, stations, limit, canApprove, onClose, onSaved
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{categories.map((c) => <option key={c.id}>{c.name}</option>)}</select></Field>
-          <Field label="Amount (Rs)"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Paid to"><input className="input" value={f.paid_to} onChange={(e) => setF({ ...f, paid_to: e.target.value })} /></Field>
           <Field label="Paid by"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{METHODS.map((m) => <option key={m}>{m}</option>)}</select></Field>
           <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}><option value="">All / head office</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
@@ -189,7 +189,7 @@ function CategorySetup({ data, onClose, onChanged }: { data: any; onClose: () =>
     <Modal open onClose={onClose} title="Expense categories & budgets" wide>
       <div className="space-y-4">
         <form className="flex flex-wrap items-end gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/expenses/settings", { method: "PUT", body: { approval_limit: Number(limit) } }), "Approval limit saved")) onChanged(); }}>
-          <Field label="Manager approval limit (Rs) — above this needs admin approval"><input className="input w-48" type="number" min={0} value={limit} onChange={(e) => setLimit(e.target.value)} /></Field>
+          <Field label="Manager approval limit (Rs) — above this needs admin approval"><input className="input w-48" type="number" inputMode="decimal" min={0} value={limit} onChange={(e) => setLimit(e.target.value)} /></Field>
           <button className="btn-secondary" disabled={busy}>Save</button>
         </form>
         <div className="overflow-x-auto"><table className="w-full min-w-[520px]">
@@ -199,7 +199,7 @@ function CategorySetup({ data, onClose, onChanged }: { data: any; onClose: () =>
             return (
               <tr key={c.id} className={c.active ? "" : "opacity-50"}>
                 <td className="td"><input className="input w-40 sm:w-56" value={r.name} onChange={(e) => setRows({ ...rows, [c.id]: { ...r, name: e.target.value } })} /></td>
-                <td className="td"><input className="input w-28 sm:w-40" type="number" min={0} placeholder="no budget" value={r.budget} onChange={(e) => setRows({ ...rows, [c.id]: { ...r, budget: e.target.value } })} /></td>
+                <td className="td"><input className="input w-28 sm:w-40" type="number" inputMode="decimal" min={0} placeholder="no budget" value={r.budget} onChange={(e) => setRows({ ...rows, [c.id]: { ...r, budget: e.target.value } })} /></td>
                 <td className="td"><span className="flex flex-wrap gap-1">
                   <button className={small} disabled={busy} onClick={() => run(() => api(`/expense-categories/${c.id}`, { method: "PATCH", body: { name: r.name, monthly_budget: r.budget ? Number(r.budget) : null } }), "Saved").then(changed)}>Save</button>
                   <button className={small} disabled={busy} onClick={() => run(() => api(`/expense-categories/${c.id}`, { method: "PATCH", body: { active: !c.active } }), c.active ? "Switched off" : "Switched on").then(changed)}>{c.active ? "Switch off" : "Switch on"}</button>

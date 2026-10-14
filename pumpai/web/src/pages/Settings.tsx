@@ -103,7 +103,7 @@ function AddMeter({ tank, onClose, onSaved }: { tank: any; onClose: () => void; 
     <Modal open onClose={onClose} title={`New meter on ${tank.name}`}>
       <form className="space-y-3" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api(`/tanks/${tank.id}/nozzles`, { body: { label: f.label || undefined, totalizer: Number(f.totalizer) || 0 } }), "Meter added")) onSaved(); }}>
         <Field label="Name on the dispenser"><input className="input" placeholder={`e.g. Machine 3 left (${PRODUCTS[tank.product]})`} maxLength={30} value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} /></Field>
-        <Field label="Totalizer reading now"><input className="input tabular-nums" type="number" min={0} step="0.01" value={f.totalizer} onChange={(e) => setF({ ...f, totalizer: e.target.value })} /></Field>
+        <Field label="Totalizer reading now"><input className="input tabular-nums" type="number" inputMode="decimal" min={0} step="0.01" value={f.totalizer} onChange={(e) => setF({ ...f, totalizer: e.target.value })} /></Field>
         <p className="text-xs text-slate-500">It gets the next meter number and joins the next shift's handover sheet.</p>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Add meter</button></div>
       </form>
@@ -131,7 +131,7 @@ function Meters({ nozzles, onSaved }: { nozzles: any[]; onSaved: () => void }) {
           e.preventDefault();
           if (await run(() => api(`/nozzles/${edit.id}`, { method: "PATCH", body: { meter_no: Number(edit.meter_no), label: edit.label } }), "Meter saved")) { setEdit(null); onSaved(); }
         }}>
-          <Field label="Meter No."><input className="input w-20" type="number" min={1} max={99} required value={edit.meter_no} onChange={(e) => setEdit({ ...edit, meter_no: e.target.value })} /></Field>
+          <Field label="Meter No."><input className="input w-20" type="number" inputMode="decimal" min={1} max={99} required value={edit.meter_no} onChange={(e) => setEdit({ ...edit, meter_no: e.target.value })} /></Field>
           <Field label="Name on the dispenser"><input className="input w-40" required maxLength={30} value={edit.label} onChange={(e) => setEdit({ ...edit, label: e.target.value })} /></Field>
           <button className="btn-primary" disabled={busy}>Save</button><button type="button" className="btn-secondary" onClick={() => setEdit(null)}>Cancel</button>
           <button type="button" className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/nozzles/${edit.id}`, { method: "PATCH", body: { active: !edit.active } }), edit.active ? "Meter retired" : "Meter restored").then(() => { setEdit(null); onSaved(); })}>{edit.active ? "Retire" : "Restore"}</button>
@@ -153,7 +153,7 @@ function Limits({ l, onSaved }: { l?: Record<string, any>; onSaved: () => void }
       <div className="sm:col-span-2">
         <span className="label">Shift length — reminder to close fires after this. Set it to how long one salesman's shift runs.</span>
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <input className="input w-28" type="number" min={1} max={72} value={f.shift_hours} onChange={(e) => setF({ ...f, shift_hours: e.target.value })} />
+          <input className="input w-28" type="number" inputMode="decimal" min={1} max={72} value={f.shift_hours} onChange={(e) => setF({ ...f, shift_hours: e.target.value })} />
           <span className="text-sm text-slate-500">hours</span>
           {[["1 shift · 24h", 24], ["2 shifts · 12h", 12], ["3 shifts · 8h", 8]].map(([lbl, h]) => (
             <button key={h as number} type="button" onClick={() => setF({ ...f, shift_hours: String(h) })}
@@ -162,13 +162,13 @@ function Limits({ l, onSaved }: { l?: Record<string, any>; onSaved: () => void }
         </div>
         <p className="mt-1 text-xs text-slate-500">Ek 24-ghante shift ho to 24; din-raat 2 shift ho to 12; 3 shift ho to 8. Har salesman ki shift alag track hoti hai, chahe ek ho ya kai — bas har bande ki duty time Staff page pe set kar dein.</p>
       </div>
-      <label className="block"><span className="label">Test litres allowed per shift (returned to the tank)</span><input className="input" type="number" min={0} max={500} value={f.test_limit_l} onChange={(e) => setF({ ...f, test_limit_l: e.target.value })} /></label>
-      <label className="block"><span className="label">Cash shortage below this (Rs) is ignored, not charged to the salesman</span><input className="input" type="number" min={0} value={f.shortage_min} onChange={(e) => setF({ ...f, shortage_min: e.target.value })} /></label>
-      <label className="block"><span className="label">Tanker transit loss allowed (% of invoice) before a claim</span><input className="input" type="number" min={0} max={2} step="0.05" value={f.shortage_tolerance_pct} onChange={(e) => setF({ ...f, shortage_tolerance_pct: e.target.value })} /></label>
-      <label className="block"><span className="label">Utility bill jump that raises an alert (% over last month)</span><input className="input" type="number" min={0} max={500} value={f.utility_alert_pct} onChange={(e) => setF({ ...f, utility_alert_pct: e.target.value })} /></label>
-      <label className="block"><span className="label">Khata discount a salesman can give per sale (Rs) — more needs the manager / CEO</span><input className="input" type="number" min={0} value={f.khata_discount_max} onChange={(e) => setF({ ...f, khata_discount_max: e.target.value })} /></label>
-      <label className="block"><span className="label">Direct (walk-in) discount a salesman can give per sale (Rs) — more needs the manager / CEO</span><input className="input" type="number" min={0} value={f.direct_discount_max} onChange={(e) => setF({ ...f, direct_discount_max: e.target.value })} /></label>
-      <label className="block"><span className="label">Alert the manager when one shift's direct discounts reach (Rs)</span><input className="input" type="number" min={0} value={f.direct_discount_alert} onChange={(e) => setF({ ...f, direct_discount_alert: e.target.value })} /></label>
+      <label className="block"><span className="label">Test litres allowed per shift (returned to the tank)</span><input className="input" type="number" inputMode="decimal" min={0} max={500} value={f.test_limit_l} onChange={(e) => setF({ ...f, test_limit_l: e.target.value })} /></label>
+      <label className="block"><span className="label">Cash shortage below this (Rs) is ignored, not charged to the salesman</span><input className="input" type="number" inputMode="decimal" min={0} value={f.shortage_min} onChange={(e) => setF({ ...f, shortage_min: e.target.value })} /></label>
+      <label className="block"><span className="label">Tanker transit loss allowed (% of invoice) before a claim</span><input className="input" type="number" inputMode="decimal" min={0} max={2} step="0.05" value={f.shortage_tolerance_pct} onChange={(e) => setF({ ...f, shortage_tolerance_pct: e.target.value })} /></label>
+      <label className="block"><span className="label">Utility bill jump that raises an alert (% over last month)</span><input className="input" type="number" inputMode="decimal" min={0} max={500} value={f.utility_alert_pct} onChange={(e) => setF({ ...f, utility_alert_pct: e.target.value })} /></label>
+      <label className="block"><span className="label">Khata discount a salesman can give per sale (Rs) — more needs the manager / CEO</span><input className="input" type="number" inputMode="decimal" min={0} value={f.khata_discount_max} onChange={(e) => setF({ ...f, khata_discount_max: e.target.value })} /></label>
+      <label className="block"><span className="label">Direct (walk-in) discount a salesman can give per sale (Rs) — more needs the manager / CEO</span><input className="input" type="number" inputMode="decimal" min={0} value={f.direct_discount_max} onChange={(e) => setF({ ...f, direct_discount_max: e.target.value })} /></label>
+      <label className="block"><span className="label">Alert the manager when one shift's direct discounts reach (Rs)</span><input className="input" type="number" inputMode="decimal" min={0} value={f.direct_discount_alert} onChange={(e) => setF({ ...f, direct_discount_alert: e.target.value })} /></label>
       <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={f.pin_admin} onChange={(e) => setF({ ...f, pin_admin: e.target.checked })} /> Let the owner (admin) also sign in with a 4-digit PIN on the pump tablet</label>
       <div className="sm:col-span-2"><button className="btn-primary" disabled={busy}>Save</button></div>
     </form>
@@ -211,8 +211,8 @@ function KhataRules({ r, onSaved }: { r?: { block_days: number; block_institutio
   return (
     <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { khata_rules: { block_days: Number(f.block_days), block_institutions: f.block_institutions, late_fee_pct: Number(f.late_fee_pct) } } }), "Khata rules saved").then(onSaved); }}>
       <h2 className="font-semibold sm:col-span-3">Khata rules</h2>
-      <label className="block"><span className="label">Hold khata after no payment for (days)</span><input className="input" type="number" min={15} max={365} value={f.block_days} onChange={(e) => setF({ ...f, block_days: e.target.value })} /></label>
-      <label className="block"><span className="label">Late-payment charge per month (%, 0 = off)</span><input className="input" type="number" min={0} max={5} step="0.1" value={f.late_fee_pct} onChange={(e) => setF({ ...f, late_fee_pct: e.target.value })} /></label>
+      <label className="block"><span className="label">Hold khata after no payment for (days)</span><input className="input" type="number" inputMode="decimal" min={15} max={365} value={f.block_days} onChange={(e) => setF({ ...f, block_days: e.target.value })} /></label>
+      <label className="block"><span className="label">Late-payment charge per month (%, 0 = off)</span><input className="input" type="number" inputMode="decimal" min={0} max={5} step="0.1" value={f.late_fee_pct} onChange={(e) => setF({ ...f, late_fee_pct: e.target.value })} /></label>
       <label className="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" checked={f.block_institutions} onChange={(e) => setF({ ...f, block_institutions: e.target.checked })} /> Also hold police / government / school accounts</label>
       <p className="text-xs text-slate-500 sm:col-span-3">Institutions are never charged a late fee. Their bills can be tracked with PO numbers on each account's khata page.</p>
       <div className="sm:col-span-3"><button className="btn-primary" disabled={busy}>Save</button></div>
@@ -309,7 +309,7 @@ function AlertSensitivity({ s, onSaved }: { s?: Record<string, number>; onSaved:
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {SENS.map(([k, label, hint]) => (
           <label key={k} className="block"><span className="label">{label}</span>
-            <input className="input" type="number" min={0} step="0.1" value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
+            <input className="input" type="number" inputMode="decimal" min={0} step="0.1" value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
             <span className="mt-0.5 block text-xs text-slate-400">{hint}</span></label>
         ))}
       </div>

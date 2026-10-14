@@ -45,9 +45,9 @@ export function FixedCosts({ categories, stations, onClose }: { categories: any[
             if (await run(() => api("/recurring-expenses", { body: { category: r.category, amount: Number(r.amount), paid_to: r.paid_to || null, day_of_month: Number(r.day_of_month), method: r.method, station_id: r.station_id ? Number(r.station_id) : null } }), "Added — it will be booked by itself")) { setR({ ...r, amount: "", paid_to: "" }); rec.reload(); }
           }}>
             <Field label="Category"><select className="input" value={r.category} onChange={(e) => setR({ ...r, category: e.target.value })}>{categories.map((c) => <option key={c.id}>{c.name}</option>)}</select></Field>
-            <Field label="Amount (Rs)"><input className="input" type="number" min={1} required value={r.amount} onChange={(e) => setR({ ...r, amount: e.target.value })} /></Field>
+            <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" min={1} required value={r.amount} onChange={(e) => setR({ ...r, amount: e.target.value })} /></Field>
             <Field label="Paid to"><input className="input" value={r.paid_to} onChange={(e) => setR({ ...r, paid_to: e.target.value })} /></Field>
-            <Field label="Day of month"><input className="input" type="number" min={1} max={31} step={1} value={r.day_of_month} onChange={(e) => setR({ ...r, day_of_month: e.target.value })} /></Field>
+            <Field label="Day of month"><input className="input" type="number" inputMode="decimal" min={1} max={31} step={1} value={r.day_of_month} onChange={(e) => setR({ ...r, day_of_month: e.target.value })} /></Field>
             <Field label="Paid by"><select className="input" value={r.method} onChange={(e) => setR({ ...r, method: e.target.value })}>{["bank", "cash", "cheque", "raast", "easypaisa", "jazzcash", "card"].map((m) => <option key={m}>{m}</option>)}</select></Field>
             <Field label="Station"><select className="input" value={r.station_id} onChange={(e) => setR({ ...r, station_id: e.target.value })}><option value="">All</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
             <button className="btn-primary col-span-2" disabled={busy}>Add monthly expense</button>
@@ -66,8 +66,8 @@ export function FixedCosts({ categories, stations, onClose }: { categories: any[
               <span className="flex items-center gap-1.5 text-xs text-slate-600">{b.photo_id ? <><PhotoThumb id={b.photo_id} size={9} /> Bill attached</> : "or type the numbers"}</span></div>
             <Field label="Bill"><select className="input" value={b.kind} onChange={(e) => setB({ ...b, kind: e.target.value })}>{kinds.list.map((k) => <option key={k.key} value={k.key}>{k.extra.icon ? k.extra.icon + " " : ""}{k.label}</option>)}</select></Field>
             <Field label="Month"><input className="input" type="month" value={b.month} onChange={(e) => setB({ ...b, month: e.target.value })} /></Field>
-            <Field label="Units"><input className="input" type="number" min={0} value={b.units} onChange={(e) => setB({ ...b, units: e.target.value })} /></Field>
-            <Field label="Amount (Rs)"><input className="input" type="number" min={1} value={b.amount} onChange={(e) => setB({ ...b, amount: e.target.value })} /></Field>
+            <Field label="Units"><input className="input" type="number" inputMode="decimal" min={0} value={b.units} onChange={(e) => setB({ ...b, units: e.target.value })} /></Field>
+            <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" min={1} value={b.amount} onChange={(e) => setB({ ...b, amount: e.target.value })} /></Field>
             <Field label="Reference no."><input className="input" value={b.reference} onChange={(e) => setB({ ...b, reference: e.target.value })} /></Field>
             <Field label="Station"><select className="input" value={b.station_id} onChange={(e) => setB({ ...b, station_id: e.target.value })}><option value="">All</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
             <button className="btn-primary col-span-2" disabled={busy || (!b.amount && !b.photo_id)}>Save bill</button>

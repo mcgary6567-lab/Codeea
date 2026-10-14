@@ -38,7 +38,7 @@ export function OrderForm({ client, onClose, onDone }: { client?: any; onClose: 
         <div className="grid grid-cols-3 gap-2">{Object.entries(PRODUCTS).map(([k, v]) => (
           <button type="button" key={k} onClick={() => setF({ ...f, product: k })} className={`rounded-xl py-2.5 font-semibold ${f.product === k ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700"}`}>{v}</button>))}</div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Litres"><input className="input py-2.5 text-xl" type="number" min={1} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
+          <Field label="Litres"><input className="input py-2.5 text-xl" type="number" inputMode="decimal" min={1} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
           <Field label="Deliver on"><input className="input" type="date" min={today()} required value={f.needed_on} onChange={(e) => setF({ ...f, needed_on: e.target.value })} /></Field>
           <Field label="Drop location"><input className="input" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
           <Field label="Note"><input className="input" placeholder="e.g. gate 2, call before coming" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
@@ -62,7 +62,7 @@ export function PromiseForm({ client, onClose, onDone }: { client?: any; onClose
         <p className="text-sm text-slate-600">When the client says "I will pay on …", note it here. On that day it shows in the call list; if the money does not come it is marked <b>broken</b>.</p>
         {!client && <ClientSelect value={f.client_id} onChange={(client_id) => setF({ ...f, client_id })} />}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Amount promised (Rs)"><input className="input py-2.5 text-xl" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Amount promised (Rs)"><input className="input py-2.5 text-xl" type="number" inputMode="decimal" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Will pay on"><input className="input" type="date" min={today()} required value={f.promised_on} onChange={(e) => setF({ ...f, promised_on: e.target.value })} /></Field>
         </div>
         <Field label="Note"><input className="input" placeholder="e.g. said on the phone, will send by IBFT" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
@@ -86,7 +86,7 @@ export function ChequeForm({ client, onClose, onDone }: { client?: any; onClose:
         <p className="rounded-lg bg-sky-50 p-2 text-sm text-sky-900">The cheque is <b>not counted as payment</b> until it clears. Then the payment is added by itself.</p>
         {!client && <ClientSelect value={f.client_id} onChange={(client_id) => setF({ ...f, client_id })} />}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" inputMode="decimal" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Cheque date"><input className="input" type="date" required value={f.cheque_date} onChange={(e) => setF({ ...f, cheque_date: e.target.value })} /></Field>
           <Field label="Cheque no."><input className="input" required value={f.cheque_no} onChange={(e) => setF({ ...f, cheque_no: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
@@ -331,7 +331,7 @@ export function ChequeAction({ q, kind, onClose, onDone }: { q: any; kind: "depo
           {q.status === "cleared" && <p className="rounded-lg bg-red-50 p-2 text-sm text-red-700">This cheque was marked cleared — its payment will be taken back off the account.</p>}
           <Field label="Reason"><select className="input" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })}>
             {["Insufficient funds", "Signature mismatch", "Payment stopped", "Account closed", "Date / amount error", "Other"].map((r) => <option key={r}>{r}</option>)}</select></Field>
-          <Field label="Bank charges to add to the client (Rs, optional)"><input className="input" type="number" min={0} value={f.charge} onChange={(e) => setF({ ...f, charge: e.target.value })} /></Field>
+          <Field label="Bank charges to add to the client (Rs, optional)"><input className="input" type="number" inputMode="decimal" min={0} value={f.charge} onChange={(e) => setF({ ...f, charge: e.target.value })} /></Field>
         </>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button className={kind === "bounce" ? "btn-primary !bg-red-600" : "btn-primary"} disabled={busy}>{kind === "deposit" ? "Deposited" : kind === "clear" ? "Yes, cleared" : "Record bounce"}</button></div>

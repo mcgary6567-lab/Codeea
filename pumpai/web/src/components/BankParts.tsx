@@ -238,9 +238,9 @@ function AccountForm({ acc, onClose, onDone }: { acc?: any; onClose: () => void;
           <Field label="Account no. / IBAN"><input className="input" value={f.account_no} onChange={(e) => setF({ ...f, account_no: e.target.value })} /></Field>
           <Field label="Account title"><input className="input" placeholder="e.g. Al-Madina Petroleum" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field>
           <Field label="Type"><select className="input" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="current">Current</option><option value="savings">Savings</option><option value="wallet">Mobile wallet</option></select></Field>
-          <Field label="Balance in the bank (Rs)"><input className="input py-2.5 text-xl" type="number" step="0.01" required value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
+          <Field label="Balance in the bank (Rs)"><input className="input py-2.5 text-xl" type="number" inputMode="decimal" step="0.01" required value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
           <Field label="…at the start of this day"><input className="input" type="date" required value={f.opening_date} onChange={(e) => setF({ ...f, opening_date: e.target.value })} /></Field>
-          <Field label="Card machine (POS) fee % · کارڈ فیس"><input className="input" type="number" min={0} max={10} step="0.01" value={f.card_fee_pct} onChange={(e) => setF({ ...f, card_fee_pct: e.target.value })} /></Field>
+          <Field label="Card machine (POS) fee % · کارڈ فیس"><input className="input" type="number" inputMode="decimal" min={0} max={10} step="0.01" value={f.card_fee_pct} onChange={(e) => setF({ ...f, card_fee_pct: e.target.value })} /></Field>
         </div>
         <p className="text-xs text-slate-500">Write the balance from the bank statement / app for the start of that day. From then on, deposits, payments and POS card / Raast sales linked to this account are added by themselves.</p>
         <p className="text-xs text-slate-500">Card machine (POS) fee: the % the bank keeps on every card sale (e.g. 1.8). It is deducted by itself so the bank balance matches the statement and the ledger tallies. Raast / Easypaisa / JazzCash are not charged. 0 = no fee.</p>
@@ -269,7 +269,7 @@ function EntryForm({ accounts, start, onClose, onDone }: { accounts: any[]; star
         <Field label="Bank account"><select className="input" required value={f.account_id} onChange={(e) => setF({ ...f, account_id: e.target.value })}>
           <option value="">— Choose —</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name} ({pkr(a.balance)})</option>)}</select></Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" min={1} step="0.01" required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" inputMode="decimal" min={1} step="0.01" required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Date"><input className="input" type="date" required value={f.txn_date} max={today()} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
           <Field label={f.kind === "withdraw" ? "Taken by" : "Paid to / from"}><input className="input" value={f.party} onChange={(e) => setF({ ...f, party: e.target.value })} /></Field>
           <Field label="Cheque / ref no."><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
@@ -297,7 +297,7 @@ function TransferForm({ accounts, onClose, onDone }: { accounts: any[]; onClose:
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="From"><select className="input" required value={f.from_id} onChange={(e) => setF({ ...f, from_id: e.target.value })}><option value="">— Choose —</option>{opts(f.to_id)}</select></Field>
           <Field label="To"><select className="input" required value={f.to_id} onChange={(e) => setF({ ...f, to_id: e.target.value })}><option value="">— Choose —</option>{opts(f.from_id)}</select></Field>
-          <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" min={1} step="0.01" required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" inputMode="decimal" min={1} step="0.01" required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Date"><input className="input" type="date" required value={f.txn_date} max={today()} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
           <Field label="IBFT / ref no."><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>

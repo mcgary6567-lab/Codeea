@@ -232,7 +232,7 @@ function AddStaffMember({ stations, onClose, onSaved }: { stations: any[]; onClo
           <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Job / designation"><select className="input" value={f.job_title} onChange={(e) => setF({ ...f, job_title: e.target.value })}>{jobs.list.map((j) => <option key={j.key}>{j.label}</option>)}<option>Other</option></select></Field>
           {f.job_title === "Other" && <Field label="Write the job"><input className="input" value={f.custom} onChange={(e) => setF({ ...f, custom: e.target.value })} /></Field>}
-          <Field label="Monthly salary (Rs)"><input className="input" type="number" min={0} value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} /></Field>
+          <Field label="Monthly salary (Rs)"><input className="input" type="number" inputMode="decimal" min={0} value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} /></Field>
           <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
           <Field label="Duty time (optional)"><input className="input" type="time" value={f.duty_start} onChange={(e) => setF({ ...f, duty_start: e.target.value })} /></Field>
           <Field label="Weekly off (optional)"><select className="input" value={f.weekly_off} onChange={(e) => setF({ ...f, weekly_off: e.target.value })}><option value="">None</option>{WEEK.map((d, i) => <option key={i} value={i}>{d}</option>)}</select></Field>
@@ -286,17 +286,17 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
           const r: any = await run(() => call, form === "salary" ? `Salary paid: ${pkr(net)} — slip sent on WhatsApp` : "Saved");
           if (r) { if (r.slip_url) { setSlipUrl(r.slip_url); slips.reload(); } done(); }
         }}>
-          {form === "set-salary" && <Field label="Monthly salary (Rs)"><input className="input text-lg" type="number" min={0} required value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} /></Field>}
+          {form === "set-salary" && <Field label="Monthly salary (Rs)"><input className="input text-lg" type="number" inputMode="decimal" min={0} required value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} /></Field>}
           {(form === "advance" || form === "repayment") && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label={form === "advance" ? "Advance given (Rs)" : "Amount paid back (Rs)"}><input className="input text-lg" type="number" min={1} max={form === "repayment" ? data.balance : undefined} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+            <Field label={form === "advance" ? "Advance given (Rs)" : "Amount paid back (Rs)"}><input className="input text-lg" type="number" inputMode="decimal" min={1} max={form === "repayment" ? data.balance : undefined} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
             <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. for family need" /></Field>
           </div>}
           {form === "salary" && <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <Field label="Salary"><input className="input" disabled value={pkr(u.salary)} /></Field>
-              <Field label={`Absence cut (${data.attendance?.unpaid_days ?? 0} unpaid days)`}><input className="input" type="number" min={0} value={f.cut === "" ? String(data.attendance?.salary_cut ?? 0) : f.cut} onChange={(e) => setF({ ...f, cut: e.target.value })} /></Field>
-              <Field label="Bonus (optional)"><input className="input" type="number" min={0} value={f.bonus} onChange={(e) => setF({ ...f, bonus: e.target.value })} /></Field>
-              <Field label={`Cut advance / short (owes ${pkr(Math.max(0, data.balance - (data.loans_left ?? 0)))})`}><input className="input" type="number" min={0} max={Math.max(0, Math.min(data.balance - (data.loans_left ?? 0), u.salary + (Number(f.bonus) || 0)))} value={f.deduct} onChange={(e) => setF({ ...f, deduct: e.target.value })} /></Field>
+              <Field label={`Absence cut (${data.attendance?.unpaid_days ?? 0} unpaid days)`}><input className="input" type="number" inputMode="decimal" min={0} value={f.cut === "" ? String(data.attendance?.salary_cut ?? 0) : f.cut} onChange={(e) => setF({ ...f, cut: e.target.value })} /></Field>
+              <Field label="Bonus (optional)"><input className="input" type="number" inputMode="decimal" min={0} value={f.bonus} onChange={(e) => setF({ ...f, bonus: e.target.value })} /></Field>
+              <Field label={`Cut advance / short (owes ${pkr(Math.max(0, data.balance - (data.loans_left ?? 0)))})`}><input className="input" type="number" inputMode="decimal" min={0} max={Math.max(0, Math.min(data.balance - (data.loans_left ?? 0), u.salary + (Number(f.bonus) || 0)))} value={f.deduct} onChange={(e) => setF({ ...f, deduct: e.target.value })} /></Field>
             </div>
             {data.commission > 0 && <div className="text-sm text-slate-600">+ Commission this month (shop / fuel): <b>{pkr(data.commission)}</b> — added by itself</div>}
             {loan > 0 && <div className="text-sm text-slate-600">− Loan instalment: <b>{pkr(loan)}</b> — cut by itself</div>}

@@ -8,6 +8,7 @@ import { useLookups } from "../lib/lookups";
 import { ClientForm } from "../pages/Wholesale";
 import { UserForm } from "../pages/Users";
 import { PRODUCTS } from "../lib/format";
+import { OpeningBalanceField, type AdvanceReceipt } from "./OpeningBalanceField";
 
 /** Everything an admin/manager can add from one place. Items are filtered by the user's permissions. */
 export const ADD_ITEMS = [
@@ -101,6 +102,8 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
   const types = useLookups("customer_type");
   const canCredit = can("credit.set_limit");
   const [f, setF] = useState({ name: "", phone: "", type: khata ? "police" : "retail", city: "", credit_limit: khata ? "100000" : "0", notes: "" });
+  const [opening, setOpening] = useState<{ amount: string; kind: "due" | "advance" }>({ amount: "", kind: "due" });
+  const [receipt, setReceipt] = useState<AdvanceReceipt>({ method: "Cash", account_id: null });
   const [vehicles, setVehicles] = useState<{ plate_no: string; fuel: string; limit?: string }[]>(khata ? [{ plate_no: "", fuel: "PMG" }] : []);
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
@@ -108,6 +111,10 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
     const body: any = { name: f.name, phone: f.phone, type: f.type, city: f.city || null, notes: f.notes || null,
       vehicles: vehicles.filter((v) => v.plate_no.trim()).map((v) => ({ plate_no: v.plate_no, fuel: v.fuel || null, daily_limit_l: Number(v.limit) > 0 ? Number(v.limit) : null })) };
     if (canCredit) body.credit_limit = Number(f.credit_limit) || 0;
+    if (canCredit && Number(opening.amount) > 0) {
+      body.opening_balance = Math.abs(Number(opening.amount)); body.opening_kind = opening.kind;
+      if (opening.kind === "advance" && receipt.method) { body.opening_method = receipt.method; body.opening_account_id = receipt.account_id; }
+    }
     const r = await run(() => api("/customers", { body }), (c: any) => c.credit_limit > 0 ? `${c.name} khata opened — salesmen notified` : `${c.name} added`);
     if (r) onSaved(r);
   };
@@ -131,7 +138,10 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
           <Field label="City / area"><input className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
         </div>
         {canCredit ? (
-          <Field label="Khata credit limit (Rs) — 0 means no credit"><input className="input sm:w-64" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
+          <>
+            <Field label="Khata credit limit (Rs) — 0 means no credit"><input className="input sm:w-64" type="number" inputMode="decimal" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
+            <OpeningBalanceField amount={opening.amount} kind={opening.kind} onChange={(amount, kind) => setOpening({ amount, kind })} label="Opening balance (Rs) — purana hisaab ya advance (optional)" receipt={receipt} onReceipt={setReceipt} />
+          </>
         ) : <p className="text-xs text-slate-500">Khata credit limits are set by the admin.</p>}
         <div>
           <div className="mb-1 flex items-center justify-between"><span className="label !mb-0">Vehicles allowed to take fuel</span>
@@ -141,7 +151,7 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
               <div key={i} className="flex gap-2">
                 <input className="input uppercase" placeholder={f.type === "police" ? "LEJ-1234 (Mobile 1)" : "LEA-1234"} value={v.plate_no} onChange={(e) => setVehicles(vehicles.map((x, j) => j === i ? { ...x, plate_no: e.target.value } : x))} />
                 <select className="input w-36" value={v.fuel} onChange={(e) => setVehicles(vehicles.map((x, j) => j === i ? { ...x, fuel: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-                <input className="input w-24" type="number" min={1} placeholder="L/day" aria-label="Daily litre limit" value={v.limit ?? ""} onChange={(e) => setVehicles(vehicles.map((x, j) => j === i ? { ...x, limit: e.target.value } : x))} />
+                <input className="input w-24" type="number" inputMode="decimal" min={1} placeholder="L/day" aria-label="Daily litre limit" value={v.limit ?? ""} onChange={(e) => setVehicles(vehicles.map((x, j) => j === i ? { ...x, limit: e.target.value } : x))} />
                 <button type="button" className="btn-secondary !px-2" aria-label="Remove vehicle" onClick={() => setVehicles(vehicles.filter((_, j) => j !== i))}><Trash2 size={15} /></button>
               </div>
             ))}
@@ -166,7 +176,7 @@ export function SupplierForm({ onClose, onSaved }: { onClose: () => void; onSave
     }}>
       <Field label="Name (e.g. PSO Machike Depot)"><input className="input" required minLength={2} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
       <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
-      <Field label="Opening balance we owe (Rs)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
+      <Field label="Opening balance we owe (Rs)"><input className="input" type="number" inputMode="decimal" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
       <Field label="Notes"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
     </SimpleModal>
   );
@@ -194,8 +204,8 @@ export function StationForm({ edit, onClose, onSaved }: { edit?: any; onClose: (
         <Field label="Services"><input className="input" placeholder="Tuck shop, air, car wash" value={f.services} onChange={(e) => setF({ ...f, services: e.target.value })} /></Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Latitude (for attendance distance)"><input className="input" type="number" step="any" placeholder="31.5204" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} /></Field>
-        <Field label="Longitude"><input className="input" type="number" step="any" placeholder="74.3587" value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} /></Field>
+        <Field label="Latitude (for attendance distance)"><input className="input" type="number" inputMode="decimal" step="any" placeholder="31.5204" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} /></Field>
+        <Field label="Longitude"><input className="input" type="number" inputMode="decimal" step="any" placeholder="74.3587" value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} /></Field>
       </div>
       {!edit && <p className="text-xs text-slate-500">Next: add its tanks, then assign salesmen to it on the Users page.</p>}
     </SimpleModal>
@@ -217,10 +227,10 @@ export function TankForm({ stations, stationId, edit, onClose, onSaved }: { stat
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {!edit && <Field label="Fuel"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{Object.entries(PRODUCTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>}
         <Field label="Tank name"><input className="input" placeholder="Tank-4 Diesel" required={Boolean(edit)} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-        <Field label="Capacity (litres)"><input className="input" type="number" min={1} required value={f.capacity_l} onChange={(e) => setF({ ...f, capacity_l: e.target.value })} /></Field>
-        {!edit && <Field label="Current stock (litres, from dip)"><input className="input" type="number" min={0} required value={f.current_l} onChange={(e) => setF({ ...f, current_l: e.target.value })} /></Field>}
-        <Field label="Reorder at (% full)"><input className="input" type="number" min={5} max={80} value={f.reorder_pct} onChange={(e) => setF({ ...f, reorder_pct: e.target.value })} /></Field>
-        {!edit && <Field label="Number of nozzles"><input className="input" type="number" min={0} max={12} value={f.nozzles} onChange={(e) => setF({ ...f, nozzles: e.target.value })} /></Field>}
+        <Field label="Capacity (litres)"><input className="input" type="number" inputMode="decimal" min={1} required value={f.capacity_l} onChange={(e) => setF({ ...f, capacity_l: e.target.value })} /></Field>
+        {!edit && <Field label="Current stock (litres, from dip)"><input className="input" type="number" inputMode="decimal" min={0} required value={f.current_l} onChange={(e) => setF({ ...f, current_l: e.target.value })} /></Field>}
+        <Field label="Reorder at (% full)"><input className="input" type="number" inputMode="decimal" min={5} max={80} value={f.reorder_pct} onChange={(e) => setF({ ...f, reorder_pct: e.target.value })} /></Field>
+        {!edit && <Field label="Number of nozzles"><input className="input" type="number" inputMode="decimal" min={0} max={12} value={f.nozzles} onChange={(e) => setF({ ...f, nozzles: e.target.value })} /></Field>}
       </div>
       {edit && <p className="text-xs text-slate-500">Stock in the tank changes only through dips and deliveries. Fuel type cannot change once the tank has history.</p>}
     </SimpleModal>
@@ -236,7 +246,7 @@ function CategoryForm({ onClose, onSaved }: { onClose: () => void; onSaved: (c: 
       if (r) onSaved(r);
     }}>
       <Field label="Category name"><input className="input" required minLength={2} placeholder="e.g. Fuel testing" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-      <Field label="Monthly budget (Rs, optional)"><input className="input" type="number" min={0} value={f.monthly_budget} onChange={(e) => setF({ ...f, monthly_budget: e.target.value })} /></Field>
+      <Field label="Monthly budget (Rs, optional)"><input className="input" type="number" inputMode="decimal" min={0} value={f.monthly_budget} onChange={(e) => setF({ ...f, monthly_budget: e.target.value })} /></Field>
     </SimpleModal>
   );
 }

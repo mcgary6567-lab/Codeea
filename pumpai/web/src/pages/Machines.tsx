@@ -101,14 +101,14 @@ function MachineForm({ m, stations, types, onClose, onSaved }: { m: any; station
           <Field label="Serial no."><input className="input" value={f.serial_no} onChange={set("serial_no")} /></Field>
           <Field label="Where"><input className="input" placeholder="Island 1, back yard…" value={f.location} onChange={set("location")} /></Field>
           <Field label="Installed on"><input className="input" type="date" value={f.installed_on} onChange={set("installed_on")} /></Field>
-          <Field label="Price paid (Rs)"><input className="input" type="number" min={0} value={f.cost} onChange={set("cost")} /></Field>
+          <Field label="Price paid (Rs)"><input className="input" type="number" inputMode="decimal" min={0} value={f.cost} onChange={set("cost")} /></Field>
           <Field label="Mechanic / company"><input className="input" value={f.vendor} onChange={set("vendor")} /></Field>
           <Field label="Mechanic phone"><PhoneInput value={f.vendor_phone} onChange={(v) => setF((p: any) => ({ ...p, vendor_phone: v }))} /></Field>
           <Field label="Warranty till"><input className="input" type="date" value={f.warranty_until} onChange={set("warranty_until")} /></Field>
-          <Field label="Service every (days)"><input className="input" type="number" min={1} step={1} placeholder="90" value={f.service_every_days} onChange={set("service_every_days")} /></Field>
-          <Field label="…or every (running hours)"><input className="input" type="number" min={1} step={1} placeholder="250 for a generator" value={f.service_every_hours} onChange={set("service_every_hours")} /></Field>
+          <Field label="Service every (days)"><input className="input" type="number" inputMode="decimal" min={1} step={1} placeholder="90" value={f.service_every_days} onChange={set("service_every_days")} /></Field>
+          <Field label="…or every (running hours)"><input className="input" type="number" inputMode="decimal" min={1} step={1} placeholder="250 for a generator" value={f.service_every_hours} onChange={set("service_every_hours")} /></Field>
           <Field label="Last service on"><input className="input" type="date" value={f.last_service_on} onChange={set("last_service_on")} /></Field>
-          {(f.type === "generator" || f.service_every_hours) && <Field label="Hours meter now"><input className="input" type="number" min={0} value={f.hours} onChange={set("hours")} /></Field>}
+          {(f.type === "generator" || f.service_every_hours) && <Field label="Hours meter now"><input className="input" type="number" inputMode="decimal" min={0} value={f.hours} onChange={set("hours")} /></Field>}
           {m.id && <Field label="Status"><select className="input" value={f.status} onChange={set("status")}>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field>}
         </div>
         <Field label="Notes"><input className="input" value={f.notes} onChange={set("notes")} /></Field>
@@ -145,10 +145,10 @@ function MachineDetail({ id, manager, onEdit, onClose }: { id: number; manager: 
         <div className="flex flex-wrap gap-1.5">{kinds.map((k) => <button type="button" key={k} onClick={() => setF({ ...f, kind: k })} className={`min-h-9 rounded-full px-3 py-1 text-sm sm:min-h-0 ${f.kind === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{k === "fault" ? "Report fault" : LOG[k].label}</button>)}</div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
           <input className="input sm:col-span-2" placeholder={f.kind === "fault" ? "What is wrong? *" : f.kind === "service" ? "What was done (oil, filters, calibration…)" : "Details"} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} required={f.kind === "fault"} />
-          {["service", "repair"].includes(f.kind) && <><input className="input" type="number" min={0} placeholder="Cost Rs (goes to expenses)" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} />
+          {["service", "repair"].includes(f.kind) && <><input className="input" type="number" inputMode="decimal" min={0} placeholder="Cost Rs (goes to expenses)" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} />
             <input className="input" placeholder="Done by" value={f.done_by} onChange={(e) => setF({ ...f, done_by: e.target.value })} /></>}
-          {(f.kind === "reading" || (f.kind === "service" && data.service_every_hours)) && <input className="input" type="number" min={0} placeholder="Hours meter" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} />}
-          {f.kind === "repair" && <input className="input" type="number" min={0} placeholder="Hours it was down" value={f.downtime_hours} onChange={(e) => setF({ ...f, downtime_hours: e.target.value })} />}
+          {(f.kind === "reading" || (f.kind === "service" && data.service_every_hours)) && <input className="input" type="number" inputMode="decimal" min={0} placeholder="Hours meter" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} />}
+          {f.kind === "repair" && <input className="input" type="number" inputMode="decimal" min={0} placeholder="Hours it was down" value={f.downtime_hours} onChange={(e) => setF({ ...f, downtime_hours: e.target.value })} />}
         </div>
         <div className="flex items-center gap-2">
           <PhotoButton kind="proof" label="Photo" onRead={(_r, pid) => setF((x) => ({ ...x, photo_id: pid }))} />{f.photo_id ? <PhotoThumb id={f.photo_id} size={10} /> : null}

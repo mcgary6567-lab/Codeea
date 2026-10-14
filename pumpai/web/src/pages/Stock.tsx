@@ -79,10 +79,10 @@ export default function Stock() {
           <div className="grid grid-cols-2 gap-2">
             <div><div className="mb-1 flex items-center justify-between"><span className="label">Dip stick · ڈپ</span>
               <span className="flex overflow-hidden rounded-md border border-slate-300 text-xs">{(["mm", "cm"] as const).map((u) => <button key={u} type="button" className={`px-2 py-0.5 ${dipUnit === u ? "bg-brand-600 text-white" : "bg-white text-slate-600"}`} onClick={() => { setDipUnit(u); try { localStorage.setItem("pumpai.dip.unit", u); } catch { /* private mode */ } }}>{u}</button>)}</span></div>
-              <input className="input py-3 text-xl" type="number" step={dipUnit === "mm" ? 1 : 0.1} min={0} placeholder={dipUnit === "mm" ? "e.g. 1000" : "e.g. 100.0"} value={dip.cm} onChange={(e) => { setDip({ ...dip, cm: e.target.value, measured_l: "" }); setDipSure(false); }} /></div>
-            <Field label="…or litres"><input className="input py-3 text-xl" type="number" min={0} disabled={Boolean(dip.cm)} required={!dip.cm} value={dip.cm && dipL?.litres != null ? String(dipL.litres) : dip.measured_l} onChange={(e) => { setDip({ ...dip, measured_l: e.target.value }); setDipSure(false); }} /></Field>
+              <input className="input py-3 text-xl" type="number" inputMode="decimal" step={dipUnit === "mm" ? 1 : 0.1} min={0} placeholder={dipUnit === "mm" ? "e.g. 1000" : "e.g. 100.0"} value={dip.cm} onChange={(e) => { setDip({ ...dip, cm: e.target.value, measured_l: "" }); setDipSure(false); }} /></div>
+            <Field label="…or litres"><input className="input py-3 text-xl" type="number" inputMode="decimal" min={0} disabled={Boolean(dip.cm)} required={!dip.cm} value={dip.cm && dipL?.litres != null ? String(dipL.litres) : dip.measured_l} onChange={(e) => { setDip({ ...dip, measured_l: e.target.value }); setDipSure(false); }} /></Field>
           </div>
-          <Field label="Tank temperature (°C) — optional · درجہ حرارت"><input className="input" type="number" step="0.1" min={-10} max={70} placeholder="e.g. 32" value={dip.temp} onChange={(e) => setDip({ ...dip, temp: e.target.value })} /></Field>
+          <Field label="Tank temperature (°C) — optional · درجہ حرارت"><input className="input" type="number" inputMode="decimal" step="0.1" min={-10} max={70} placeholder="e.g. 32" value={dip.temp} onChange={(e) => setDip({ ...dip, temp: e.target.value })} /></Field>
           {dip.temp !== "" && <p className="-mt-1 text-xs text-slate-500">Garmi/sardi ka asar: 15°C par volume correct ho kar dikhega, taake phailao ko loss na samjha jaye.</p>}
           {dipL?.error && <p className="text-xs text-red-600">{dipL.error}</p>}
           {dip.cm && dipL?.litres != null && <p className="text-sm text-slate-600">{dip.cm} {dipUnit} = <b>{num(dipL.litres)} L</b> from the dip chart</p>}
@@ -122,14 +122,14 @@ export default function Stock() {
           {del.photo_id && <p className="flex items-center gap-2 text-xs text-slate-500"><PhotoThumb id={del.photo_id} size={10} /> Invoice photo attached{del.invoice_l ? " — check the filled numbers, then enter the litres received from the dip" : ""}.</p>}
           <Field label="Tank"><select className="input" value={del.tank_id} onChange={(e) => setDel({ ...del, tank_id: e.target.value })}>{tankOpts}</select></Field>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Invoice litres"><input className="input" type="number" min={1} required value={del.invoice_l} onChange={(e) => setDel({ ...del, invoice_l: e.target.value })} /></Field>
-            <Field label="Received (dip difference)"><input className="input" type="number" min={1} required value={del.received_l} onChange={(e) => setDel({ ...del, received_l: e.target.value })} /></Field>
+            <Field label="Invoice litres"><input className="input" type="number" inputMode="decimal" min={1} required value={del.invoice_l} onChange={(e) => setDel({ ...del, invoice_l: e.target.value })} /></Field>
+            <Field label="Received (dip difference)"><input className="input" type="number" inputMode="decimal" min={1} required value={del.received_l} onChange={(e) => setDel({ ...del, received_l: e.target.value })} /></Field>
             <Field label="Tanker no."><input className="input" value={del.tanker_no} onChange={(e) => setDel({ ...del, tanker_no: e.target.value })} /></Field>
             <div className="col-span-2"><Field label="Supplier (depot → company → banda) · سپلائر"><select className="input" required value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
               <option value="">— choose supplier —</option>{supplierOpts(suppliers.data ?? [])}</select>
               {can("suppliers.manage") && <button type="button" className="mt-1 min-h-9 text-xs font-medium text-brand-700 hover:underline" onClick={() => setAddSup(true)}>+ New supplier · نیا سپلائر</button>}</Field></div>
-            <Field label="Purchase rate (Rs/L, from invoice) · ریٹ"><input className="input" type="number" step="0.01" min={1} required value={del.purchase_rate} onChange={(e) => setDel({ ...del, purchase_rate: e.target.value })} /></Field>
-            <Field label="Freight paid (Rs, optional)"><input className="input" type="number" min={0} value={del.freight} onChange={(e) => setDel({ ...del, freight: e.target.value })} />
+            <Field label="Purchase rate (Rs/L, from invoice) · ریٹ"><input className="input" type="number" inputMode="decimal" step="0.01" min={1} required value={del.purchase_rate} onChange={(e) => setDel({ ...del, purchase_rate: e.target.value })} /></Field>
+            <Field label="Freight paid (Rs, optional)"><input className="input" type="number" inputMode="decimal" min={0} value={del.freight} onChange={(e) => setDel({ ...del, freight: e.target.value })} />
               <span className="mt-0.5 block text-[11px] text-slate-500">For comparing depots only — pay it as an expense (Tanker freight) · <span lang="ur" dir="rtl" className="font-urdu">کرایہ خرچے میں لکھیں</span></span></Field>
             {Number(del.invoice_l) > 0 && Number(del.received_l) > 0 && (() => {
               const short = Number(del.invoice_l) - Number(del.received_l), pct = (short / Number(del.invoice_l)) * 100;
@@ -202,7 +202,7 @@ function OrderModal({ s, suppliers, onClose, onDone }: { s: any; suppliers: any[
       }}>
         <p className="text-sm text-slate-600">{PRODUCTS[s.tank.product]} · space in tank: <b>{num(s.room)} L</b></p>
         <Field label="Supplier"><select className="input" value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>{supplierOpts(suppliers, true)}</select></Field>
-        <Field label="Litres"><input className="input py-3 text-2xl" type="number" min={1000} step={1000} max={s.room} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
+        <Field label="Litres"><input className="input py-3 text-2xl" type="number" inputMode="decimal" min={1000} step={1000} max={s.room} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
         <div className="flex flex-wrap gap-2">{[10000, 20000, 30000, 40000].filter((x) => x <= s.room).map((x) => <button type="button" key={x} className="min-h-9 rounded-lg bg-slate-100 px-3 py-1.5 text-sm" onClick={() => setF({ ...f, litres: String(x) })}>{num(x)} L</button>)}</div>
         <Field label="Note for supplier (optional)"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. deliver before 6pm" /></Field>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Send order</button></div>

@@ -106,7 +106,7 @@ function PriceChangeGate() {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {shift.readings.map((r) => (
               <Field key={r.nozzle_id} label={`${r.label} (${PRODUCTS[r.product]}) — last ${num(r.last_reading, 2)}`}>
-                <input className="input" type="number" step="0.01" min={r.last_reading} required value={readings[r.nozzle_id] ?? ""} onChange={(e) => setReadings({ ...readings, [r.nozzle_id]: e.target.value })} />
+                <input className="input" type="number" inputMode="decimal" step="0.01" min={r.last_reading} required value={readings[r.nozzle_id] ?? ""} onChange={(e) => setReadings({ ...readings, [r.nozzle_id]: e.target.value })} />
               </Field>
             ))}
           </div>

@@ -141,7 +141,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
               <Field label="Depot invoice / bilty no."><input className="input" value={f.depot_ref} onChange={(e) => setF({ ...f, depot_ref: e.target.value })} /></Field>
               <Field label="Freight · کرایہ"><select className="input" value={f.freight_by} onChange={(e) => setF({ ...f, freight_by: e.target.value })}>
                 <option value="rate">Included in the rate</option><option value="supplier">Separate — on the supplier's bill</option><option value="cash">Separate — paid in cash</option></select></Field>
-              {f.freight_by !== "rate" && <Field label="Freight amount (Rs)"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" required value={f.freight} onChange={(e) => setF({ ...f, freight: e.target.value })} /></Field>}
+              {f.freight_by !== "rate" && <Field label="Freight amount (Rs)"><input className="input text-right tabular-nums" type="number" inputMode="decimal" min={1} step="0.01" required value={f.freight} onChange={(e) => setF({ ...f, freight: e.target.value })} /></Field>}
             </div>
           </div>
         )}
@@ -216,8 +216,8 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
                     <option value="">— client —</option>{active.map((c) => <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ""}</option>)}</select>
                     {x.location && <div className="mt-0.5 truncate text-[11px] text-slate-500">📍 {x.location}</div>}</td>
                   <td className="td"><select className="input min-w-[120px]" aria-label={`Drop ${i + 1} fuel`} value={fuel} onChange={(e) => setDrop(i, { product: e.target.value, rate: "", order_id: undefined })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
-                                    <td className="td"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} /></td>
-                  <td className="td"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} disabled={!admin} placeholder={card ? String(card) : c ? "no rate" : ""} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
+                                    <td className="td"><input className="input text-right tabular-nums" type="number" inputMode="decimal" min={1} step="0.01" value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} /></td>
+                  <td className="td"><input className="input text-right tabular-nums" type="number" inputMode="decimal" step="0.01" min={0} disabled={!admin} placeholder={card ? String(card) : c ? "no rate" : ""} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
                     {c && !card && <div className="text-[11px] text-red-600">No {PRODUCTS[fuel]} rate</div>}</td>
                   <td className="td text-right text-sm tabular-nums">{Number(x.litres) > 0 && rateOf(x) ? pkr(Number(x.litres) * rateOf(x)) : "—"}</td>
                   <td className="td"><input className="input w-24" value={x.ref} onChange={(e) => setDrop(i, { ref: e.target.value })} /></td>
@@ -236,9 +236,9 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
             <div className="space-y-2">{buy.map((x) => (
               <div key={x.p} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:items-end">
                 <div className="col-span-2 text-sm font-medium sm:col-span-1 sm:pb-2">{PRODUCTS[x.p]}{x.need ? <span className="text-slate-500"> · {num(x.need)} L dropped</span> : null}</div>
-                <Field label="Purchase rate (Rs/L)"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} aria-label={`${PRODUCTS[x.p]} purchase rate`}
+                <Field label="Purchase rate (Rs/L)"><input className="input text-right tabular-nums" type="number" inputMode="decimal" step="0.01" min={0} aria-label={`${PRODUCTS[x.p]} purchase rate`}
                   value={cost[x.p] ?? (supplier?.rates?.[x.p] ?? "")} onChange={(e) => setCost({ ...cost, [x.p]: e.target.value })} /></Field>
-                <Field label="Depot billed (L)"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} placeholder={x.need ? String(x.need) : ""} aria-label={`${PRODUCTS[x.p]} billed litres`}
+                <Field label="Depot billed (L)"><input className="input text-right tabular-nums" type="number" inputMode="decimal" step="0.01" min={0} placeholder={x.need ? String(x.need) : ""} aria-label={`${PRODUCTS[x.p]} billed litres`}
                   value={inv[x.p] ?? ""} onChange={(e) => setInv({ ...inv, [x.p]: e.target.value })} /></Field>
                 <div className="pb-2 text-right text-sm tabular-nums">{x.amount ? pkr(x.amount) : "—"}
                   {x.litres > x.need && x.need > 0 && <span className="block text-[11px] text-amber-700">{num(x.litres - x.need, 2)} L short — claimed from the supplier (beyond the allowed loss)</span>}</div>
@@ -423,8 +423,8 @@ function TankerForm({ initial, drivers, onClose, onSaved }: { initial: any; driv
         if (await run(() => initial.id ? api(`/wholesale/tankers/${initial.id}`, { method: "PATCH", body }) : api("/wholesale/tankers", { body }), "Tanker saved")) onSaved();
       }}>
         <Field label="Number plate · نمبر پلیٹ *"><input className="input uppercase" required value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} placeholder="TLA-1234" /></Field>
-        <Field label="Capacity (litres) · گنجائش"><input className="input" type="number" min={1} value={f.capacity_l} onChange={(e) => setF({ ...f, capacity_l: e.target.value })} /></Field>
-        <Field label="Chambers · خانے"><input className="input" type="number" min={1} max={10} value={f.chambers} onChange={(e) => setF({ ...f, chambers: e.target.value })} /></Field>
+        <Field label="Capacity (litres) · گنجائش"><input className="input" type="number" inputMode="decimal" min={1} value={f.capacity_l} onChange={(e) => setF({ ...f, capacity_l: e.target.value })} /></Field>
+        <Field label="Chambers · خانے"><input className="input" type="number" inputMode="decimal" min={1} max={10} value={f.chambers} onChange={(e) => setF({ ...f, chambers: e.target.value })} /></Field>
         <Field label="Ownership · ملکیت"><select className="input" value={f.ownership} onChange={(e) => setF({ ...f, ownership: e.target.value })}><option value="own">Our own · اپنا</option><option value="hired">Hired · کرائے کا</option></select></Field>
         {f.ownership === "hired" && <><Field label="Owner name · مالک کا نام"><input className="input" value={f.owner_name} onChange={(e) => setF({ ...f, owner_name: e.target.value })} /></Field>
           <Field label="Owner phone · مالک کا فون"><PhoneInput value={f.owner_phone} onChange={(v) => setF({ ...f, owner_phone: v })} /></Field></>}

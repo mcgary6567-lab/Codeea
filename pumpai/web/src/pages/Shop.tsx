@@ -107,10 +107,10 @@ function ItemForm({ item, stationId, onClose, onDone }: { item?: any; stationId:
           <Field label="Category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{cats.list.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></Field>
           <Field label="Barcode"><input className="input font-mono" value={f.barcode} onChange={(e) => setF({ ...f, barcode: e.target.value })} /></Field>
           <Field label="Unit"><input className="input" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} placeholder="pc / can / bottle" /></Field>
-          <Field label="Cost (Rs)"><input className="input" type="number" min={0} step="0.01" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>
-          <Field label="Sale price (Rs)"><input className="input" type="number" min={1} step="0.01" required value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} /></Field>
-          <Field label="Alert when stock ≤"><input className="input" type="number" min={0} value={f.reorder_level} onChange={(e) => setF({ ...f, reorder_level: e.target.value })} /></Field>
-          {!item && <Field label="Opening stock"><input className="input" type="number" min={0} value={f.stock} onChange={(e) => setF({ ...f, stock: e.target.value })} /></Field>}
+          <Field label="Cost (Rs)"><input className="input" type="number" inputMode="decimal" min={0} step="0.01" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>
+          <Field label="Sale price (Rs)"><input className="input" type="number" inputMode="decimal" min={1} step="0.01" required value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} /></Field>
+          <Field label="Alert when stock ≤"><input className="input" type="number" inputMode="decimal" min={0} value={f.reorder_level} onChange={(e) => setF({ ...f, reorder_level: e.target.value })} /></Field>
+          {!item && <Field label="Opening stock"><input className="input" type="number" inputMode="decimal" min={0} value={f.stock} onChange={(e) => setF({ ...f, stock: e.target.value })} /></Field>}
         </div>
         {item && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Show on the POS</label>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
@@ -132,9 +132,9 @@ function StockForm({ kind, item, onClose, onDone }: { kind: "in" | "count"; item
         if (r) onDone();
       }}>
         <p className="text-sm text-slate-600">Book stock: <b>{num(item.stock)} {item.unit}</b></p>
-        <Field label={kind === "in" ? "Quantity received" : "Quantity counted on the shelf"}><input className="input py-3 text-2xl" type="number" min={kind === "in" ? 1 : 0} step="any" required value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} /></Field>
+        <Field label={kind === "in" ? "Quantity received" : "Quantity counted on the shelf"}><input className="input py-3 text-2xl" type="number" inputMode="decimal" min={kind === "in" ? 1 : 0} step="any" required value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} /></Field>
         {kind === "in" ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Cost per unit (Rs)"><input className="input" type="number" min={0} step="0.01" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>
+          <Field label="Cost per unit (Rs)"><input className="input" type="number" inputMode="decimal" min={0} step="0.01" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>
           <Field label="Supplier"><input className="input" value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })} /></Field>
           <div className="sm:col-span-2"><ProofPhotos value={photos} onChange={setPhotos} hint="supplier bill / delivery slip" /></div>
         </div> : <Field label="Reason"><select className="input" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })}>{["Stock count", "Damaged", "Expired", "Used in service", "Other"].map((x) => <option key={x}>{x}</option>)}</select></Field>}

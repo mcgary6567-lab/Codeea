@@ -157,8 +157,8 @@ function CheckItemForm({ onClose }: { onClose: () => void }) {
           <Field label="Answer"><select className="input" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="check">OK / problem</option><option value="number">A reading (number)</option></select></Field>
           {f.kind === "number" && <>
             <Field label="Unit"><input className="input" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} placeholder="mm, ml, kg/m³" /></Field>
-            <div className="grid grid-cols-2 gap-2"><Field label="Lowest OK"><input className="input" type="number" step="any" value={f.min_ok} onChange={(e) => setF({ ...f, min_ok: e.target.value })} /></Field>
-              <Field label="Highest OK"><input className="input" type="number" step="any" value={f.max_ok} onChange={(e) => setF({ ...f, max_ok: e.target.value })} /></Field></div>
+            <div className="grid grid-cols-2 gap-2"><Field label="Lowest OK"><input className="input" type="number" inputMode="decimal" step="any" value={f.min_ok} onChange={(e) => setF({ ...f, min_ok: e.target.value })} /></Field>
+              <Field label="Highest OK"><input className="input" type="number" inputMode="decimal" step="any" value={f.max_ok} onChange={(e) => setF({ ...f, max_ok: e.target.value })} /></Field></div>
           </>}
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.needs_photo} onChange={(e) => setF({ ...f, needs_photo: e.target.checked })} /> Photo required</label>

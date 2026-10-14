@@ -20,7 +20,7 @@ export function OpeningBalanceField({ amount, kind, onChange, label = "Opening b
     <div className="sm:col-span-2 space-y-2">
       <Field label={label}>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input className="input sm:w-44" type="number" min={0} step="0.01" value={amount} onChange={(e) => onChange(e.target.value, kind)} />
+          <input className="input sm:w-44" type="number" inputMode="decimal" min={0} step="0.01" value={amount} onChange={(e) => onChange(e.target.value, kind)} />
           <div className="grid flex-1 grid-cols-2 gap-1 rounded-lg border border-slate-300 p-1">
             {([["due", "Unhein dena hai (due)", "ان کے ذمے"], ["advance", "Advance diya hua (credit)", "ایڈوانس جمع"]] as const).map(([k, l, u]) => (
               <button key={k} type="button" onClick={() => onChange(String(amount), k)}

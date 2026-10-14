@@ -35,8 +35,8 @@ export function LoansBox({ userId, loans, onChanged }: { userId: number; loans: 
         e.preventDefault();
         if (await run(() => api(`/staff/${userId}/loans`, { body: { amount: Number(f.amount), instalment: Number(f.instalment), note: f.note || null, photo_ids: photos } }), "Loan given — paid from the office cash")) { setOpen(false); setF({ amount: "", instalment: "", note: "" }); setPhotos([]); onChanged(); }
       }}>
-        <input className="input" type="number" min={1} required placeholder="Loan Rs" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
-        <input className="input" type="number" min={1} required placeholder="Per month Rs" value={f.instalment} onChange={(e) => setF({ ...f, instalment: e.target.value })} />
+        <input className="input" type="number" inputMode="decimal" min={1} required placeholder="Loan Rs" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+        <input className="input" type="number" inputMode="decimal" min={1} required placeholder="Per month Rs" value={f.instalment} onChange={(e) => setF({ ...f, instalment: e.target.value })} />
         <input className="input" placeholder="Reason" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
         <div className="sm:col-span-4"><ProofPhotos value={photos} onChange={setPhotos} hint="signed loan paper / CNIC copy" /></div>
         <button className="btn-primary" disabled={busy}>Give loan{Number(f.amount) && Number(f.instalment) ? ` (${Math.ceil(Number(f.amount) / Number(f.instalment))} months)` : ""}</button>

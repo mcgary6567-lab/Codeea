@@ -149,7 +149,7 @@ function SupplierForm({ initial, depots, onClose, onSaved, onDepots }: { initial
         </div>
         {(f.company === "Other" || (!knownCompany && f.company !== "")) && <Field label="Write the company"><input className="input" value={f.company === "Other" ? f.companyOther : f.company} onChange={(e) => setF({ ...f, company: "Other", companyOther: e.target.value })} /></Field>}
         <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
-        {!initial && <Field label="Opening balance we owe (Rs)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>}
+        {!initial && <Field label="Opening balance we owe (Rs)"><input className="input" type="number" inputMode="decimal" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>}
         <Field label="Notes (optional)"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         <div className="flex items-center justify-end gap-2">
           {initial && <button type="button" className="btn-secondary mr-auto !text-amber-700" disabled={busy} onClick={() => run(() => api(`/suppliers/${initial.id}`, { method: "PATCH", body: { active: !initial.active } }), initial.active ? "Deactivated" : "Reactivated").then(onSaved)}>{initial.active ? "Deactivate" : "Reactivate"}</button>}
@@ -224,10 +224,10 @@ function SupplierDetail({ id, onClose, onChanged, depots, onDepots }: { id: numb
               const res: any = await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`);
               if (res) { setPay({ ...pay, amount: "", ref: "", wht: "" }); setPhotos([]); reload(); onChanged(); if (res.payment) setSlip(voucherOf(res.payment, res.owed)); }
             }}>
-              <Field label="Pay amount (Rs)"><input className="input sm:w-40" type="number" min={1} required value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></Field>
+              <Field label="Pay amount (Rs)"><input className="input sm:w-40" type="number" inputMode="decimal" min={1} required value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></Field>
               <Field label="Method"><select className="input" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{["Bank transfer", "Pay order", "Online (1LINK)", "Cheque", "Cash"].map((m) => <option key={m}>{m}</option>)}</select></Field>
               <Field label="Ref"><input className="input sm:w-32" value={pay.ref} onChange={(e) => setPay({ ...pay, ref: e.target.value })} /></Field>
-              <Field label="Tax withheld (Rs)"><input className="input sm:w-32" type="number" min={0} placeholder="0" value={pay.wht} onChange={(e) => setPay({ ...pay, wht: e.target.value })} /></Field>
+              <Field label="Tax withheld (Rs)"><input className="input sm:w-32" type="number" inputMode="decimal" min={0} placeholder="0" value={pay.wht} onChange={(e) => setPay({ ...pay, wht: e.target.value })} /></Field>
               <div className="col-span-2 w-full"><AccountPicker method={pay.method} label="Paid from which bank? · کس بینک سے" value={account} onChange={setAccount} /></div>
               <button className="btn-primary col-span-2" disabled={busy || (pay.method === "Cheque" && !photos.length)}><Wallet size={15} /> Record payment</button>
               <div className="col-span-2 w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay.method === "Cheque"} hint="pay order, cheque, bank / 1LINK receipt" /></div>

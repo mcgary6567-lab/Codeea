@@ -136,9 +136,9 @@ function Commission() {
         <div className="space-y-1.5 text-sm">
           {data.categories.map((c: any) => (
             <label key={c.key} className="flex items-center gap-2"><span className="flex-1">{c.label}</span>
-              <input className="input w-20 py-1 text-right" type="number" min={0} max={50} step={0.5} disabled={!can("settings.manage")} value={rates[c.key] ?? "0"} onChange={(e) => setRates({ ...rates, [c.key]: e.target.value })} /> %</label>
+              <input className="input w-20 py-1 text-right" type="number" inputMode="decimal" min={0} max={50} step={0.5} disabled={!can("settings.manage")} value={rates[c.key] ?? "0"} onChange={(e) => setRates({ ...rates, [c.key]: e.target.value })} /> %</label>
           ))}
-          <label className="flex items-center gap-2 border-t border-slate-100 pt-2"><span className="flex-1">Fuel, per litre</span>Rs <input className="input w-20 py-1 text-right" type="number" min={0} max={10} step={0.05} disabled={!can("settings.manage")} value={perL} onChange={(e) => setPerL(e.target.value)} /></label>
+          <label className="flex items-center gap-2 border-t border-slate-100 pt-2"><span className="flex-1">Fuel, per litre</span>Rs <input className="input w-20 py-1 text-right" type="number" inputMode="decimal" min={0} max={10} step={0.05} disabled={!can("settings.manage")} value={perL} onChange={(e) => setPerL(e.target.value)} /></label>
         </div>
         {can("settings.manage") && <button className="btn-primary mt-3 w-full" disabled={busy} onClick={() => run(() => api("/commission/settings", { method: "PUT", body: { shop: Object.fromEntries(Object.entries(rates).map(([k, v]) => [k, Number(v) || 0])), per_litre: Number(perL) || 0 } }), "Rates saved").then(reload)}>Save rates</button>}
       </div>

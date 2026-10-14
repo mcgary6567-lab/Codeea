@@ -89,7 +89,7 @@ function SettingsForm({ data, onClose, onSaved }: { data: any; onClose: () => vo
           ))}
         </div>
         {f.ownership === "rented" && <Field label="Pump rent per month (Rs) — goes into expenses by itself">
-          <input className="input" type="number" min={0} value={f.pump_rent} onChange={(e) => setF({ ...f, pump_rent: e.target.value })} placeholder="e.g. 50000" /></Field>}
+          <input className="input" type="number" inputMode="decimal" min={0} value={f.pump_rent} onChange={(e) => setF({ ...f, pump_rent: e.target.value })} placeholder="e.g. 50000" /></Field>}
         <p className="text-xs text-slate-500">Owned: the shops / hotel inside the pump that you rent out bring in income. On rent: the pump's own rent is an expense each month.</p>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
@@ -114,8 +114,8 @@ function UnitForm({ initial, onClose, onSaved }: { initial: any; onClose: () => 
           <Field label="Type"><select className="input" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
           <Field label="Rented to (name)"><input className="input" value={f.tenant_name} onChange={(e) => setF({ ...f, tenant_name: e.target.value })} /></Field>
           <Field label="Phone"><PhoneInput value={f.phone} onChange={(v) => setF({ ...f, phone: v })} /></Field>
-          <Field label="Rent per month (Rs)"><input className="input" type="number" min={0} required value={f.monthly_rent} onChange={(e) => setF({ ...f, monthly_rent: e.target.value })} /></Field>
-          <Field label="Security deposit (Rs)"><input className="input" type="number" min={0} value={f.deposit} onChange={(e) => setF({ ...f, deposit: e.target.value })} /></Field>
+          <Field label="Rent per month (Rs)"><input className="input" type="number" inputMode="decimal" min={0} required value={f.monthly_rent} onChange={(e) => setF({ ...f, monthly_rent: e.target.value })} /></Field>
+          <Field label="Security deposit (Rs)"><input className="input" type="number" inputMode="decimal" min={0} value={f.deposit} onChange={(e) => setF({ ...f, deposit: e.target.value })} /></Field>
         </div>
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         {initial && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Active (unticked = closed / vacated)</label>}
@@ -136,7 +136,7 @@ function RentPayment({ r, onClose, onDone }: { r: any; onClose: () => void; onDo
         if (await run(() => api(`/rentals/${r.id}/pay`, { body: { amount: Number(f.amount), for_month: f.for_month, method: f.method, account_id: account, ref: f.ref || null } }), (x: any) => `Rent received ${pkr(x.received)}`)) onDone();
       }}>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" inputMode="decimal" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="For month"><input className="input" type="month" value={f.for_month} onChange={(e) => setF({ ...f, for_month: e.target.value })} /></Field>
           <Field label="How"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{["cash", "bank", "jazzcash", "easypaisa", "raast", "card"].map((m) => <option key={m}>{m}</option>)}</select></Field>
           <Field label="Ref / slip"><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>

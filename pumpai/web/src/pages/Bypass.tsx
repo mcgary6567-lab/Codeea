@@ -264,8 +264,8 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
                     onAdd={async (name) => { const s = await api("/suppliers", { body: { name } }); await suppliers.reload(); setBuys(buys.map((x, j) => j === i ? { ...x, supplier_id: String(s.id) } : x)); }} />}
                 </div>
                 <select className="input col-span-3" value={b.product} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{activeProducts.map((pr) => <option key={pr.code} value={pr.code}>{pr.name}</option>)}</select>
-                <input className="input col-span-2" type="number" min={0} step="0.01" placeholder="litre" value={b.litres} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
-                <input className="input col-span-2" type="number" min={0} placeholder="Rs amount" value={b.amount} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
+                <input className="input col-span-2" type="number" inputMode="decimal" min={0} step="0.01" placeholder="litre" value={b.litres} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
+                <input className="input col-span-2" type="number" inputMode="decimal" min={0} placeholder="Rs amount" value={b.amount} onChange={(e) => setBuys(buys.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
                 {buys.length > 1 && <button type="button" className="col-span-12 -mt-1 text-right text-xs text-red-600" onClick={() => setBuys(buys.filter((_, j) => j !== i))}>Remove line</button>}
               </div>
             ))}
@@ -310,7 +310,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
                     onAdd={async (name) => { const c = await api("/wholesale/clients", { body: { name } }); await clients.reload(); setDrops(drops.map((x, j) => j === i ? { ...x, client_id: String(c.id) } : x)); }} />}
                 </div>
                 <select className="input col-span-3" value={d.product} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{activeProducts.map((pr) => <option key={pr.code} value={pr.code}>{pr.name}</option>)}</select>
-                <input className="input col-span-2" type="number" min={0} step="0.01" placeholder="litre" value={d.litres} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
+                <input className="input col-span-2" type="number" inputMode="decimal" min={0} step="0.01" placeholder="litre" value={d.litres} onChange={(e) => setDrops(drops.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
                 <div className="col-span-2 flex items-center justify-end rounded-lg bg-white px-2 text-right text-sm tabular-nums ring-1 ring-slate-200" title={rate > 0 ? `Rate Rs ${rate}/L (card)` : "Rate card nahi"}>
                   {d.client_id && d.client_id !== "__new__" ? (rate > 0 ? pkr(lineAmt) : <span className="text-rose-600">rate?</span>) : <span className="text-slate-400">Rs</span>}
                 </div>
@@ -449,7 +449,7 @@ function PaySupplier({ id, owed, onClose, onDone }: { id: number; owed: number; 
             ))}
           </div>
         </fieldset>
-        <Field label="Amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+        <Field label="Amount (Rs) *"><input className="input" type="number" inputMode="decimal" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
         {needsClient && <Field label="Which client paid? · کون سا کلائنٹ *"><select className="input" required value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value })}>
           <option value="">— choose client —</option>{(clients.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name} · due {pkr(c.due)}</option>)}</select></Field>}
         {needsBank && <>

@@ -215,7 +215,7 @@ function ThekedarForm({ initial, onClose, onSaved }: { initial?: any; onClose: (
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="CNIC"><CnicInput value={f.cnic} onChange={(v) => setF({ ...f, cnic: v })} /></Field>
-          {!initial && <Field label="Opening balance (baqaya)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} placeholder="0" /></Field>}
+          {!initial && <Field label="Opening balance (baqaya)"><input className="input" type="number" inputMode="decimal" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} placeholder="0" /></Field>}
         </div>
         <Field label="Address"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
         <Field label="Notes"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
@@ -265,7 +265,7 @@ function CarriageEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: 
           {lines.map((l, i) => (
             <div key={i} className="flex gap-2">
               <select className="input" value={l.product} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{activeProducts.map((pr) => <option key={pr.code} value={pr.code}>{pr.name}</option>)}</select>
-              <input className="input" type="number" min={0} placeholder="litres" value={l.litres} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
+              <input className="input" type="number" inputMode="decimal" min={0} placeholder="litres" value={l.litres} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
               {lines.length > 1 && <button type="button" className="min-h-10 px-2 text-red-600" aria-label="Remove" onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>}
             </div>
           ))}
@@ -276,15 +276,15 @@ function CarriageEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: 
           <Field label="Tanker / vehicle"><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Kiraya (as written on the depot invoice) · کرایہ *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="e.g. 8000" /></Field>
-          <Field label="Govt cut % (optional) · گورنمنٹ کٹوتی"><input className="input" type="number" min={0} max={100} step="0.01" value={f.govt_pct} onChange={(e) => setF({ ...f, govt_pct: e.target.value })} placeholder="e.g. 10" /></Field>
+          <Field label="Kiraya (as written on the depot invoice) · کرایہ *"><input className="input" type="number" inputMode="decimal" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="e.g. 8000" /></Field>
+          <Field label="Govt cut % (optional) · گورنمنٹ کٹوتی"><input className="input" type="number" inputMode="decimal" min={0} max={100} step="0.01" value={f.govt_pct} onChange={(e) => setF({ ...f, govt_pct: e.target.value })} placeholder="e.g. 10" /></Field>
         </div>
         {pct > 0 && gross > 0 && <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Kiraya {pkr(gross)} − Govt {pct}% ({pkr(govtCut)}) = <b>{pkr(kiraya)}</b> final · <Ur>گورنمنٹ کٹوتی کے بعد</Ur></div>}
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
 
         <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={withFuel} onChange={(e) => setWithFuel(e.target.checked)} /> Fuel money bhi abhi record karein? · <Ur>فیول کا پیسہ بھی</Ur></label>
         {withFuel && <div className="space-y-3 rounded-xl bg-slate-50 p-3">
-          <Field label="Fuel amount (Rs) · depot invoice *"><input className="input" type="number" min={1} value={fu.amount} onChange={(e) => setFu({ ...fu, amount: e.target.value })} /></Field>
+          <Field label="Fuel amount (Rs) · depot invoice *"><input className="input" type="number" inputMode="decimal" min={1} value={fu.amount} onChange={(e) => setFu({ ...fu, amount: e.target.value })} /></Field>
           <div className="grid grid-cols-1 gap-2">
             <button type="button" onClick={() => setFu({ ...fu, mode: "direct" })} aria-pressed={fu.mode === "direct"} className={`rounded-xl px-3 py-2 text-left text-sm ${fu.mode === "direct" ? "bg-slate-800 font-semibold text-white" : "bg-white ring-1 ring-slate-200"}`}>Thekedar paid the depot <b>direct</b> (screenshot)</button>
             <button type="button" onClick={() => setFu({ ...fu, mode: "through_us" })} aria-pressed={fu.mode === "through_us"} className={`rounded-xl px-3 py-2 text-left text-sm ${fu.mode === "through_us" ? "bg-slate-800 font-semibold text-white" : "bg-white ring-1 ring-slate-200"}`}>Thekedar sent it to <b>us</b> → we forward</button>
@@ -319,7 +319,7 @@ function PaymentEntry({ thekedar, onClose, onDone }: { thekedar: any; onClose: (
       }}>
         <p className="text-sm text-slate-600">Current baqaya: <b>{pkr(thekedar.due)}</b></p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Amount (Rs) · رقم *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Amount (Rs) · رقم *"><input className="input" type="number" inputMode="decimal" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Method · طریقہ"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{["Cash", "Bank transfer", "Cheque", "Raast", "JazzCash", "Easypaisa", "Online"].map((m) => <option key={m}>{m}</option>)}</select></Field>
           <Field label="Ref / slip no."><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>

@@ -96,7 +96,7 @@ export function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "d
           <PhotoButton kind="receipt" label="Photo of deposit slip" onRead={(r, id) => setF((x) => ({ ...x, photo_id: id, amount: r?.amount ? String(r.amount) : x.amount }))} />
           <span className="flex items-center gap-2 text-slate-600">{f.photo_id ? <><PhotoThumb id={f.photo_id} size={10} /> Slip attached</> : "Keep the bank slip as proof"}</span>
         </div>}
-        <Field label={kind === "count" ? "Cash counted (Rs)" : "Amount deposited (Rs)"}><input className="input py-3 text-2xl" type="number" min={0} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+        <Field label={kind === "count" ? "Cash counted (Rs)" : "Amount deposited (Rs)"}><input className="input py-3 text-2xl" type="number" inputMode="decimal" min={0} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
         {kind === "count" && <p className="text-sm text-slate-600">The book says <b>{pkr(inHand)}</b> should be in hand.</p>}
         {kind === "deposit" && <>
           {hasAccounts ? <AccountPicker method="bank" required label="Deposited in which account? · کس اکاؤنٹ میں" value={account} onChange={setAccount} />

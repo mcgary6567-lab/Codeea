@@ -311,7 +311,7 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
         <Field label="For what · کس لیے"><input className="input" value={f.category} onChange={(e) => set("category", e.target.value)} placeholder={dir === "in" ? "e.g. Scrap sale, rent" : "e.g. Committee, donation"} /></Field>
       </div>}
 
-      <Field label="Amount (Rs) · رقم *"><input className="input py-3 text-2xl font-semibold" type="number" min={1} step="any" required value={f.amount} onChange={(e) => set("amount", e.target.value)} /></Field>
+      <Field label="Amount (Rs) · رقم *"><input className="input py-3 text-2xl font-semibold" type="number" inputMode="decimal" min={1} step="any" required value={f.amount} onChange={(e) => set("amount", e.target.value)} /></Field>
       {amount > 0 && <p className="-mt-2 text-xs text-slate-500">{toWords(amount)}</p>}
 
       <fieldset>
@@ -855,7 +855,7 @@ function CountCash({ inHand, onClose, onDone }: { inHand: number; onClose: () =>
             </label>
           ))}
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-2 py-1.5"><span className="w-14 shrink-0 text-right text-sm font-semibold">Coins</span><span className="text-slate-400">=</span>
-            <input className="input !py-1.5 text-center" type="number" min={0} value={coins} onChange={(e) => setCoins(e.target.value)} aria-label="Coins" /></label>
+            <input className="input !py-1.5 text-center" type="number" inputMode="decimal" min={0} value={coins} onChange={(e) => setCoins(e.target.value)} aria-label="Coins" /></label>
         </div>
         <div className="rounded-xl bg-slate-800 p-3 text-white">
           <div className="flex justify-between text-sm opacity-80"><span>Book says · <Ur>حساب کے مطابق</Ur></span><span className="tabular-nums">{pkr(inHand)}</span></div>

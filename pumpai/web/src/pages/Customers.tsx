@@ -135,7 +135,7 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
         <Field label="Type"><select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
           {types.list.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}</select></Field>
         <Field label="City"><input className="input" value={f.city ?? ""} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
-        {can("credit.set_limit") ? <Field label="Khata credit limit (Rs)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
+        {can("credit.set_limit") ? <Field label="Khata credit limit (Rs)"><input className="input" type="number" inputMode="decimal" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
           : <div className="pt-5 text-xs text-slate-500">Khata credit limits are set by the admin.</div>}
         <label className="flex items-center gap-2 pt-6 text-sm"><input type="checkbox" checked={!!f.opt_in} onChange={(e) => setF({ ...f, opt_in: e.target.checked })} /> WhatsApp marketing opt-in</label>
         {can("credit.set_limit") && !initial && <OpeningBalanceField amount={f.opening_balance} kind={f.opening_kind} onChange={(amount, kind) => setF({ ...f, opening_balance: amount, opening_kind: kind })} label="Opening balance (Rs) — purana hisaab ya advance" receipt={receipt} onReceipt={setReceipt} />}
@@ -193,7 +193,7 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
               const r = await run(() => api(`/customers/${c.id}/khata`, { body: { type: pay, amount: Number(amount), method, note: pay === "credit" ? "Payment received" : "Manual charge", photo_ids: photos, account_id: pay === "credit" ? account : null } }), pay === "credit" ? "Payment recorded & receipt sent on WhatsApp" : "Charge added");
               if (r) { setPay(null); setAmount(""); setPhotos([]); refresh(); }
             }}>
-              <Field label={pay === "credit" ? "Payment amount · رقم وصول" : "Charge amount · کھاتے میں رقم"}><input className="input w-40" type="number" min={1} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+              <Field label={pay === "credit" ? "Payment amount · رقم وصول" : "Charge amount · کھاتے میں رقم"}><input className="input w-40" type="number" inputMode="decimal" min={1} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
               <Field label="Method · طریقہ"><select className="input w-40" value={method} onChange={(e) => setMethod(e.target.value)}>{["Cash", "JazzCash", "Easypaisa", "Raast", "Bank transfer", "Cheque"].map((m) => <option key={m}>{m}</option>)}</select></Field>
               {pay === "credit" && <div className="w-full"><AccountPicker method={method} value={account} onChange={setAccount} /></div>}
               <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay === "credit" && method === "Cheque"} hint={pay === "credit" ? "cheque, receipt, payment screenshot" : "bill / slip for the charge"} /></div>
@@ -261,7 +261,7 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
               <form className="mt-2 grid grid-cols-2 gap-2 sm:flex" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api(`/customers/${c.id}/vehicles`, { body: { plate_no: plate, fuel: vfuel || null, daily_limit_l: Number(vlimit) > 0 ? Number(vlimit) : null } }), c.credit_limit > 0 ? "Vehicle added — salesmen notified" : "Vehicle added")) { setPlate(""); setVlimit(""); reload(); } }}>
                 <input className="input col-span-2" placeholder="LEA-1234" value={plate} onChange={(e) => setPlate(e.target.value)} />
                 <select className="input sm:w-28" value={vfuel} onChange={(e) => setVfuel(e.target.value)} aria-label="Fuel"><option value="">Any fuel</option><option value="PMG">Petrol</option><option value="HOBC">Hi-Octane</option><option value="HSD">Diesel</option></select>
-                <input className="input sm:w-28" type="number" min={1} placeholder="L / day" aria-label="Daily litre limit" value={vlimit} onChange={(e) => setVlimit(e.target.value)} />
+                <input className="input sm:w-28" type="number" inputMode="decimal" min={1} placeholder="L / day" aria-label="Daily litre limit" value={vlimit} onChange={(e) => setVlimit(e.target.value)} />
                 <button className="btn-secondary col-span-2" disabled={!plate}>Add</button>
               </form>
             </section>
@@ -333,7 +333,7 @@ function GuaranteeSection({ customerId, canEdit }: { customerId: number; canEdit
             {kind === "cheque" ? <>
               <input className="input" placeholder="Cheque no." value={f.cheque_no ?? ""} onChange={(e) => setF({ ...f, cheque_no: e.target.value })} />
               <input className="input" placeholder="Bank" value={f.bank ?? ""} onChange={(e) => setF({ ...f, bank: e.target.value })} />
-              <input className="input" type="number" min={1} placeholder="Amount (Rs)" value={f.amount ?? ""} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+              <input className="input" type="number" inputMode="decimal" min={1} placeholder="Amount (Rs)" value={f.amount ?? ""} onChange={(e) => setF({ ...f, amount: e.target.value })} />
               <input className="input" type="date" value={f.cheque_date ?? ""} onChange={(e) => setF({ ...f, cheque_date: e.target.value })} />
             </> : <>
               <input className="input" placeholder="Guarantor name" value={f.guarantor_name ?? ""} onChange={(e) => setF({ ...f, guarantor_name: e.target.value })} />
