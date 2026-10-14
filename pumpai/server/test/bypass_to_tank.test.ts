@@ -99,3 +99,32 @@ test("permissions and undo: salesman refused; Corrections refuses the delivery r
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("bypass_to_tank_void");
 });
+
+test("one delivery can buy, drop to a client AND unload into our own tank — margin counts only the client drop, tally stays", async () => {
+  const tk = db.get("SELECT tk.* FROM tanks tk JOIN stations s ON s.id=tk.station_id WHERE s.tenant_id=1 AND tk.product='HSD' ORDER BY tk.id LIMIT 1");
+  db.run("UPDATE tanks SET current_l = 1000 WHERE id=?", tk.id);
+  const tankL0 = 1000;
+  const cl = db.get("SELECT id FROM wholesale_clients WHERE tenant_id=1 ORDER BY id LIMIT 1").id;
+  // buy 1000 L @ 250 = 250,000; drop 600 L to client @ 262; unload 400 L into our own tank
+  const r = ok(await call("admin", "POST", "/api/bypass/deliveries", {
+    station_id: tk.station_id,
+    purchases: [{ supplier_id: supplierId, product: "HSD", litres: 1000, cost_rate: 250 }],
+    drops: [{ client_id: cl, product: "HSD", litres: 600, rate: 262 }],
+    to_tank: [{ tank_id: tk.id, product: "HSD", litres: 400 }],
+  }), "combined delivery");
+  near(r.billed, 600 * 262, "client billed = dropped litres × rate");
+  near(r.sold_cost, 600 * 250, "COGS = only the 600 L dropped to the client");
+  near(r.margin, 600 * 262 - 600 * 250, "margin excludes the own-tank 400 L (that is stock, not a loss)");
+  near(r.to_tank_litres, 400, "own-tank litres reported");
+  near(db.get("SELECT current_l FROM tanks WHERE id=?", tk.id).current_l, tankL0 + 400, "our tank got the 400 L");
+  assert.equal(db.get("SELECT COUNT(*) n FROM deliveries WHERE bypass_drop_id IN (SELECT id FROM bypass_drops WHERE delivery_id=? AND tank_id IS NOT NULL)", r.id).n, 1, "a stock-register row for the own-tank unload");
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("bypass combined delivery");
+  assert.equal(ok(await call("admin", "GET", "/api/books/check"), "books").ok, true);
+  // over-stock guard: cannot move (drop + own-tank) more than held + bought
+  const over = await call("admin", "POST", "/api/bypass/deliveries", { station_id: tk.station_id, purchases: [{ supplier_id: supplierId, product: "HSD", litres: 100, cost_rate: 250 }], drops: [{ client_id: cl, product: "HSD", litres: 80, rate: 262 }], to_tank: [{ tank_id: tk.id, product: "HSD", litres: 5000 }] });
+  assert.equal(over.status, 400); assert.match(over.data.error, /own-tank|available|capacity/);
+  // wrong-fuel tank refused
+  const petrolTank = db.get("SELECT id FROM tanks WHERE station_id=? AND product='PMG' LIMIT 1", tk.station_id);
+  if (petrolTank) { const wf = await call("admin", "POST", "/api/bypass/deliveries", { station_id: tk.station_id, purchases: [{ supplier_id: supplierId, product: "HSD", litres: 50, cost_rate: 250 }], to_tank: [{ tank_id: petrolTank.id, product: "HSD", litres: 50 }] }); assert.equal(wf.status, 400); }
+});

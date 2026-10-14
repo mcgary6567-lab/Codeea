@@ -215,24 +215,40 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
   const { busy, run } = useAction();
   const stock = useApi<any>("/bypass/stock");
   const held = (p: string) => (stock.data?.by_product ?? []).find((x: any) => x.product === p)?.litres ?? 0;
+  const heldAvg = (p: string) => Number((stock.data?.by_product ?? []).find((x: any) => x.product === p)?.avg_cost ?? 0);
+  // tanks across all stations, for the "unload into our own tank" rows
+  const stTanks = useMemo(() => (stations.data ?? []).flatMap((s: any) => (s.tanks ?? []).map((tk: any) => ({ ...tk, station: s.name }))), [stations.data]);
+  const [toTank, setToTank] = useState<any[]>([]);
+  const toTankSum = useMemo(() => sumBy(toTank), [toTank]);
 
   const sumBy = (rows: { product: string; litres: string }[]) => rows.reduce((m, r) => { const p = r.product; m[p] = (m[p] ?? 0) + (Number(r.litres) || 0); return m; }, {} as Record<string, number>);
   const bought = useMemo(() => sumBy(buys), [buys]);
   const dropped = useMemo(() => sumBy(drops), [drops]);
   // a drop can draw from the stock already held plus what is being bought right now
-  const overBy = useMemo(() => Object.entries(dropped).filter(([p, l]) => l > held(p) + (bought[p] ?? 0) + 0.01).map(([p, l]) => ({ p, l, have: held(p) + (bought[p] ?? 0) })), [dropped, bought, stock.data]);
+  const needBy = useMemo(() => { const m: Record<string, number> = { ...dropped }; for (const [p, l] of Object.entries(toTankSum)) m[p] = (m[p] ?? 0) + l; return m; }, [dropped, toTankSum]);
+  const overBy = useMemo(() => Object.entries(needBy).filter(([p, l]) => l > held(p) + (bought[p] ?? 0) + 0.01).map(([p, l]) => ({ p, l, have: held(p) + (bought[p] ?? 0) })), [needBy, bought, stock.data]);
   // the client's price comes from their own rate card (CRM): drop amount = litres × card rate
   const clientById = (id: string) => (clients.data ?? []).find((c: any) => String(c.id) === String(id));
   const clientRate = (d: any) => Number(clientById(d.client_id)?.rates?.[d.product] ?? 0);
   const dropLineAmt = (d: any) => Math.round(Number(d.litres || 0) * clientRate(d) * 100) / 100;
   const buyAmt = buys.reduce((a, b) => a + (Number(b.amount) || 0), 0);
   const dropAmt = drops.reduce((a, d) => a + dropLineAmt(d), 0);
-  const profit = dropAmt - buyAmt;
+  // blended cost per litre for a fuel = (held stock value + what we just bought) / (held + bought litres)
+  const buyValBy = useMemo(() => buys.reduce((m: Record<string, number>, b) => { m[b.product] = (m[b.product] ?? 0) + (Number(b.amount) || 0); return m; }, {}), [buys]);
+  const costPerL = (prod: string) => { const hl = held(prod), bl = bought[prod] ?? 0, denom = hl + bl; return denom > 0 ? (hl * heldAvg(prod) + (buyValBy[prod] ?? 0)) / denom : 0; };
+  const toTankL = toTank.reduce((a, r) => a + (Number(r.litres) || 0), 0);
+  const toTankCost = toTank.reduce((a, r) => a + (Number(r.litres) || 0) * costPerL(r.product), 0);
+  // client profit = what the clients pay − cost of ONLY the litres dropped to clients (own-tank fuel is stock, not a loss)
+  const clientCost = drops.reduce((a, d) => a + Number(d.litres || 0) * costPerL(d.product), 0);
+  const clientProfit = Math.round((dropAmt - clientCost) * 100) / 100;
   const validBuys = buys.filter((b) => b.supplier_id && Number(b.litres) > 0 && Number(b.amount) > 0);
   const validDrops = drops.filter((d) => d.client_id && d.client_id !== "__new__" && Number(d.litres) > 0 && clientRate(d) > 0);
   // a chosen client+product with litres but no rate card set yet
   const noRate = drops.filter((d) => d.client_id && d.client_id !== "__new__" && Number(d.litres) > 0 && clientRate(d) <= 0);
-  const valid = !!station && (validBuys.length > 0 || validDrops.length > 0) && overBy.length === 0 && noRate.length === 0;
+  const tankOf = (id: any) => stTanks.find((tk: any) => String(tk.id) === String(id));
+  const validToTank = toTank.filter((r) => r.tank_id && Number(r.litres) > 0 && tankOf(r.tank_id)?.product === r.product);
+  const badTank = toTank.filter((r) => r.tank_id && Number(r.litres) > 0 && tankOf(r.tank_id) && tankOf(r.tank_id).product !== r.product);
+  const valid = !!station && (validBuys.length > 0 || validDrops.length > 0 || validToTank.length > 0) && overBy.length === 0 && noRate.length === 0 && badTank.length === 0;
 
   return (
       <form className="space-y-4" onSubmit={async (e) => {
@@ -241,8 +257,9 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           station_id: Number(station), ...fleetBody(fl), note: note || null, photo_ids: photos,
           purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), amount: Number(b.amount) })),
           drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), order_id: d.order_id ?? null, location: d.location || null })),
+          to_tank: validToTank.map((r) => ({ tank_id: Number(r.tank_id), product: r.product, litres: Number(r.litres), note: null })),
         };
-        const saved = await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Bought ${pkr(r.bought)}, billed ${pkr(r.billed)}, munafa ${pkr(r.margin)}`);
+        const saved = await run(() => api("/bypass/deliveries", { body }), (r: any) => `Delivery #${r.id} saved. Bought ${pkr(r.bought)}, billed ${pkr(r.billed)}, munafa ${pkr(r.margin)}${r.to_tank_litres ? `, apne tank ${num(r.to_tank_litres)} L` : ""}`);
         if (saved) onDone(saved);
       }}>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -326,13 +343,40 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           <p className="mt-1 text-xs text-slate-400">Client ka rate uske apne rate card (CRM) se uthta hai — litre × rate = amount. Rate badalna ho to client ke rate card me badlein. Jitna khareeda + held stock se zyada drop nahi ho sakta.</p>
         </div>
 
-        {/* Live profit = client amount − supplier amount */}
-        {(buyAmt > 0 || dropAmt > 0) && <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold ${profit >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"}`}>
-          <span>Munafa (client amount − supplier amount) · <Ur>منافع</Ur></span><span className="tabular-nums">{pkr(profit)}</span>
+        {/* Unload part of the load into OUR own pump tank (not sold to a client) */}
+        <div className="rounded-xl bg-sky-50 p-3 ring-1 ring-sky-100">
+          <div className="mb-1 text-sm font-semibold">Apne pump ke tank mein (optional) <span className="font-normal text-slate-400">— jo maal client ko nahi diya, apne tank mein khali kiya</span> · <Ur>اپنے ٹینک میں</Ur></div>
+          <div className="space-y-2">
+            {toTank.map((r, i) => { const tk = tankOf(r.tank_id); const bad = r.tank_id && tk && tk.product !== r.product; return (
+              <div key={i} className="grid grid-cols-12 gap-2">
+                <select className="input col-span-3" value={r.product} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, product: e.target.value, tank_id: "" } : x))}>{activeProducts.map((pr) => <option key={pr.code} value={pr.code}>{pr.name}</option>)}</select>
+                <select className="input col-span-6" value={r.tank_id} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, tank_id: e.target.value } : x))}>
+                  <option value="">— apna tank —</option>{stTanks.filter((tk: any) => tk.product === r.product).map((tk: any) => <option key={tk.id} value={tk.id}>{tk.name} · {tk.station} ({num(tk.current_l)}/{num(tk.capacity_l)} L)</option>)}</select>
+                <input className="input col-span-3" type="number" inputMode="decimal" min={0} step="0.01" placeholder="litre" value={r.litres} onChange={(e) => setToTank(toTank.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
+                <div className="col-span-12 -mt-1 flex items-center justify-between">
+                  <span className="text-xs text-slate-500">{bad ? <span className="text-rose-600">Yeh {PRODUCTS[r.product]} tank nahi</span> : Number(r.litres) > 0 && costPerL(r.product) > 0 ? `Cost Rs ${num(Math.round(costPerL(r.product) * 100) / 100, 2)}/L — ye stock hai, loss nahi` : ""}</span>
+                  <button type="button" className="text-xs text-red-600" onClick={() => setToTank(toTank.filter((_, j) => j !== i))}>Remove</button>
+                </div>
+              </div>
+            ); })}
+          </div>
+          <button type="button" className="mt-2 text-xs font-medium text-brand-700 hover:underline" onClick={() => setToTank([...toTank, { product: buys[0]?.product ?? "HSD", litres: "", tank_id: "" }])}>+ Apne tank mein khali karein</button>
+          {stTanks.length === 0 && <p className="mt-1 text-xs text-slate-400">Koi tank nahi mila — pehle Settings me tank add karein.</p>}
+        </div>
+
+        {/* Live result: client profit (real), own-tank (stock, not a loss), and what we owe the supplier */}
+        {(buyAmt > 0 || dropAmt > 0 || toTankL > 0) && <div className="space-y-1">
+          {dropAmt > 0 && <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold ${clientProfit >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"}`}>
+            <span>Client munafa (sale − bike maal ki cost) · <Ur>کلائنٹ منافع</Ur></span><span className="tabular-nums">{pkr(clientProfit)}</span>
+          </div>}
+          {toTankL > 0 && <div className="flex items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-sm font-medium text-sky-900">
+            <span>Apne tank mein daala (stock, loss nahi) · <Ur>اپنے ٹینک میں</Ur></span><span className="tabular-nums">{num(toTankL)} L · {pkr(toTankCost)}</span>
+          </div>}
+          <div className="flex items-center justify-between px-3 text-xs text-slate-500"><span>Supplier ko dene hain · <Ur>سپلائر کو</Ur></span><span className="tabular-nums">{pkr(buyAmt)}</span></div>
         </div>}
 
         {overBy.length > 0 && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
-          {overBy.map((o) => `${PRODUCTS[o.p]}: ${num(o.l)} L drop ho raha hai lekin sirf ${num(o.have)} L available (held + abhi khareeda) — itna stock nahi.`).join(" ")} <Ur className="block">دستیاب سے زیادہ ڈیلیور نہیں ہو سکتا</Ur>
+          {overBy.map((o) => `${PRODUCTS[o.p]}: ${num(o.l)} L (drop + apne tank) nikaal rahe hain lekin sirf ${num(o.have)} L available (held + abhi khareeda) — itna stock nahi.`).join(" ")} <Ur className="block">دستیاب سے زیادہ ڈیلیور نہیں ہو سکتا</Ur>
         </div>}
 
         <Field label="Note"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
