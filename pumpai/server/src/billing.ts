@@ -64,7 +64,7 @@ export async function wholesaleReceipt(tenantId: number, clientId: number, txn: 
   };
   if (!head[txn.type]) return;
   await sendDirect(tenantId, c, `wholesale_${txn.type}`, `wtxn:${txn.id}`,
-    `${c.name}\n${head[txn.type]}\nBalance due now: ${pkr(due)}\n— ${get("SELECT name FROM tenants WHERE id=?", tenantId)!.name}`);
+    `${c.name}\n${head[txn.type]}\n${due < -0.5 ? `Advance baqi: ${pkr(-due)}` : `Balance due now: ${pkr(due)}`}\n— ${get("SELECT name FROM tenants WHERE id=?", tenantId)!.name}`);
 }
 
 export async function wholesaleRateMessage(tenantId: number, clientId: number, lines: string[]) {

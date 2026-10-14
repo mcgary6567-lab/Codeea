@@ -317,7 +317,7 @@ wholesale.get("/wholesale/clients", h((req) => {
 const clientBody = z.object({
   name: z.string().min(2), business_name: z.string().optional().nullable(), phone: z.string().optional().nullable(),
   city: z.string().optional().nullable(), address: z.string().optional().nullable(), notes: z.string().optional().nullable(),
-  credit_limit: z.number().min(0).optional(), opening_balance: z.number().optional(), active: z.boolean().optional(),
+  credit_limit: z.number().min(0).optional(), opening_balance: z.number().optional(), opening_kind: z.enum(["due", "advance"]).optional(), active: z.boolean().optional(),
   rates: z.record(product, rateInput).optional(),
 });
 
@@ -368,9 +368,14 @@ export function followPumpPrice(tenantId: number, changes: { product: string; ol
   return { moved, fixed, perClient };
 }
 
+/** opening_balance is stored signed: positive = client owes us, negative = advance the client paid us. `opening_kind` sets the sign for the UI. */
+const signedOpening = (b: { opening_balance?: number; opening_kind?: "due" | "advance" }) => {
+  if (b.opening_balance === undefined || !b.opening_kind) return;
+  b.opening_balance = b.opening_kind === "advance" ? -Math.abs(b.opening_balance) : Math.abs(b.opening_balance);
+};
 wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h(async (req) => {
   const b = parse(clientBody, req.body);
-  guardFinancials(req, b);
+  guardFinancials(req, b); signedOpening(b);
   const created = tx(() => {
     const { id } = run(
       "INSERT INTO wholesale_clients (tenant_id,name,business_name,phone,city,address,credit_limit,opening_balance,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -389,7 +394,7 @@ wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h(async (r
 wholesale.patch("/wholesale/clients/:id", requirePerm("wholesale.manage"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
   const b = parse(clientBody.partial(), req.body);
-  guardFinancials(req, b);
+  guardFinancials(req, b); signedOpening(b);
   const m = { ...c, ...b };
   run(`UPDATE wholesale_clients SET name=?, business_name=?, phone=?, city=?, address=?, credit_limit=?, opening_balance=?, notes=?, active=? WHERE id=?`,
     m.name, m.business_name ?? null, b.phone ? normalizePhone(b.phone) : c.phone, m.city ?? null, m.address ?? null,

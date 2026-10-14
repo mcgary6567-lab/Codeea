@@ -53,9 +53,9 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
               <div className="text-sm text-slate-600">Fuel account statement · {s.from ?? "start"} to {s.to ?? "today"}</div>
             </div>
             <div className="text-right text-sm">
-              <div>Opening balance: <b className="tabular-nums">{pkr(s.opening_balance)}</b></div>
+              <div>Opening balance{s.opening_balance < -0.5 ? " (advance)" : ""}: <b className="tabular-nums">{pkr(Math.abs(s.opening_balance))}</b></div>
               <div>Charged: <b className="tabular-nums">{pkr(s.totals.charged)}</b> · Paid: <b className="tabular-nums">{pkr(s.totals.paid)}</b></div>
-              <div className="text-lg">Amount due: <b className="tabular-nums">{pkr(s.closing_balance)}</b></div>
+              <div className="text-lg">{s.closing_balance < -0.5 ? "Advance with us" : "Amount due"}: <b className="tabular-nums">{pkr(Math.abs(s.closing_balance))}</b></div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2 text-sm print:hidden">

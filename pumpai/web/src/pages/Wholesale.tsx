@@ -4,8 +4,9 @@ import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printe
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
-import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
+import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort, dueLabel } from "../lib/format";
 import { useAuth } from "../App";
+import { OpeningBalanceField } from "../components/OpeningBalanceField";
 import { WholesaleDashboard } from "../components/WholesaleDashboard";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
@@ -199,7 +200,7 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
             <li key={c.id} className={`cursor-pointer space-y-1.5 p-3 active:bg-slate-50 ${c.active ? "" : "opacity-50"}`} onClick={() => nav(`/wholesale/${c.id}`)}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0"><div className="break-words font-medium">{c.name}</div><div className="break-words text-xs text-slate-500">{c.business_name ?? ""}{c.phone && ` · ${phone(c.phone)}`}</div></div>
-                <div className="shrink-0 text-right"><div className={`font-semibold tabular-nums ${c.due > 0 ? "" : "text-emerald-600"}`}>{pkr(c.due)}</div><div className="text-[11px] text-slate-500">Due · <span lang="ur" className="font-urdu">بقایا</span></div></div>
+                <div className="shrink-0 text-right"><div className={`font-semibold tabular-nums ${c.due > 0 ? "" : "text-emerald-600"}`}>{pkr(Math.abs(c.due))}</div><div className="text-[11px] text-slate-500">{c.due < -0.5 ? <>Advance · <span lang="ur" className="font-urdu">ایڈوانس</span></> : <>Due · <span lang="ur" className="font-urdu">بقایا</span></>}</div></div>
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">{Object.entries(c.rate_card ?? {}).map(([p, r]: any) => <span key={p}>{PRODUCTS[p]}: <b>Rs {r.rate?.toFixed(2) ?? "—"}</b></span>)}{!Object.keys(c.rates).length && <span className="text-amber-600">No rate set · <span lang="ur" className="font-urdu">ریٹ نہیں</span></span>}</div>
               {c.credit_limit > 0 && <div className="flex items-center gap-2"><div className="h-1.5 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${used}%`, background: used >= 90 ? "#e34948" : "#2a78d6" }} /></div><span className="shrink-0 text-[11px] text-slate-500">{Math.round(used)}% of {pkrShort(c.credit_limit)}</span></div>}
@@ -219,7 +220,7 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
                   <td className="td"><div className="font-medium">{c.name}</div><div className="text-xs text-slate-500">{c.business_name ?? ""}{c.phone && ` · ${phone(c.phone)}`}</div></td>
                   <td className="td text-xs">{Object.entries(c.rate_card ?? {}).map(([p, r]: any) => <div key={p}>{PRODUCTS[p]}: <b>Rs {r.rate?.toFixed(2) ?? "—"}</b> <span className={`whitespace-nowrap ${r.mode === "discount" ? "text-violet-700" : "text-slate-400"}`}>{r.label}</span></div>)}{!Object.keys(c.rates).length && <span className="text-amber-600">No rate set</span>}</td>
                   <td className="td text-right tabular-nums">{num(c.month_l)} L</td>
-                  <td className={`td text-right font-semibold tabular-nums ${c.due > 0 ? "" : "text-emerald-600"}`}>{pkr(c.due)}</td>
+                  <td className={`td text-right font-semibold tabular-nums ${c.due > 0 ? "" : "text-emerald-600"}`}>{c.due < -0.5 ? `Adv. ${pkr(-c.due)}` : pkr(c.due)}</td>
                   <td className="td">{c.credit_limit ? <><div className="h-1.5 w-24 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${used}%`, background: used >= 90 ? "#e34948" : "#2a78d6" }} /></div><span className="text-xs text-slate-500">{Math.round(used)}% of {pkrShort(c.credit_limit)}</span></> : <span className="text-xs text-slate-400">No limit</span>}</td>
                   <td className="td text-xs text-slate-500">{ago(c.last_supply)}</td>
                   <td className="td text-xs text-slate-500">{ago(c.last_payment)}</td>
@@ -257,7 +258,7 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
   const admin = can("wholesale.rates");
   const [f, setF] = useState<any>({
     name: initial?.name ?? "", business_name: initial?.business_name ?? "", phone: initial?.phone ?? "", city: initial?.city ?? "", address: initial?.address ?? "",
-    credit_limit: initial?.credit_limit ?? 0, opening_balance: initial?.opening_balance ?? 0, notes: initial?.notes ?? "",
+    credit_limit: initial?.credit_limit ?? 0, opening_balance: Math.abs(initial?.opening_balance ?? 0), opening_kind: (initial?.opening_balance ?? 0) < 0 ? "advance" : "due", notes: initial?.notes ?? "",
   });
   const [rc, setRc] = useState<RateDraft>(() => draftFrom(initial?.rate_card));
   const prices = useApi<any>(admin ? "/prices" : null);
@@ -267,7 +268,8 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
     const body: any = { name: f.name, business_name: f.business_name || null, phone: f.phone || null, city: f.city || null, address: f.address || null, notes: f.notes || null };
     if (admin) {
       body.credit_limit = Number(f.credit_limit) || 0;
-      body.opening_balance = Number(f.opening_balance) || 0;
+      body.opening_balance = Math.abs(Number(f.opening_balance) || 0);
+      body.opening_kind = f.opening_kind;
       const rates = draftToBody(rc);
       if (Object.keys(rates).length) body.rates = rates;
     }
@@ -290,7 +292,7 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
             <RateCardEditor draft={rc} setDraft={setRc} pump={prices.data?.current} />
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Credit limit (Rs, 0 = none)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
-              <Field label="Opening balance (Rs due)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
+              <OpeningBalanceField amount={f.opening_balance} kind={f.opening_kind} onChange={(amount, kind) => setF({ ...f, opening_balance: amount, opening_kind: kind })} />
             </div>
           </div>
         ) : <p className="text-xs text-slate-500">Rates, credit limit and opening balance are set by the admin.</p>}
@@ -357,7 +359,7 @@ function ClientDetail({ id }: { id: string }) {
       {(can("wholesale.manage") || can("wholesale.view")) && <div className="print:hidden"><WholesaleVoice compact clientId={c.id} onDone={refresh} /></div>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Stat label="Current due · بقایا" value={pkr(s.due)} tone={s.due > 0 ? "amber" : "green"} hint={c.credit_limit ? `Limit ${pkr(c.credit_limit)} · ${Math.round((s.due / c.credit_limit) * 100)}% used` : "No credit limit"} />
+        <Stat label={s.due < -0.5 ? "Advance with us · ایڈوانس" : "Current due · بقایا"} value={pkr(Math.abs(s.due))} tone={s.due > 0 ? "amber" : "green"} hint={s.due < -0.5 ? "Client's money lying with us — supplies are cut from it first" : c.credit_limit ? `Limit ${pkr(c.credit_limit)} · ${Math.round((s.due / c.credit_limit) * 100)}% used` : "No credit limit"} />
         <Stat label="Total billed · کل بل" value={pkrShort(s.billed)} hint={`${s.supplies} supplies · opening ${pkr(c.opening_balance)}`} />
         <Stat label="Total received · کل وصولی" value={pkrShort(s.received)} tone="green" hint={`Last payment ${ago(s.last_payment)}`} />
         <Stat label="Returns credited · واپسی" value={pkrShort(s.returned)} hint={s.adjustments ? `Adjustments ${pkr(s.adjustments)}` : undefined} />
@@ -424,7 +426,7 @@ function ClientDetail({ id }: { id: string }) {
         <h2 className="hidden px-4 pt-4 font-semibold print:block">Account statement {range.from && `from ${range.from}`} {range.to && `to ${range.to}`}</h2>
         {stmt.data ? (
           <>
-            <div className="flex justify-between bg-slate-50 px-4 py-2 text-sm"><span>Opening balance</span><span className="font-medium tabular-nums">{pkr(stmt.data.opening_balance)}</span></div>
+            <div className="flex justify-between bg-slate-50 px-4 py-2 text-sm"><span>Opening balance{stmt.data.opening_balance < -0.5 ? " (advance)" : ""}</span><span className="font-medium tabular-nums">{pkr(Math.abs(stmt.data.opening_balance))}</span></div>
             <LedgerTable rows={stmt.data.lines} running onVoid={(can("wholesale.void") || can("wholesale.manage")) ? async (row) => {
               if (row.type === "fuel_note") {
                 if (confirm(`Void this fuel payment of ${pkr(row.amount)}? Any bank movement will be reversed.`)) { await api(`/carriage/fuel-payments/${String(row.id).replace("bfp", "")}/void`, { body: {} }).catch((e) => alert(e.message)); refresh(); }
@@ -433,7 +435,7 @@ function ClientDetail({ id }: { id: string }) {
               const reason = prompt(`Void ${row.type} #${row.id} of ${pkr(row.amount)}? Enter a reason:`);
               if (reason) { await api(`/wholesale/txns/${row.id}/void`, { body: { reason } }).catch((e) => alert(e.message)); refresh(); }
             } : undefined} />
-            <div className="flex justify-between bg-slate-50 px-4 py-2 text-sm font-semibold"><span>Closing balance (due)</span><span className="tabular-nums">{pkr(stmt.data.closing_balance)}</span></div>
+            <div className="flex justify-between bg-slate-50 px-4 py-2 text-sm font-semibold"><span>{stmt.data.closing_balance < -0.5 ? "Closing — advance with us" : "Closing balance (due)"}</span><span className="tabular-nums">{pkr(Math.abs(stmt.data.closing_balance))}</span></div>
           </>
         ) : <Loading />}
       </div>
@@ -542,7 +544,7 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
     if (f.rate && can("wholesale.rates")) body.rate = Number(f.rate);
     if (f.override_limit) body.override_limit = true;
     if (order) body.order_id = order.id;
-    if (await run(() => api(`/wholesale/clients/${client.id}/${kind}`, { body }), (r: any) => `${kind === "supply" ? "Supply" : "Return"} saved. Due now ${pkr(r.due_after)}`)) onDone();
+    if (await run(() => api(`/wholesale/clients/${client.id}/${kind}`, { body }), (r: any) => `${kind === "supply" ? "Supply" : "Return"} saved. ${dueLabel(r.due_after)}`)) onDone();
   };
 
   // ---------- Return: the simple single form (unchanged) ----------
@@ -561,7 +563,7 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
           </div>
           <ProofPhotos value={photos} onChange={setPhotos} hint="return slip" />
           {tank && <p className="text-xs text-slate-500">{tank.name}: {num(tank.current_l)} L · space {num(tank.capacity_l - tank.current_l)} L</p>}
-          {Number(f.litres) > 0 && rate > 0 && <div className="rounded-lg bg-slate-50 p-2 text-sm">{num(Number(f.litres), 2)} L × Rs {rate} = <b>{pkr(amount)}</b> · due after: <b>{pkr(client.summary.due - amount)}</b></div>}
+          {Number(f.litres) > 0 && rate > 0 && <div className="rounded-lg bg-slate-50 p-2 text-sm">{num(Number(f.litres), 2)} L × Rs {rate} = <b>{pkr(amount)}</b> · after: <b>{dueLabel(client.summary.due - amount)}</b></div>}
           <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save return · محفوظ کریں</button></div>
         </form>
       </Modal>
@@ -621,7 +623,7 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
           <div className="flex justify-between py-0.5"><span className="text-slate-500">Station</span><b>{station?.name ?? "—"}</b></div>
           {f.location && <div className="flex justify-between py-0.5"><span className="text-slate-500">Jagah</span><b>{f.location}</b></div>}
           <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-base"><span>Amount</span><b className="text-emerald-700">{pkr(amount)}</b></div>
-          <div className="flex justify-between text-xs text-slate-500"><span>Due after</span><span>{pkr(client.summary.due + amount)}</span></div>
+          <div className="flex justify-between text-xs text-slate-500"><span>After</span><span>{dueLabel(client.summary.due + amount)}</span></div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Delivery note / ref no."><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
@@ -644,9 +646,9 @@ function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () =>
     <Modal open onClose={onClose} title={`Receive payment — ${client.name} · رقم وصول`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        if (await run(() => api(`/wholesale/clients/${client.id}/payment`, { body: { ...f, amount: Number(f.amount), ref: f.ref || null, note: f.note || null, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. Due now ${pkr(r.due_after)}`)) onDone();
+        if (await run(() => api(`/wholesale/clients/${client.id}/payment`, { body: { ...f, amount: Number(f.amount), ref: f.ref || null, note: f.note || null, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. ${dueLabel(r.due_after)}`)) onDone();
       }}>
-        <p className="text-sm text-slate-600">Current due: <b>{pkr(client.summary.due)}</b></p>
+        <p className="text-sm text-slate-600">Now: <b>{dueLabel(client.summary.due)}</b></p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Amount (Rs) · رقم"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Method · طریقہ"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{["Bank transfer", "Cash", "Cheque", "Raast", "JazzCash", "Easypaisa", "Online"].map((m) => <option key={m}>{m}</option>)}</select></Field>
@@ -670,7 +672,7 @@ function AdjustmentEntry({ client, onClose, onDone }: { client: any; onClose: ()
     <Modal open onClose={onClose} title={`Adjustment — ${client.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        if (await run(() => api(`/wholesale/clients/${client.id}/adjustment`, { body: { amount: Number(f.dir) * Number(f.amount), note: f.note, photo_ids: photos } }), (r: any) => `Adjustment saved. Due now ${pkr(r.due_after)}`)) onDone();
+        if (await run(() => api(`/wholesale/clients/${client.id}/adjustment`, { body: { amount: Number(f.dir) * Number(f.amount), note: f.note, photo_ids: photos } }), (r: any) => `Adjustment saved. ${dueLabel(r.due_after)}`)) onDone();
       }}>
         <Field label="Type"><select className="input" value={f.dir} onChange={(e) => setF({ ...f, dir: e.target.value })}><option value="-1">Reduce due (discount, write-off, correction)</option><option value="1">Increase due (charges, freight, correction)</option></select></Field>
         <Field label="Amount (Rs)"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>

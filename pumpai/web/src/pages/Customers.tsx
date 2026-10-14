@@ -5,6 +5,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, CnicInput, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, Stat, statusTone, useAction } from "../components/ui";
 import { ago, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
+import { OpeningBalanceField } from "../components/OpeningBalanceField";
 import { useLookups } from "../lib/lookups";
 import KhataStatement from "../components/KhataStatement";
 import { AccountForm } from "../components/QuickAdd";
@@ -52,7 +53,7 @@ export default function Customers() {
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
                 {c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>}
                 <span>{phone(c.phone)}</span>
-                {c.balance > 0 && <span className="font-medium text-slate-700">Khata {pkr(c.balance)}</span>}
+                {c.balance > 0.5 && <span className="font-medium text-slate-700">Khata {pkr(c.balance)}</span>}{c.balance < -0.5 && <span className="font-medium text-emerald-700">Advance {pkr(-c.balance)}</span>}
                 <span>{num(c.loyalty_points)} pts</span>
                 <span>Visit {ago(c.last_visit_at)}</span>
                 {!c.opt_in && <span>opted out</span>}
@@ -78,7 +79,7 @@ export default function Customers() {
                   <td className="td"><div className="font-medium">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</div><div className="text-xs text-slate-500">{phone(c.phone)} · {c.type}{!c.opt_in && " · opted out"}</div></td>
                   <td className="td">{c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>}</td>
                   <td className="td text-right tabular-nums">{pkr(c.spend_30d ?? 0)}</td>
-                  <td className="td text-right tabular-nums">{c.balance > 0 ? pkr(c.balance) : "—"}</td>
+                  <td className="td text-right tabular-nums">{c.balance > 0.5 ? pkr(c.balance) : c.balance < -0.5 ? <span className="text-emerald-700">Adv. {pkr(-c.balance)}</span> : "—"}</td>
                   <td className="td text-right tabular-nums">{num(c.loyalty_points)}</td>
                   <td className="td"><RiskBar v={c.churn_score * 100} /></td>
                   <td className="td">{c.credit_limit > 0 ? <RiskBar v={c.risk_score} /> : <span className="text-xs text-slate-400">no credit</span>}</td>
@@ -111,12 +112,14 @@ function RiskBar({ v }: { v: number }) {
 function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onClose: () => void; onSaved: (c: any) => void; initial?: any }) {
   const { can } = useAuth();
   const types = useLookups("customer_type");
-  const [f, setF] = useState<any>(initial ?? { name: "", phone: "", type: "retail", city: "", credit_limit: 0, opt_in: true });
+  const [f, setF] = useState<any>(initial ?? { name: "", phone: "", type: "retail", city: "", credit_limit: 0, opt_in: true, opening_balance: "", opening_kind: "due" });
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const body: any = { ...f, credit_limit: Number(f.credit_limit) || 0 };
-    if (!can("credit.set_limit")) delete body.credit_limit;
+    if (!can("credit.set_limit")) { delete body.credit_limit; delete body.opening_balance; delete body.opening_kind; }
+    else if (!initial) { body.opening_balance = Math.abs(Number(f.opening_balance) || 0) || undefined; }
+    if (initial) { delete body.opening_balance; delete body.opening_kind; }
     const r = await run(() => initial ? api(`/customers/${initial.id}`, { method: "PATCH", body }) : api("/customers", { body }), "Customer saved");
     if (r) { onSaved(r); onClose(); }
   };
@@ -131,6 +134,8 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
         {can("credit.set_limit") ? <Field label="Khata credit limit (Rs)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
           : <div className="pt-5 text-xs text-slate-500">Khata credit limits are set by the admin.</div>}
         <label className="flex items-center gap-2 pt-6 text-sm"><input type="checkbox" checked={!!f.opt_in} onChange={(e) => setF({ ...f, opt_in: e.target.checked })} /> WhatsApp marketing opt-in</label>
+        {can("credit.set_limit") && !initial && <OpeningBalanceField amount={f.opening_balance} kind={f.opening_kind} onChange={(amount, kind) => setF({ ...f, opening_balance: amount, opening_kind: kind })} label="Opening balance (Rs) — purana hisaab ya advance" />}
+        {can("credit.set_limit") && initial && <p className="sm:col-span-2 text-xs text-slate-500">Opening balance / advance badalna ho: System → Opening balances (go-live).</p>}
         <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
     </Modal>
@@ -165,7 +170,7 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
             {can("customers.edit") && <button className="min-h-9 px-1 text-xs text-slate-500 hover:underline" disabled={busy} onClick={() => confirm(c.active ? `Archive ${c.name}? They leave the POS, lists and campaigns; their history stays. Khata must be settled first.` : `Bring ${c.name} back?`) && run(() => api(`/customers/${c.id}/archive`, { body: { archived: c.active } }), c.active ? "Archived" : "Restored").then(() => { refresh(); onChanged(); })}>{c.active ? "Archive" : "Restore"}</button>}
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Khata balance" value={pkr(c.balance)} hint={c.credit_limit ? `Limit ${pkr(c.credit_limit)}` : "No credit"} />
+            <Stat label={c.balance < -0.5 ? "Advance with us · ایڈوانس" : "Khata balance"} value={pkr(Math.abs(c.balance))} tone={c.balance < -0.5 ? "green" : "slate"} hint={c.balance < -0.5 ? "Customer's cash lying with us — khata sales are cut from it first" : c.credit_limit ? `Limit ${pkr(c.credit_limit)}` : "No credit"} />
             <Stat label="Loyalty points" value={num(c.loyalty_points)} />
             <Stat label="Churn risk" value={`${Math.round(c.churn_score * 100)}%`} />
             <Stat label="Credit risk" value={c.credit_limit ? `${Math.round(c.risk_score)}/100` : "—"} />

@@ -17,12 +17,15 @@ pos.use("/pos", requirePerm("sales.create"));
  */
 /** A khata account as the POS sees it (salesmen do not see balances). */
 function khataItem(c: Row, showBalance: boolean) {
-  const used = c.balance / c.credit_limit;
+  // an advance (minus balance) is credit the customer already paid for: the account is open until it is used up
+  const advance = c.balance < -0.5 ? -c.balance : 0;
+  const used = c.credit_limit > 0 ? c.balance / c.credit_limit : advance > 0 ? 0 : 1;
   return {
     id: c.id, name: c.name, type: c.type, city: c.city,
     is_new: Date.now() - Date.parse(c.created_at) < 3 * 86_400_000,
     status: c.khata_blocked ? "full" : used >= 1 ? "full" : used >= 0.9 ? "near" : "ok", blocked: Boolean(c.khata_blocked),
     ...(showBalance ? { balance: c.balance, credit_limit: c.credit_limit, available: Math.max(0, c.credit_limit - c.balance) } : {}),
+    advance,
     vehicles: all("SELECT plate_no FROM vehicles WHERE customer_id=? ORDER BY plate_no", c.id).map((v) => v.plate_no),
   };
 }
@@ -63,12 +66,12 @@ pos.get("/pos/card/:code", h((req) => {
   const v = get(`SELECT v.plate_no, c.* FROM vehicles v JOIN customers c ON c.id=v.customer_id WHERE v.card_code=? AND c.tenant_id=?`, code, tid(req));
   const c = v ?? get("SELECT * FROM customers WHERE card_code=? AND tenant_id=?", code, tid(req));
   if (!c) throw new AppError(404, "Card not found. Ask the manager.");
-  if (!(c.credit_limit > 0)) throw new AppError(400, `${c.name} has no khata account`);
+  if (!(c.credit_limit > 0) && !(c.balance < -0.5)) throw new AppError(400, `${c.name} has no khata account`);
   return { account: khataItem(c, req.user!.role !== "salesman"), vehicle: v?.plate_no ?? null };
 }));
 
 pos.get("/pos/khata-accounts", h((req) => {
-  const rows = all("SELECT id, name, type, city, balance, credit_limit, khata_blocked, created_at FROM customers WHERE tenant_id=? AND credit_limit > 0 AND active=1 ORDER BY name", tid(req));
+  const rows = all("SELECT id, name, type, city, balance, credit_limit, khata_blocked, created_at FROM customers WHERE tenant_id=? AND (credit_limit > 0 OR balance < -0.5) AND active=1 ORDER BY name", tid(req));
   const inst = new Set(institutionTypes(tid(req))); // institutions first (Settings → Lists → Customer types)
   const order = (t: string) => (inst.has(t) ? 0 : t === "fleet" ? 1 : t === "farmer" ? 2 : 3);
   const showBalance = req.user!.role !== "salesman";

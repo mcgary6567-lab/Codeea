@@ -19,6 +19,8 @@ export function normalizePhone(raw: string): string {
 
 /** Rupees the Pakistani way: Rs 15,20,945 (lakh / crore grouping, same as the app screens). */
 export const pkr = (n: number) => "Rs " + Math.round(n).toLocaleString("en-IN");
+/** A party balance in words: positive = they owe us, negative = their advance lies with us. */
+export const dueText = (n: number) => (n < -0.5 ? `Advance ${pkr(-n)} (humare paas jama)` : `Due ${pkr(n)}`);
 export const rateFmt = (n: number) => "Rs " + n.toFixed(2);
 
 export function currentPrices(tenantId: number, at: string = now()): Record<string, { price: number; effective_from: string }> {
@@ -140,7 +142,9 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     if (customer.khata_blocked) throw new AppError(400, `${customer.name}: khata is on hold because payment is overdue. Ask the manager.`);
     // a card-pending fill locks no rate and raises no debt yet, so the credit limit is only checked when it is cleared
     if (!pending && customer.balance + amount > customer.credit_limit)
-      throw new AppError(400, `Credit limit exceeded: balance ${pkr(customer.balance)}, limit ${pkr(customer.credit_limit)}`);
+      throw new AppError(400, customer.balance < -0.5
+        ? `Advance khatam: ${pkr(-customer.balance)} advance baqi hai, yeh sale ${pkr(amount)} ki hai${customer.credit_limit > 0 ? ` (limit ${pkr(customer.credit_limit)})` : " aur khata limit nahi"}`
+        : `Credit limit exceeded: balance ${pkr(customer.balance)}, limit ${pkr(customer.credit_limit)}`);
   }
   if (s.payment_method === "wallet") {
     if (!customer) throw new AppError(400, "Choose the company whose wallet pays");

@@ -5,7 +5,8 @@ import { all, get, run, tx, now, pkStart, pkEnd, pkDate } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
-import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale, audit, round2 } from "../services.js";
+import { AppError, khataEntry, normalizePhone, paymentLink, pkr, dueText, recordSale, audit, round2 } from "../services.js";
+import { setKhataOpening } from "./opening.js";
 import { productSchema } from "../products.js";
 import { assertLookup } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -59,15 +60,22 @@ const vehicleBody = z.object({ plate_no: z.string().min(3).max(40), fuel: produc
 
 /** Add a customer or a khata (credit) account, optionally with its vehicles, and tell the team. */
 crm.post("/customers", requirePerm("customers.create"), h(async (req) => {
-  const b = parse(customerBody.extend({ vehicles: z.array(vehicleBody).max(50).optional() }), req.body);
+  const b = parse(customerBody.extend({
+    vehicles: z.array(vehicleBody).max(50).optional(),
+    // old balance brought in with the account: "due" = they owe us, "advance" = cash they paid us up front (eaten by their khata sales)
+    opening_balance: z.number().min(0).max(100_000_000).optional(), opening_kind: z.enum(["due", "advance"]).default("due"),
+  }), req.body);
   assertLookup(tid(req), "customer_type", b.type);
   if (b.credit_limit > 0 && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can give khata credit");
+  if (b.opening_balance && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can set an opening balance");
+  const openingAmt = b.opening_balance ? (b.opening_kind === "advance" ? -b.opening_balance : b.opening_balance) : 0;
   const phone = normalizePhone(b.phone);
   if (get("SELECT id FROM customers WHERE tenant_id=? AND phone=?", tid(req), phone)) throw new AppError(400, "A customer with this phone already exists");
   const id = tx(() => {
     const { id } = run("INSERT INTO customers (tenant_id,name,phone,type,city,credit_limit,opt_in,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
       tid(req), b.name, phone, b.type, b.city ?? null, b.credit_limit, b.opt_in ? 1 : 0, b.notes ?? null, now());
     for (const v of b.vehicles ?? []) run("INSERT INTO vehicles (customer_id,plate_no,fuel,daily_limit_l) VALUES (?,?,?,?)", id, v.plate_no.toUpperCase().trim(), v.fuel ?? null, v.daily_limit_l ?? null);
+    if (openingAmt) { setKhataOpening(tid(req), id, openingAmt, now()); audit(tid(req), req.user!, "khata_opening", `customer:${id}`, { amount: openingAmt, kind: b.opening_kind }); }
     return id;
   });
   const plates = (b.vehicles ?? []).map((v) => v.plate_no.toUpperCase().trim());
@@ -155,7 +163,7 @@ crm.post("/customers/:id/khata", requireAny("khata.manage", "cash.receive"), h(a
   const updated = khataEntry(c.id, b.type, b.amount, b.method ?? null, b.note ?? null, b.type === "credit" ? bankAccountFor(tid(req), b.account_id, b.method) : null);
   if (b.photo_ids?.length) linkPhotos(tid(req), b.photo_ids, `khata:${get("SELECT MAX(id) id FROM khata_ledger WHERE customer_id=?", c.id)!.id}`);
   if (b.notify && b.type === "credit")
-    await sendWhatsApp(tid(req), updated, `✅ Shukriya ${updated.name}! ${pkr(b.amount)} ki payment mil gayi${b.method ? ` (${b.method})` : ""}. Naya khata balance: ${pkr(updated.balance)}.`, "system", { kind: "payment_receipt" });
+    await sendWhatsApp(tid(req), updated, `✅ Shukriya ${updated.name}! ${pkr(b.amount)} ki payment mil gayi${b.method ? ` (${b.method})` : ""}. Naya khata balance: ${dueText(updated.balance)}.`, "system", { kind: "payment_receipt" });
   return updated;
 }));
 

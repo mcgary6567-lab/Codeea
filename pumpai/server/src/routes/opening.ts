@@ -43,7 +43,7 @@ const khataOpening = (customerId: number) => {
   return r ? (r.type === "debit" ? r.amount : -r.amount) : 0;
 };
 /** Replace a customer's opening row (and move the balance by the difference). amount>0 owes us, <0 we owe them. */
-function setKhataOpening(t: number, customerId: number, amount: number, at: string) {
+export function setKhataOpening(t: number, customerId: number, amount: number, at: string) {
   const c = get("SELECT id, name FROM customers WHERE id=? AND tenant_id=?", customerId, t);
   if (!c) throw new AppError(404, "Customer not found");
   const amt = round2(amount);

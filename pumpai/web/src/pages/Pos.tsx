@@ -706,6 +706,7 @@ function KhataPicker({ initial, onClose, onPick, discountMax = null, fuelAmount 
                       <span className="block text-lg font-semibold leading-tight">{a.name} {a.is_new && <span className="ml-1 rounded-full bg-emerald-600 px-2 py-0.5 align-middle text-xs font-bold text-white">NEW</span>}</span>
                       <span className="text-sm text-slate-500">{TYPE_LABEL[a.type] ?? a.type}{a.city ? ` · ${a.city}` : ""}</span>
                       {a.status !== "ok" && <span className={`mt-1 block text-sm font-semibold ${a.status === "full" ? "text-red-600" : "text-amber-600"}`}>{a.status === "full" ? "Limit full — ask manager" : "Near limit"}</span>}
+                      {a.advance > 0 && <span className="mt-1 block text-sm font-semibold text-emerald-700">Advance Rs {Math.round(a.advance).toLocaleString()} · <span lang="ur" dir="rtl" className="font-urdu">ایڈوانس</span></span>}
                     </span>
                   </button>
                 ))}
