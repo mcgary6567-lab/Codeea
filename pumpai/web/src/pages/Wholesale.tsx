@@ -6,7 +6,7 @@ import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, 
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort, dueLabel } from "../lib/format";
 import { useAuth } from "../App";
-import { OpeningBalanceField } from "../components/OpeningBalanceField";
+import { OpeningBalanceField, type AdvanceReceipt } from "../components/OpeningBalanceField";
 import { WholesaleDashboard } from "../components/WholesaleDashboard";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
@@ -261,6 +261,7 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
     credit_limit: initial?.credit_limit ?? 0, opening_balance: Math.abs(initial?.opening_balance ?? 0), opening_kind: (initial?.opening_balance ?? 0) < 0 ? "advance" : "due", notes: initial?.notes ?? "",
   });
   const [rc, setRc] = useState<RateDraft>(() => draftFrom(initial?.rate_card));
+  const [receipt, setReceipt] = useState<AdvanceReceipt>({ method: "Cash", account_id: null });
   const prices = useApi<any>(admin ? "/prices" : null);
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
@@ -270,6 +271,7 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
       body.credit_limit = Number(f.credit_limit) || 0;
       body.opening_balance = Math.abs(Number(f.opening_balance) || 0);
       body.opening_kind = f.opening_kind;
+      if (!initial && body.opening_balance && f.opening_kind === "advance" && receipt.method) { body.opening_method = receipt.method; body.opening_account_id = receipt.account_id; }
       const rates = draftToBody(rc);
       if (Object.keys(rates).length) body.rates = rates;
     }
@@ -292,7 +294,8 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
             <RateCardEditor draft={rc} setDraft={setRc} pump={prices.data?.current} />
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Credit limit (Rs, 0 = none)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
-              <OpeningBalanceField amount={f.opening_balance} kind={f.opening_kind} onChange={(amount, kind) => setF({ ...f, opening_balance: amount, opening_kind: kind })} />
+              <OpeningBalanceField amount={f.opening_balance} kind={f.opening_kind} onChange={(amount, kind) => setF({ ...f, opening_balance: amount, opening_kind: kind })} {...(initial ? {} : { receipt, onReceipt: setReceipt })} />
+              {initial && <p className="text-xs text-slate-500 sm:col-span-2">Naya advance aaj mila ho to "Receive payment" se darj karein — cash/bank wahin se chalta hai.</p>}
             </div>
           </div>
         ) : <p className="text-xs text-slate-500">Rates, credit limit and opening balance are set by the admin.</p>}

@@ -64,18 +64,27 @@ crm.post("/customers", requirePerm("customers.create"), h(async (req) => {
     vehicles: z.array(vehicleBody).max(50).optional(),
     // old balance brought in with the account: "due" = they owe us, "advance" = cash they paid us up front (eaten by their khata sales)
     opening_balance: z.number().min(0).max(100_000_000).optional(), opening_kind: z.enum(["due", "advance"]).default("due"),
+    // an advance received today names how it came, so cash / the bank account / the ledger get the money; no method = old (go-live) advance
+    opening_method: z.string().max(40).optional().nullable(), opening_account_id: accountIdField,
   }), req.body);
   assertLookup(tid(req), "customer_type", b.type);
   if (b.credit_limit > 0 && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can give khata credit");
   if (b.opening_balance && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can set an opening balance");
   const openingAmt = b.opening_balance ? (b.opening_kind === "advance" ? -b.opening_balance : b.opening_balance) : 0;
+  const liveAdvance = openingAmt < 0 && b.opening_method ? { method: b.opening_method, account_id: bankAccountFor(tid(req), b.opening_account_id, b.opening_method) } : null;
+  if (liveAdvance && isCheque(liveAdvance.method)) throw new AppError(400, "A cheque advance goes through Receive payment (cheque register) after the account is opened");
+  if (liveAdvance && !liveAdvance.account_id && !/^cash$/i.test(liveAdvance.method.trim())) throw new AppError(400, `${liveAdvance.method}: choose the bank / wallet account the advance came into`);
   const phone = normalizePhone(b.phone);
   if (get("SELECT id FROM customers WHERE tenant_id=? AND phone=?", tid(req), phone)) throw new AppError(400, "A customer with this phone already exists");
   const id = tx(() => {
     const { id } = run("INSERT INTO customers (tenant_id,name,phone,type,city,credit_limit,opt_in,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
       tid(req), b.name, phone, b.type, b.city ?? null, b.credit_limit, b.opt_in ? 1 : 0, b.notes ?? null, now());
     for (const v of b.vehicles ?? []) run("INSERT INTO vehicles (customer_id,plate_no,fuel,daily_limit_l) VALUES (?,?,?,?)", id, v.plate_no.toUpperCase().trim(), v.fuel ?? null, v.daily_limit_l ?? null);
-    if (openingAmt) { setKhataOpening(tid(req), id, openingAmt, now()); audit(tid(req), req.user!, "khata_opening", `customer:${id}`, { amount: openingAmt, kind: b.opening_kind }); }
+    if (liveAdvance) {
+      // today's money: a normal khata receipt (cash book / bank statement / ledger Dr Cash-Bank, Cr Khata receivable)
+      khataEntry(id, "credit", -openingAmt, liveAdvance.method, "Advance received at account opening", liveAdvance.account_id);
+      audit(tid(req), req.user!, "khata_advance_received", `customer:${id}`, { amount: -openingAmt, method: liveAdvance.method, account_id: liveAdvance.account_id });
+    } else if (openingAmt) { setKhataOpening(tid(req), id, openingAmt, now()); audit(tid(req), req.user!, "khata_opening", `customer:${id}`, { amount: openingAmt, kind: b.opening_kind }); }
     return id;
   });
   const plates = (b.vehicles ?? []).map((v) => v.plate_no.toUpperCase().trim());

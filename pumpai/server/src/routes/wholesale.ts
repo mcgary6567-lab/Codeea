@@ -318,6 +318,7 @@ const clientBody = z.object({
   name: z.string().min(2), business_name: z.string().optional().nullable(), phone: z.string().optional().nullable(),
   city: z.string().optional().nullable(), address: z.string().optional().nullable(), notes: z.string().optional().nullable(),
   credit_limit: z.number().min(0).optional(), opening_balance: z.number().optional(), opening_kind: z.enum(["due", "advance"]).optional(), active: z.boolean().optional(),
+  opening_method: z.string().max(40).optional().nullable(), opening_account_id: accountIdField, // an advance received today: how it came
   rates: z.record(product, rateInput).optional(),
 });
 
@@ -376,6 +377,13 @@ const signedOpening = (b: { opening_balance?: number; opening_kind?: "due" | "ad
 wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h(async (req) => {
   const b = parse(clientBody, req.body);
   guardFinancials(req, b); signedOpening(b);
+  // today's advance = a payment txn (cash book / bank / ledger follow), not an opening figure
+  const liveAdvance = (b.opening_balance ?? 0) < 0 && b.opening_method ? { amount: -b.opening_balance!, method: b.opening_method, account_id: bankAccountFor(tid(req), b.opening_account_id, b.opening_method) } : null;
+  if (liveAdvance) {
+    if (isCheque(liveAdvance.method)) throw new AppError(400, "A cheque advance goes through Receive payment (cheque register) after the client is added");
+    if (!liveAdvance.account_id && !/^cash$/i.test(liveAdvance.method.trim())) throw new AppError(400, `${liveAdvance.method}: choose the bank / wallet account the advance came into`);
+    b.opening_balance = 0;
+  }
   const created = tx(() => {
     const { id } = run(
       "INSERT INTO wholesale_clients (tenant_id,name,business_name,phone,city,address,credit_limit,opening_balance,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -383,6 +391,7 @@ wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h(async (r
       b.credit_limit ?? 0, b.opening_balance ?? 0, b.notes ?? null, now(),
     );
     if (b.rates) saveRates(id, b.rates, req.user!.name);
+    if (liveAdvance) insertTxn(req, id, { amount: liveAdvance.amount, method: liveAdvance.method, account_id: liveAdvance.account_id, note: "Advance received at account opening", type: "payment" });
     return { ...get("SELECT * FROM wholesale_clients WHERE id=?", id)!, rates: rates(id), due: clientDue(id) };
   });
   await announce(tid(req), req.user!.id, ["wholesale", "admin"], { type: "new_wholesale_client", data: { client_id: created.id },

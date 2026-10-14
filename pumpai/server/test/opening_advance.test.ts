@@ -67,3 +67,36 @@ test("wholesale client opened with an advance: due is negative, supply reduces i
   const e = ok(await call("admin", "PATCH", `/api/wholesale/clients/${c.id}`, { opening_balance: 40000, opening_kind: "due" }), "edit");
   near(e.opening_balance, 40000);
 });
+
+test("advance received TODAY: cash goes to the cash book, bank transfer to the bank account, ledger tallies", async () => {
+  const { cashPosition } = await import("../src/routes/backoffice.js");
+  const { bankAccounts } = await import("../src/routes/banks.js");
+  const t = 1;
+  const cashBefore = cashPosition(t).cash_in_hand;
+  const acc = bankAccounts(t).accounts.find((a: any) => a.active);
+  const bankBefore = acc.balance;
+  // cash advance
+  const c1 = ok(await call("admin", "POST", "/api/customers", { name: "Cash Advance", phone: "03001234990", type: "retail", opening_balance: 7000, opening_kind: "advance", opening_method: "Cash" }), "cash adv");
+  near(ok(await call("admin", "GET", `/api/customers/${c1.id}`), "read").balance, -7000);
+  near(cashPosition(t).cash_in_hand, cashBefore + 7000, "cash in hand up by the advance");
+  // bank advance into a named account
+  const c2 = ok(await call("admin", "POST", "/api/customers", { name: "Bank Advance", phone: "03001234991", type: "retail", opening_balance: 9000, opening_kind: "advance", opening_method: "Bank transfer", opening_account_id: acc.id }), "bank adv");
+  near(ok(await call("admin", "GET", `/api/customers/${c2.id}`), "read").balance, -9000);
+  near(bankAccounts(t).accounts.find((a: any) => a.id === acc.id).balance, bankBefore + 9000, "bank balance up by the advance");
+  near(cashPosition(t).cash_in_hand, cashBefore + 7000, "cash unchanged by the bank advance");
+  // a bank method without an account is refused
+  const noAcc = await call("admin", "POST", "/api/customers", { name: "No Acc", phone: "03001234992", type: "retail", opening_balance: 100, opening_kind: "advance", opening_method: "JazzCash" });
+  assert.equal(noAcc.status, 400); assert.match(noAcc.data.error, /account/);
+  // go-live advance (no method) moves no money
+  const c3 = ok(await call("admin", "POST", "/api/customers", { name: "Old Advance", phone: "03001234993", type: "retail", opening_balance: 3000, opening_kind: "advance" }), "old adv");
+  near(ok(await call("admin", "GET", `/api/customers/${c3.id}`), "read").balance, -3000);
+  near(cashPosition(t).cash_in_hand, cashBefore + 7000, "cash unchanged by a go-live advance");
+  // wholesale: cash advance today becomes a payment txn, opening stays 0, due negative, cash up
+  const w = ok(await call("admin", "POST", "/api/wholesale/clients", { name: "WS Cash Adv", phone: "03007778899", opening_balance: 20000, opening_kind: "advance", opening_method: "Cash" }), "ws adv");
+  near(w.opening_balance, 0); near(w.due, -20000);
+  near(cashPosition(t).cash_in_hand, cashBefore + 27000, "cash up by the wholesale advance too");
+  const st = ok(await call("admin", "GET", `/api/wholesale/clients/${w.id}/statement`), "ws statement");
+  assert.equal(st.lines[0].type, "payment"); near(st.lines[0].credit, 20000);
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("advance receipts");
+});

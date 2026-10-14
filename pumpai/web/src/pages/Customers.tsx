@@ -5,7 +5,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, CnicInput, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, Stat, statusTone, useAction } from "../components/ui";
 import { ago, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
-import { OpeningBalanceField } from "../components/OpeningBalanceField";
+import { OpeningBalanceField, type AdvanceReceipt } from "../components/OpeningBalanceField";
 import { useLookups } from "../lib/lookups";
 import KhataStatement from "../components/KhataStatement";
 import { AccountForm } from "../components/QuickAdd";
@@ -113,12 +113,16 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
   const { can } = useAuth();
   const types = useLookups("customer_type");
   const [f, setF] = useState<any>(initial ?? { name: "", phone: "", type: "retail", city: "", credit_limit: 0, opt_in: true, opening_balance: "", opening_kind: "due" });
+  const [receipt, setReceipt] = useState<AdvanceReceipt>({ method: "Cash", account_id: null });
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const body: any = { ...f, credit_limit: Number(f.credit_limit) || 0 };
     if (!can("credit.set_limit")) { delete body.credit_limit; delete body.opening_balance; delete body.opening_kind; }
-    else if (!initial) { body.opening_balance = Math.abs(Number(f.opening_balance) || 0) || undefined; }
+    else if (!initial) {
+      body.opening_balance = Math.abs(Number(f.opening_balance) || 0) || undefined;
+      if (body.opening_balance && f.opening_kind === "advance" && receipt.method) { body.opening_method = receipt.method; body.opening_account_id = receipt.account_id; }
+    }
     if (initial) { delete body.opening_balance; delete body.opening_kind; }
     const r = await run(() => initial ? api(`/customers/${initial.id}`, { method: "PATCH", body }) : api("/customers", { body }), "Customer saved");
     if (r) { onSaved(r); onClose(); }
@@ -134,7 +138,7 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
         {can("credit.set_limit") ? <Field label="Khata credit limit (Rs)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
           : <div className="pt-5 text-xs text-slate-500">Khata credit limits are set by the admin.</div>}
         <label className="flex items-center gap-2 pt-6 text-sm"><input type="checkbox" checked={!!f.opt_in} onChange={(e) => setF({ ...f, opt_in: e.target.checked })} /> WhatsApp marketing opt-in</label>
-        {can("credit.set_limit") && !initial && <OpeningBalanceField amount={f.opening_balance} kind={f.opening_kind} onChange={(amount, kind) => setF({ ...f, opening_balance: amount, opening_kind: kind })} label="Opening balance (Rs) — purana hisaab ya advance" />}
+        {can("credit.set_limit") && !initial && <OpeningBalanceField amount={f.opening_balance} kind={f.opening_kind} onChange={(amount, kind) => setF({ ...f, opening_balance: amount, opening_kind: kind })} label="Opening balance (Rs) — purana hisaab ya advance" receipt={receipt} onReceipt={setReceipt} />}
         {can("credit.set_limit") && initial && <p className="sm:col-span-2 text-xs text-slate-500">Opening balance / advance badalna ho: System → Opening balances (go-live).</p>}
         <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
