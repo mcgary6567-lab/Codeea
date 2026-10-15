@@ -1,3 +1,3 @@
-latest=4.47
-note=Signal meter capped until every gate passes, manual buttons no longer mark the chart, transfers never read as drawdown, close alert with the right side, deeper AI news read
+latest=4.48
+note=One signal alert: the Slope / 50 EMA cross (colour and ready-to-trade alerts now off by default)
 url=https://goldscalpers.com/thank-you
