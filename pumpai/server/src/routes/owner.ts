@@ -4,7 +4,7 @@
  * and this month's profit. Every number comes from the same books the cashier, banks and accounts use.
  */
 import { Router } from "express";
-import { get, pkDate, pkDayStart, pkStart } from "../db.js";
+import { all, get, pkDate, pkDayStart, pkStart } from "../db.js";
 import { h, tid, requirePerm } from "../auth.js";
 import { round2 } from "../services.js";
 import { cashPosition } from "./backoffice.js";
@@ -97,5 +97,45 @@ owner.get("/owner/overview", requirePerm("reports.view"), h((req) => {
     net_position: round2(money.total + sum(owedToUs) - sum(weOwe)),
     today: today_, activity, online,
     month: { month: pl.month, income: pl.income.total, gross_profit: pl.gross_profit, expenses: pl.expenses.total, net_profit: pl.net_profit, margin_pct: pl.margin_pct },
+  };
+}));
+
+/** Business pulse: a 14-day trend of retail fuel sale + expenses, today vs the 7-day average (anomaly flag),
+ *  a simple 7-day sale projection, and where the money sits right now. Read-only — nothing is written. */
+owner.get("/owner/pulse", requirePerm("reports.view"), h((req) => {
+  const t = tid(req);
+  const today = pkDate();
+  const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
+  // pk-day (UTC+5) grouped retail fuel sale (wholesale excluded) + litres
+  const salesRows = all(
+    `SELECT strftime('%Y-%m-%d', s.created_at, '+5 hours') d, ROUND(SUM(s.amount),2) sales, ROUND(SUM(s.litres),2) litres, COUNT(*) n
+     FROM sales s JOIN stations st ON st.id=s.station_id
+     WHERE st.tenant_id=? AND s.payment_method <> 'wholesale' AND s.created_at >= ? GROUP BY d`, t, since);
+  const since14 = new Date(Date.now() - 14 * 86_400_000 + 5 * 3600_000).toISOString().slice(0, 10);
+  const expRows = all(
+    `SELECT expense_date d, ROUND(SUM(amount),2) exp FROM expenses WHERE tenant_id=? AND status='approved' AND expense_date >= ? GROUP BY d`,
+    t, since14);
+  const salesBy = new Map(salesRows.map((r: any) => [r.d, r]));
+  const expBy = new Map(expRows.map((r: any) => [r.d, r.exp]));
+  // build an ordered 14-day series (oldest → today), filling gaps with 0
+  const days: string[] = [];
+  for (let i = 13; i >= 0; i--) days.push(new Date(Date.now() - i * 86_400_000 + 5 * 3600_000).toISOString().slice(0, 10));
+  const series = days.map((d) => ({ day: d, sales: round2((salesBy.get(d) as any)?.sales ?? 0), litres: round2((salesBy.get(d) as any)?.litres ?? 0), expenses: round2((expBy.get(d) as number) ?? 0) }));
+  // today (partial) vs the average of the 7 complete days before today
+  const prev7 = series.slice(-8, -1); // the 7 days before today
+  const avg7 = prev7.length ? round2(prev7.reduce((a, x) => a + x.sales, 0) / prev7.length) : 0;
+  const todaySales = series[series.length - 1].sales;
+  const changePct = avg7 > 0 ? Math.round(((todaySales - avg7) / avg7) * 100) : 0;
+  // simple forward look: 7 days at the running 7-day average
+  const projection7 = round2(avg7 * 7);
+  // where the money sits now
+  const cash = cashPosition(t), banks = bankAccounts(t), ws = cashWithSalesmen(t);
+  const expAvg7 = prev7.length ? round2(prev7.reduce((a, x) => a + x.expenses, 0) / prev7.length) : 0;
+  return {
+    as_of: new Date().toISOString(),
+    series,
+    today: { sales: todaySales, vs_avg7_pct: changePct, avg7, down: avg7 > 0 && changePct <= -20 },
+    projection: { next7_sales: projection7, avg_daily_sales: avg7, avg_daily_expense: expAvg7, est_net_7d: round2((avg7 - expAvg7) * 7) },
+    money_now: { office_cash: cash.cash_in_hand, with_salesmen: ws.total, banks: banks.total, total: round2(cash.cash_in_hand + ws.total + banks.total) },
   };
 }));

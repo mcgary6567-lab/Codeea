@@ -13,9 +13,38 @@ export default function Insights() {
   return (
     <div className="space-y-5">
       <PageHeader title="Owner insights" subtitle="Health score, stations, staff, profit & loss, payment statements, price changes and tank losses" />
+      <OwnerPulse />
       <div className="flex flex-wrap gap-2">{TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`rounded-lg px-3 py-2 text-sm font-medium ${tab === k ? "bg-slate-900 text-white" : "bg-white ring-1 ring-slate-200"}`}>{l}</button>)}</div>
       {tab === "health" && <Health />}{tab === "stations" && <Stations />}{tab === "staff" && <StaffRisk />}{tab === "pl" && <PL />}
       {tab === "reconcile" && <Reconcile />}{tab === "prices" && <Prices />}{tab === "tanks" && <Tanks />}
+    </div>
+  );
+}
+
+/** Business pulse: 14-day retail-sale trend, today vs 7-day average (anomaly), 7-day projection, cash now. */
+function OwnerPulse() {
+  const { data } = useApi<any>("/owner/pulse");
+  if (!data) return null;
+  const max = Math.max(1, ...data.series.map((d: any) => d.sales));
+  const up = data.today.vs_avg7_pct >= 0;
+  return (
+    <div className="card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-semibold">Business pulse · <span className="font-urdu" lang="ur" dir="rtl">کاروبار کی نبض</span></h2>
+        <span className="text-xs text-slate-400">14 din · retail fuel</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Aaj ki sale" value={pkr(data.today.sales)} tone={data.today.down ? "red" : up ? "green" : "amber"} hint={`${up ? "▲" : "▼"} ${Math.abs(data.today.vs_avg7_pct)}% vs 7-din avg`} />
+        <Stat label="7-din avg (rozana)" value={pkr(data.today.avg7)} />
+        <Stat label="Agle 7 din (anuman)" value={pkr(data.projection.next7_sales)} tone="blue" hint={`net ~${pkr(data.projection.est_net_7d)}`} />
+        <Stat label="Abhi paisa" value={pkr(data.money_now.total)} hint={`cash ${pkr(data.money_now.office_cash)} · bank ${pkr(data.money_now.banks)}`} />
+      </div>
+      {data.today.down && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">⚠️ Aaj ki sale 7-din average se {Math.abs(data.today.vs_avg7_pct)}% kam — wajah dekh lein (rate, staff ya bandish).</p>}
+      <div className="mt-3 flex h-16 items-end gap-1">
+        {data.series.map((d: any) => (
+          <div key={d.day} className="flex-1 rounded-t bg-brand-500/80 transition-all hover:bg-brand-600" style={{ height: `${Math.max(3, (d.sales / max) * 100)}%` }} title={`${d.day}: ${pkr(d.sales)}`} />
+        ))}
+      </div>
     </div>
   );
 }
