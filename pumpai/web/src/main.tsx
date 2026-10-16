@@ -3,6 +3,9 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
+// Theme: apply the saved choice before first paint (default: light). Dark mode is opt-in from the menu.
+try { if (localStorage.getItem("pumpai.theme") === "dark") document.documentElement.classList.add("dark"); } catch { /* private mode */ }
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />

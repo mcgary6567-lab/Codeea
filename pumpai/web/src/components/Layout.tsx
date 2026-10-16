@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown, Ban,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText, BookOpenCheck,
-  Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp, Ruler,
+  Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp, Ruler, Sun, Moon,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -306,6 +306,10 @@ export default function Layout() {
   useEffect(() => { setCi(0); }, [cq]);
   const goCmd = (to: string) => { setCmd(false); setQ(""); nav(to); };
 
+  /* ---- light / dark theme toggle (opt-in, saved per device) ---- */
+  const [dark, setDark] = useState(() => { try { return localStorage.getItem("pumpai.theme") === "dark"; } catch { return false; } });
+  const toggleTheme = () => setDark((d) => { const nd = !d; try { localStorage.setItem("pumpai.theme", nd ? "dark" : "light"); } catch { /* private mode */ } document.documentElement.classList.toggle("dark", nd); return nd; });
+
   const sidebar = (
     <nav className="flex h-full flex-col bg-brand-900 text-emerald-50">
       <div className="flex items-center gap-2 px-5 py-5">
@@ -343,6 +347,9 @@ export default function Layout() {
         <div className="text-xs text-emerald-200/80">{ROLE_LABEL[user?.role ?? ""]}</div>
         {user?.station_name && <div className="mt-0.5 flex items-center gap-1 text-xs text-emerald-200/80"><MapPin size={11} />{user.station_name}</div>}
         <div className="mt-3"><InstallAppButton /></div>
+        <button onClick={toggleTheme} className="mt-3 flex items-center gap-2 text-xs text-emerald-200 hover:text-white">
+          {dark ? <Sun size={14} /> : <Moon size={14} />} {dark ? "Light mode · روشن" : "Dark mode · گہرا"}
+        </button>
         <button onClick={() => { logout(); nav("/login"); }} className="mt-3 flex items-center gap-2 text-xs text-emerald-200 hover:text-white">
           <LogOut size={14} /> Sign out
         </button>
@@ -392,6 +399,7 @@ export default function Layout() {
           <button onClick={() => setOpen(!open)} aria-label="Menu">{open ? <X /> : <Menu />}</button>
           <span className="flex-1 font-semibold">⛽ PumpAI</span>
           <button onClick={() => { setCmd(true); setCq(""); setCi(0); }} aria-label="Jump to…" className="text-slate-500"><Search size={20} /></button>
+          <button onClick={toggleTheme} aria-label="Theme" className="text-slate-500">{dark ? <Sun size={20} /> : <Moon size={20} />}</button>
           <NotificationBell />
         </header>
         <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><PrintHeader /><Outlet /><PrintFooter />

@@ -67,3 +67,33 @@ input, select, textarea { min-width: 0; max-width: 100%; }
   tr, .break-inside-avoid { break-inside: avoid; }
   a { color: inherit !important; text-decoration: none !important; }
 }
+
+/* ============ Dark mode (opt-in: html.dark). Scoped to screen so printed documents stay white. ============ */
+@media screen {
+  .dark body { background-color: #0b1220; color: #e5edf7; }
+  .dark .card { background-color: #111c2e; border-color: #24344d; }
+  .dark .input { background-color: #0f1a2b; border-color: #2a3b56; color: #e5edf7; }
+  .dark .input::placeholder { color: #64748b; }
+  .dark .btn-secondary { background-color: #111c2e; border-color: #2a3b56; color: #e5edf7; }
+  .dark .label { color: #94a3b8; }
+  .dark .th { background-color: #0f1a2b !important; color: #94a3b8 !important; border-color: #24344d !important; }
+  .dark .td { border-color: #1e2d44; }
+  /* remap the common light utilities app-wide so inline classes flip without touching every page */
+  .dark .bg-white { background-color: #111c2e !important; }
+  .dark .bg-slate-50 { background-color: #0f1a2b !important; }
+  .dark .bg-slate-100 { background-color: #172338 !important; }
+  .dark .text-slate-900, .dark .text-slate-800 { color: #e5edf7 !important; }
+  .dark .text-slate-700, .dark .text-slate-600 { color: #cbd5e1 !important; }
+  .dark .text-slate-500, .dark .text-slate-400 { color: #94a3b8 !important; }
+  .dark .border-slate-200, .dark .border-slate-300, .dark .border-slate-100 { border-color: #24344d !important; }
+  .dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]), .dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: #24344d !important; }
+  .dark .ring-slate-200, .dark .ring-slate-300 { --tw-ring-color: #24344d !important; }
+  .dark .bg-slate-800, .dark .bg-slate-900 { background-color: #0b1220 !important; }
+  /* soften the light tint cards (stat tiles, alert boxes) so they read on a dark surface */
+  .dark .bg-emerald-50 { background-color: rgba(16,185,129,.12) !important; }
+  .dark .bg-amber-50 { background-color: rgba(245,158,11,.12) !important; }
+  .dark .bg-red-50, .dark .bg-rose-50 { background-color: rgba(244,63,94,.12) !important; }
+  .dark .bg-blue-50 { background-color: rgba(59,130,246,.12) !important; }
+  .dark .bg-slate-50\/60 { background-color: #0f1a2b !important; }
+  .dark .bg-white\/90, .dark .bg-white\/80, .dark .bg-white\/70 { background-color: rgba(17,28,46,.9) !important; }
+}
