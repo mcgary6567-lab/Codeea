@@ -290,7 +290,7 @@ carriage.post("/carriage/txns/:id/void", requirePerm("carriage.void"), h((req) =
 /** CEO edit of a thekedar PAYMENT or ADJUSTMENT: the thekedar's due (and the bank, on a non-cash payment) derive from this
  *  row, so just correct the amount / method / note in place. A kiraya (bypass) trip has fuel legs and a govt cut — it is
  *  refused here (void & re-enter), and a discount row made from Other-entries is sent back there. */
-carriage.post("/carriage/txns/:id/edit", requirePerm("carriage.void"), h((req) => {
+carriage.post("/carriage/txns/:id/edit", requirePerm("entries.edit"), h((req) => {
   const t = tid(req);
   const x = get("SELECT * FROM carriage_txns WHERE id=? AND tenant_id=? AND voided=0", Number(req.params.id), t);
   if (!x) throw new AppError(404, "Entry nahi mili");

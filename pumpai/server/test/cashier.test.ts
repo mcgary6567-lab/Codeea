@@ -206,3 +206,36 @@ test("CEO edits a linked voucher (khata / wholesale / supplier) from the desk �
   assert.equal((await call("cashier", "POST", `/api/cashier/vouchers/${kr.voucher.id}/edit`, { reason: "no", amount: 1 })).status, 403);
   assert.equal(ok(await call("admin", "GET", "/api/books/check"), "books").ok, true);
 });
+
+test("CEO re-routes a voucher: wrong customer → right customer, received → paid, same voucher number, books tally", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  const khataBal = async (id: number) => ok(await call("admin", "GET", "/api/cashier/parties?kind=khata"), "pk").khata.find((x: any) => x.id === id).balance;
+  const ks = ok(await call("admin", "GET", "/api/cashier/parties?kind=khata"), "pk0").khata;
+  const a = ks[0], b = ks[1];
+  const a0 = await khataBal(a.id), b0 = await khataBal(b.id);
+  // the cashier booked customer A's 2,000 payment on customer B by mistake
+  const r = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "khata", party_id: b.id, amount: 2000, method: "Cash", notify: false }), "rec on B");
+  near(await khataBal(b.id), b0 - 2000, "B wrongly credited");
+  const e = ok(await call("admin", "POST", `/api/cashier/vouchers/${r.voucher.id}/edit`, { reason: "galat customer", party_type: "khata", party_id: a.id }), "reroute to A");
+  assert.equal(e.rerouted, true);
+  near(await khataBal(b.id), b0, "B back to where it was");
+  near(await khataBal(a.id), a0 - 2000, "A credited instead");
+  const v = ok(await call("admin", "GET", "/api/cashier/vouchers"), "vouchers").find((x: any) => x.id === r.voucher.id);
+  assert.equal(v.party_id, a.id); assert.match(String(v.src), /^khata:\d+$/); assert.equal(v.voided, 0);
+  assert.equal(db.get("SELECT COUNT(*) n FROM cashier_vouchers WHERE id > ?", r.voucher.id)!.n, 0, "no extra voucher row left behind");
+  await tallyBooks("after re-routing to the right customer");
+
+  // and a slip booked as "received from khata customer" that was really "paid to a supplier"
+  const sup = ok(await call("admin", "GET", "/api/suppliers"), "sup")[0];
+  const cash0 = ok(await call("admin", "GET", "/api/cash"), "cash0").cash_in_hand;
+  const r2 = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "khata", party_id: a.id, amount: 500, method: "Cash", notify: false }), "rec");
+  ok(await call("admin", "POST", `/api/cashier/vouchers/${r2.voucher.id}/edit`, { reason: "ye supplier ko diya tha", direction: "out", party_type: "supplier", party_id: sup.id }), "reroute in→out");
+  near(await khataBal(a.id), a0 - 2000, "A's khata no longer carries the 500");
+  near(ok(await call("admin", "GET", "/api/cash"), "cash1").cash_in_hand, cash0 - 500, "cash: the +500 receipt undone, 500 paid out");
+  const v2 = ok(await call("admin", "GET", "/api/cashier/vouchers"), "vouchers2").find((x: any) => x.id === r2.voucher.id);
+  assert.equal(v2.direction, "out"); assert.equal(v2.party_type, "supplier"); assert.match(String(v2.src), /^stx:\d+$/);
+  await tallyBooks("after re-routing received → paid");
+  assert.equal(ok(await call("admin", "GET", "/api/books/check"), "books").ok, true);
+  // the cashier (no entries.edit) still cannot
+  assert.equal((await call("cashier", "POST", `/api/cashier/vouchers/${r2.voucher.id}/edit`, { reason: "no", amount: 1 })).status, 403);
+});

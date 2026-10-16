@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, useApi } from "../lib/api";
+import { useAuth } from "../App";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { pkr, num } from "../lib/format";
 import { Fuel, Truck, Receipt, Ban, Search, Undo2, Factory, Container, Building2, Pencil } from "lucide-react";
@@ -96,6 +97,7 @@ function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit }: {
   const { data, reload } = useApi<any>(url);
   const { busy, doVoid } = useVoid(reload);
   const [editing, setEditing] = useState<any>(null);
+  const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
   const key = Object.keys(data ?? {}).find((k) => Array.isArray((data ?? {})[k])) ?? "";
   const items: any[] = (data ?? {})[key] ?? [];
   const baseUrl = url.split("?")[0].replace(/s$/, ""); // /corrections/supplier-txns → /corrections/supplier-txn
@@ -106,7 +108,7 @@ function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit }: {
         <div key={r.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3">
           <div className="min-w-0 flex-1"><div className="truncate font-medium">{r.title}</div><div className="truncate text-xs text-slate-500">{r.sub}</div></div>
           <DateCell when={r.when} />
-          {r.voidable && edit && <button disabled={busy} onClick={() => setEditing(x)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
+          {r.voidable && edit && canEdit && <button disabled={busy} onClick={() => setEditing(x)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
           {r.voidable
             ? <button disabled={busy} onClick={() => doVoid(`${baseUrl}/${r.id}/void`, label(x))} className="btn-danger shrink-0" title="Poori entry mansookh — paisa/stock ulta"><Ban size={15} /> Mansookh</button>
             : <span className="w-20 shrink-0 text-right text-[11px] text-slate-400">{(r.owner && elsewhere[r.owner]) || "yahan nahi"}</span>}
@@ -226,6 +228,7 @@ function EditRent({ p, url, onClose, onDone }: { p: any; url: string; onClose: (
 }
 
 function SaleVoid() {
+  const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
   const [q, setQ] = useState("");
   const { data, reload } = useApi<any>(`/corrections/sales?q=${encodeURIComponent(q)}`);
   const { busy, doVoid } = useVoid(reload);
@@ -248,7 +251,7 @@ function SaleVoid() {
                 <div className="truncate text-xs text-slate-500">{[s.customer, s.vehicle_no, s.slip_no && `#${s.slip_no}`, s.station, s.by_name].filter(Boolean).join(" · ")}</div>
               </div>
               <DateCell when={s.created_at} />
-              {editable(s) && <button disabled={busy} onClick={() => setEdit(s)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
+              {editable(s) && canEdit && <button disabled={busy} onClick={() => setEdit(s)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
               <button disabled={busy} onClick={() => doVoid(`/corrections/sale/${s.id}/void`, `Sale mansookh: ${s.product} ${num(s.litres, 2)}L — ${pkr(s.amount)} (${s.payment_method})`)}
                 className="btn-danger shrink-0" title="Poori sale mansookh — paisa/stock ulta"><Ban size={15} /> Mansookh</button>
             </div>
@@ -286,6 +289,7 @@ function EditSale({ sale, onClose, onDone }: { sale: any; onClose: () => void; o
 }
 
 function DeliveryVoid() {
+  const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
   const { data, reload } = useApi<any>("/corrections/deliveries");
   const { busy, doVoid } = useVoid(reload);
   const [edit, setEdit] = useState<any>(null);
@@ -301,7 +305,7 @@ function DeliveryVoid() {
                 <div className="truncate text-xs text-slate-500">{[d.supplier, d.tanker_no, d.tank, `rate ${pkr(d.purchase_rate)}`].filter(Boolean).join(" · ")}</div>
               </div>
               <DateCell when={d.created_at} />
-              {d.voidable && <button disabled={busy} onClick={() => setEdit(d)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
+              {d.voidable && canEdit && <button disabled={busy} onClick={() => setEdit(d)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
               {d.voidable
                 ? <button disabled={busy} onClick={() => doVoid(`/corrections/delivery/${d.id}/void`, `Delivery mansookh: ${d.supplier} ${num(d.received_l)}L — ${pkr(d.amount)}`)} className="btn-danger shrink-0" title="Poori delivery mansookh — payable/stock ulta"><Ban size={15} /> Mansookh</button>
                 : <span className="shrink-0 text-xs text-slate-400">claim pehle handle karein</span>}
@@ -338,6 +342,7 @@ function EditDelivery({ d, onClose, onDone }: { d: any; onClose: () => void; onD
 }
 
 function KhataVoid() {
+  const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
   const [q, setQ] = useState("");
   const [cust, setCust] = useState<{ id: number; name: string } | null>(null);
   const { data: parties } = useApi<any>(q.trim() ? `/cashier/parties?kind=khata` : null);
@@ -373,7 +378,7 @@ function KhataVoid() {
                     <div className="truncate text-xs text-slate-500">{[e.note, e.ref].filter(Boolean).join(" · ")}</div>
                   </div>
                   <DateCell when={e.created_at} />
-                  {e.voidable && <button disabled={busy} onClick={() => setEdit(e)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
+                  {e.voidable && canEdit && <button disabled={busy} onClick={() => setEdit(e)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
                   {e.voidable
                     ? <button disabled={busy} onClick={() => doVoid(`/corrections/khata/${e.id}/void`, `Khata ${e.type === "debit" ? "charge" : "payment"} mansookh: ${pkr(e.amount)}`)} className="btn-danger shrink-0" title="Ye khata entry mansookh — balance ulta"><Ban size={15} /> Mansookh</button>
                     : <span className="w-20 shrink-0 text-right text-[11px] text-slate-400">{e.owner === "sale" ? "Sale se" : e.owner === "other" ? "Other se" : "Cashier se"}</span>}

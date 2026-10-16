@@ -182,7 +182,7 @@ shop.get("/shop/sales", requirePerm("sales.create"), h((req) => {
 
 /** CEO edit of a shop sale's MONEY routing — payment method and/or khata customer (stock, lines and total stay as sold).
  *  The khata leg is reversed on the old customer and re-posted on the new one, so every book stays tallied to the rupee. */
-shop.post("/shop/sales/:id/edit", requirePerm("corrections.manage"), h((req) => {
+shop.post("/shop/sales/:id/edit", requirePerm("entries.edit"), h((req) => {
   const t = tid(req);
   const s = get("SELECT * FROM shop_sales WHERE id=? AND tenant_id=?", Number(req.params.id), t);
   if (!s) throw new AppError(404, "Shop sale nahi mili");

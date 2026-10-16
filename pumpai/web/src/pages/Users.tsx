@@ -31,11 +31,11 @@ const PERM_LABEL: Record<string, string> = {
   "audit.view": "Audit log (who changed what)", "shifts.expenses": "Expenses from shift cash", "staff.manage": "Staff: advances, salary, shortages",
   "carriage.view": "Carriage / kiraya: view", "carriage.manage": "Carriage / kiraya: bill & payments", "carriage.void": "Carriage: void wrong entries", "photos.delete": "Delete uploaded photos (CEO)",
   "bank.view": "Banks: see balances & statements", "bank.manage": "Banks: add accounts, cash out, transfers",
-  "cashier.desk": "Cashier desk & day book", "cash.book": "Cash book: count cash, bank deposits", "cash.receive": "Cashier: receive payments (vouchers)",
+  "entries.edit": "CEO: edit ANY entry (voucher, sale, khata, supplier, wholesale, rent, delivery, shop, carriage)", "cashier.desk": "Cashier desk & day book", "cash.book": "Cash book: count cash, bank deposits", "cash.receive": "Cashier: receive payments (vouchers)",
   "cash.pay": "Cashier: pay suppliers, expenses, staff advances", "cheques.manage": "Cheque register: deposit, clear, bounce", "shifts.handover": "Take cash from salesmen after the shift",
 };
 const PERM_UR: Record<string, string> = {
-  "cashier.desk": "کیشیئر ڈیسک", "cash.book": "کیش بک", "cash.receive": "رقم وصول", "cash.pay": "ادائیگی", "cheques.manage": "چیک رجسٹر", "shifts.handover": "سیلزمین سے کیش",
+  "entries.edit": "کسی بھی اندراج میں ترمیم", "cashier.desk": "کیشیئر ڈیسک", "cash.book": "کیش بک", "cash.receive": "رقم وصول", "cash.pay": "ادائیگی", "cheques.manage": "چیک رجسٹر", "shifts.handover": "سیلزمین سے کیش",
   "bank.view": "بینک بیلنس", "bank.manage": "بینک اندراج", "khata.manage": "کھاتہ", "expenses.create": "خرچہ", "suppliers.manage": "سپلائر",
 };
 /** Rights grouped by area for the one-role view (phone friendly). */

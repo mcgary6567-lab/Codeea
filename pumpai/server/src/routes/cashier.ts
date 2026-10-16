@@ -135,9 +135,13 @@ function notesJson(method: string, notes: Record<string, number> | null | undefi
   return Object.keys(kept).length ? JSON.stringify(kept) : null;
 }
 
-cashier.post("/cashier/receive", requirePerm("cash.receive"), h(async (req) => {
+const receiveBody = moneyBody.extend({ party_type: z.enum(["khata", "wholesale", "other"]) });
+const payBody = moneyBody.extend({ party_type: z.enum(["supplier", "expense", "staff", "other"]) });
+cashier.post("/cashier/receive", requirePerm("cash.receive"), h(async (req) => doReceive(req, parse(receiveBody, req.body))));
+
+/** Post a receipt: the party's own ledger / bank row (src) + the voucher. Shared by the cashier's Receive and the CEO's voucher re-route. */
+async function doReceive(req: Request, b: z.infer<typeof receiveBody>) {
   const t = tid(req);
-  const b = parse(moneyBody.extend({ party_type: z.enum(["khata", "wholesale", "other"]) }), req.body);
   const p = party(t, b.party_type, b.party_id);
   const name = p?.name ?? b.party_name;
   if (!name) throw new AppError(400, "Write who gave the money");
@@ -194,12 +198,15 @@ cashier.post("/cashier/receive", requirePerm("cash.receive"), h(async (req) => {
   if (!src) linkPhotos(t, b.photo_ids, `voucher:${v.id}`);
   return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message,
     ...(supplier ? { depot: { id: supplier.id, name: supplier.name, owed_after: round2(supplierOwed(supplier.id)) } } : {}) };
-}));
+}
 
 /* ---------------- pay ---------------- */
-cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => {
+cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => doPay(req, parse(payBody, req.body))));
+
+/** Post a payment: the party's own ledger / expense / bank row (src) + the voucher. `skipCashCheck` for a re-route whose old cash
+ *  is about to be reversed in the same request. */
+async function doPay(req: Request, b: z.infer<typeof payBody>, skipCashCheck = false) {
   const t = tid(req);
-  const b = parse(moneyBody.extend({ party_type: z.enum(["supplier", "expense", "staff", "other"]) }), req.body);
   const p = b.party_type === "expense" ? null : party(t, b.party_type, b.party_id);
   const name = p?.name ?? b.party_name ?? (b.party_type === "expense" ? b.category : null);
   if (!name) throw new AppError(400, "Write who was paid");
@@ -207,7 +214,7 @@ cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => {
   const account = bankAccountFor(t, b.account_id, cheque ? "bank" : b.method);
   if (!isCash(b.method) && !account) throw new AppError(400, cheque ? "Choose the bank account the cheque is drawn on" : "Choose the bank account the money is paid from");
   if (b.party_type === "staff" && cheque) throw new AppError(400, "Give a staff advance in cash or by bank transfer");
-  if (isCash(b.method)) {
+  if (isCash(b.method) && !skipCashCheck) {
     const pos = cashPosition(t);
     if (pos.last_count && b.amount > pos.cash_in_hand + 0.01) throw new AppError(400, `Only ${pkr(pos.cash_in_hand)} cash should be in hand`);
   }
@@ -248,9 +255,46 @@ cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => {
     account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src, notes_json: notesJson(b.method, b.notes) });
   if (!src) linkPhotos(t, b.photo_ids, `voucher:${v.id}`);
   return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message, approval };
-}));
+}
 
 /* ---------------- void a wrong voucher (CEO only) ---------------- */
+/** Reverse the money / balance a voucher's source row moved, in the SAME table it was written to (books stay tallied).
+ *  Does not touch the voucher row itself. */
+function reverseVoucherSrc(t: number, v: Row, who: string, reason: string) {
+  const [kind, idStr] = String(v.src ?? "").split(":");
+  const srcId = Number(idStr);
+  if (kind === "khata") {
+    const k = get("SELECT type, amount FROM khata_ledger WHERE id=?", srcId);
+    if (k) {
+      run("DELETE FROM khata_ledger WHERE id=?", srcId);
+      // a credit (payment) had lowered the balance → add it back; a debit (charge) had raised it → take it off
+      run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", k.type === "credit" ? k.amount : -k.amount, v.party_id, t);
+    }
+  } else if (kind === "wtx") {
+    run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=? AND tenant_id=?", `${who}: ${reason}`, srcId, t);
+    run("DELETE FROM supplier_txns WHERE tenant_id=? AND ref=?", t, `wtx:${srcId}`); // depot-direct's supplier leg, if any
+  } else if (kind === "stx") {
+    run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", srcId, t);
+  } else if (kind === "staff") {
+    run("DELETE FROM staff_ledger WHERE id=? AND tenant_id=?", srcId, t);
+  } else if (kind === "expense") {
+    run("DELETE FROM expenses WHERE id=? AND tenant_id=?", srcId, t);
+    closeApproval("expense", srcId, false, `${who} (voucher void)`);
+  } else if (kind === "bank") {
+    run("DELETE FROM bank_txns WHERE id=? AND tenant_id=?", srcId, t);
+  }
+}
+/** A re-routed voucher keeps its original date: stamp the freshly posted source row with it (ledger day stays right). */
+function backdateSrc(t: number, src: string | null, at: string) {
+  const [kind, idStr] = String(src ?? "").split(":"); const id = Number(idStr);
+  if (!id) return;
+  if (kind === "khata") run("UPDATE khata_ledger SET created_at=? WHERE id=?", at, id);
+  else if (kind === "wtx") run("UPDATE wholesale_txns SET txn_date=?, created_at=? WHERE id=? AND tenant_id=?", at, at, id, t);
+  else if (kind === "stx") run("UPDATE supplier_txns SET txn_date=?, created_at=? WHERE id=? AND tenant_id=?", at, at, id, t);
+  else if (kind === "staff") run("UPDATE staff_ledger SET created_at=? WHERE id=? AND tenant_id=?", at, id, t);
+  else if (kind === "expense") run("UPDATE expenses SET created_at=? WHERE id=? AND tenant_id=?", at, id, t);
+  else if (kind === "bank") run("UPDATE bank_txns SET txn_date=?, created_at=? WHERE id=? AND tenant_id=?", at, at, id, t);
+}
 /**
  * The owner undoes a wrong cash receive / pay voucher: the money or balance it moved is reversed in the
  * SAME source table it was written to (so the books tally), and the voucher is marked void with a reason.
@@ -268,26 +312,7 @@ cashier.post("/cashier/vouchers/:id/void", requirePerm("cashier.void"), h((req) 
   if (kind === "chq" || kind === "wchq") throw new AppError(400, "Yeh cheque entry hai — cheque register me cancel/return karein");
 
   tx(() => {
-    if (kind === "khata") {
-      const k = get("SELECT type, amount FROM khata_ledger WHERE id=?", srcId);
-      if (k) {
-        run("DELETE FROM khata_ledger WHERE id=?", srcId);
-        // a credit (payment) had lowered the balance → add it back; a debit (charge) had raised it → take it off
-        run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", k.type === "credit" ? k.amount : -k.amount, v.party_id, t);
-      }
-    } else if (kind === "wtx") {
-      run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=? AND tenant_id=?", `${req.user!.name}: ${reason}`, srcId, t);
-      run("DELETE FROM supplier_txns WHERE tenant_id=? AND ref=?", t, `wtx:${srcId}`); // depot-direct's supplier leg, if any
-    } else if (kind === "stx") {
-      run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", srcId, t);
-    } else if (kind === "staff") {
-      run("DELETE FROM staff_ledger WHERE id=? AND tenant_id=?", srcId, t);
-    } else if (kind === "expense") {
-      run("DELETE FROM expenses WHERE id=? AND tenant_id=?", srcId, t);
-      closeApproval("expense", srcId, false, `${req.user!.name} (voucher void)`);
-    } else if (kind === "bank") {
-      run("DELETE FROM bank_txns WHERE id=? AND tenant_id=?", srcId, t);
-    }
+    reverseVoucherSrc(t, v, req.user!.name, reason);
     // the voucher is marked void (for a cash "other" entry, this is what reverses the cash)
     run("UPDATE cashier_vouchers SET voided=1, void_reason=?, voided_by=?, voided_at=? WHERE id=?", reason, req.user!.name, now(), v.id);
   });
@@ -298,7 +323,7 @@ cashier.post("/cashier/vouchers/:id/void", requirePerm("cashier.void"), h((req) 
 /** CEO edit of ANY voucher from the cashier desk — amount / method / note. The underlying source entry (khata payment,
  *  wholesale/supplier payment, staff advance, expense, other cash/bank) is reversed and re-posted with the new values, so
  *  the whole system (party balance, bank, cash, ledger) follows. Cheque vouchers go to the cheque register. Tally stays 0. */
-cashier.post("/cashier/vouchers/:id/edit", requirePerm("cashier.void"), h((req) => {
+cashier.post("/cashier/vouchers/:id/edit", requirePerm("entries.edit"), h(async (req) => {
   const t = tid(req);
   const v = get("SELECT * FROM cashier_vouchers WHERE id=? AND tenant_id=?", Number(req.params.id), t);
   if (!v) throw new AppError(404, "Voucher nahi mila");
@@ -310,12 +335,40 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("cashier.void"), h((req) 
     amount: z.number().positive().max(1_000_000_000).optional(), method: z.string().max(40).optional(),
     note: z.string().max(200).nullable().optional(), category: z.string().max(60).nullable().optional(),
     account_id: z.number().int().positive().nullable().optional(),
+    // re-route: the cashier booked it as the wrong type (received/paid) or on the wrong party
+    direction: z.enum(["in", "out"]).optional(), party_type: z.string().max(20).optional(),
+    party_id: z.number().int().positive().nullable().optional(), party_name: z.string().trim().max(80).nullable().optional(),
   }), req.body);
   const amount = round2(b.amount ?? v.amount);
   const method = b.method ?? v.method;
   if (isCheque(method)) throw new AppError(400, "Cheque method yahan se nahi — Receive/Pay se cheque banayein.");
   const note = b.note !== undefined ? b.note : v.note, category = b.category !== undefined ? b.category : v.category;
-  const acc = isCash(method) ? null : bankAccountFor(t, b.account_id !== undefined ? b.account_id : v.account_id, method);  const before = { amount: v.amount, method: v.method, note: v.note, src: v.src };
+  const acc = isCash(method) ? null : bankAccountFor(t, b.account_id !== undefined ? b.account_id : v.account_id, method);
+  const before = { direction: v.direction, party_type: v.party_type, party_id: v.party_id, party: v.party_name, amount: v.amount, method: v.method, note: v.note, src: v.src };
+
+  const dir = b.direction ?? v.direction, ptype = b.party_type ?? v.party_type;
+  const pid = b.party_id !== undefined ? b.party_id : ptype === v.party_type ? v.party_id : null;
+  const freeName = b.party_name !== undefined ? b.party_name : ptype === v.party_type ? v.party_name : null;
+  const reroute = dir !== v.direction || ptype !== v.party_type || (pid ?? null) !== (v.party_id ?? null) || (!pid && (freeName ?? "") !== (v.party_name ?? ""));
+  if (reroute) {
+    if (v.method === DEPOT_PAY) throw new AppError(400, "Depot-direct payment ki party nahi badal sakte — void kar ke dobara banayein");
+    // post the entry afresh on the new type/party (every rule of Receive/Pay applies), then take the old one out and
+    // move the new posting onto the SAME voucher number — so the slip, the party's khata, cash/bank and ledger all follow
+    const fresh = { party_type: ptype, party_id: pid ?? null, party_name: freeName ?? null, amount, method, account_id: acc, ref: v.ref ?? null, note: note ?? null,
+      category: category ?? null, photo_ids: [], notify: false, cheque: null, supplier_id: null, notes: null };
+    const made = dir === "in" ? await doReceive(req, parse(receiveBody, fresh)) : await doPay(req, parse(payBody, fresh), true);
+    const nv = made.voucher;
+    tx(() => {
+      reverseVoucherSrc(t, v, req.user!.name, `edit: ${b.reason}`);
+      backdateSrc(t, nv.src, v.created_at);
+      run(`UPDATE cashier_vouchers SET direction=?, party_type=?, party_id=?, party_name=?, amount=?, method=?, account_id=?, category=?, ref=?, note=?, src=?, notes_json=NULL
+        WHERE id=? AND tenant_id=?`, nv.direction, nv.party_type, nv.party_id ?? null, nv.party_name, nv.amount, nv.method, nv.account_id ?? null, nv.category ?? null, nv.ref ?? null, nv.note ?? null, nv.src ?? null, v.id, t);
+      run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", nv.id, t);
+      run("UPDATE photos SET ref=? WHERE tenant_id=? AND ref=?", `voucher:${v.id}`, t, `voucher:${nv.id}`);
+    });
+    audit(t, req.user!, "cashier_voucher_edit", `voucher:${v.id}`, { before, after: { direction: nv.direction, party_type: nv.party_type, party_id: nv.party_id, party: nv.party_name, amount, method, note, src: nv.src }, reason: b.reason, rerouted: true });
+    return { ok: true, amount, rerouted: true, balance_after: nv.party_type !== "other" && nv.party_type !== "expense" && nv.party_id ? balanceOf(nv.party_type, nv.party_id) : null };
+  }
   let newSrc = v.src;
   tx(() => {
     if (kind === "khata") {

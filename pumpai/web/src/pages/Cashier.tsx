@@ -216,7 +216,7 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
                 <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
               </button>
               <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>
-              {can("cashier.void") && v.method !== "Cheque" && (
+              {can("entries.edit") && v.method !== "Cheque" && (
                 <button title="Edit this voucher (CEO) — poore system me update" aria-label="Edit voucher" onClick={() => setEditV(v)}
                   className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"><Pencil size={15} /></button>
               )}
@@ -239,14 +239,24 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
 function EditVoucher({ v, onClose, onDone }: { v: any; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ amount: String(v.amount ?? ""), method: v.method ?? "Cash", category: v.category ?? "", note: v.note ?? "", reason: "" });
   const [account, setAccount] = useState<number | null>(v.account_id ?? null);
+  // re-route: wrong type (received/paid) or wrong party — the entry is re-posted on the right one, same voucher number
+  const [dir, setDir] = useState<"in" | "out">(v.direction);
+  const [ptype, setPtype] = useState<string>(v.party_type);
+  const [party, setParty] = useState<any>(v.party_id ? { id: v.party_id, name: v.party_name } : null);
+  const [freeName, setFreeName] = useState<string>(v.party_id ? "" : v.party_name ?? "");
+  const types = (dir === "in" ? IN_TYPES : OUT_TYPES) as readonly (readonly [string, string, string])[];
+  const needsParty = ptype !== "other" && ptype !== "expense";
+  const sameParty = dir === v.direction && ptype === v.party_type && (needsParty ? party?.id === v.party_id : (freeName || "") === (v.party_name || "") || (!needsParty && v.party_type === "expense"));
   const { busy, run } = useAction();
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
   const amount = Number(f.amount);
-  const changed = amount !== Number(v.amount) || f.method !== v.method || (f.category || "") !== (v.category || "") || (f.note || "") !== (v.note || "") || (isCash(f.method) ? null : account) !== (v.account_id ?? null);
-  const canSave = amount > 0 && f.reason.trim().length >= 3 && changed && !busy;
+  const changed = !sameParty || amount !== Number(v.amount) || f.method !== v.method || (f.category || "") !== (v.category || "") || (f.note || "") !== (v.note || "") || (isCash(f.method) ? null : account) !== (v.account_id ?? null);
+  const partyOk = needsParty ? !!party : ptype === "expense" ? f.category.trim().length > 0 : freeName.trim().length >= 2;
+  const canSave = amount > 0 && f.reason.trim().length >= 3 && changed && partyOk && !busy;
   const kindLabel: Record<string, string> = { khata: "Khata customer", wholesale: "Wholesale client", supplier: "Supplier", expense: "Expense", staff: "Staff advance", other: "Other", salesman: "Salesman cash", rent: "Rent", owner: "Owner" };
   const save = () =>
-    run(() => api(`/cashier/vouchers/${v.id}/edit`, { body: { amount, method: f.method, account_id: isCash(f.method) ? null : account, category: f.category.trim() || null, note: f.note.trim() || null, reason: f.reason.trim() } }),
+    run(() => api(`/cashier/vouchers/${v.id}/edit`, { body: { amount, method: f.method, account_id: isCash(f.method) ? null : account, category: f.category.trim() || null, note: f.note.trim() || null, reason: f.reason.trim(),
+      ...(sameParty ? {} : { direction: dir, party_type: ptype, party_id: needsParty ? party?.id ?? null : null, party_name: needsParty ? null : ptype === "expense" ? (freeName.trim() || null) : freeName.trim() }) } }),
       "Voucher update ho gaya — poore system me lag gaya ✅").then((r) => { if (r) onDone(); });
   const Ro = ({ l, c }: { l: string; c: React.ReactNode }) => <div className="min-w-0"><div className="text-[11px] uppercase tracking-wide text-slate-500">{l}</div><div className="truncate text-sm font-medium">{c}</div></div>;
   return (
@@ -262,6 +272,33 @@ function EditVoucher({ v, onClose, onDone }: { v: any; onClose: () => void; onDo
           <Ro l="Abhi method" c={v.method + (v.account ? ` · ${v.account}` : "")} />
           <Ro l="Category" c={v.category || "—"} />
           <Ro l="Note" c={v.note || "—"} />
+        </div>
+
+        {/* type + party: fix a slip booked as received instead of paid, or on the wrong customer / client */}
+        <div className="rounded-xl border border-slate-200 p-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Kis ko / kis se? · <Ur>کس کو / کس سے</Ur></div>
+          <div className="mb-2 flex gap-1.5">
+            {(["in", "out"] as const).map((d) => (
+              <button type="button" key={d} onClick={() => { if (d === dir) return; setDir(d); setPtype(d === v.direction ? v.party_type : d === "in" ? "khata" : "supplier"); setParty(d === v.direction && v.party_id ? { id: v.party_id, name: v.party_name } : null); }}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${dir === d ? (d === "in" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white") : "bg-slate-100 text-slate-600"}`}>
+                {d === "in" ? "Received · وصولی" : "Paid · ادائیگی"}
+              </button>
+            ))}
+          </div>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {types.map(([k, en, ur]) => (
+              <button type="button" key={k} onClick={() => { setPtype(k); setParty(k === v.party_type && v.party_id ? { id: v.party_id, name: v.party_name } : null); }}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${ptype === k ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}>{en} · {ur}</button>
+            ))}
+          </div>
+          {needsParty && <PartyPicker kind={ptype} value={party} onChange={setParty} dir={dir} />}
+          {ptype === "other" && <Field label="Naam · نام"><input className="input" value={freeName} onChange={(e) => setFreeName(e.target.value)} placeholder="Kis ko / kis se" /></Field>}
+          {ptype === "expense" && <Field label="Kis ko diya (optional)"><input className="input" value={freeName} onChange={(e) => setFreeName(e.target.value)} placeholder="e.g. Mistri" /></Field>}
+          {!sameParty && (
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Purani entry <b>{v.party_name}</b> ({v.direction === "in" ? "received" : "paid"}) se poori tarah reverse hogi aur <b>{needsParty ? party?.name ?? "…" : freeName || (ptype === "expense" ? f.category : "…")}</b> par {dir === "in" ? "received" : "paid"} dobara post hogi — voucher number wahi rahega, dono ka khata/cash/bank theek ho jayega.
+            </p>
+          )}
         </div>
 
         {/* editable */}

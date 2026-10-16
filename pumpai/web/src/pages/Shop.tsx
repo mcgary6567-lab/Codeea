@@ -99,7 +99,7 @@ export default function Shop() {
                   <div className="truncate font-medium">{pkr(v.total)} <Badge tone={v.payment_method === "khata" ? "amber" : "green"}>{v.payment_method}</Badge>{v.customer ? <span className="text-slate-500"> · {v.customer}</span> : null}</div>
                   <div className="truncate text-xs text-slate-500">{[v.items, v.by_name].filter(Boolean).join(" · ")} · {dt(v.created_at)}</div>
                 </div>
-                {can("corrections.manage") && <button onClick={() => setEditSale(v)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700" title="Payment theek karein" aria-label="Edit"><Pencil size={15} /></button>}
+                {can("entries.edit") && <button onClick={() => setEditSale(v)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700" title="Payment theek karein" aria-label="Edit"><Pencil size={15} /></button>}
                 {can("corrections.manage") && <button onClick={async () => { if (confirm(`Is sale (${pkr(v.total)}) ko undo karein? Stock wapas aa jayega.`)) { await api(`/shop/sales/${v.id}/undo`, { body: {} }); reload(); } }} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600" title="Undo" aria-label="Undo"><Undo2 size={15} /></button>}
               </div>
             ))}

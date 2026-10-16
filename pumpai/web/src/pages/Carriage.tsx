@@ -154,7 +154,7 @@ function ThekedarDetail({ id }: { id: number }) {
           <button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print</button>
         </div>
         <h2 className="hidden px-4 pt-4 text-lg font-semibold print:block">Carriage statement — {k.name}{range.from && ` from ${range.from}`}{range.to && ` to ${range.to}`}</h2>
-        <Statement data={data} canVoid={can("carriage.void")} onChanged={refresh} />
+        <Statement data={data} canVoid={can("carriage.void")} canEdit={can("entries.edit")} onChanged={refresh} />
       </div>
 
       {action === "carriage" && <CarriageEntry thekedar={k} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
@@ -164,7 +164,7 @@ function ThekedarDetail({ id }: { id: number }) {
   );
 }
 
-function Statement({ data, canVoid, onChanged }: { data: any; canVoid: boolean; onChanged: () => void }) {
+function Statement({ data, canVoid, canEdit, onChanged }: { data: any; canVoid: boolean; canEdit: boolean; onChanged: () => void }) {
   const { busy, run } = useAction();
   const [edit, setEdit] = useState<any>(null);
   const lines: any[] = data.lines ?? [];
@@ -189,7 +189,7 @@ function Statement({ data, canVoid, onChanged }: { data: any; canVoid: boolean; 
           <div className="w-24 text-right tabular-nums text-rose-600">{r.debit ? pkr(r.debit) : ""}</div>
           <div className="w-24 text-right tabular-nums text-emerald-600">{r.credit ? pkr(r.credit) : ""}</div>
           <div className="w-28 text-right font-semibold tabular-nums">{r.type === "fuel_note" ? "" : pkr(r.balance)}</div>
-          {canVoid && !r.voided && (r.type === "payment" || r.type === "adjustment") && !String(r.ref ?? "").startsWith("oth-disc:") &&
+          {canEdit && !r.voided && (r.type === "payment" || r.type === "adjustment") && !String(r.ref ?? "").startsWith("oth-disc:") &&
             <button className="text-xs text-emerald-700 hover:underline disabled:opacity-40" disabled={busy} onClick={() => setEdit(r)} title="Edit"><Pencil size={14} /></button>}
           {canVoid && !r.voided && <button className="text-xs text-rose-600 hover:underline disabled:opacity-40" disabled={busy} onClick={() => voidIt(r)} title="Void"><Ban size={14} /></button>}
         </li>

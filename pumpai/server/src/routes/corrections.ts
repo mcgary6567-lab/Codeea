@@ -67,7 +67,7 @@ corrections.post("/corrections/sale/:id/void", requirePerm("corrections.manage")
 /** CEO edit of ANY fuel sale: reverse it + re-record with the new values in one transaction, so stock, meter, khata,
  *  cash/bank and the ledger all stay balanced. Money-side fields can change on any sale; the litres/amount only while the
  *  shift is still open (otherwise the closed shift's meter↔sales tie would break — void & re-enter instead). */
-corrections.post("/corrections/sale/:id/edit", requirePerm("corrections.manage"), h((req) => {
+corrections.post("/corrections/sale/:id/edit", requirePerm("entries.edit"), h((req) => {
   const t = tid(req);
   const b = parse(z.object({
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
@@ -149,7 +149,7 @@ corrections.post("/corrections/khata/:id/void", requirePerm("corrections.manage"
 
 /** CEO edit of a manual khata charge/payment: reverse the old balance move, then re-post with the new type/amount/note.
  *  Rows owned by another flow (a sale, Other-discount, opening, a cashier voucher) are sent to their own editor. */
-corrections.post("/corrections/khata/:id/edit", requirePerm("corrections.manage"), h((req) => {
+corrections.post("/corrections/khata/:id/edit", requirePerm("entries.edit"), h((req) => {
   const t = tid(req);
   const b = parse(z.object({ reason: z.string().trim().min(3, "Wajah likhein"), type: z.enum(["debit", "credit"]).optional(), amount: z.number().positive().max(100_000_000).optional(), note: z.string().max(200).nullable().optional() }), req.body);
   const k = get(`SELECT k.* FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE k.id=? AND c.tenant_id=?`, Number(req.params.id), t);
@@ -256,7 +256,7 @@ corrections.post("/corrections/supplier-txn/:id/void", requirePerm("corrections.
  *  DERIVED from this row, so edit = drop the old row + insert the corrected one (same type/supplier/date/method/account).
  *  Rows that belong to another flow (a delivery purchase, a cashier voucher, a WHT sibling, a payment whose tax is
  *  already deposited to FBR) are sent to their own editor so nothing is counted twice. */
-corrections.post("/corrections/supplier-txn/:id/edit", requirePerm("corrections.manage"), h((req) => {
+corrections.post("/corrections/supplier-txn/:id/edit", requirePerm("entries.edit"), h((req) => {
   const t = tid(req);
   const b = parse(z.object({
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
@@ -327,7 +327,7 @@ corrections.post("/corrections/wholesale-txn/:id/void", requirePerm("corrections
 /** CEO edit of a direct wholesale supply or payment. Old row is voided (stock put back, supplier leg cleared) and a fresh
  *  corrected row is posted — the client's due (and the tank, on a supply) land on the new numbers. Bulk trips, cashier
  *  vouchers, depot-direct (bypass) supplies and POS pay-now sales belong to their own flow and are refused here. */
-corrections.post("/corrections/wholesale-txn/:id/edit", requirePerm("corrections.manage"), h((req) => {
+corrections.post("/corrections/wholesale-txn/:id/edit", requirePerm("entries.edit"), h((req) => {
   const t = tid(req);
   const b = parse(z.object({
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
@@ -394,7 +394,7 @@ corrections.post("/corrections/rent/:id/void", requirePerm("corrections.manage")
 
 /** CEO edit of a rent receipt: drop the old three rows (office voucher + bank deposit + payment) and re-post the
  *  corrected ones, so the office cash book / bank and the rent income all move to the new amount, month or method. */
-corrections.post("/corrections/rent/:id/edit", requirePerm("corrections.manage"), h((req) => {
+corrections.post("/corrections/rent/:id/edit", requirePerm("entries.edit"), h((req) => {
   const t = tid(req);
   const b = parse(z.object({
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
@@ -434,7 +434,7 @@ corrections.post("/corrections/rent/:id/edit", requirePerm("corrections.manage")
 /** CEO edit of a tanker delivery: reverse the purchase + stock, then re-book with the corrected litres / rate / supplier,
  *  so the supplier payable, the tank stock and the Fuel-purchases cost all follow. A delivery whose shortage claim is past
  *  'open' (being chased / recovered) is sent back to handle the claim first, and a bypass leftover edits from Bypass. */
-corrections.post("/corrections/delivery/:id/edit", requirePerm("corrections.manage"), h((req) => {
+corrections.post("/corrections/delivery/:id/edit", requirePerm("entries.edit"), h((req) => {
   const t = tid(req);
   const b = parse(z.object({
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
