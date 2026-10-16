@@ -661,6 +661,8 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER,
     tanker_id INTEGER, driver_id INTEGER, vehicle_no TEXT, driver_name TEXT,
     note TEXT, voided INTEGER NOT NULL DEFAULT 0, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  // one bypass trip can carry two or more tanker+driver pairs (fuel lifted from 2+ depots) — stored as JSON
+  addColumn("bypass_deliveries", "tankers", "TEXT");
   db.exec(`CREATE TABLE IF NOT EXISTS bypass_purchases (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, delivery_id INTEGER, supplier_id INTEGER NOT NULL,
     product TEXT NOT NULL, litres REAL NOT NULL, cost_rate REAL NOT NULL, amount REAL NOT NULL,

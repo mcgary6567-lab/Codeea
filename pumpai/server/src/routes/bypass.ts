@@ -85,6 +85,8 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
   const b = parse(z.object({
     station_id: z.number().int(), txn_date: day.optional(), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos,
     tanker_id: z.number().int().optional().nullable(), driver_id: z.number().int().optional().nullable(), vehicle_no: z.string().max(30).optional().nullable(),
+    // one tanker can't be at two depots at once: when fuel is lifted from 2+ places, each tanker carries its own driver
+    tankers: z.array(z.object({ tanker_id: z.number().int().optional().nullable(), driver_id: z.number().int().optional().nullable(), vehicle_no: z.string().max(30).optional().nullable() })).max(10).optional(),
     // what we bought now (optional — can buy only, to sell from stock later). Enter the full cost amount, or a per-litre rate.
     purchases: z.array(z.object({ supplier_id: z.number().int(), product, litres: z.number().positive().max(200_000), cost_rate: z.number().positive().optional(), amount: z.number().positive().optional(), ref: z.string().max(60).optional().nullable() })).default([]),
     // where it was dropped (optional — can deliver from the held stock with no fresh purchase). Enter the full sale amount, or a per-litre rate.
@@ -133,9 +135,17 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
     const available = round2(bypassStock(t, p).litres + (buyProd[p] ?? 0));
     if (l > available + 0.01) throw new AppError(400, `${PRODUCTS[p] ?? p}: only ${available} L bypass stock is available (held + bought now) but drops + own-tank add up to ${l} L — you cannot move more than you have.`);
   }
-  const fl = fleet(t, b);
+  // one or more tanker+driver pairs carried the load (2 depots → 2 tankers, each with its own driver)
+  const fleetsIn = b.tankers?.length ? b.tankers : [{ tanker_id: b.tanker_id, driver_id: b.driver_id, vehicle_no: b.vehicle_no }];
+  const resolved = fleetsIn.map((x) => fleet(t, x));
+  const fl = resolved[0];
   const total = round2(b.drops.reduce((a, d) => a + d.litres, 0));
-  if (fl.tanker?.capacity_l && total > fl.tanker.capacity_l) throw new AppError(400, `Tanker ${fl.tanker.number} holds ${Math.round(fl.tanker.capacity_l).toLocaleString()} L — the drops add up to ${total.toLocaleString()} L`);
+  // capacity check only when every tanker's size is known: the drops must fit in the tankers together
+  const caps = resolved.map((r) => r.tanker?.capacity_l).filter((c): c is number => !!c);
+  const totalCap = caps.reduce((a, c) => a + c, 0);
+  if (caps.length === resolved.length && totalCap > 0 && total > totalCap)
+    throw new AppError(400, `The tanker(s) hold ${Math.round(totalCap).toLocaleString()} L together — the drops add up to ${total.toLocaleString()} L`);
+  const tankersJson = JSON.stringify(resolved.map((r) => ({ tanker_id: r.tanker_id, driver_id: r.driver_id, vehicle_no: r.vehicle_no, driver_name: r.driver_name })));
   // price every drop at the client's rate first (so a bad drop saves nothing)
   const added: Record<number, number> = {};
   const priced = b.drops.map((d) => {
@@ -149,8 +159,8 @@ bypass.post("/bypass/deliveries", requirePerm("wholesale.manage"), h((req) => {
   const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
   const by = req.user!.name;
   const out = tx(() => {
-    const { id } = run(`INSERT INTO bypass_deliveries (tenant_id,station_id,tanker_id,driver_id,vehicle_no,driver_name,note,created_by,txn_date,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`, t, b.station_id, fl.tanker_id, fl.driver_id, fl.vehicle_no, fl.driver_name, b.note ?? null, by, ts, now());
+    const { id } = run(`INSERT INTO bypass_deliveries (tenant_id,station_id,tanker_id,driver_id,vehicle_no,driver_name,tankers,note,created_by,txn_date,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`, t, b.station_id, fl.tanker_id, fl.driver_id, fl.vehicle_no, fl.driver_name, tankersJson, b.note ?? null, by, ts, now());
     if (b.photo_ids?.length) linkPhotos(t, b.photo_ids, `byp:${id}`);
     // supplier cost lines go INTO bypass stock (asset) — we owe the supplier for all of it
     for (const p of purchases)
@@ -287,6 +297,10 @@ bypass.get("/bypass/deliveries/:id", h((req) => {
   for (const x of drops) (x as any).balance = clientDue(x.client_id as number);
   const purchases = all(`SELECT bp.product, bp.litres, bp.cost_rate rate, bp.amount, bp.ref, s.name supplier_name
     FROM bypass_purchases bp JOIN suppliers s ON s.id=bp.supplier_id WHERE bp.delivery_id=? AND bp.voided=0 ORDER BY bp.id`, d.id);
+  // the tanker(s) + driver(s) that carried this load (multi-tanker: 2 depots → 2 tankers)
+  let tankers: { tanker_no: string | null; driver_name: string | null }[] = [];
+  try { tankers = (JSON.parse(d.tankers || "[]") as any[]).map((x) => ({ tanker_no: x.vehicle_no ?? null, driver_name: x.driver_name ?? null })); } catch { /* bad json */ }
+  if (!tankers.length && (d.vehicle_no || d.driver_name)) tankers = [{ tanker_no: d.vehicle_no ?? null, driver_name: d.driver_name ?? null }];
   const live = drops.filter((x) => !x.voided);
   const delivered_l = round2(live.reduce((a, x) => a + (x.litres as number), 0));
   const billed = round2(live.reduce((a, x) => a + (x.amount as number), 0));
@@ -298,7 +312,7 @@ bypass.get("/bypass/deliveries/:id", h((req) => {
     email: biz.biz_email, website: biz.website, omc: biz.omc, color: biz.brand_color, social: Object.fromEntries(SOCIALS.map((x) => [x.key, biz[x.key]]).filter(([, v]) => v)) };
   return { id: d.id, trip_date: d.txn_date, source: "depot", depot_ref: purchases.map((p) => p.ref).filter(Boolean).join(", ") || null,
     supplier_name: [...new Set(purchases.map((p) => p.supplier_name))].join(", ") || null, bypass: true,
-    vehicle_no: d.vehicle_no, driver_name: d.driver_name, driver_phone: d.driver_phone, note: d.note, station_name: st.name,
+    vehicle_no: d.vehicle_no, driver_name: d.driver_name, driver_phone: d.driver_phone, tankers, note: d.note, station_name: st.name,
     drops, purchases, delivered_l, billed, business };
 }));
 

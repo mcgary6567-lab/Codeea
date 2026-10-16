@@ -121,7 +121,10 @@ export function BypassPanel() {
  *  rate from that client's own rate card (the rate the CEO set) and the amount billed to their khata. */
 export function BypassVoucher({ id, onClose }: { id: number; onClose: () => void }) {
   const { data, error, reload } = useApi<any>(`/bypass/deliveries/${id}`);
-  const vehicle = data ? [data.vehicle_no ? `🚛 ${data.vehicle_no}` : "", data.driver_name ? `👤 ${data.driver_name}${data.driver_phone ? ` · ${phone(data.driver_phone)}` : ""}` : ""].filter(Boolean).join(" · ") || "—" : "—";
+  const vehicle = data
+    ? (data.tankers?.length ? data.tankers : [{ tanker_no: data.vehicle_no, driver_name: data.driver_name }])
+        .map((tk: any) => [tk.tanker_no ? `🚛 ${tk.tanker_no}` : "", tk.driver_name ? `👤 ${tk.driver_name}` : ""].filter(Boolean).join(" ")).filter(Boolean).join(" · ") || "—"
+    : "—";
   return (
     <Modal open onClose={onClose} title={`Bypass delivery #${id} · voucher`} wide>
       {error ? (
@@ -208,7 +211,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
   const orders = useApi<any>("/wholesale/orders");
   const [station, setStation] = useState("");
   const [txnDate, setTxnDate] = useState(() => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10));
-  const [fl, setFl] = useState<any>({ tanker_id: "", driver_id: "", vehicle_no: "" });
+  const [fleets, setFleets] = useState<any[]>([{ tanker_id: "", driver_id: "", vehicle_no: "" }]);
   const [note, setNote] = useState("");
   const [buys, setBuys] = useState([{ supplier_id: "", product: "HSD", litres: "", amount: "" }]);
   const [drops, setDrops] = useState<any[]>([{ client_id: "", product: "HSD", litres: "", amount: "", order_id: undefined, location: "" }]);
@@ -256,7 +259,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
       <form className="space-y-4" onSubmit={async (e) => {
         e.preventDefault();
         const body = {
-          station_id: Number(station), ...fleetBody(fl), note: note || null, photo_ids: photos, txn_date: txnDate,
+          station_id: Number(station), ...fleetBody(fleets[0]), tankers: fleets.filter((f) => f.tanker_id || f.vehicle_no).map(fleetBody), note: note || null, photo_ids: photos, txn_date: txnDate,
           purchases: validBuys.map((b) => ({ supplier_id: Number(b.supplier_id), product: b.product, litres: Number(b.litres), amount: Number(b.amount) })),
           drops: validDrops.map((d) => ({ client_id: Number(d.client_id), product: d.product, litres: Number(d.litres), order_id: d.order_id ?? null, location: d.location || null })),
           to_tank: validToTank.map((r) => ({ tank_id: Number(r.tank_id), product: r.product, litres: Number(r.litres), ...(Number(r.amount) > 0 ? { amount: Number(r.amount) } : {}), note: null })),
@@ -268,7 +271,20 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           <Field label="Tareekh · تاریخ"><input className="input" type="date" value={txnDate} max={new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10)} onChange={(e) => setTxnDate(e.target.value)} /></Field>
           <Field label="Station (books under) *"><select className="input" required value={station} onChange={(e) => setStation(e.target.value)}>
             <option value="">— choose —</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-          <FleetPicker f={fl} setF={setFl} />
+        </div>
+
+        {/* Tanker(s) + driver(s) — 2 jagah se maal to 2 tanker, har ek ka apna driver */}
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="mb-2 text-sm font-semibold">Tanker &amp; driver <span className="font-normal text-slate-400">— 2 jagah se maal to har tanker add karein</span> · <Ur>ٹینکر و ڈرائیور</Ur></div>
+          <div className="space-y-3">
+            {fleets.map((f, i) => (
+              <div key={i} className="rounded-lg border border-slate-200 bg-white p-2">
+                <div className="grid gap-3 sm:grid-cols-2"><FleetPicker f={f} setF={(nf: any) => setFleets(fleets.map((x, j) => j === i ? nf : x))} /></div>
+                {fleets.length > 1 && <button type="button" className="mt-1 text-xs text-red-600" onClick={() => setFleets(fleets.filter((_, j) => j !== i))}>Remove tanker</button>}
+              </div>
+            ))}
+          </div>
+          <button type="button" className="mt-2 inline-flex items-center gap-1 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 active:scale-95" onClick={() => setFleets([...fleets, { tanker_id: "", driver_id: "", vehicle_no: "" }])}><Plus size={14} /> Add tanker</button>
         </div>
 
         {/* Supplier purchase lines — supplier + litre + full amount */}
