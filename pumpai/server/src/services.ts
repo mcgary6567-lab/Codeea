@@ -104,6 +104,9 @@ export interface SaleInput {
   discount_kind?: "khata" | "direct";
   /** direct discount: who got it / why (free text) — may be added right after the sale. */
   discount_ref?: string | null;
+  /** payment_method 'wholesale': the fuel went out of the nozzle to a wholesale client at their rate.
+   * The litres/stock/meter are this sales row; the money (receivable/revenue/payment) is a wholesale_txns supply the /sales route adds. */
+  wholesale_client_id?: number | null;
 }
 
 export function recordSale(tenantId: number, s: SaleInput): Row {
@@ -114,6 +117,32 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     if (dup) return { ...dup, duplicate: true };
   }
   const rate = s.rate ?? priceOf(tenantId, s.product, s.created_at);
+  // A wholesale client fuelled straight from the nozzle, at their own wholesale rate. The litres leave the tank and run
+  // through the meter like any sale (so the stock register and shift settlement count them once), but the money is NOT
+  // retail cash/khata — the /sales route books it to the client's wholesale khata (a wholesale_txns supply). So this row
+  // is excluded from retail revenue and the ledger's Fuel-sales voucher; only its litres/stock matter here.
+  if (s.payment_method === "wholesale") {
+    const wlitres = round2(s.litres ?? 0);
+    if (!(wlitres > 0)) throw new AppError(400, "Litres required");
+    if (!s.wholesale_client_id) throw new AppError(400, "Choose the wholesale client");
+    if (!(rate > 0)) throw new AppError(400, "No wholesale rate for this client/product");
+    const wtank = get("SELECT * FROM tanks WHERE station_id=? AND product=? ORDER BY current_l DESC LIMIT 1", s.station_id, s.product);
+    if (!wtank) throw new AppError(400, `No ${s.product} tank at this station`);
+    if (wtank.current_l < wlitres) throw new AppError(400, `Not enough stock in ${wtank.name}`);
+    const wamount = round2(wlitres * rate), wts = s.created_at ?? now();
+    return tx(() => {
+      const { id } = run(
+        `INSERT INTO sales (station_id,shift_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,created_by,client_uid,source,at_close,wholesale_client_id,created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        s.station_id, s.shift_id ?? null, s.nozzle_id ?? null, s.product, wlitres, rate, wamount, "wholesale",
+        s.vehicle_no?.toUpperCase() ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null),
+        s.at_close ? 1 : null, s.wholesale_client_id ?? null, wts,
+      );
+      run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", wlitres, wtank.id);
+      if (s.nozzle_id) run("UPDATE nozzles SET totalizer = totalizer + ? WHERE id=?", wlitres, s.nozzle_id);
+      return get("SELECT * FROM sales WHERE id=?", id);
+    });
+  }
   // a prepaid coupon pays for exactly its value of fuel, once
   const coupon = s.payment_method === "coupon" ? get("SELECT * FROM fuel_coupons WHERE tenant_id=? AND code=?", tenantId, (s.coupon_code ?? "").toUpperCase().replace(/^PUMPAI-/, "").trim()) : null;
   if (s.payment_method === "coupon") {
@@ -297,6 +326,11 @@ export function undoSale(sale: Row) {
     if (sale.payment_method === "wallet" && sale.customer_id) {
       run("DELETE FROM wallet_ledger WHERE sale_id=? AND type='fill'", sale.id);
       run("UPDATE customers SET wallet_balance = wallet_balance + ? WHERE id=?", sale.amount, sale.customer_id);
+    }
+    // a wholesale nozzle sale: reverse the linked wholesale supply + any on-the-spot payment, and pull back an in-hand cheque
+    if (sale.payment_method === "wholesale") {
+      run("UPDATE wholesale_txns SET voided=1, void_reason='POS sale undone' WHERE sale_id=? AND voided=0", sale.id);
+      run("UPDATE wholesale_cheques SET status='cancelled', updated_at=? WHERE sale_id=? AND status='in_hand'", now(), sale.id);
     }
     run("DELETE FROM sales WHERE id=?", sale.id);
   });

@@ -266,6 +266,9 @@ export function migrate() {
   addColumn("sales", "over_limit", "INTEGER NOT NULL DEFAULT 0");
   addColumn("sales", "discount_kind", "TEXT"); // khata (lump-sum on a khata fill) | direct (walk-in: cash / card / online)
   addColumn("sales", "discount_ref", "TEXT"); // direct discount: who / why (free text, typed right after the sale)
+  // a wholesale client fuelled straight from the nozzle (payment_method 'wholesale'): the litres/stock/meter live on this
+  // sales row, while the money (receivable / revenue / payment) lives on a wholesale_txns supply linked by this id.
+  addColumn("sales", "wholesale_client_id", "INTEGER");
   // khata security: a post-dated cheque or a personal guarantor held against a credit account
   db.exec(`CREATE TABLE IF NOT EXISTS khata_guarantees (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL REFERENCES customers(id),
@@ -461,6 +464,8 @@ export function migrate() {
   addColumn("wholesale_txns", "driver_id", "INTEGER");
   addColumn("wholesale_txns", "driver_name", "TEXT");
   addColumn("wholesale_txns", "location", "TEXT"); // where this drop was unloaded
+  // links a wholesale supply/payment raised from a pump-nozzle sale back to that sales row (so an Undo reverses both)
+  addColumn("wholesale_txns", "sale_id", "INTEGER");
   addColumn("meter_readings", "handover_gap", "REAL");
   // meter numbers per station (No.1, No.2 …): existing meters get numbers in the order they were added,
   // new ones get the next free number automatically
@@ -594,6 +599,7 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, amount REAL NOT NULL, bank TEXT NOT NULL, cheque_no TEXT NOT NULL,
     cheque_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'in_hand', account_id INTEGER, payment_txn_id INTEGER, bounce_reason TEXT, note TEXT,
     created_by TEXT, created_at TEXT NOT NULL, deposited_at TEXT, cleared_at TEXT, updated_at TEXT NOT NULL)`);
+  addColumn("wholesale_cheques", "sale_id", "INTEGER"); // a pump-nozzle sale paid by cheque (so an Undo pulls it back)
   // Supply requests a wholesale client places from their own portal link. Pure communication:
   // the client asks for X litres on a date, staff approve/reject, an approval pings the client on WhatsApp.
   // NOT linked to the ledger / khata or to the staff order book — it only carries the ask and its reply.

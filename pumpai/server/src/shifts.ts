@@ -108,7 +108,7 @@ export function shiftSummary(shiftId: number) {
   return {
     by_product: byProduct, by_payment: byPayment, pos_by_bank: posByBank,
     litres: round2(byProduct.reduce((a, p) => a + p.litres, 0)), amount: round2(byProduct.reduce((a, p) => a + p.amount, 0)),
-    cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]), points: sum(["loyalty"]), prepaid: sum(["coupon", "wallet"]), shop,
+    cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]), points: sum(["loyalty"]), prepaid: sum(["coupon", "wallet"]), wholesale: sum(["wholesale"]), shop,
     direct_discount: round2(dd.v), direct_discount_n: dd.n,
     expenses, expenses_total: expensesTotal,
     // what must be in the cash bag at the end: cash sales minus expenses paid from that cash
@@ -135,6 +135,7 @@ export function shiftFuels(shiftId: number, rateOf: (product: string) => number 
       meter_l: round2(mine.reduce((a, r) => a + (r.closing != null ? r.closing - r.opening : 0), 0)),
       test_l: round2(mine.reduce((a, r) => a + (r.test_l ?? 0), 0)),
       khata_l: L((m) => m === "khata"), khata: A((m) => m === "khata"),
+      wholesale_l: L((m) => m === "wholesale"), wholesale: A((m) => m === "wholesale"),
       digital_l: L((m) => DIGITAL_METHODS.includes(m)), digital: A((m) => DIGITAL_METHODS.includes(m)),
       other_l: L((m) => OTHER_METHODS.includes(m)), other: A((m) => OTHER_METHODS.includes(m)),
       cash_l: L((m) => m === "cash"), cash: A((m) => m === "cash"), rate: rateOf(product),

@@ -60,9 +60,12 @@ export function buildReport(t: number, from: string, to: string) {
   const PE = [t, fromDate, toDate] as const;
 
   /* ---------- Sales ---------- */
-  const salesByProduct = all(`SELECT s.product, ROUND(SUM(s.litres),2) litres, ROUND(SUM(s.amount),2) amount, COUNT(*) txns ${S} GROUP BY s.product`, ...P);
+  // a wholesale-client nozzle fill is NOT a retail sale (it is billed on the wholesale side), so it is left out of every
+  // retail total here. Its litres still left our tank — stock-out is counted separately from `sales` in the stock register below.
+  const NOT_WS = "AND s.payment_method<>'wholesale'";
+  const salesByProduct = all(`SELECT s.product, ROUND(SUM(s.litres),2) litres, ROUND(SUM(s.amount),2) amount, COUNT(*) txns ${S} ${NOT_WS} GROUP BY s.product`, ...P);
   const retail = salesByProduct.reduce((a, r) => ({ litres: a.litres + r.litres, amount: a.amount + r.amount, txns: a.txns + r.txns }), { litres: 0, amount: 0, txns: 0 });
-  const trendRows = all(`SELECT ${bucket("s.created_at")} b, s.product, SUM(s.litres) l, SUM(s.amount) a ${S} GROUP BY b, s.product`, ...P);
+  const trendRows = all(`SELECT ${bucket("s.created_at")} b, s.product, SUM(s.litres) l, SUM(s.amount) a ${S} ${NOT_WS} GROUP BY b, s.product`, ...P);
   const wTrend = all(`SELECT ${bucket("w.txn_date")} b, SUM(CASE WHEN type='supply' THEN amount WHEN type='return' THEN -amount ELSE 0 END) a,
       SUM(CASE WHEN type='supply' THEN litres WHEN type='return' THEN -litres ELSE 0 END) l ${W} AND w.type IN ('supply','return') GROUP BY b`, ...P);
   const eTrend = all(`SELECT strftime('${grain === "month" ? "%Y-%m" : "%Y-%m-%d"}', e.expense_date) b, SUM(e.amount) a ${E} GROUP BY b`, ...PE);

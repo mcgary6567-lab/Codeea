@@ -72,7 +72,7 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
   // fuel sales: one voucher per day, money side by payment method (card-pending khata holds are handled on their own below)
   const fuel = all(`SELECT date(datetime(s.created_at,'+5 hours')) d, s.payment_method m, SUM(s.amount) a,
       SUM(CASE WHEN s.discount_kind='direct' THEN 0 ELSE COALESCE(s.discount,0) END) dsc, SUM(CASE WHEN s.discount_kind='direct' THEN COALESCE(s.discount,0) ELSE 0 END) ddir, SUM(s.litres) l FROM sales s JOIN stations st ON st.id=s.station_id
-    WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? AND NOT (COALESCE(s.pending,0)=1 OR s.cleared_at IS NOT NULL) GROUP BY d, m`, ...P);
+    WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? AND s.payment_method <> 'wholesale' AND NOT (COALESCE(s.pending,0)=1 OR s.cleared_at IS NOT NULL) GROUP BY d, m`, ...P);
   for (const d of [...new Set(fuel.map((r) => r.d))]) {
     const rows = fuel.filter((r) => r.d === d);
     const net = rows.reduce((a, r) => a + r.a, 0);          // what customers were actually billed / paid

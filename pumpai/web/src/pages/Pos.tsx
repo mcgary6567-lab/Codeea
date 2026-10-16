@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera, Printer, Percent } from "lucide-react";
+import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet, Camera, Printer, Percent, Truck } from "lucide-react";
 import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
 import { Loading, Modal, useAction, useToast } from "../components/ui";
@@ -36,6 +36,7 @@ const SPECIAL_PAY: PayOpt[] = [
   { key: "loyalty", en: "Points", ur: "پوائنٹس", icon: Gift, cls: "bg-pink-600" },
   { key: "coupon", en: "Coupon", ur: "کوپن", icon: Ticket, cls: "bg-orange-600" },
   { key: "wallet", en: "Wallet", ur: "والٹ", icon: Wallet, cls: "bg-sky-700" },
+  { key: "wholesale", en: "Wholesale", ur: "ہول سیل", icon: Truck, cls: "bg-indigo-700" },
 ];
 /** The POS payment buttons: the admin's money methods (Settings → Lists) + the fixed khata/points/coupon/wallet. */
 function usePay(): PayOpt[] {
@@ -48,7 +49,7 @@ const isBankPay = (m: string) => !["cash", "khata", "loyalty", "coupon", "wallet
 /** Payment options switched off on this pump's POS (points and coupons are not used). */
 const OFF_PAY: string[] = ["loyalty", "coupon"];
 /** Paid before (coupon / wallet / points): needs internet to check, cannot be kept offline. */
-const ONLINE_ONLY = ["loyalty", "coupon", "wallet"];
+const ONLINE_ONLY = ["loyalty", "coupon", "wallet", "wholesale"];
 
 // customer-type icons & labels, backed by Settings → Lists (admin-managed) with these as the fallback
 export const TYPE_ICON = iconMap("customer_type", { police: "🚓", school: "🏫", government: "🏛️", hospital: "🚑", fleet: "🚚", farmer: "🚜", business: "🏢", retail: "🚗" });
@@ -60,6 +61,8 @@ const Ur = ({ children, className = "" }: { children: ReactNode; className?: str
 export default function Pos() {
   const PAY = usePay();
   const { user } = useAuth();
+  // Wholesale POS sales are always available on the single-pump app.
+  const showWholesale = true;
   const isSalesman = user?.role === "salesman";
   const stations = useApi<any[]>(isSalesman ? null : "/stations");
   const [stationId, setStationId] = useState<number | null>(null);
@@ -84,6 +87,9 @@ export default function Pos() {
   const [pickDirect, setPickDirect] = useState(false);
   const [refText, setRefText] = useState("");
   const [pickKhata, setPickKhata] = useState(false);
+  // wholesale client fuelled at the pump: who + how they settle (udhaar / cash / cheque / online)
+  const [ws, setWs] = useState<{ client: any; settle: string; account?: any; cheque_bank?: string; cheque_date?: string; slip?: string } | null>(null);
+  const [pickWs, setPickWs] = useState(false);
   const [scan, setScan] = useState(false);
   const [done, setDone] = useState<any>(null);
   // small thermal printer: remember the roll width (58 or 80 mm) the pump uses
@@ -137,7 +143,10 @@ export default function Pos() {
   }, [pay, khata?.account?.id, khata?.vehicle]);
 
   const d = today.data ?? cacheGet<any>(cacheKey);
-  const rate = product && d ? d.prices[product] : 0;
+  const pumpRate = product && d ? d.prices[product] : 0;
+  // a wholesale fill is always litres-based and priced at the client's own wholesale rate, not the pump rate
+  const wsRate = pay === "wholesale" && product ? Number(ws?.client?.rates?.[product] ?? 0) : 0;
+  const rate = pay === "wholesale" ? wsRate : pumpRate;
   const value = Number(entry) || 0;
   const litres = mode === "litres" ? value : rate ? value / rate : 0;
   const amount = mode === "amount" ? value : value * rate;
@@ -148,8 +157,8 @@ export default function Pos() {
   const net = Math.max(0, amount - discount); // what is actually charged / collected after the discount
   const directMax = d?.direct_discount_max ?? null;
   const directOver = directMax != null && directDiscount > directMax;
-  const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata) && (pay !== "loyalty" || pointsCust) && (pay !== "coupon" || coupon) && (pay !== "wallet" || walletAcct)) && (!discount || discount < amount) && !directOver;
-  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); setPointsCust(null); setCoupon(null); setWalletAcct(null); setCardBank(null); setDirect(null); setRefText(""); };
+  const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata) && (pay !== "loyalty" || pointsCust) && (pay !== "coupon" || coupon) && (pay !== "wallet" || walletAcct) && (pay !== "wholesale" || (ws && wsRate > 0))) && (!discount || discount < amount) && !directOver;
+  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setWs(null); setMode("amount"); setHeard(null); setPointsCust(null); setCoupon(null); setWalletAcct(null); setCardBank(null); setDirect(null); setRefText(""); };
 
   /** Fill the POS from a spoken sentence; the salesman checks it and presses Save. */
   const applyVoice = async (v: any) => {
@@ -188,6 +197,13 @@ export default function Pos() {
   const save = async () => {
     if (!ready || !d || saving) return;
     const body: any = { station_id: d.station.id, product, payment_method: pay, [mode]: value, client_uid: newUid() };
+    if (pay === "wholesale" && ws) {
+      // the fill always goes to the client's wholesale khata; payment_method carries how it is settled now
+      Object.assign(body, { payment_method: ws.settle, litres, wholesale_client_id: ws.client.id });
+      delete body.amount;
+      if (isBankPay(ws.settle) && ws.account) body.account_id = ws.account.id;
+      if (ws.settle === "cheque") Object.assign(body, { cheque_bank: ws.cheque_bank || null, cheque_date: ws.cheque_date || null, slip_no: ws.slip || null });
+    }
     if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null, photo_id: khata.photo_id ?? null, ...(khata.pending ? { pending: true } : {}), ...(khata.discount && khata.discount > 0 ? { discount: khata.discount } : {}) });
     if (pay === "loyalty" && pointsCust) body.customer_id = pointsCust.id;
     if (pay === "coupon" && coupon) body.coupon_code = coupon.code;
@@ -363,13 +379,15 @@ export default function Pos() {
           {/* 3. payment */}
           <Step n={3} en="Payment" ur="ادائیگی">
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-              {PAY.filter((p) => !OFF_PAY.includes(p.key)).map((p) => (
+              {PAY.filter((p) => !OFF_PAY.includes(p.key) && (p.key !== "wholesale" || showWholesale)).map((p) => (
                 <button key={p.key} aria-pressed={pay === p.key} onClick={() => {
                   setPay(p.key);
                   if (p.key === "khata") setPickKhata(true); else setKhata(null);
                   if (p.key === "loyalty") setPickPoints(true); else setPointsCust(null);
                   if (p.key === "coupon") setScanCoupon(true); else setCoupon(null);
                   if (p.key === "wallet") setPickWallet(true); else setWalletAcct(null);
+                  // wholesale: litres-only, pick the client; rate comes from their card
+                  if (p.key === "wholesale") { setMode("litres"); setWs(null); setPickWs(true); } else setWs(null);
                   // card / digital through a bank POS machine: ask which bank's machine
                   const digital = isBankPay(p.key);
                   if (digital && bankAccounts.length > 0) setPickBank(true);
@@ -442,6 +460,39 @@ export default function Pos() {
                 <span className="text-sky-700 underline">Fill</span>
               </button>
             )}
+            {pay === "wholesale" && (
+              <div className="mt-3 space-y-3">
+                <button onClick={() => setPickWs(true)} className="flex w-full items-center gap-3 rounded-xl bg-indigo-50 p-3 text-left ring-1 ring-indigo-300">
+                  <Truck size={26} className="text-indigo-700" />
+                  <span className="flex-1">
+                    {ws ? <><span className="block text-lg font-semibold">{ws.client.name}</span>
+                      <span className="text-sm text-slate-600">{product ? (wsRate > 0 ? `Rate Rs ${wsRate}/L${entry ? ` · ${num(litres, 2)} L = Rs ${num(litres * wsRate, 0)}` : ""}` : `No ${product} rate set for this client`) : "Choose fuel + litres"}</span></>
+                      : <span className="block text-lg font-semibold text-indigo-800">Choose wholesale client · <Ur>کلائنٹ چنیں</Ur></span>}
+                  </span>
+                  <span className="text-sm text-indigo-700 underline">{ws ? "Change" : "Pick"}</span>
+                </button>
+                {ws && (
+                  <div>
+                    <div className="mb-1 text-sm font-semibold text-slate-700">Payment · <Ur>ادائیگی</Ur></div>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {([["khata", "Udhaar"], ["cash", "Cash"], ...PAY.filter((p) => isBankPay(p.key) && !SPECIAL_PAY.some((s) => s.key === p.key)).map((p) => [p.key, p.en] as [string, string]), ["cheque", "Cheque"]] as [string, string][])
+                        .map(([k, label]) => (
+                          <button key={k} onClick={() => setWs({ ...ws, settle: k })}
+                            className={`rounded-xl py-2 text-sm font-semibold ring-1 active:scale-95 ${ws.settle === k ? "bg-indigo-700 text-white ring-indigo-700" : "bg-white text-slate-700 ring-slate-300"}`}>{label}</button>
+                        ))}
+                    </div>
+                    {ws.settle === "cheque" && (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <input className="input" placeholder="Cheque no" value={ws.slip ?? ""} onChange={(e) => setWs({ ...ws, slip: e.target.value })} />
+                        <input className="input" placeholder="Bank" value={ws.cheque_bank ?? ""} onChange={(e) => setWs({ ...ws, cheque_bank: e.target.value })} />
+                        <input className="input col-span-2" type="date" value={ws.cheque_date ?? ""} onChange={(e) => setWs({ ...ws, cheque_date: e.target.value })} />
+                      </div>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500">{ws.settle === "khata" ? "Udhaar — client ke khate mein chadhega" : ws.settle === "cheque" ? "Cheque register mein jayega, clear hone par khata kam hoga" : "Abhi wasool — khata net zero"}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </Step>
 
           {/* 4. save — reads like a receipt: what, how much, how paid, and the amount to collect */}
@@ -501,6 +552,7 @@ export default function Pos() {
       {pickWallet && <WalletPicker onClose={() => { setPickWallet(false); if (!walletAcct) setPay(null); }} onPick={(a) => { setWalletAcct(a); setPickWallet(false); }} />}
       {pickPoints && <PointsPicker onClose={() => { setPickPoints(false); if (!pointsCust) setPay(null); }} onPick={(c) => { setPointsCust(c); setPickPoints(false); }} />}
       {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} discountMax={d.discount_max ?? null} fuelAmount={amount} fuel />}
+      {pickWs && <WholesalePicker product={product} onClose={() => { setPickWs(false); if (!ws) setPay(null); }} onPick={(client) => { setWs({ client, settle: ws?.settle ?? "khata" }); setPickWs(false); }} />}
       {pickBank && <BankPosPicker accounts={bankAccounts} onClose={() => setPickBank(false)} onPick={(a) => { setCardBank(a); setPickBank(false); }} />}
       {pickDirect && <DirectDiscountPicker initial={direct} litres={litres} amount={amount} max={directMax} onClose={() => setPickDirect(false)} onPick={(v) => { setDirect(v); setPickDirect(false); }} />}
       {done && (
@@ -907,6 +959,36 @@ function WalletPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: an
             </button>
           ))}
           {data && !list.length && <p className="py-4 text-center text-slate-500">No wallet found. Ask the manager.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Pick the wholesale client fuelling at the pump. Shows each client's rate for the chosen fuel (set by the admin). */
+function WholesalePicker({ product, onClose, onPick }: { product: string | null; onClose: () => void; onPick: (c: any) => void }) {
+  const [q, setQ] = useState("");
+  const { data } = useApi<any[]>("/wholesale/clients");
+  const list = (data ?? []).filter((c) => !q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-3 sm:p-6">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-4 shadow-xl">
+        <div className="mb-3 flex items-center gap-2"><Truck className="text-indigo-700" /><h2 className="flex-1 text-2xl font-bold">Wholesale client · <Ur>ہول سیل کلائنٹ</Ur></h2>
+          <button onClick={onClose} className="rounded-xl bg-slate-100 p-3" aria-label="Close"><X /></button></div>
+        <input autoFocus className="input py-3 text-lg" placeholder="Client name" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="mt-3 space-y-2">
+          {list.map((c) => {
+            const r = product ? Number(c.rates?.[product] ?? 0) : 0;
+            return (
+              <button key={c.id} onClick={() => onPick(c)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left ring-2 ring-slate-200 hover:ring-indigo-400">
+                <span className="text-3xl">🏢</span>
+                <span className="flex-1"><span className="block text-lg font-semibold">{c.name}</span>
+                  <span className="text-sm text-slate-500">{product ? (r > 0 ? `${product} @ Rs ${r}/L` : `No ${product} rate set`) : "Pick fuel first"}</span></span>
+                {c.due != null && <span className="rounded-lg bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800">Due {pkr(c.due)}</span>}
+              </button>
+            );
+          })}
+          {data && !list.length && <p className="py-4 text-center text-slate-500">No wholesale client found. Ask the manager to add one.</p>}
         </div>
       </div>
     </div>

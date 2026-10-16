@@ -13,7 +13,9 @@ import { moneyMethods, SPECIAL_METHODS } from "./lookups.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
-import { followPumpPrice } from "./wholesale.js";
+import { followPumpPrice, priceSupply, insertTxn, clientDue } from "./wholesale.js";
+import { bankAccountFor } from "./banks.js";
+import { isCheque } from "./capture.js";
 import { khataFillReceipt, wholesaleRateMessage, receiptUrl } from "../billing.js";
 import { chargeShortage } from "./staff.js";
 import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
@@ -379,7 +381,53 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     discount_ref: z.string().trim().max(120).optional().nullable(),
     /** when the sale was made on a tablet without internet; billed at the price in force then */
     offline_at: z.string().datetime({ offset: true }).nullable().optional(),
+    /** a wholesale client fuelled from the nozzle: billed at their wholesale rate. payment_method is then the settlement
+     * (khata = on credit, or cash / a money method / cheque = paid now). */
+    wholesale_client_id: z.number().int().positive().nullable().optional(),
+    cheque_bank: z.string().max(80).nullable().optional(),
+    cheque_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   }), req.body);
+  // ---- Wholesale client fuelled straight from the pump nozzle (billed at their wholesale rate) ----
+  if (b.wholesale_client_id) {
+    b.station_id = scopedStation(req, b.station_id)!;
+    if (!(b.litres && b.litres > 0)) throw new AppError(400, "Enter litres for a wholesale fill (not amount)");
+    const settle = b.payment_method; // "khata" = on credit; otherwise a money method / "cheque" = paid now
+    const payNow = settle !== "khata";
+    // rate comes from the client's own wholesale rate card; paid-now sales never add to the outstanding, so skip the limit
+    const { c, rate, amount } = priceSupply(req, b.wholesale_client_id, { product: b.product, litres: b.litres }, 0, payNow);
+    const salesman = req.user!.role === "salesman";
+    const shift = salesman
+      ? get("SELECT * FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name)
+      : get("SELECT * FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
+    if (salesman && !shift) throw new AppError(400, "Start your shift first (Shifts page) before recording sales");
+    // the litres/stock/meter go on a sales row (method 'wholesale'); the money is a wholesale supply (tank_id NULL = not a 2nd stock-out)
+    const saved = recordSale(tid(req), { station_id: b.station_id, product: b.product, litres: b.litres, payment_method: "wholesale",
+      wholesale_client_id: c.id, rate, nozzle_id: b.nozzle_id ?? null, vehicle_no: b.vehicle_no ?? null, slip_no: b.slip_no ?? null,
+      shift_id: shift?.id ?? null, created_by: req.user!.id, client_uid: b.client_uid ?? null });
+    if (saved.duplicate) return saved;
+    const supply = insertTxn(req, c.id, { type: "supply", station_id: b.station_id, tank_id: null, product: b.product, litres: b.litres, rate, amount,
+      ref: `POS-${saved.id}`, note: `Pump nozzle sale (POS #${saved.id})${b.slip_no ? ` · slip ${b.slip_no}` : ""}`, vehicle_no: b.vehicle_no ?? null });
+    run("UPDATE wholesale_txns SET sale_id=? WHERE id=?", saved.id, supply.id);
+    let cheque_pending = false;
+    if (payNow) {
+      if (isCheque(settle) && !b.account_id) {
+        // a cheque still in hand goes into the wholesale cheque register — the due comes down when it clears
+        const bank = b.cheque_bank?.trim() || "Bank not given", no = b.slip_no?.trim() || "—";
+        if (no !== "—" && get("SELECT id FROM wholesale_cheques WHERE tenant_id=? AND bank=? AND cheque_no=? AND status<>'returned'", tid(req), bank, no))
+          throw new AppError(400, `Cheque ${no} of ${bank} is already in the register`);
+        run(`INSERT INTO wholesale_cheques (tenant_id,client_id,amount,bank,cheque_no,cheque_date,status,note,created_by,created_at,updated_at,sale_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+          tid(req), c.id, amount, bank, no, b.cheque_date || pkDate(), "in_hand", `POS nozzle sale #${saved.id}`, req.user!.name, now(), now(), saved.id);
+        cheque_pending = true;
+      } else {
+        const pay = insertTxn(req, c.id, { type: "payment", amount, method: settle, account_id: bankAccountFor(tid(req), b.account_id, settle),
+          ref: `POS-${saved.id}`, note: `Pump nozzle sale #${saved.id} (paid ${settle})` });
+        run("UPDATE wholesale_txns SET sale_id=? WHERE id=?", saved.id, pay.id);
+      }
+    }
+    return { ...saved, wholesale: { client: c.name, rate, amount, settled: payNow && !cheque_pending, cheque_pending, due_after: clientDue(c.id) },
+      receipt_url: receiptUrl(tid(req), "f", saved.id) };
+  }
+  // ---- normal retail sale ----
   if (!([...SPECIAL_METHODS] as string[]).includes(b.payment_method) && !moneyMethods(tid(req)).includes(b.payment_method))
     throw new AppError(400, `Unknown payment method: ${b.payment_method} — add it in Settings → Lists`);
   b.station_id = scopedStation(req, b.station_id)!;
