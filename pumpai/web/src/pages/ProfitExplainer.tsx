@@ -65,7 +65,12 @@ export default function ProfitExplainer() {
           {fuels.map((f: any) => line(`${f.name} — ${num(f.litres, 0)} L × Rs ${f.avg_cost.toFixed(2)}`, pkr(round(f.litres * f.avg_cost))))}
         </>)} />
 
-        {p.cost_of_sales.shop > 0 && <Row id="shopcost" sign="−" label="Cost of shop items" ur="دکان کی لاگت" amount={p.cost_of_sales.shop} tone="red" />}
+        {p.cost_of_sales.shop > 0 && <Row id="shopcost" sign="−" label="Cost of shop items" ur="دکان کی لاگت" amount={p.cost_of_sales.shop} tone="red" detail={detailTable(<>
+          {line("Shop sale (upar income me shaamil)", pkr(p.income.shop))}
+          {line("− Bike hue maal ki lagat (COGS)", pkr(p.cost_of_sales.shop))}
+          {line("= Shop ka munafa", pkr(round(p.income.shop - p.cost_of_sales.shop)), (p.income.shop - p.cost_of_sales.shop) >= 0 ? "font-semibold text-emerald-700" : "font-semibold text-red-600")}
+          <tr><td colSpan={2} className="pt-1 text-xs text-slate-500">Minus tab aata hai jab koi cheez laagat se sasti bik jaye — item ki cost/price Shop page par theek karein.</td></tr>
+        </>)} />}
         {p.cost_of_sales.stock_gain_loss !== 0 && <Row id="dip" sign={p.cost_of_sales.stock_gain_loss >= 0 ? "+" : "−"} label={p.cost_of_sales.stock_gain_loss >= 0 ? "Stock gain (dip)" : "Stock loss (dip)"} ur="اسٹاک کمی/زیادتی" amount={Math.abs(p.cost_of_sales.stock_gain_loss)} tone={p.cost_of_sales.stock_gain_loss >= 0 ? "green" : "red"} detail={<p className="text-slate-600">Dip aur book stock ka farq (zyada = gain, kam = chori/evaporation ka loss), avg cost par value hoke munafe par asar.</p>} />}
 
         <Row id="gross" sign="=" label="Gross profit" ur="مجموعی منافع" amount={p.gross_profit} tone={p.gross_profit >= 0 ? "green" : "red"} />

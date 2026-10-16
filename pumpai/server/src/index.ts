@@ -206,6 +206,8 @@ app.get("/doc/:token", (req, res) => {
 app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
+// API data is live and per-user — never let a browser or proxy cache a reply (reports must reflect the newest entry)
+api.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate"); next(); });
 api.use(requireAuth);
 api.use(auditTrail); // every change is written to the audit log
 api.get("/me", h((req) => ({

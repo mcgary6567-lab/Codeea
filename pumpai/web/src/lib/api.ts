@@ -20,6 +20,8 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   const token = getToken();
   const res = await fetch(`/api${path}`, {
     method: opts.method ?? (opts.body ? "POST" : "GET"),
+    // never let the browser / a proxy serve a stale GET — reports must show the latest entry at once
+    cache: "no-store",
     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...opts.headers },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
