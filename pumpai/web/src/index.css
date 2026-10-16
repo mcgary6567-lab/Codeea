@@ -5,6 +5,10 @@
 /* brand colour shades (default green); replaced by the pump's own colour from Settings → Business profile */
 :root { --brand-50: 236 253 245; --brand-100: 209 250 229; --brand-500: 16 185 129; --brand-600: 5 150 105; --brand-700: 4 120 87; --brand-900: 6 78 59; }
 
+/* Urdu (Naskh / Nastaliq) glyphs are tall; a short line-box makes them spill into the row above/below.
+   Give every Urdu run room so the menu and labels stay clear even if the Naskh webfont is still loading. */
+[lang="ur"] { line-height: 1.85; }
+
 @layer components {
   .card { @apply bg-white rounded-xl border border-slate-200 shadow-sm; }
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed; }
