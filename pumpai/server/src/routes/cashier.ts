@@ -295,6 +295,29 @@ cashier.post("/cashier/vouchers/:id/void", requirePerm("cashier.void"), h((req) 
   return { ok: true, balance_after: v.party_type && v.party_id && v.party_type !== "other" ? balanceOf(v.party_type, v.party_id) : null };
 }));
 
+/** CEO edit of a STANDALONE "other" cash/bank voucher (petty cash in/out) — amount / note / category. A voucher tied to a
+ *  party (khata, supplier, wholesale, staff, expense or a cheque) is sent to that party's own editor so nothing double-counts. */
+cashier.post("/cashier/vouchers/:id/edit", requirePerm("cashier.void"), h((req) => {
+  const t = tid(req);
+  const v = get("SELECT * FROM cashier_vouchers WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!v) throw new AppError(404, "Voucher nahi mila");
+  if (v.voided) throw new AppError(400, "Yeh voucher void ho chuka hai");
+  const [kind, idStr] = String(v.src ?? "").split(":");
+  if (v.src && kind !== "bank") throw new AppError(400, "Ye kisi party (khata/supplier/wholesale/staff/expense/cheque) se bani — uske apne page se badlein.");
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    amount: z.number().positive().max(1_000_000_000).optional(), note: z.string().max(200).nullable().optional(), category: z.string().max(60).nullable().optional(),
+  }), req.body);
+  const amount = round2(b.amount ?? v.amount);
+  const note = b.note !== undefined ? b.note : v.note, category = b.category !== undefined ? b.category : v.category;
+  tx(() => {
+    run("UPDATE cashier_vouchers SET amount=?, note=?, category=? WHERE id=? AND tenant_id=?", amount, note ?? null, category ?? null, v.id, t);
+    if (kind === "bank") run("UPDATE bank_txns SET amount=?, note=? WHERE id=? AND tenant_id=?", amount, category || note || "Other money", Number(idStr), t);
+  });
+  audit(t, req.user!, "cashier_voucher_edit", `voucher:${v.id}`, { before: { amount: v.amount, note: v.note, category: v.category }, after: { amount, note, category }, reason: b.reason });
+  return { ok: true, amount };
+}));
+
 cashier.get("/cashier/vouchers", requirePerm("cashier.desk"), h((req) => {
   const d = req.query.date ? parse(day, req.query.date) : pkDate();
   return all(`SELECT v.*, ${proofCol("'voucher:'||v.id")} FROM cashier_vouchers v WHERE v.tenant_id=? AND v.created_at >= ? AND v.created_at < ? ORDER BY v.id DESC`, tid(req), pkStart(d), pkEnd(d))

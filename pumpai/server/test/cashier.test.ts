@@ -164,3 +164,19 @@ test("after all of the above: every book still tallies with the ledger", async (
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("cashier");
 });
+
+test("CEO edits a standalone 'other' cash voucher amount — cash follows and the books tally", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  const before = ok(await call("cashier", "GET", "/api/cash"), "cash").cash_in_hand;
+  const r = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "other", party_name: "Kabaari", category: "Scrap", amount: 3000, method: "Cash", notify: false }), "other in");
+  near(ok(await call("cashier", "GET", "/api/cash"), "cash").cash_in_hand, before + 3000, "cash up 3000");
+  await tallyBooks("after other cash in");
+  ok(await call("admin", "POST", `/api/cashier/vouchers/${r.voucher.id}/edit`, { reason: "it was 2000 not 3000", amount: 2000 }), "edit voucher");
+  near(ok(await call("cashier", "GET", "/api/cash"), "cash").cash_in_hand, before + 2000, "cash now +2000");
+  await tallyBooks("after editing the voucher");
+  // a party-linked voucher refuses edit here; and a non-CEO cannot edit
+  const k = ok(await call("admin", "GET", "/api/cashier/parties?kind=khata"), "p").khata[0];
+  const kr = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "khata", party_id: k.id, amount: 500, method: "Cash", notify: false }), "khata rec");
+  assert.equal((await call("admin", "POST", `/api/cashier/vouchers/${kr.voucher.id}/edit`, { reason: "nope", amount: 1 })).status, 400);
+  assert.equal((await call("cashier", "POST", `/api/cashier/vouchers/${r.voucher.id}/edit`, { reason: "nope", amount: 1 })).status, 403);
+});

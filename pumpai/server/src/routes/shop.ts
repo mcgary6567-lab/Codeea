@@ -166,6 +166,41 @@ shop.post("/shop/sales/:id/undo", requirePerm("sales.create"), h((req) => {
   return { ok: true };
 }));
 
+/** CEO edit of a shop sale's MONEY routing — payment method and/or khata customer (stock, lines and total stay as sold).
+ *  The khata leg is reversed on the old customer and re-posted on the new one, so every book stays tallied to the rupee. */
+shop.post("/shop/sales/:id/edit", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const s = get("SELECT * FROM shop_sales WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!s) throw new AppError(404, "Shop sale nahi mili");
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    payment_method: z.string().max(40).optional(), customer_id: z.number().int().positive().nullable().optional(),
+  }), req.body);
+  const method = b.payment_method ?? s.payment_method;
+  const customer_id = b.customer_id !== undefined ? b.customer_id : s.customer_id;
+  if (method !== "khata" && !moneyMethods(t).includes(method)) throw new AppError(400, `Unknown payment method: ${method}`);
+  if (method === "khata" && !customer_id) throw new AppError(400, "Khata sale ke liye customer chahiye");
+  if (method === "khata" && !get("SELECT id FROM customers WHERE id=? AND tenant_id=?", customer_id, t)) throw new AppError(400, "Customer nahi mila");
+  const before = { payment_method: s.payment_method, customer_id: s.customer_id };
+  tx(() => {
+    // reverse the old khata leg (if any)
+    if (s.payment_method === "khata" && s.customer_id) {
+      run("DELETE FROM khata_ledger WHERE customer_id=? AND ref=?", s.customer_id, `SHOP-${s.id}`);
+      run("UPDATE customers SET balance = balance - ? WHERE id=?", s.total, s.customer_id);
+    }
+    run("UPDATE shop_sales SET payment_method=?, customer_id=? WHERE id=?", method, method === "khata" ? customer_id : null, s.id);
+    // re-post the khata leg on the new customer (if now khata)
+    if (method === "khata" && customer_id) {
+      const note = all("SELECT l.qty, i.name FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=?", s.id).map((x: any) => `${x.qty} × ${x.name}`).join(", ");
+      run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,station_id,created_at) VALUES (?,?,?,?,?,?,?)`,
+        customer_id, "debit", s.total, `SHOP-${s.id}`, note, s.station_id, s.created_at);
+      run("UPDATE customers SET balance = balance + ? WHERE id=?", s.total, customer_id);
+    }
+  });
+  audit(t, req.user!, "shop_edit", `shop:${s.id}`, { before, after: { payment_method: method, customer_id: method === "khata" ? customer_id : null }, reason: b.reason });
+  return { ok: true, total: round2(s.total) };
+}));
+
 /** Shop sales, profit and stock for a period (default today). */
 export function shopSummary(t: number, from = pkDayStart(), to = new Date().toISOString(), stationId?: number | null) {
   const st = stationId ? `AND ss.station_id=${Number(stationId)}` : "";

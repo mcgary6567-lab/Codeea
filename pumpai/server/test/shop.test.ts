@@ -100,3 +100,19 @@ test("loyalty: a customer pays with points; not cash in the bag; undo gives the 
   ok(await call("salesman", "POST", `/api/sales/${s.id}/undo`, {}), "undo");
   assert.equal(db.get("SELECT loyalty_points p FROM customers WHERE id=?", c.id).p, c.loyalty_points, "points back");
 });
+
+test("CEO edits a shop sale's payment routing: cash → khata and back; balance follows, books tally", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  const [oil] = ok(await call("salesman", "GET", "/api/shop/items?barcode=8901234500011"), "scan");
+  const acct = ok(await call("salesman", "GET", "/api/pos/khata-accounts"), "accts").find((a: any) => a.status === "ok");
+  const bal0 = ok(await call("admin", "GET", `/api/customers/${acct.id}`), "c").balance;
+  const sale = ok(await call("salesman", "POST", "/api/shop/sales", { station_id: 1, payment_method: "cash", lines: [{ item_id: oil.id, qty: 1 }] }), "cash shop sale");
+  await tallyBooks("after cash shop sale");
+  ok(await call("admin", "POST", `/api/shop/sales/${sale.id}/edit`, { reason: "it was on khata", payment_method: "khata", customer_id: acct.id }), "edit cash→khata");
+  near(ok(await call("admin", "GET", `/api/customers/${acct.id}`), "c").balance, bal0 + sale.total, "customer charged the total");
+  await tallyBooks("after shop edit → khata");
+  ok(await call("admin", "POST", `/api/shop/sales/${sale.id}/edit`, { reason: "actually cash", payment_method: "cash" }), "edit khata→cash");
+  near(ok(await call("admin", "GET", `/api/customers/${acct.id}`), "c").balance, bal0, "balance restored");
+  await tallyBooks("after shop edit → cash");
+  assert.equal((await call("salesman", "POST", `/api/shop/sales/${sale.id}/edit`, { reason: "no", payment_method: "khata", customer_id: acct.id })).status, 403, "non-CEO refused");
+});

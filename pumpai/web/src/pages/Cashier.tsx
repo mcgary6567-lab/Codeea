@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PrintFooter, PrintHeader } from "../components/Letterhead";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  ArrowDownCircle, ArrowUpCircle, Ban, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, Download, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
+  ArrowDownCircle, ArrowUpCircle, Ban, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, Download, FileCheck2, HandCoins, Landmark, Pencil, Printer, Search, Users, X,
 } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
@@ -215,6 +215,16 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
                 <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
               </button>
               <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>
+              {can("cashier.void") && v.party_type === "other" && v.method !== "Cheque" && (
+                <button title="Edit this voucher (CEO)" aria-label="Edit voucher"
+                  onClick={async () => {
+                    const amt = prompt(`Naya amount (Rs)? Abhi: ${v.amount}`, String(v.amount)); if (amt == null) return;
+                    const n = Number(amt); if (!(n > 0)) { alert("Amount theek nahi"); return; }
+                    const reason = prompt("Wajah likhein (kyun badla):"); if (!reason || reason.trim().length < 3) { alert("Wajah zaroori"); return; }
+                    await api(`/cashier/vouchers/${v.id}/edit`, { body: { amount: n, reason: reason.trim() } }); reload();
+                  }}
+                  className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"><Pencil size={15} /></button>
+              )}
               {can("cashier.void") && /^(khata|wholesale|other|supplier|expense|staff)$/.test(v.party_type) && v.method !== "Cheque" && (
                 <button title="Void this voucher (CEO)" aria-label="Void voucher"
                   onClick={async () => { const reason = prompt(`Is voucher ko void karein? (${pkr(v.amount)} ${v.party_name})\nWajah likhein:`); if (reason && reason.trim().length >= 3) { await api(`/cashier/vouchers/${v.id}/void`, { body: { reason: reason.trim() } }); reload(); } }}
