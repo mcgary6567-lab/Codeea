@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Truck, Scale, Percent, Landmark, BookOpenCheck, Download, Upload, Send } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction, ErrorBox } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, SearchBar, Stat, matchQuery, useAction, ErrorBox } from "../components/ui";
 import { d as day, dt, num, pkr, PRODUCTS } from "../lib/format";
 import { useAuth } from "../App";
 import { ALL_PK_BANKS } from "../lib/banks";
@@ -48,10 +48,12 @@ function Claims() {
   const [status, setStatus] = useState("");
   const [settle, setSettle] = useState<any | null>(null);
   const [more, setMore] = useState(false); // phone: the newest few first, the rest on a tap
+  const [q, setQ] = useState("");
   const { data, reload } = useApi<any>(`/claims${status ? `?status=${status}` : ""}`);
   const { busy, run } = useAction();
   if (!data) return <Loading />;
   const s = data.summary;
+  const claims = (data.claims as any[]).filter((c) => matchQuery(q, c.tanker_no, c.supplier_name, c.claim_ref, c.station, c.status));
   return (
     <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -64,9 +66,10 @@ function Claims() {
       <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[1fr_300px]">
         <div className="card overflow-x-auto">
           <div className="flex gap-1 overflow-x-auto p-2 text-sm">{["", "open", "claimed", "partly", "recovered", "written_off"].map((x) => <button key={x} onClick={() => setStatus(x)} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 ${status === x ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{x ? x.replace("_", " ") : "All"}</button>)}</div>
+          <div className="px-2 pb-2"><SearchBar value={q} onChange={setQ} placeholder="Tanker, supplier ya ref dhoondein…" /></div>
           {/* phone: one card per claim, the action button full size */}
           <ul className="divide-y divide-slate-100 border-t border-slate-100 sm:hidden">
-            {(more ? data.claims : data.claims.slice(0, 10)).map((c: any) => (
+            {(more ? claims : claims.slice(0, 10)).map((c: any) => (
               <li key={c.id} className="px-3 py-2.5 text-sm">
                 <div className="flex items-start justify-between gap-2">
                   <span className="min-w-0"><b>{c.tanker_no ?? "—"}</b> <span className="text-slate-500">· {c.supplier_name ?? "—"}</span><span className="block text-xs text-slate-500">{day(c.delivered_at)} · {c.station} {c.tank}</span></span>
@@ -84,11 +87,11 @@ function Claims() {
               </li>
             ))}
           </ul>
-          {!more && data.claims.length > 10 && <button className="w-full border-t border-slate-100 py-3 text-sm font-medium text-brand-700 sm:hidden" onClick={() => setMore(true)}>Show {data.claims.length - 10} more</button>}
+          {!more && claims.length > 10 && <button className="w-full border-t border-slate-100 py-3 text-sm font-medium text-brand-700 sm:hidden" onClick={() => setMore(true)}>Show {claims.length - 10} more</button>}
           <table className="hidden w-full min-w-[720px] text-sm sm:table">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-3 py-2">Tanker</th><th>Depot</th><th className="text-right">Invoice / received</th><th className="text-right">Claim</th><th>Status</th><th /></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {data.claims.map((c: any) => (
+              {claims.map((c: any) => (
                 <tr key={c.id}>
                   <td className="px-3 py-2"><b>{c.tanker_no ?? "—"}</b><span className="block text-xs text-slate-500">{day(c.delivered_at)} · {c.station} {c.tank}</span></td>
                   <td>{c.supplier_name ?? "—"}</td>
@@ -106,7 +109,7 @@ function Claims() {
               ))}
             </tbody>
           </table>
-          {!data.claims.length && <Empty>No claims</Empty>}
+          {!claims.length && <Empty>No claims</Empty>}
         </div>
         <div className="card p-4">
           <h3 className="mb-2 font-semibold">By depot</h3>

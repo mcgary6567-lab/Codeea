@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useApi } from "../lib/api";
-import { Loading, PageHeader, Stat } from "../components/ui";
+import { Loading, PageHeader, SearchBar, Stat, matchQuery } from "../components/ui";
 import { PRODUCTS, pkr, num, dt } from "../lib/format";
 
 /** Who gave khata discounts and limit-overrides, and how much — a check on the two money "levers". */
@@ -9,6 +9,7 @@ export default function DiscountReport() {
   const to = new Date().toISOString();
   const from = new Date(Date.now() - days * 86_400_000).toISOString();
   const { data } = useApi<any>(`/reports/discounts?from=${from}&to=${to}`);
+  const [q, setQ] = useState("");
   if (!data) return <Loading />;
   return (
     <div>
@@ -22,13 +23,14 @@ export default function DiscountReport() {
         <Stat label="Direct discount (POS)" value={pkr(data.direct_total ?? 0)} tone="red" hint={`${data.direct_count ?? 0} sales`} />
         <Stat label="Limit overrides" value={data.override_count} tone="red" />
       </div>
+      <SearchBar value={q} onChange={setQ} placeholder="Reference, person ya customer dhoondein…" className="mb-4" />
 
       {data.by_reference?.length > 0 && (
         <div className="card mb-4 p-4">
           <h2 className="mb-2 font-semibold">Direct discount by reference · <span className="font-urdu" lang="ur" dir="rtl">کس کو دی</span></h2>
           <table className="w-full text-sm">
             <thead><tr><th className="th">Reference (kis ko / kyun)</th><th className="th text-right">Times</th><th className="th text-right">Total</th></tr></thead>
-            <tbody>{data.by_reference.map((c: any) => (
+            <tbody>{data.by_reference.filter((c: any) => matchQuery(q, c.ref)).map((c: any) => (
               <tr key={c.ref}><td className="td">{c.ref}</td><td className="td text-right tabular-nums">{c.count}</td><td className="td text-right font-semibold tabular-nums text-rose-700">{pkr(c.total)}</td></tr>
             ))}</tbody>
           </table>
@@ -40,7 +42,7 @@ export default function DiscountReport() {
           <h2 className="mb-2 font-semibold">Discount by person</h2>
           <table className="w-full text-sm">
             <thead><tr><th className="th">Name</th><th className="th">Role</th><th className="th text-right">Count</th><th className="th text-right">Total</th></tr></thead>
-            <tbody>{data.by_person.map((p: any) => (
+            <tbody>{data.by_person.filter((p: any) => matchQuery(q, p.name, p.role)).map((p: any) => (
               <tr key={p.name}><td className="td">{p.name}</td><td className="td capitalize text-slate-500">{p.role}</td>
                 <td className="td text-right tabular-nums">{p.count}</td><td className="td text-right font-semibold tabular-nums">{pkr(p.total)}</td></tr>
             ))}</tbody>
@@ -53,7 +55,7 @@ export default function DiscountReport() {
           <h2 className="mb-2 font-semibold">Discount by khata customer</h2>
           <table className="w-full text-sm">
             <thead><tr><th className="th">Customer</th><th className="th text-right">Times</th><th className="th text-right">Total discount</th></tr></thead>
-            <tbody>{data.by_customer.map((c: any) => (
+            <tbody>{data.by_customer.filter((c: any) => matchQuery(q, c.name)).map((c: any) => (
               <tr key={c.name}><td className="td">{c.name}</td><td className="td text-right tabular-nums">{c.count}</td><td className="td text-right font-semibold tabular-nums text-amber-700">{pkr(c.total)}</td></tr>
             ))}</tbody>
           </table>

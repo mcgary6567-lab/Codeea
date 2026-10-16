@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ResponsiveContainer, ComposedChart, Bar, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Download, Printer, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Loading, PageHeader, Stat } from "../components/ui";
+import { Badge, Empty, ErrorBox, Loading, PageHeader, SearchBar, Stat, matchQuery } from "../components/ui";
 import { PRODUCTS, PRODUCT_COLORS, ago, dt, num, pkr, pkrShort } from "../lib/format";
 
 const DAY = 86_400_000;
@@ -22,14 +22,21 @@ type Col = { h: string; v: (r: any) => ReactNode; csv?: (r: any) => unknown; rig
 type TableDef = { title: string; rows: any[]; cols: Col[] };
 
 function Table({ title, rows, cols }: TableDef) {
+  const [q, setQ] = useState("");
+  // searchable text of a row = each column's CSV value (or its plain string/number cell)
+  const textOf = (c: Col, r: any) => { const x = c.csv ? c.csv(r) : c.v(r); return typeof x === "string" || typeof x === "number" ? x : ""; };
+  const shown = q.trim() ? rows.filter((r) => matchQuery(q, ...cols.map((c) => textOf(c, r)))) : rows;
   return (
     // a short table stays on one page; a long one runs on (else it jumps whole to the next page and leaves half a page blank)
-    <div className={`card overflow-hidden ${rows.length <= 12 ? "break-inside-avoid" : ""}`}>
-      <h3 className="px-4 pb-2 pt-3 text-sm font-semibold">{title} <span className="font-normal text-slate-400">({rows.length})</span></h3>
-      {rows.length ? (<>
+    <div className={`card overflow-hidden ${shown.length <= 12 ? "break-inside-avoid" : ""}`}>
+      <div className="flex flex-wrap items-center gap-2 px-4 pb-2 pt-3">
+        <h3 className="text-sm font-semibold">{title} <span className="font-normal text-slate-400">({shown.length}{q.trim() && shown.length !== rows.length ? ` / ${rows.length}` : ""})</span></h3>
+        {rows.length > 8 && <SearchBar value={q} onChange={setQ} placeholder="Is table mein dhoondein…" className="ml-auto w-full max-w-xs print:hidden" />}
+      </div>
+      {shown.length ? (<>
         {/* phone: one card per row — names on top, every number with its label */}
         <ul className="max-h-[520px] divide-y divide-slate-100 overflow-auto border-t border-slate-100 sm:hidden print:hidden">
-          {rows.map((r, i) => {
+          {shown.map((r, i) => {
             const names = cols.filter((c) => !c.right), nums = cols.filter((c) => c.right);
             return (
               <li key={i} className="px-4 py-2.5 text-sm">
@@ -42,7 +49,7 @@ function Table({ title, rows, cols }: TableDef) {
         <div className="hidden max-h-[480px] overflow-auto sm:block print:block print:max-h-none">
           <table className="w-full">
             <thead className="sticky top-0"><tr>{cols.map((c) => <th key={c.h} className={`th ${c.right ? "text-right" : ""}`}>{c.h}</th>)}</tr></thead>
-            <tbody>{rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c.h} className={`td text-sm ${c.right || c.h === "Date" ? "whitespace-nowrap" : ""} ${c.right ? "text-right tabular-nums" : ""}`}>{c.v(r)}</td>)}</tr>)}</tbody>
+            <tbody>{shown.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c.h} className={`td text-sm ${c.right || c.h === "Date" ? "whitespace-nowrap" : ""} ${c.right ? "text-right tabular-nums" : ""}`}>{c.v(r)}</td>)}</tr>)}</tbody>
           </table>
         </div>
       </>) : <Empty>Nothing in this period</Empty>}
