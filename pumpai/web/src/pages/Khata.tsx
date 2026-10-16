@@ -6,7 +6,7 @@ import { Ur } from "../components/VoiceShell";
 import { TYPE_ICON } from "./Pos";
 import { BellRing } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Empty, Loading, PageHeader, Stat, useAction } from "../components/ui";
+import { Empty, Loading, PageHeader, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
 import { ago, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 
@@ -16,10 +16,11 @@ export default function Khata() {
   const { can } = useAuth();
   const { busy, run } = useAction();
   const [group, setGroup] = useState("");
+  const [q, setQ] = useState("");
   const [bill, setBill] = useState<number | null>(null);
   if (!data) return <Loading />;
   const INST = ["police", "school", "government", "hospital"];
-  const rows = data.filter((c) => !group || (group === "institution" ? INST.includes(c.type) : c.type === group));
+  const rows = data.filter((c) => (!group || (group === "institution" ? INST.includes(c.type) : c.type === group)) && matchQuery(q, c.name, c.phone, c.type));
   const total = data.reduce((a, c) => a + Math.max(0, c.balance), 0);
   const nearLimit = data.filter((c) => c.credit_limit && c.balance >= 0.8 * c.credit_limit).length;
   const highRisk = data.filter((c) => c.risk_score >= 60).length;
@@ -45,6 +46,7 @@ export default function Khata() {
           </button>
         ))}
       </div>
+      <SearchBar value={q} onChange={setQ} placeholder="Customer naam ya phone dhoondein…" className="mb-3" />
       {/* phone: one card per customer */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
         {rows.map((c) => {

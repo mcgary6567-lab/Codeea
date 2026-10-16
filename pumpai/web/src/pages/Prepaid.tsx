@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import QRCode from "qrcode";
 import { Ticket, Wallet, Plus, Printer, ArrowLeft, Ban } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
 import { dt, pkr, PRODUCTS } from "../lib/format";
 import { useAuth } from "../App";
 import { AccountPicker } from "../components/BankParts";
@@ -163,7 +163,9 @@ function Wallets() {
   const customers = useApi<any[]>("/customers?limit=500");
   const [open, setOpen] = useState<any>(null);
   const [pick, setPick] = useState("");
+  const [q, setQ] = useState("");
   if (!data) return <Loading />;
+  const wallets = data.wallets.filter((w: any) => matchQuery(q, w.name));
   return (
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -177,8 +179,9 @@ function Wallets() {
           <button className="btn-primary" disabled={!pick} onClick={() => setOpen({ id: Number(pick), name: customers.data!.find((c) => c.id === Number(pick))?.name, wallet_balance: 0 })}>Deposit</button>
         </div>
       </div>
+      {data.wallets.length > 0 && <SearchBar value={q} onChange={setQ} placeholder="Wallet (company) dhoondein…" />}
       <div className="card divide-y divide-slate-100">
-        {data.wallets.map((w: any) => (
+        {wallets.map((w: any) => (
           <button key={w.id} onClick={() => setOpen(w)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
             <Wallet className={`shrink-0 ${w.low ? "text-amber-600" : "text-brand-600"}`} size={20} />
             <span className="min-w-0 flex-1"><b>{w.name}</b><span className="block text-xs text-slate-500">{w.last_deposit ? `Last deposit ${dt(w.last_deposit)}` : "No deposit yet"} · used {pkr(w.used_30d)} in 30 days{w.days_left != null ? ` · ~${w.days_left} days left` : ""}</span></span>

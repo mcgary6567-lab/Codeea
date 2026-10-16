@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wallet, Plus, Minus, Banknote, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
 import { PhotoThumb, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { DAY_STATUS, LeaveForm } from "./MyAccount";
@@ -167,8 +167,10 @@ function Accounts() {
   const { can } = useAuth();
   const [open, setOpen] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
+  const [q, setQ] = useState("");
   if (!data) return <Loading />;
   const owed = data.reduce((a, u) => a + Math.max(0, u.balance), 0);
+  const shown = data.filter((u) => matchQuery(q, u.name, u.job_title, u.role, u.station_name, u.phone));
   return (
     <div className="space-y-5">
       <PageHeader title="Staff accounts" subtitle="Advances, cash shortages from shifts and salary — every entry kept automatically"
@@ -178,9 +180,11 @@ function Accounts() {
         <Stat label="Short this month" value={pkr(data.reduce((a, u) => a + u.shortages_this_month, 0))} tone="red" />
         <Stat label="Salary paid this month" value={`${data.filter((u) => u.salary_paid_this_month).length} / ${data.filter((u) => u.salary && u.active).length}`} tone="blue" hint="staff with a salary set" />
       </div>
+      <SearchBar value={q} onChange={setQ} placeholder="Staff naam ya kaam dhoondein…" />
+      {q && !shown.length && <Empty>"{q}" ke liye koi staff nahi mila.</Empty>}
       {/* phone: one card per person */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
-        {data.map((u) => (
+        {shown.map((u) => (
           <li key={u.id} className={`cursor-pointer px-4 py-3 active:bg-slate-50 ${u.active ? "" : "opacity-50"}`} onClick={() => setOpen(u.id)}>
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0"><span className="block font-semibold">{u.name}</span><span className="text-xs capitalize text-slate-500">{u.job_title || u.role}{u.station_name ? ` · ${u.station_name}` : ""}</span></span>
@@ -197,7 +201,7 @@ function Accounts() {
       <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Name</th><th className="th">Role</th><th className="th text-right">Salary</th><th className="th text-right">Owes</th><th className="th text-right">Short this month</th><th className="th">This month</th></tr></thead>
-          <tbody>{data.map((u) => (
+          <tbody>{shown.map((u) => (
             <tr key={u.id} className={`cursor-pointer hover:bg-slate-50 ${u.active ? "" : "opacity-50"}`} onClick={() => setOpen(u.id)}>
               <td className="td font-medium">{u.name}<div className="text-xs text-slate-500">{u.station_name ?? ""}</div></td>
               <td className="td text-sm capitalize">{u.job_title || u.role}</td>

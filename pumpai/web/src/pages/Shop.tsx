@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, PackagePlus, ClipboardCheck, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
-import { Badge, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
 import { dt, num, pkr } from "../lib/format";
 
 import { labelMap, useLookups } from "../lib/lookups";
@@ -17,8 +17,10 @@ export default function Shop() {
   const items = useApi<any[]>(sid ? `/shop/items?station_id=${sid}&all=1` : null);
   const sum = useApi<any>("/shop/summary");
   const [form, setForm] = useState<null | { kind: "item" | "in" | "count" | "moves"; item?: any }>(null);
+  const [q, setQ] = useState("");
   if (!items.data || !sum.data || !stations.data) return <Loading />;
   const s = sum.data;
+  const shown = items.data.filter((i) => matchQuery(q, i.name, i.category, i.sku, i.brand));
   const reload = () => { items.reload(); sum.reload(); };
   return (
     <div className="space-y-5">
@@ -33,9 +35,11 @@ export default function Shop() {
         <Stat label="Stock value (cost)" value={pkr(s.stock_value)} />
         <Stat label="Low stock" value={s.low_stock.length} tone={s.low_stock.length ? "red" : "slate"} hint={s.low_stock.slice(0, 2).map((x: any) => x.name).join(", ")} />
       </div>
+      <SearchBar value={q} onChange={setQ} placeholder="Item ya category dhoondein…" />
+      {q && !shown.length && <Empty>"{q}" ke liye koi item nahi mila.</Empty>}
       {/* phone: one card per item */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
-        {items.data.map((i) => (
+        {shown.map((i) => (
           <li key={i.id} className={`px-4 py-3 ${i.active ? "" : "opacity-50"}`}>
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0"><span className="block font-semibold">{i.name}</span><span className="text-xs text-slate-500">{CATS[i.category] ?? i.category}{i.barcode ? <> · <span className="font-mono">{i.barcode}</span></> : null}</span></span>
@@ -55,7 +59,7 @@ export default function Shop() {
       <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Item</th><th className="th">Category</th><th className="th">Barcode</th><th className="th text-right">Cost</th><th className="th text-right">Price</th><th className="th text-right">Margin</th><th className="th text-right">Stock</th><th className="th" /></tr></thead>
-          <tbody>{items.data.map((i) => (
+          <tbody>{shown.map((i) => (
             <tr key={i.id} className={i.active ? "" : "opacity-50"}>
               <td className="td font-medium">{i.name}</td>
               <td className="td text-sm">{CATS[i.category] ?? i.category}</td>

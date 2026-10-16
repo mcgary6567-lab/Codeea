@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Hourglass, Check } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Loading, PageHeader, useAction } from "../components/ui";
+import { Loading, PageHeader, SearchBar, matchQuery, useAction } from "../components/ui";
 import { PRODUCTS, pkr, num, dt } from "../lib/format";
 import { PhotoButton, PhotoThumb } from "../components/Capture";
 
@@ -16,9 +16,10 @@ export default function CardPending() {
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [rate, setRate] = useState("");       // one rate applied to all selected; blank = each at its own current pump price
   const [photo, setPhoto] = useState<number | null>(null);
+  const [q, setQ] = useState("");
   if (!data) return <Loading />;
 
-  const rows = data;
+  const rows = data.filter((r) => matchQuery(q, r.customer_name, r.product, r.vehicle_no, r.slip_no));
   const toggle = (id: number) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const selRows = rows.filter((r) => sel.has(r.id));
   // only when every selected hold is the same product can one rate box make sense; otherwise each uses its own current price
@@ -46,8 +47,9 @@ export default function CardPending() {
   return (
     <div>
       <PageHeader title="Card pending (khata)" subtitle="Fuel given on trust — no rate is locked until the card / parchi comes in. Clear a hold to bill it to the khata at the clear-day rate." />
+      {data.length > 0 && <SearchBar value={q} onChange={setQ} placeholder="Customer, fuel ya slip dhoondein…" className="mb-4" />}
 
-      {!rows.length ? (
+      {!data.length ? (
         <div className="card p-8 text-center text-slate-500">
           <Hourglass className="mx-auto mb-2 text-slate-400" /> No card-pending holds. Sab clear hain. 🎉
         </div>

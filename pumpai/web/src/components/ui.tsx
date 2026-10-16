@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useState, type ReactNode, type InputHTMLAttributes } from "react";
 import { PrintFooter, PrintHeader } from "./Letterhead";
 import { createPortal } from "react-dom";
-import { X, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { X, CheckCircle2, AlertTriangle, Loader2, Search } from "lucide-react";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
@@ -89,6 +89,38 @@ export const Spinner = () => <Loader2 className="animate-spin text-slate-400" si
 export const Loading = () => <div className="flex h-40 items-center justify-center"><Spinner /></div>;
 export const Empty = ({ children }: { children: ReactNode }) => <div className="py-10 text-center text-sm text-slate-500">{children}</div>;
 export const ErrorBox = ({ error }: { error: string }) => <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>;
+
+/** True if every word of the query appears somewhere in the given fields (case-insensitive). Empty query matches all.
+ *  Use in a list filter: rows.filter((r) => matchQuery(q, r.name, r.phone, r.company, …)). */
+export function matchQuery(q: string, ...fields: (string | number | null | undefined)[]): boolean {
+  const s = (q ?? "").trim().toLowerCase();
+  if (!s) return true;
+  const hay = fields.filter((v) => v != null && v !== "").map(String).join(" ").toLowerCase();
+  return s.split(/\s+/).every((w) => hay.includes(w));
+}
+
+/** A standard search box: icon on the left, a clear (×) button when filled. Controlled. */
+export function SearchBar({ value, onChange, placeholder = "Search… · ڈھونڈیں", className = "", autoFocus }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; autoFocus?: boolean }) {
+  return (
+    <div className={`relative ${className}`}>
+      <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <input autoFocus={autoFocus} className="input w-full pl-9 pr-9" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} aria-label="Search" />
+      {value && <button type="button" onClick={() => onChange("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Clear search"><X size={15} /></button>}
+    </div>
+  );
+}
+
+/** A row of filter chips (one active at a time). `opts` = [value, label]; value "" is usually the "All" chip. */
+export function FilterChips({ value, onChange, opts, className = "" }: { value: string; onChange: (v: string) => void; opts: [string, string][]; className?: string }) {
+  return (
+    <div className={`flex flex-wrap gap-1.5 ${className}`}>
+      {opts.map(([v, label]) => (
+        <button key={v} type="button" onClick={() => onChange(v)}
+          className={`rounded-full px-3 py-1 text-sm font-medium ring-1 transition active:scale-95 ${value === v ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-600 ring-slate-300 hover:ring-brand-400"}`}>{label}</button>
+      ))}
+    </div>
+  );
+}
 
 type Toast = { id: number; kind: "ok" | "err"; text: string };
 const ToastCtx = createContext<(kind: Toast["kind"], text: string) => void>(() => {});

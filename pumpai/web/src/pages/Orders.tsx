@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, useApi, useLiveEvents } from "../lib/api";
-import { Badge, Empty, Loading, PageHeader, statusTone, useAction } from "../components/ui";
+import { Badge, Empty, Loading, PageHeader, SearchBar, statusTone, matchQuery, useAction } from "../components/ui";
 import { dt, num, phone, pkr } from "../lib/format";
 
 const NEXT: Record<string, string[]> = { pending: ["confirmed", "cancelled"], confirmed: ["dispatched", "cancelled"], dispatched: ["delivered"] };
@@ -11,8 +11,10 @@ export default function Orders() {
   const stations = useApi<any[]>("/stations");
   const { busy, run } = useAction();
   const [stationId, setStationId] = useState<number | "">("");
+  const [q, setQ] = useState("");
   useLiveEvents((e) => e.type === "order" && reload());
   if (!data) return <Loading />;
+  const shown = data.filter((o) => matchQuery(q, o.customer_name, o.phone, o.product, o.status, o.address, `#${o.id}`));
   const buttons = (o: any) => (NEXT[o.status] ?? []).map((s) => (
     <button key={s} disabled={busy} className={`${s === "cancelled" ? "btn-secondary" : "btn-primary"} min-h-9 !px-2.5 !py-1 text-xs sm:min-h-0`}
       onClick={() => run(() => api(`/orders/${o.id}`, { method: "PATCH", body: { status: s, station_id: stationId || stations.data?.[0]?.id } }), `Order #${o.id} ${s} — customer notified`).then(reload)}>
@@ -26,9 +28,11 @@ export default function Orders() {
         actions={<label className="flex items-center gap-2 text-sm text-slate-600">Deliver from
           <select className="input w-auto" value={stationId} onChange={(e) => setStationId(Number(e.target.value))}>
             {(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>} />
+      <SearchBar value={q} onChange={setQ} placeholder="Customer, phone, status ya order# dhoondein…" className="mb-4" />
+      {q && !shown.length && <Empty>"{q}" ke liye koi order nahi mila.</Empty>}
       {/* phone: one card per order */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
-        {data.map((o) => (
+        {shown.map((o) => (
           <li key={o.id} className="px-4 py-3">
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0"><Link to={`/customers/${o.customer_id}`} className="block font-semibold hover:underline">{o.customer_name}</Link><span className="text-xs text-slate-500">#{o.id} · {dt(o.created_at)} · {phone(o.phone)}</span></span>
@@ -47,7 +51,7 @@ export default function Orders() {
         <table className="w-full">
           <thead><tr><th className="th">#</th><th className="th">Customer</th><th className="th">Order</th><th className="th">Deliver</th><th className="th">Payment</th><th className="th">Status</th><th className="th">Actions</th></tr></thead>
           <tbody>
-            {data.map((o) => (
+            {shown.map((o) => (
               <tr key={o.id}>
                 <td className="td text-xs text-slate-500">#{o.id}<br />{dt(o.created_at)}</td>
                 <td className="td"><Link to={`/customers/${o.customer_id}`} className="font-medium hover:underline">{o.customer_name}</Link><div className="text-xs text-slate-500">{phone(o.phone)}</div></td>

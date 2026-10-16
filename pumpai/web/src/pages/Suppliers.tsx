@@ -4,7 +4,7 @@ import { VoucherSlip } from "./Cashier";
 import { api, linkToken, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { Ur } from "../components/VoiceShell";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
@@ -20,11 +20,13 @@ export default function Suppliers() {
   const [adding, setAdding] = useState(false);
   const [addDepot, setAddDepot] = useState(false);
   const [editDepot, setEditDepot] = useState<any>(null);
+  const [q, setQ] = useState("");
   if (!data) return <Loading />;
   const total = data.reduce((a, s) => a + Math.max(0, s.owed), 0);
+  const shown = data.filter((s) => matchQuery(q, s.name, s.company, s.phone, s.depot_name, s.city));
   // group the contacts under their depot; standalone ones go last under "No depot"
   const byDepot = new Map<string, { depot: any; rows: any[] }>();
-  for (const s of data) {
+  for (const s of shown) {
     const key = s.depot_id ? `d${s.depot_id}` : "none";
     if (!byDepot.has(key)) byDepot.set(key, { depot: s.depot_id ? { id: s.depot_id, name: s.depot_name, address: s.depot_address, city: s.depot_city } : null, rows: [] });
     byDepot.get(key)!.rows.push(s);
@@ -44,6 +46,8 @@ export default function Suppliers() {
         <Stat label="Contacts" value={data.length} />
         <Stat label="Bought this month" value={`${num(data.reduce((a, s) => a + s.month_l, 0))} L`} />
       </div>
+      <SearchBar value={q} onChange={setQ} placeholder="Supplier, company, phone ya depot dhoondein…" />
+      {q && !groups.length && <Empty>"{q}" ke liye koi supplier nahi mila.</Empty>}
 
       {groups.map(({ depot, rows }) => (
         <div key={depot?.id ?? "none"} className="card overflow-hidden">
