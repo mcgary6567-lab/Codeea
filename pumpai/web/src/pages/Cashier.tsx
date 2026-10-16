@@ -215,13 +215,14 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
                 <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
               </button>
               <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>
-              {can("cashier.void") && v.party_type === "other" && v.method !== "Cheque" && (
-                <button title="Edit this voucher (CEO)" aria-label="Edit voucher"
+              {can("cashier.void") && v.method !== "Cheque" && (
+                <button title="Edit this voucher (CEO) — poore system me update" aria-label="Edit voucher"
                   onClick={async () => {
-                    const amt = prompt(`Naya amount (Rs)? Abhi: ${v.amount}`, String(v.amount)); if (amt == null) return;
+                    const amt = prompt(`Naya amount (Rs)? Abhi: ${v.amount}\n(${v.party_name})`, String(v.amount)); if (amt == null) return;
                     const n = Number(amt); if (!(n > 0)) { alert("Amount theek nahi"); return; }
-                    const reason = prompt("Wajah likhein (kyun badla):"); if (!reason || reason.trim().length < 3) { alert("Wajah zaroori"); return; }
-                    await api(`/cashier/vouchers/${v.id}/edit`, { body: { amount: n, reason: reason.trim() } }); reload();
+                    const reason = prompt("Wajah likhein (kyun badla):"); if (!reason || reason.trim().length < 3) { alert("Wajah zaroori (kam se kam 3 harf)"); return; }
+                    const r = await api(`/cashier/vouchers/${v.id}/edit`, { body: { amount: n, reason: reason.trim() } }).catch((e: any) => { alert(e.message); return null; });
+                    if (r) reload();
                   }}
                   className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"><Pencil size={15} /></button>
               )}

@@ -174,9 +174,35 @@ test("CEO edits a standalone 'other' cash voucher amount — cash follows and th
   ok(await call("admin", "POST", `/api/cashier/vouchers/${r.voucher.id}/edit`, { reason: "it was 2000 not 3000", amount: 2000 }), "edit voucher");
   near(ok(await call("cashier", "GET", "/api/cash"), "cash").cash_in_hand, before + 2000, "cash now +2000");
   await tallyBooks("after editing the voucher");
-  // a party-linked voucher refuses edit here; and a non-CEO cannot edit
-  const k = ok(await call("admin", "GET", "/api/cashier/parties?kind=khata"), "p").khata[0];
-  const kr = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "khata", party_id: k.id, amount: 500, method: "Cash", notify: false }), "khata rec");
-  assert.equal((await call("admin", "POST", `/api/cashier/vouchers/${kr.voucher.id}/edit`, { reason: "nope", amount: 1 })).status, 400);
+  // a non-CEO cannot edit a voucher
   assert.equal((await call("cashier", "POST", `/api/cashier/vouchers/${r.voucher.id}/edit`, { reason: "nope", amount: 1 })).status, 403);
+});
+
+test("CEO edits a linked voucher (khata / wholesale / supplier) from the desk — balances follow, books tally", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  const khataBal = async (id) => ok(await call("admin", "GET", "/api/cashier/parties?kind=khata"), "pk").khata.find((x) => x.id === id).balance;
+  // khata payment 2000 → corrected to 1500 (customer balance follows)
+  const k = ok(await call("admin", "GET", "/api/cashier/parties?kind=khata"), "pk0").khata[0];
+  const kb0 = await khataBal(k.id);
+  const kr = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "khata", party_id: k.id, amount: 2000, method: "Cash", notify: false }), "khata rec");
+  near(await khataBal(k.id), kb0 - 2000, "khata down 2000 after receiving");
+  ok(await call("admin", "POST", `/api/cashier/vouchers/${kr.voucher.id}/edit`, { reason: "it was 1500 not 2000", amount: 1500 }), "edit khata voucher");
+  near(await khataBal(k.id), kb0 - 1500, "khata balance now reflects the corrected 1500");
+  await tallyBooks("after khata voucher edit");
+
+  // wholesale payment 3000 → 2000
+  const wc = ok(await call("admin", "GET", "/api/wholesale/clients"), "wc")[0];
+  const wr = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "wholesale", party_id: wc.id, amount: 3000, method: "Cash", notify: false }), "ws rec");
+  ok(await call("admin", "POST", `/api/cashier/vouchers/${wr.voucher.id}/edit`, { reason: "2000 not 3000", amount: 2000 }), "edit ws voucher");
+  await tallyBooks("after wholesale voucher edit");
+
+  // supplier payment 4000 → 2500
+  const sup = ok(await call("admin", "GET", "/api/suppliers"), "sup")[0];
+  const sr = ok(await call("cashier", "POST", "/api/cashier/pay", { party_type: "supplier", party_id: sup.id, amount: 4000, method: "Cash", notify: false }), "sup pay");
+  ok(await call("admin", "POST", `/api/cashier/vouchers/${sr.voucher.id}/edit`, { reason: "2500 not 4000", amount: 2500 }), "edit sup voucher");
+  await tallyBooks("after supplier voucher edit");
+
+  // a non-CEO cannot edit, and a cheque voucher is refused
+  assert.equal((await call("cashier", "POST", `/api/cashier/vouchers/${kr.voucher.id}/edit`, { reason: "no", amount: 1 })).status, 403);
+  assert.equal(ok(await call("admin", "GET", "/api/books/check"), "books").ok, true);
 });

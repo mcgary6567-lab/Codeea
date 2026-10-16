@@ -295,27 +295,62 @@ cashier.post("/cashier/vouchers/:id/void", requirePerm("cashier.void"), h((req) 
   return { ok: true, balance_after: v.party_type && v.party_id && v.party_type !== "other" ? balanceOf(v.party_type, v.party_id) : null };
 }));
 
-/** CEO edit of a STANDALONE "other" cash/bank voucher (petty cash in/out) — amount / note / category. A voucher tied to a
- *  party (khata, supplier, wholesale, staff, expense or a cheque) is sent to that party's own editor so nothing double-counts. */
+/** CEO edit of ANY voucher from the cashier desk — amount / method / note. The underlying source entry (khata payment,
+ *  wholesale/supplier payment, staff advance, expense, other cash/bank) is reversed and re-posted with the new values, so
+ *  the whole system (party balance, bank, cash, ledger) follows. Cheque vouchers go to the cheque register. Tally stays 0. */
 cashier.post("/cashier/vouchers/:id/edit", requirePerm("cashier.void"), h((req) => {
   const t = tid(req);
   const v = get("SELECT * FROM cashier_vouchers WHERE id=? AND tenant_id=?", Number(req.params.id), t);
   if (!v) throw new AppError(404, "Voucher nahi mila");
   if (v.voided) throw new AppError(400, "Yeh voucher void ho chuka hai");
-  const [kind, idStr] = String(v.src ?? "").split(":");
-  if (v.src && kind !== "bank") throw new AppError(400, "Ye kisi party (khata/supplier/wholesale/staff/expense/cheque) se bani — uske apne page se badlein.");
+  const [kind, idStr] = String(v.src ?? "").split(":"); const srcId = Number(idStr);
+  if (kind === "chq" || kind === "wchq") throw new AppError(400, "Ye cheque entry hai — cheque register se badlein.");
   const b = parse(z.object({
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
-    amount: z.number().positive().max(1_000_000_000).optional(), note: z.string().max(200).nullable().optional(), category: z.string().max(60).nullable().optional(),
+    amount: z.number().positive().max(1_000_000_000).optional(), method: z.string().max(40).optional(),
+    note: z.string().max(200).nullable().optional(), category: z.string().max(60).nullable().optional(),
   }), req.body);
   const amount = round2(b.amount ?? v.amount);
+  const method = b.method ?? v.method;
+  if (isCheque(method)) throw new AppError(400, "Cheque method yahan se nahi — Receive/Pay se cheque banayein.");
   const note = b.note !== undefined ? b.note : v.note, category = b.category !== undefined ? b.category : v.category;
+  const acc = isCash(method) ? null : bankAccountFor(t, v.account_id, method);
+  const before = { amount: v.amount, method: v.method, note: v.note, src: v.src };
+  let newSrc = v.src;
   tx(() => {
-    run("UPDATE cashier_vouchers SET amount=?, note=?, category=? WHERE id=? AND tenant_id=?", amount, note ?? null, category ?? null, v.id, t);
-    if (kind === "bank") run("UPDATE bank_txns SET amount=?, note=? WHERE id=? AND tenant_id=?", amount, category || note || "Other money", Number(idStr), t);
+    if (kind === "khata") {
+      const k = get("SELECT * FROM khata_ledger WHERE id=?", srcId);
+      if (k) {
+        run("DELETE FROM khata_ledger WHERE id=?", srcId);
+        run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", k.type === "credit" ? k.amount : -k.amount, v.party_id, t);
+        khataEntry(v.party_id, k.type, amount, method, note ?? k.note, acc);
+        newSrc = `khata:${get("SELECT MAX(id) id FROM khata_ledger WHERE customer_id=?", v.party_id)!.id}`;
+      }
+    } else if (kind === "wtx") {
+      const old = get("SELECT * FROM wholesale_txns WHERE id=?", srcId);
+      run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=? AND tenant_id=?", `${req.user!.name} (edit): ${b.reason}`, srcId, t);
+      run("DELETE FROM supplier_txns WHERE tenant_id=? AND ref=?", t, `wtx:${srcId}`);
+      const r = insertTxn(req, v.party_id, { type: "payment", amount, method, ref: old?.ref ?? null, note: note ?? null, account_id: acc });
+      newSrc = `wtx:${r.id}`;
+    } else if (kind === "stx") {
+      const old = get("SELECT * FROM supplier_txns WHERE id=?", srcId);
+      run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", srcId, t);
+      const nid = run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        t, v.party_id, "payment", amount, method, old?.ref ?? null, note ?? null, v.created_by ?? req.user!.name, old?.txn_date ?? v.created_at, now(), acc).id;
+      newSrc = `stx:${nid}`;
+    } else if (kind === "staff") {
+      run("UPDATE staff_ledger SET amount=?, method=?, account_id=? WHERE id=? AND tenant_id=?", amount, method, acc, srcId, t);
+    } else if (kind === "expense") {
+      run("UPDATE expenses SET amount=?, method=?, account_id=? WHERE id=? AND tenant_id=?", amount, method, acc, srcId, t);
+    } else if (kind === "bank") {
+      run("UPDATE bank_txns SET amount=?, account_id=?, note=? WHERE id=? AND tenant_id=?", amount, acc, category || note || "Other money", srcId, t);
+    }
+    // the voucher always mirrors the corrected figures (for an 'other' cash entry this row IS the money)
+    run("UPDATE cashier_vouchers SET amount=?, method=?, account_id=?, note=?, category=?, src=? WHERE id=? AND tenant_id=?",
+      amount, method, kind === "bank" || !isCash(method) ? acc : null, note ?? null, category ?? null, newSrc, v.id, t);
   });
-  audit(t, req.user!, "cashier_voucher_edit", `voucher:${v.id}`, { before: { amount: v.amount, note: v.note, category: v.category }, after: { amount, note, category }, reason: b.reason });
-  return { ok: true, amount };
+  audit(t, req.user!, "cashier_voucher_edit", `voucher:${v.id}`, { before, after: { amount, method, note, src: newSrc }, reason: b.reason });
+  return { ok: true, amount, balance_after: v.party_type && v.party_id && v.party_type !== "other" ? balanceOf(v.party_type, v.party_id) : null };
 }));
 
 cashier.get("/cashier/vouchers", requirePerm("cashier.desk"), h((req) => {
