@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { AccountPicker } from "../components/BankParts";
+import { Ur } from "../components/VoiceShell";
 import { pkr, num, dt } from "../lib/format";
 import { TrendingUp, TrendingDown, Percent, Trash2, Pencil, Search, Banknote, Landmark, Smartphone, ArrowLeftRight } from "lucide-react";
 
@@ -81,7 +82,7 @@ export default function OtherEntries() {
                   <div key={e.id} className="flex items-center gap-2 rounded-lg border p-2 text-sm">
                     <div className="min-w-0 flex-1">
                       <div className="font-medium">{e.party_name} · <span className="font-semibold">{pkr(e.amount)}</span></div>
-                      <div className="truncate text-xs text-slate-500">{e.reason}{e.method ? ` · ${e.method}` : ""} · {dt(e.created_at)}</div>
+                      <div className="truncate text-xs text-slate-500">{e.reason}{e.method ? ` · ${e.method}` : ""} · {dt(e.created_at)}{e.to_party ? <span className="ml-1 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">khate par</span> : null}</div>
                     </div>
                     <button onClick={() => setEdit(e)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700" aria-label="Edit"><Pencil size={15} /></button>
                     <button onClick={() => { if (confirm(`Undo this ${meta.en.toLowerCase()} of ${pkr(e.amount)}?`)) api(`/other-entries/${e.id}`, { method: "DELETE" }).then(reload); }}
@@ -105,7 +106,7 @@ function EditOther({ e, meta, onClose, onDone }: { e: any; meta: { en: string };
   const [note, setNote] = useState(e.note ?? "");
   const [why, setWhy] = useState("");
   const save = () => run(() => api(`/other-entries/${e.id}/edit`, {
-    body: { kind: e.kind, party_type: e.party_type, party_id: e.party_id ?? undefined, party_name: e.party_name,
+    body: { kind: e.kind, party_type: e.party_type, party_id: e.party_id ?? undefined, party_name: e.party_name, to_party: !!e.to_party,
       reason: e.reason, amount: Number(amount), method: e.method ?? undefined, account_id: e.account_id ?? undefined, note: note || null, why: why.trim() },
   }), "Theek ho gaya — poore system me update, books tally").then((r) => { if (r) { onDone(); onClose(); } });
   return (
@@ -133,6 +134,7 @@ function EntryForm({ kind, meta, onSaved }: { kind: Kind; meta: { en: string; to
   const [method, setMethod] = useState("Cash");
   const [account, setAccount] = useState<number | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [toParty, setToParty] = useState(true); // income/expense with a real party: also post it on their khata
   const { data: parties } = useApi<any>(ptype === "other" ? null : `/other-entries/parties?q=${encodeURIComponent(q)}`);
   const cash = isCashM(method);
 
@@ -142,14 +144,14 @@ function EntryForm({ kind, meta, onSaved }: { kind: Kind; meta: { en: string; to
   useEffect(() => { setAccount(null); }, [method]); // a new method needs its own account chosen
 
   const list = ptype === "other" ? [] : (parties?.[ptype] ?? []);
-  const reset = () => { setParty(null); setOtherName(""); setReason(""); setAmount(""); setQ(""); setMethod("Cash"); setAccount(null); setNotes({}); };
+  const reset = () => { setParty(null); setOtherName(""); setReason(""); setAmount(""); setQ(""); setMethod("Cash"); setAccount(null); setNotes({}); setToParty(true); };
 
   const submit = () => {
     const amt = Number(amount);
     if (!(amt > 0)) return run(() => Promise.reject(new Error("Amount theek likhein")), "");
     const b: any = { kind, party_type: ptype, reason, amount: amt,
       ...(ptype === "other" ? { party_name: otherName } : { party_id: party?.id }),
-      ...(kind === "discount" ? {} : { method, account_id: cash ? null : account,
+      ...(kind === "discount" ? {} : { method, account_id: cash ? null : account, to_party: ptype !== "other" && toParty,
         notes: cash ? Object.fromEntries(Object.entries(notes).filter(([, n]) => Number(n) > 0).map(([k, n]) => [k, Number(n)])) : undefined }) };
     run(() => api("/other-entries", { body: b }), `${meta.en} saved`).then(() => { reset(); onSaved(); });
   };
@@ -198,6 +200,23 @@ function EntryForm({ kind, meta, onSaved }: { kind: Kind; meta: { en: string; to
       {kind !== "discount" && cash && <NoteGrid notes={notes} onChange={setNotes} amount={Number(amount) || 0} />}
       {kind !== "discount" && !cash && <AccountPicker method={method} value={account} onChange={setAccount} required label="Kaun sa account? · کون سا اکاؤنٹ" />}
 
+      {kind !== "discount" && ptype !== "other" && (
+        <div className={`rounded-xl border p-3 ${toParty ? "border-brand-300 bg-brand-50" : "border-slate-200 bg-slate-50"}`}>
+          <label className="flex cursor-pointer items-start gap-2">
+            <input type="checkbox" className="mt-0.5 h-4 w-4" checked={toParty} onChange={(e) => setToParty(e.target.checked)} />
+            <span className="text-sm">
+              <b>Party ke khate par bhi daalein · <Ur>کھاتے میں درج کریں</Ur></b>
+              <span className="block text-xs text-slate-600">
+                {toParty
+                  ? (kind === "expense"
+                    ? `Paisa ${party?.name ?? "party"} ko diya → unke khate me DEBIT (unhein ${pkr(Number(amount) || 0)} aur dena hoga). Cash/bank se nikla, ledger me party ka udhaar — pump ka kharcha nahi.`
+                    : `Paisa ${party?.name ?? "party"} se aaya → unke khate me CREDIT (unka balance ${pkr(Number(amount) || 0)} kam). Cash/bank me aaya, ledger me party ki wasooli — pump ki income nahi.`)
+                  : `Sirf naam ke liye: ${party?.name ?? "party"} ka khata NAHI badlega — yeh pump ka apna ${kind === "expense" ? "kharcha (P&L expense)" : "income (P&L)"} hai.`}
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
       {kind === "discount" && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Discount se is party ka outstanding {pkr(Number(amount) || 0)} kam ho jayega, aur profit bhi utna kam hoga.</p>}
       <button disabled={busy || !ready} onClick={submit} className={`btn-primary w-full ${!ready ? "opacity-60" : ""}`}>{busy ? "Saving…" : `${meta.en} save karein`}</button>
     </div>

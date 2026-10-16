@@ -159,3 +159,42 @@ test("CEO edits an other-entry — income amount and a khata discount both follo
   assert.ok(discList.list.find((r: any) => r.id === disc.id && Math.round(r.amount) === 600), "discount now 600");
   assert.equal(ok(await call(adminTok, "GET", "/api/books/check"), "books").ok, true);
 });
+
+test("to-party income/expense moves the PARTY's khata (not the P&L), cash follows, tally holds, undo restores", async () => {
+  const parties = ok(await call(adminTok, "GET", "/api/other-entries/parties"), "parties");
+  const khata = parties.khata[1] ?? parties.khata[0]; const whole = parties.wholesale[1] ?? parties.wholesale[0];
+  const bal0 = ok(await call(adminTok, "GET", `/api/customers/${khata.id}`), "cust0").balance as number;
+  const due0 = ok(await call(adminTok, "GET", `/api/wholesale/clients/${whole.id}`), "cli0").summary.due as number;
+  const cash0 = ok(await call(adminTok, "GET", "/api/cash"), "cash0").cash_in_hand as number;
+  const pl0 = ok(await call(adminTok, "GET", `/api/analysis/pl?month=${month}`), "pl0").pl;
+
+  // CEO gave Rs 1,000 cash to a khata customer (e.g. his driver's fuel on the road) → his khata DEBIT, cash out, no expense
+  const exp = ok(await call(adminTok, "POST", "/api/other-entries", { kind: "expense", party_type: "khata", party_id: khata.id, reason: "fuel expense", amount: 1000, method: "cash", to_party: true }), "exp to khata");
+  assert.equal(exp.to_party, 1); assert.match(String(exp.src), /^voucher:\d+\+khata:\d+$/);
+  // a wholesale client handed the CEO Rs 2,500 cash → his khata CREDIT (due down), cash in, no income
+  const inc = ok(await call(adminTok, "POST", "/api/other-entries", { kind: "income", party_type: "wholesale", party_id: whole.id, reason: "wasooli", amount: 2500, method: "cash", to_party: true }), "inc from wholesale");
+  assert.match(String(inc.src), /^voucher:\d+\+wtx:\d+$/);
+
+  const bal1 = ok(await call(adminTok, "GET", `/api/customers/${khata.id}`), "cust1").balance as number;
+  const due1 = ok(await call(adminTok, "GET", `/api/wholesale/clients/${whole.id}`), "cli1").summary.due as number;
+  const cash1 = ok(await call(adminTok, "GET", "/api/cash"), "cash1").cash_in_hand as number;
+  assert.equal(Math.round(bal1 - bal0), 1000, "khata customer owes 1000 more");
+  assert.equal(Math.round(due1 - due0), -2500, "wholesale client owes 2500 less");
+  assert.equal(Math.round(cash1 - cash0), 1500, "cash: −1000 +2500");
+  const pl1 = ok(await call(adminTok, "GET", `/api/analysis/pl?month=${month}`), "pl1").pl;
+  assert.equal(pl1.other_income_ceo, pl0.other_income_ceo, "P&L other income unchanged");
+  assert.equal(pl1.net_profit, pl0.net_profit, "net profit unchanged — party udhaar/wasooli, not income/expense");
+  await tallyBooks("after to-party entries");
+
+  // the customer's statement shows the row
+  const cust = ok(await call(adminTok, "GET", `/api/customers/${khata.id}`), "cust-ledger");
+  assert.ok(cust.ledger.some((l: any) => String(l.ref).startsWith("oth-pty:") && l.type === "debit" && l.amount === 1000), "khata ledger has the debit row");
+
+  // undo the expense → balance and cash come back, tally still holds
+  ok(await call(adminTok, "DELETE", `/api/other-entries/${exp.id}`), "undo exp");
+  const bal2 = ok(await call(adminTok, "GET", `/api/customers/${khata.id}`), "cust2").balance as number;
+  assert.equal(Math.round(bal2 - bal0), 0, "khata balance restored");
+  const cash2 = ok(await call(adminTok, "GET", "/api/cash"), "cash2").cash_in_hand as number;
+  assert.equal(Math.round(cash2 - cash0), 2500);
+  await tallyBooks("after undoing a to-party entry");
+});

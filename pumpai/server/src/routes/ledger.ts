@@ -39,9 +39,14 @@ const OPENING_EQ = "Opening balances (go-live)", OPEN_REF = "open:";
 const specialSide = (ref: string | null | undefined) =>
   !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held" : null;
 /** CEO-only "other" markers: income / expense / discount. Hidden from non-admin views (shown as owner capital/drawings). */
-const otherKind = (ref: string | null | undefined): "inc" | "exp" | "disc" | null =>
-  !ref ? null : ref.startsWith("oth-inc:") ? "inc" : ref.startsWith("oth-exp:") ? "exp" : ref.startsWith("oth-disc:") ? "disc" : null;
+const otherKind = (ref: string | null | undefined): "inc" | "exp" | "disc" | "pty" | null =>
+  !ref ? null : ref.startsWith("oth-inc:") ? "inc" : ref.startsWith("oth-exp:") ? "exp" : ref.startsWith("oth-disc:") ? "disc" : ref.startsWith("oth-pty:") ? "pty" : null;
 const isOtherDisc = (ref: string | null | undefined) => otherKind(ref) === "disc";
+/** CEO income/expense posted ON a party's own khata ("oth-pty:<entry>"): the cash/bank row is booked against that party's
+ *  receivable (the party's own ledger row is skipped — it only moves the balance). Not private: it is on the party's statement. */
+const isToParty = (ref: string | null | undefined) => otherKind(ref) === "pty";
+const PARTY_RECV: Record<string, string> = { khata: "Khata receivable", wholesale: "Wholesale receivable", carriage: "Carriage receivable" };
+const toPartyAccount = (ref: string) => PARTY_RECV[get("SELECT party_type FROM other_entries WHERE id=?", Number(ref.slice(8)))?.party_type ?? ""] ?? "Suspense";
 
 /** `showPrivate` (default true) includes the CEO-only "other income/expense/discount" with their real
  *  accounts + narration. When false (non-admin views), those entries appear as owner capital/drawings
@@ -110,6 +115,7 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
   // khata: payments received, and charges other than fuel (late fee, adjustments)
   for (const r of all(`SELECT k.*, c.name FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.created_at >= ? AND k.created_at < ? AND COALESCE(k.ref,'') NOT LIKE 'SALE%' AND COALESCE(k.ref,'') NOT LIKE 'SHOP-%'`, ...P)) {
     // go-live opening balance: brought forward, not this period's income
+    if (isToParty(r.ref)) continue; // booked from the cash/bank row against Khata receivable
     if (r.ref === OPEN_REF) { add(day(r.created_at), "Opening", `Opening balance — ${r.name}`, r.type === "debit" ? [dr("Khata receivable", r.amount), cr(OPENING_EQ, r.amount)] : [dr(OPENING_EQ, r.amount), cr("Khata receivable", r.amount)]); continue; }
     if (r.type === "credit") {
       const od = isOtherDisc(r.ref);
@@ -122,6 +128,7 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
   // wholesale
   for (const r of all(`SELECT w.*, c.name FROM wholesale_txns w JOIN wholesale_clients c ON c.id=w.client_id WHERE w.tenant_id=? AND w.voided=0 AND w.created_at >= ? AND w.created_at < ?`, ...P)) {
     const d = day(r.created_at);
+    if (isToParty(r.ref)) continue; // booked from the cash/bank row against Wholesale receivable
     if (r.type === "supply") add(d, "Sales", `Wholesale supply — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}`, [dr("Wholesale receivable", r.amount), cr("Wholesale sales", r.amount)]);
     if (r.type === "return") add(d, "Credit note", `Wholesale return — ${r.name} ${r.litres} L`, [dr("Wholesale sales", r.amount), cr("Wholesale receivable", r.amount)]);
     // paid straight to our depot: what we owe the depot goes down instead of money coming in
@@ -141,6 +148,7 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
   // carriage / kiraya with thekedars (bypass on our depot ID): their own receivable, booked as income (no fuel on our books)
   for (const r of all(`SELECT c.*, k.name FROM carriage_txns c JOIN thekedars k ON k.id=c.thekedar_id WHERE c.tenant_id=? AND c.voided=0 AND c.created_at >= ? AND c.created_at < ?`, ...P)) {
     const d = day(r.created_at);
+    if (isToParty(r.ref)) continue; // booked from the cash/bank row against Carriage receivable
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Carriage receivable", r.amount), cr("Carriage income", r.amount)]);
     if (r.type === "payment") {
       const od = isOtherDisc(r.ref);
@@ -189,6 +197,9 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     if (ok === "inc" || ok === "exp") {
       other = showPrivate ? (ok === "inc" ? OTHER_INCOME_CEO : OTHER_EXPENSE_CEO) : (r.amount > 0 ? OWN_CAP : OWN_DRAW);
       narr = showPrivate ? `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}` : (r.amount > 0 ? "Owner's capital introduced" : "Owner's drawings");
+    } else if (ok === "pty") {
+      other = toPartyAccount(r.ref); // on the party's own account: paid to / received from them
+      narr = `${r.amount > 0 ? "Received from" : "Paid to"} ${r.party ?? "party"}${r.note ? ` (${r.note})` : ""}`;
     } else {
       other = specialSide(r.ref) ?? BANK_SIDE[r.kind] ?? "Suspense";
       narr = `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}`;
@@ -233,6 +244,9 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     if (ok === "inc" || ok === "exp") {
       other = showPrivate ? (ok === "inc" ? OTHER_INCOME_CEO : OTHER_EXPENSE_CEO) : (r.direction === "in" ? OWN_CAP : OWN_DRAW);
       narr = showPrivate ? `${r.category ?? (r.direction === "in" ? "Other money in" : "Other payment")} — ${r.party_name}` : (r.direction === "in" ? "Owner's capital introduced" : "Owner's drawings");
+    } else if (ok === "pty") {
+      other = toPartyAccount(r.src); // on the party's own account: paid to / received from them
+      narr = `${r.direction === "in" ? "Received from" : "Paid to"} ${r.party_name}${r.category ? ` (${r.category})` : ""}`;
     } else {
       other = specialSide(r.src) ?? (r.direction === "in" ? "Other income" : "Other payments");
       narr = `${r.category ?? (r.direction === "in" ? "Other money in" : "Other payment")} — ${r.party_name}`;

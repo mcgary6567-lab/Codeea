@@ -717,6 +717,7 @@ export function migrate() {
     method TEXT, account_id INTEGER, src TEXT, note TEXT, voided INTEGER NOT NULL DEFAULT 0,
     created_by TEXT, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_other_entries ON other_entries(tenant_id, kind, created_at)");
+  addColumn("other_entries", "to_party", "INTEGER NOT NULL DEFAULT 0"); // 1 = also posted on the party's own khata (not the CEO's P&L)
   // WhatsApp payment screenshots from khata customers, waiting for the cashier to confirm into the khata
   db.exec(`CREATE TABLE IF NOT EXISTS payment_inbox (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER, phone TEXT, sender_name TEXT,

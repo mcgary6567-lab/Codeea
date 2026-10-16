@@ -494,9 +494,9 @@ export function cashierDayBook(t: number, d: string, showPrivate = true) {
     ...all(`SELECT created_at at, 'in' dir, 'Shop sale (no shift)' what, '' party, 'Cash' method, total amount, NULL account_id, NULL who
       FROM shop_sales WHERE tenant_id=? AND shift_id IS NULL AND payment_method='cash' AND created_at >= ? AND created_at < ?`, ...P),
     ...all(`SELECT k.created_at at, 'in' dir, 'Khata payment' what, c.name party, COALESCE(k.ref,'') method, k.amount, k.account_id, NULL who
-      FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND COALESCE(k.ref,'') NOT LIKE 'oth-disc:%' AND k.created_at >= ? AND k.created_at < ?`, ...P),
+      FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND COALESCE(k.ref,'') NOT LIKE 'oth-%' AND k.created_at >= ? AND k.created_at < ?`, ...P),
     ...all(`SELECT x.created_at at, 'in' dir, 'Wholesale payment' what, c.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
-      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND COALESCE(x.ref,'') NOT LIKE 'oth-disc:%' AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
+      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND COALESCE(x.ref,'') NOT LIKE 'oth-%' AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT x.created_at at, 'out' dir, 'Supplier payment' what, s.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
       FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.type='payment' AND COALESCE(x.method,'')<>'WHT' AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT created_at at, 'out' dir, 'Expense · ' || category what, COALESCE(paid_to,'') party, method, amount, account_id, created_by who

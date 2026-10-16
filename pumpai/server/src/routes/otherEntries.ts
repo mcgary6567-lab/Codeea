@@ -63,15 +63,42 @@ const body = z.object({
   note: z.string().trim().max(200).optional().nullable(),
   /** cash note breakdown counted, only for a cash income/expense: { "5000": 2, "1000": 10, ... } */
   notes: z.record(z.enum(["5000", "1000", "500", "100", "50", "20", "10"]), z.number().int().min(0).max(100_000)).optional().nullable(),
+  /** income/expense with a real party: ALSO post it on the party's own khata (expense → they owe us more, income → they
+   *  paid us). The money then moves against the party's receivable, not the CEO's P&L — it is the party's udhaar/wasooli. */
+  to_party: z.boolean().optional().nullable(),
 });
+
+/** The entry is a money move on a party's own account (not the CEO's P&L). */
+export const isToParty = (b: { kind: string; party_type: string; to_party?: boolean | null }) => (b.kind === "income" || b.kind === "expense") && b.party_type !== "other" && !!b.to_party;
 
 /** Do the money / balance side of an other-entry (income+expense cash-bank, or a party discount). Returns its `src` tag. */
 function applyOtherMoney(t: number, by: string, b: z.infer<typeof body>, oeId: number, name: string, at: string): string {
   const amount = round2(b.amount);
   if (b.kind === "income" || b.kind === "expense") {
-    const ref = `${b.kind === "income" ? "oth-inc" : "oth-exp"}:${oeId}`;
+    const toParty = isToParty(b);
+    const ref = `${toParty ? "oth-pty" : b.kind === "income" ? "oth-inc" : "oth-exp"}:${oeId}`;
     const notes = isCash(b.method) ? Object.fromEntries(Object.entries(b.notes ?? {}).filter(([, n]) => Number(n) > 0).map(([k, n]) => [k, Number(n)])) : null;
-    return otherMoney(t, { dir: b.kind === "income" ? "in" : "out", amount, method: b.method ?? "cash", account_id: b.account_id, party: name, category: b.reason, note: b.note, ref, by, at, notes });
+    const money = otherMoney(t, { dir: b.kind === "income" ? "in" : "out", amount, method: b.method ?? "cash", account_id: b.account_id, party: name, category: b.reason, note: b.note, ref, by, at, notes });
+    if (!toParty) return money;
+    // the party's own khata: expense = we gave them money (debit, they owe us more); income = they paid us (credit).
+    // The cash/bank side is the voucher/bank row above (ledger.ts books it against the party's receivable), so these rows
+    // carry no method/account of their own — only the balance moves.
+    const pid = b.party_id!, note = `${b.kind === "expense" ? "Paid to party (CEO)" : "Received from party (CEO)"}: ${b.reason}`;
+    let party: string;
+    if (b.party_type === "khata") {
+      const id = run("INSERT INTO khata_ledger (customer_id,type,amount,ref,note,created_at) VALUES (?,?,?,?,?,?)", pid, b.kind === "expense" ? "debit" : "credit", amount, ref, note, at).id;
+      run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", b.kind === "expense" ? amount : -amount, pid, t);
+      party = `khata:${id}`;
+    } else if (b.party_type === "wholesale") {
+      const id = run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,amount,method,ref,note,voided,created_by,txn_date,created_at)
+        VALUES (?,?,?,?,?,?,?,0,?,?,?)`, t, pid, b.kind === "expense" ? "adjustment" : "payment", amount, "CEO entry", ref, note, by, pkDate(), at).id;
+      party = `wtx:${id}`;
+    } else {
+      const id = run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,amount,method,account_id,ref,note,voided,created_by,txn_date,created_at)
+        VALUES (?,?,?,?,?,?,?,?,0,?,?,?)`, t, pid, b.kind === "expense" ? "adjustment" : "payment", amount, "CEO entry", null, ref, note, by, pkDate(), at).id;
+      party = `ctx:${id}`;
+    }
+    return `${money}+${party}`;
   }
   // discount: reduce the party's receivable in its own ledger; the contra is "Other discount (CEO)" (routed in ledger.ts)
   const ref = `oth-disc:${oeId}`, pid = b.party_id!; // guaranteed by partyName() for a non-"other" party
@@ -92,13 +119,19 @@ function applyOtherMoney(t: number, by: string, b: z.infer<typeof body>, oeId: n
 
 /** Reverse the money / balance an other-entry created, by its `src` tag (leaves the record for the caller to void/update). */
 function reverseOtherMoney(t: number, e: any) {
-  const [kind, idStr] = String(e.src ?? "").split(":");
-  const srcId = Number(idStr);
-  if (kind === "voucher") run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", srcId, t);
-  else if (kind === "bank") run("DELETE FROM bank_txns WHERE id=? AND tenant_id=?", srcId, t);
-  else if (kind === "khata") { run("DELETE FROM khata_ledger WHERE id=?", srcId); run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", e.amount, e.party_id, t); }
-  else if (kind === "wtx") run("DELETE FROM wholesale_txns WHERE id=? AND tenant_id=?", srcId, t);
-  else if (kind === "ctx") run("DELETE FROM carriage_txns WHERE id=? AND tenant_id=?", srcId, t);
+  // a to-party entry has two legs ("voucher:12+khata:34"): the money row and the party's own row — undo both
+  for (const tag of String(e.src ?? "").split("+")) {
+    const [kind, idStr] = tag.split(":");
+    const srcId = Number(idStr);
+    if (kind === "voucher") run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", srcId, t);
+    else if (kind === "bank") run("DELETE FROM bank_txns WHERE id=? AND tenant_id=?", srcId, t);
+    else if (kind === "khata") {
+      const k = get("SELECT type, amount FROM khata_ledger WHERE id=?", srcId);
+      if (k) { run("DELETE FROM khata_ledger WHERE id=?", srcId); run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", k.type === "credit" ? k.amount : -k.amount, e.party_id, t); }
+    }
+    else if (kind === "wtx") run("DELETE FROM wholesale_txns WHERE id=? AND tenant_id=?", srcId, t);
+    else if (kind === "ctx") run("DELETE FROM carriage_txns WHERE id=? AND tenant_id=?", srcId, t);
+  }
 }
 
 /** Write the `other_entries` record's own columns (not the money side). */
@@ -106,13 +139,14 @@ function writeOtherRow(t: number, b: z.infer<typeof body>, name: string, by: str
   const method = b.kind === "discount" ? null : (b.method ?? "cash");
   const account_id = b.kind === "discount" ? null : (isCash(b.method) ? null : b.account_id ?? null);
   const pid = b.party_type === "other" ? null : b.party_id ?? null;
+  const toParty = isToParty(b) ? 1 : 0;
   if (id) {
-    run(`UPDATE other_entries SET kind=?, party_type=?, party_id=?, party_name=?, reason=?, amount=?, method=?, account_id=?, note=? WHERE id=?`,
-      b.kind, b.party_type, pid, name, b.reason, round2(b.amount), method, account_id, b.note ?? null, id);
+    run(`UPDATE other_entries SET kind=?, party_type=?, party_id=?, party_name=?, reason=?, amount=?, method=?, account_id=?, note=?, to_party=? WHERE id=?`,
+      b.kind, b.party_type, pid, name, b.reason, round2(b.amount), method, account_id, b.note ?? null, toParty, id);
     return id;
   }
-  return run(`INSERT INTO other_entries (tenant_id,kind,party_type,party_id,party_name,reason,amount,method,account_id,src,note,created_by,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, b.kind, b.party_type, pid, name, b.reason, round2(b.amount), method, account_id, null, b.note ?? null, by, at).id;
+  return run(`INSERT INTO other_entries (tenant_id,kind,party_type,party_id,party_name,reason,amount,method,account_id,src,note,to_party,created_by,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, b.kind, b.party_type, pid, name, b.reason, round2(b.amount), method, account_id, null, b.note ?? null, toParty, by, at).id;
 }
 
 otherEntries.post("/other-entries", requirePerm("other_entries.manage"), h((req) => {
@@ -189,7 +223,8 @@ otherEntries.get("/other-entries", requirePerm("other_entries.manage"), h((req) 
 }));
 
 /* ---------------- totals for the P&L (income adds, discount reduces; expense flows via the ledger) ---------------- */
+// to-party rows are the party's own udhaar/wasooli (booked against their receivable), never the CEO's P&L
 const sumKind = (t: number, kind: string, fromIso: string, toIso: string) =>
-  round2(get("SELECT COALESCE(SUM(amount),0) v FROM other_entries WHERE tenant_id=? AND kind=? AND voided=0 AND created_at >= ? AND created_at < ?", t, kind, fromIso, toIso)!.v as number);
+  round2(get("SELECT COALESCE(SUM(amount),0) v FROM other_entries WHERE tenant_id=? AND kind=? AND voided=0 AND COALESCE(to_party,0)=0 AND created_at >= ? AND created_at < ?", t, kind, fromIso, toIso)!.v as number);
 export const otherEntriesIncome = (t: number, fromIso: string, toIso: string) => sumKind(t, "income", fromIso, toIso);
 export const otherEntriesDiscount = (t: number, fromIso: string, toIso: string) => sumKind(t, "discount", fromIso, toIso);
