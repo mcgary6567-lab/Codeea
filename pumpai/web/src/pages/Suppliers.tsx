@@ -20,7 +20,7 @@ export default function Suppliers() {
   const [adding, setAdding] = useState(false);
   const [addDepot, setAddDepot] = useState(false);
   const [editDepot, setEditDepot] = useState<any>(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => new URLSearchParams(window.location.search).get("q") ?? ""); // global search lands here with ?q=
   if (!data) return <Loading />;
   const total = data.reduce((a, s) => a + Math.max(0, s.owed), 0);
   const shown = data.filter((s) => matchQuery(q, s.name, s.company, s.phone, s.depot_name, s.city));

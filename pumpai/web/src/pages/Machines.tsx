@@ -31,7 +31,7 @@ export default function Machines() {
   const manager = can("alerts.view");
   const [open, setOpen] = useState<number | null>(null);
   const [edit, setEdit] = useState<any>(null);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState(() => new URLSearchParams(window.location.search).get("q") ?? ""); // global search lands here with ?q=
   if (!data) return <Loading />;
   const s = data.summary;
   const list = data.machines.filter((m: any) => !filter || (filter === "attention" ? m.status === "faulty" || m.status === "under_repair" || ["overdue", "due_soon"].includes(m.due.service) || m.due.warranty === "ending" : m.type === filter));

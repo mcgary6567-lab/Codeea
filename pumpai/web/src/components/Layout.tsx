@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { PrintFooter, PrintHeader } from "./Letterhead";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown, Ban,
-  HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText, BookOpenCheck,
-  Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp, Ruler, Sun, Moon,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown, Ban, HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText, BookOpenCheck, Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp, Ruler, Sun, Moon,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
-import { useApi, useLiveEvents } from "../lib/api";
+import { api, useApi, useLiveEvents } from "../lib/api";
+import { pkr } from "../lib/format";
 import { NotificationsProvider, NotificationBell } from "./Notifications";
 import { QuickAddButton } from "./QuickAdd";
 import { useBranding } from "../lib/brand";
@@ -298,10 +297,21 @@ export default function Layout() {
     const subs = visible.flatMap((n) => (SUBS[n.to] ?? []).filter((s) => can(s.perm)).map((s) => ({ to: s.to, label: `${n.label} · ${s.label}`, ur: s.ur ?? "", icon: s.icon })));
     return [...base, ...subs];
   }, [visible, can]);
+  // records too: after 2+ letters the server looks up customers, vehicles, clients, thekedars, suppliers, staff, vouchers, cheques, machines
+  const [recHits, setRecHits] = useState<{ kind: string; label: string; sub?: string; amount?: number | null; to: string }[]>([]);
+  useEffect(() => {
+    const query = cq.trim();
+    if (!cmd || query.length < 2) { setRecHits([]); return; }
+    let live = true;
+    const tmr = setTimeout(() => { api<any>(`/search?q=${encodeURIComponent(query)}`).then((r) => { if (live) setRecHits(r?.hits ?? []); }).catch(() => undefined); }, 180);
+    return () => { live = false; clearTimeout(tmr); };
+  }, [cq, cmd]);
+  const REC_ICON: Record<string, any> = { customer: Users, vehicle: Truck, client: Users, thekedar: Users, supplier: Factory, staff: UserPlus, voucher: Receipt, cheque: FileCheck2, machine: Wrench, tanker: Truck, driver: UserPlus };
   const cmdHits = (() => {
     const query = cq.trim().toLowerCase();
     const list = query ? cmdItems.filter((it) => it.label.toLowerCase().includes(query) || it.ur.includes(cq.trim()) || it.to.includes(query)) : cmdItems;
-    return list.slice(0, 50);
+    const recs = recHits.map((h) => ({ to: h.to, label: h.label, ur: h.sub ?? "", icon: REC_ICON[h.kind] ?? Search, amount: h.amount ?? null, rec: true as const }));
+    return [...recs, ...list].slice(0, 50);
   })();
   useEffect(() => { setCi(0); }, [cq]);
   const goCmd = (to: string) => { setCmd(false); setQ(""); nav(to); };
@@ -367,7 +377,7 @@ export default function Layout() {
               <Search size={16} className="shrink-0 text-slate-400" />
               <input autoFocus value={cq} onChange={(e) => setCq(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setCi((x) => Math.min(x + 1, cmdHits.length - 1)); } else if (e.key === "ArrowUp") { e.preventDefault(); setCi((x) => Math.max(x - 1, 0)); } else if (e.key === "Enter" && cmdHits[ci]) { e.preventDefault(); goCmd(cmdHits[ci].to); } }}
-                placeholder="Jao… page ya kaam dhoondein" aria-label="Command palette"
+                placeholder="Page, customer, gaari number, client, supplier, voucher no… sab yahan dhoondein" aria-label="Command palette"
                 className="w-full bg-transparent py-3 text-sm outline-none" />
               <kbd className="mr-1 hidden shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400 sm:block">ESC</kbd>
             </div>
@@ -377,8 +387,9 @@ export default function Layout() {
                   <button onMouseEnter={() => setCi(idx)} onClick={() => goCmd(it.to)}
                     className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${idx === ci ? "bg-brand-50 text-brand-700" : "text-slate-700"}`}>
                     <it.icon size={16} className="shrink-0 opacity-70" />
-                    <span className="min-w-0 flex-1 truncate">{it.label}</span>
-                    {it.ur && <span lang="ur" dir="rtl" className="font-urdu shrink-0 text-xs text-slate-400">{it.ur}</span>}
+                    <span className="min-w-0 flex-1 truncate">{it.label}{(it as any).rec && it.ur && <span className="ml-2 text-xs text-slate-400">{it.ur}</span>}</span>
+                    {(it as any).rec && (it as any).amount != null && <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-600">{pkr((it as any).amount)}</span>}
+                    {!(it as any).rec && it.ur && <span lang="ur" dir="rtl" className="font-urdu shrink-0 text-xs text-slate-400">{it.ur}</span>}
                   </button>
                 </li>
               ))}

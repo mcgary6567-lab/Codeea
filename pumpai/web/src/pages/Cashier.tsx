@@ -814,7 +814,7 @@ const DAYBOOK_FILTERS = [
 const shiftDay = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400_000).toISOString().slice(0, 10);
 
 function DayBook() {
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(() => new URLSearchParams(window.location.search).get("date") ?? today()); // a voucher found by number opens its day
   const [filter, setFilter] = useState<string>("all");
   const [q, setQ] = useState("");
   const [shown, setShown] = useState(60);

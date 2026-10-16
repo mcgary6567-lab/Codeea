@@ -167,7 +167,7 @@ function Accounts() {
   const { can } = useAuth();
   const [open, setOpen] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => new URLSearchParams(window.location.search).get("q") ?? ""); // global search lands here with ?q=
   if (!data) return <Loading />;
   const owed = data.reduce((a, u) => a + Math.max(0, u.balance), 0);
   const shown = data.filter((u) => matchQuery(q, u.name, u.job_title, u.role, u.station_name, u.phone));
