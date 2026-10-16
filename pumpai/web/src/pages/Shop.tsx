@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Plus, PackagePlus, ClipboardCheck, Pencil } from "lucide-react";
+import { Plus, PackagePlus, ClipboardCheck, Pencil, Undo2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
+import { useAuth } from "../App";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
 import { dt, num, pkr } from "../lib/format";
@@ -16,12 +17,15 @@ export default function Shop() {
   const sid = station ?? stations.data?.[0]?.id;
   const items = useApi<any[]>(sid ? `/shop/items?station_id=${sid}&all=1` : null);
   const sum = useApi<any>("/shop/summary");
+  const sales = useApi<any>(sid ? `/shop/sales?station_id=${sid}&limit=30` : null);
+  const { can } = useAuth();
   const [form, setForm] = useState<null | { kind: "item" | "in" | "count" | "moves"; item?: any }>(null);
+  const [editSale, setEditSale] = useState<any>(null);
   const [q, setQ] = useState("");
   if (!items.data || !sum.data || !stations.data) return <Loading />;
   const s = sum.data;
   const shown = items.data.filter((i) => matchQuery(q, i.name, i.category, i.sku, i.brand));
-  const reload = () => { items.reload(); sum.reload(); };
+  const reload = () => { items.reload(); sum.reload(); sales.reload(); };
   return (
     <div className="space-y-5">
       <PageHeader title="Shop & lubricants" subtitle="Engine oil, filters, tuck shop — sold from the POS, stock kept automatically"
@@ -85,10 +89,63 @@ export default function Shop() {
         <div className="card p-4"><h2 className="mb-2 font-semibold">Profit by category today</h2>
           {s.by_category.map((c: any) => <div key={c.category} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{CATS[c.category] ?? c.category}</span><span className="tabular-nums">{pkr(c.sales)} · profit {pkr(c.profit)}</span></div>)}</div>
       </div>
+      {sales.data?.sales?.length > 0 && (
+        <div className="card p-4">
+          <h2 className="mb-2 font-semibold">Recent sales · <span className="font-urdu" lang="ur" dir="rtl">حالیہ فروخت</span></h2>
+          <div className="divide-y divide-slate-100">
+            {sales.data.sales.map((v: any) => (
+              <div key={v.id} className="flex items-center gap-2 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{pkr(v.total)} <Badge tone={v.payment_method === "khata" ? "amber" : "green"}>{v.payment_method}</Badge>{v.customer ? <span className="text-slate-500"> · {v.customer}</span> : null}</div>
+                  <div className="truncate text-xs text-slate-500">{[v.items, v.by_name].filter(Boolean).join(" · ")} · {dt(v.created_at)}</div>
+                </div>
+                {can("corrections.manage") && <button onClick={() => setEditSale(v)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700" title="Payment theek karein" aria-label="Edit"><Pencil size={15} /></button>}
+                {can("corrections.manage") && <button onClick={async () => { if (confirm(`Is sale (${pkr(v.total)}) ko undo karein? Stock wapas aa jayega.`)) { await api(`/shop/sales/${v.id}/undo`, { body: {} }); reload(); } }} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600" title="Undo" aria-label="Undo"><Undo2 size={15} /></button>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {editSale && <EditShopSale sale={editSale} onClose={() => setEditSale(null)} onDone={reload} />}
       {form?.kind === "item" && <ItemForm item={form.item} stationId={sid!} onClose={() => setForm(null)} onDone={() => { setForm(null); reload(); }} />}
       {(form?.kind === "in" || form?.kind === "count") && <StockForm kind={form.kind} item={form.item} onClose={() => setForm(null)} onDone={() => { setForm(null); reload(); }} />}
       {form?.kind === "moves" && <Moves item={form.item} onClose={() => setForm(null)} />}
     </div>
+  );
+}
+
+/** CEO fix of a shop sale's money routing: payment method / khata customer. Stock & total stay; the khata leg follows. */
+function EditShopSale({ sale, onClose, onDone }: { sale: any; onClose: () => void; onDone: () => void }) {
+  const methods = useLookups("payment_method");
+  const khata = useApi<any[]>("/pos/khata-accounts");
+  const [method, setMethod] = useState<string>(sale.payment_method);
+  const [customer, setCustomer] = useState<string>(sale.customer_id ? String(sale.customer_id) : "");
+  const [reason, setReason] = useState("");
+  const { busy, run } = useAction();
+  const save = () => run(() => api(`/shop/sales/${sale.id}/edit`, { body: { payment_method: method, customer_id: method === "khata" ? Number(customer) : null, reason: reason.trim() } }), "Theek ho gaya — books tally").then((r) => { if (r) { onDone(); onClose(); } });
+  return (
+    <Modal open onClose={onClose} title={`Edit sale — ${pkr(sale.total)}`}>
+      <div className="space-y-3">
+        <Field label="Payment method">
+          <select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>
+            <option value="khata">Khata (udhaar)</option>
+            {methods.list.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+          </select>
+        </Field>
+        {method === "khata" && (
+          <Field label="Khata customer">
+            <select className="input" value={customer} onChange={(e) => setCustomer(e.target.value)}>
+              <option value="">— customer chunein —</option>
+              {(khata.data ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+        )}
+        <p className="text-xs text-slate-500">Stock aur total waise hi rahenge — sirf paisa kis khaate me jaye wo theek hoga.</p>
+        <Field label="Wajah (kyun badla) — zaroori"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. cash nahi, khata thi" /></Field>
+        <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={busy || reason.trim().length < 3 || (method === "khata" && !customer)} onClick={save}>Save — sab update</button></div>
+      </div>
+    </Modal>
   );
 }
 

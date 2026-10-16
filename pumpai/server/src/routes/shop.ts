@@ -166,6 +166,20 @@ shop.post("/shop/sales/:id/undo", requirePerm("sales.create"), h((req) => {
   return { ok: true };
 }));
 
+/** Recent shop sales (for the CEO to review / edit / undo). Newest first, with a short item summary and the customer. */
+shop.get("/shop/sales", requirePerm("sales.create"), h((req) => {
+  const t = tid(req);
+  const sid = Number(req.query.station_id) || null;
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+  const rows = all(
+    `SELECT ss.id, ss.payment_method, ss.total, ss.customer_id, ss.created_at, ss.shift_id, c.name customer, u.name by_name,
+            (SELECT GROUP_CONCAT(l.qty || ' × ' || i.name, ', ') FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=ss.id) items
+     FROM shop_sales ss LEFT JOIN customers c ON c.id=ss.customer_id LEFT JOIN users u ON u.id=ss.created_by
+     WHERE ss.tenant_id=? ${sid ? "AND ss.station_id=?" : ""} ORDER BY ss.id DESC LIMIT ?`,
+    ...(sid ? [t, sid, limit] : [t, limit]));
+  return { sales: rows };
+}));
+
 /** CEO edit of a shop sale's MONEY routing — payment method and/or khata customer (stock, lines and total stay as sold).
  *  The khata leg is reversed on the old customer and re-posted on the new one, so every book stays tallied to the rupee. */
 shop.post("/shop/sales/:id/edit", requirePerm("corrections.manage"), h((req) => {
