@@ -731,6 +731,27 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, rental_id INTEGER NOT NULL, for_month TEXT NOT NULL, amount REAL NOT NULL,
     method TEXT NOT NULL DEFAULT 'cash', account_id INTEGER, ref TEXT, note TEXT, voucher_id INTEGER, received_by TEXT, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_rental_pay ON rental_payments(rental_id, for_month)");
+  // --- PRO performance pass: composite / foreign-key indexes for the hottest read paths (shift reports, statements, corrections, day book) ---
+  for (const ix of [
+    "CREATE INDEX IF NOT EXISTS idx_sales_shift ON sales(shift_id)",
+    "CREATE INDEX IF NOT EXISTS idx_sales_station_created ON sales(station_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_sales_nozzle ON sales(nozzle_id)",
+    "CREATE INDEX IF NOT EXISTS idx_khata_cust ON khata_ledger(customer_id, id)",
+    "CREATE INDEX IF NOT EXISTS idx_khata_ref ON khata_ledger(ref)",
+    "CREATE INDEX IF NOT EXISTS idx_deliveries_tank ON deliveries(tank_id, id)",
+    "CREATE INDEX IF NOT EXISTS idx_stx_delivery ON supplier_txns(delivery_id)",
+    "CREATE INDEX IF NOT EXISTS idx_stx_ref ON supplier_txns(tenant_id, ref)",
+    "CREATE INDEX IF NOT EXISTS idx_wtx_sale ON wholesale_txns(sale_id)",
+    "CREATE INDEX IF NOT EXISTS idx_shop_sales_tenant ON shop_sales(tenant_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_shop_lines_sale ON shop_sale_lines(sale_id)",
+    "CREATE INDEX IF NOT EXISTS idx_vouchers_tenant ON cashier_vouchers(tenant_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_vouchers_src ON cashier_vouchers(tenant_id, src)",
+    "CREATE INDEX IF NOT EXISTS idx_bank_txns_tenant ON bank_txns(tenant_id, txn_date)",
+    "CREATE INDEX IF NOT EXISTS idx_attendance_user_day ON attendance(user_id, day)",
+    "CREATE INDEX IF NOT EXISTS idx_meter_readings_shift ON meter_readings(shift_id)",
+    "CREATE INDEX IF NOT EXISTS idx_shifts_station_status ON shifts(station_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_log(tenant_id, id)",
+  ]) try { db.exec(ix); } catch { /* table may not exist on an older/partial schema — index is best-effort */ }
   // the cashier takes the cash from the salesman after the shift closes
   for (const [c, t] of [["handed_amount", "REAL"], ["handed_to", "TEXT"], ["handed_at", "TEXT"], ["handover_note", "TEXT"]]) addColumn("shifts", c, t);
   addColumn("cash_counts", "notes_json", "TEXT");
