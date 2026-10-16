@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
-import { pkr, num, dt } from "../lib/format";
+import { pkr, num } from "../lib/format";
 import { Fuel, Truck, Receipt, Ban, Search, Undo2, Factory, Container, Building2, Pencil } from "lucide-react";
 
 /** Shared edit modal: a reason is always required; `fields` render the editable inputs; `body()` builds the PATCH payload. */
@@ -18,6 +18,18 @@ function EditModal({ title, onClose, onDone, url, fields, body, canSave }: { tit
           <button className="btn-primary" disabled={busy || !canSave || reason.trim().length < 3} onClick={save}>Save — sab update</button></div>
       </div>
     </Modal>
+  );
+}
+
+/** Entry date, shown as its own column just left of the action buttons: tareekh upar, waqt neeche. */
+function DateCell({ when }: { when?: string | null }) {
+  if (!when) return <div className="w-[70px] shrink-0 text-right text-[11px] text-slate-300">—</div>;
+  const d = new Date(when);
+  return (
+    <div className="w-[70px] shrink-0 text-right leading-tight">
+      <div className="text-xs font-medium text-slate-600">{d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "2-digit" })}</div>
+      <div className="text-[10px] text-slate-400">{d.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}</div>
+    </div>
   );
 }
 
@@ -58,6 +70,11 @@ export default function Corrections() {
           </button>
         ))}
       </div>
+      <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+        <b className="text-slate-700">Edit (badlein)</b> = entry ki galat value theek karein — paisa, khata aur stock khud sahi ho jate hain.
+        {" · "}<b className="text-rose-600">Void (mansookh karein)</b> = poori entry cancel/hata dein — jo kuch is se hua tha sab ulta ho jata hai.
+        {" "}Har Edit aur Void apni tareekh ke saath <b>Audit</b> log me darj hota hai.
+      </p>
       {tab === "sale" && <SaleVoid />}
       {tab === "delivery" && <DeliveryVoid />}
       {tab === "khata" && <KhataVoid />}
@@ -72,7 +89,7 @@ export default function Corrections() {
  *  When `edit` is given, a voidable row also gets an Edit button that opens that render-prop's modal. */
 function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit }: {
   url: string; empty: string; icon: any;
-  row: (x: any) => { title: string; sub: string; id: number; voidable: boolean; owner?: string | null };
+  row: (x: any) => { title: string; sub: string; id: number; voidable: boolean; owner?: string | null; when?: string | null };
   label: (x: any) => string; elsewhere: Record<string, string>;
   edit?: (x: any, baseUrl: string, onClose: () => void, onDone: () => void) => React.ReactNode;
 }) {
@@ -86,12 +103,13 @@ function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit }: {
     <>
     <div className="mt-1 card divide-y divide-slate-100">
       {items.map((x) => { const r = row(x); return (
-        <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
+        <div key={r.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3">
           <div className="min-w-0 flex-1"><div className="truncate font-medium">{r.title}</div><div className="truncate text-xs text-slate-500">{r.sub}</div></div>
+          <DateCell when={r.when} />
           {r.voidable && edit && <button disabled={busy} onClick={() => setEditing(x)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
           {r.voidable
-            ? <button disabled={busy} onClick={() => doVoid(`${baseUrl}/${r.id}/void`, label(x))} className="btn-danger shrink-0"><Ban size={15} /> Void</button>
-            : <span className="shrink-0 text-right text-[11px] text-slate-400">{(r.owner && elsewhere[r.owner]) || "yahan nahi"}</span>}
+            ? <button disabled={busy} onClick={() => doVoid(`${baseUrl}/${r.id}/void`, label(x))} className="btn-danger shrink-0" title="Poori entry mansookh — paisa/stock ulta"><Ban size={15} /> Mansookh</button>
+            : <span className="w-20 shrink-0 text-right text-[11px] text-slate-400">{(r.owner && elsewhere[r.owner]) || "yahan nahi"}</span>}
         </div>
       ); })}
     </div>
@@ -103,9 +121,9 @@ function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit }: {
 function SupplierVoid() {
   return <TxnList url="/corrections/supplier-txns" empty="Koi supplier entry nahi" icon={Factory}
     elsewhere={{ delivery: "Delivery void se", cashier: "Cashier void se" }}
-    row={(x) => ({ id: x.id, voidable: x.voidable, owner: x.owner,
+    row={(x) => ({ id: x.id, voidable: x.voidable, owner: x.owner, when: x.created_at ?? x.txn_date,
       title: `${x.type === "payment" ? "Payment" : x.type === "purchase" ? "Purchase" : "Adjustment"} · ${pkr(x.amount)}`,
-      sub: [x.supplier, x.method, x.product, x.ref, dt(x.created_at ?? x.txn_date)].filter(Boolean).join(" · ") })}
+      sub: [x.supplier, x.method, x.product, x.ref].filter(Boolean).join(" · ") })}
     label={(x) => `Supplier ${x.type} void: ${x.supplier} — ${pkr(x.amount)}`}
     edit={(x, base, onClose, onDone) => <EditSupplierTxn x={x} url={`${base}/${x.id}/edit`} onClose={onClose} onDone={onDone} />} />;
 }
@@ -145,9 +163,9 @@ function EditSupplierTxn({ x, url, onClose, onDone }: { x: any; url: string; onC
 function WholesaleVoid() {
   return <TxnList url="/corrections/wholesale-txns" empty="Koi wholesale entry nahi" icon={Container}
     elsewhere={{ trip: "Trip (wholesale page)", cashier: "Cashier void se" }}
-    row={(x) => ({ id: x.id, voidable: x.voidable, owner: x.owner,
+    row={(x) => ({ id: x.id, voidable: x.voidable, owner: x.owner, when: x.txn_date,
       title: `${x.type} · ${x.litres ? `${num(x.litres, 2)}L · ` : ""}${pkr(x.amount)}`,
-      sub: [x.client, x.product, x.method, x.ref, dt(x.txn_date)].filter(Boolean).join(" · ") })}
+      sub: [x.client, x.product, x.method, x.ref].filter(Boolean).join(" · ") })}
     label={(x) => `Wholesale ${x.type} void: ${x.client} — ${pkr(x.amount)}`}
     edit={(x, base, onClose, onDone) => <EditWholesaleTxn x={x} url={`${base}/${x.id}/edit`} onClose={onClose} onDone={onDone} />} />;
 }
@@ -184,8 +202,8 @@ function EditWholesaleTxn({ x, url, onClose, onDone }: { x: any; url: string; on
 
 function RentVoid() {
   return <TxnList url="/corrections/rent" empty="Koi rent receipt nahi" icon={Building2} elsewhere={{}}
-    row={(p) => ({ id: p.id, voidable: true, title: `Rent · ${pkr(p.amount)} · ${p.for_month}`,
-      sub: [p.unit, p.tenant_name, p.method, dt(p.created_at)].filter(Boolean).join(" · ") })}
+    row={(p) => ({ id: p.id, voidable: true, when: p.created_at, title: `Rent · ${pkr(p.amount)} · ${p.for_month}`,
+      sub: [p.unit, p.tenant_name, p.method].filter(Boolean).join(" · ") })}
     label={(p) => `Rent void: ${p.unit} — ${pkr(p.amount)} (${p.for_month})`} />;
 }
 
@@ -204,16 +222,17 @@ function SaleVoid() {
       {!data ? <Loading /> : !data.sales.length ? <Empty><Fuel className="mx-auto mb-1 text-slate-300" />Koi sale nahi mili</Empty> : (
         <div className="mt-3 card divide-y divide-slate-100">
           {data.sales.map((s: any) => (
-            <div key={s.id} className="flex items-center gap-3 px-3 py-2.5">
+            <div key={s.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3">
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{s.product} · {num(s.litres, 2)}L · {pkr(s.amount)}
                   <Badge tone={s.payment_method === "cash" ? "green" : s.payment_method === "khata" ? "amber" : "blue"}>{s.payment_method}</Badge>
                   {s.pending ? <Badge tone="amber">card-hold</Badge> : null}{s.at_close ? <Badge tone="slate">close</Badge> : null}</div>
-                <div className="truncate text-xs text-slate-500">{[s.customer, s.vehicle_no, s.slip_no && `#${s.slip_no}`, s.station, s.by_name].filter(Boolean).join(" · ")} · {dt(s.created_at)}</div>
+                <div className="truncate text-xs text-slate-500">{[s.customer, s.vehicle_no, s.slip_no && `#${s.slip_no}`, s.station, s.by_name].filter(Boolean).join(" · ")}</div>
               </div>
+              <DateCell when={s.created_at} />
               {editable(s) && <button disabled={busy} onClick={() => setEdit(s)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
-              <button disabled={busy} onClick={() => doVoid(`/corrections/sale/${s.id}/void`, `Sale void: ${s.product} ${num(s.litres, 2)}L — ${pkr(s.amount)} (${s.payment_method})`)}
-                className="btn-danger shrink-0"><Ban size={15} /> Void</button>
+              <button disabled={busy} onClick={() => doVoid(`/corrections/sale/${s.id}/void`, `Sale mansookh: ${s.product} ${num(s.litres, 2)}L — ${pkr(s.amount)} (${s.payment_method})`)}
+                className="btn-danger shrink-0" title="Poori sale mansookh — paisa/stock ulta"><Ban size={15} /> Mansookh</button>
             </div>
           ))}
         </div>
@@ -256,14 +275,15 @@ function DeliveryVoid() {
       {!data ? <Loading /> : !data.deliveries.length ? <Empty><Truck className="mx-auto mb-1 text-slate-300" />Koi delivery nahi</Empty> : (
         <div className="mt-1 card divide-y divide-slate-100">
           {data.deliveries.map((d: any) => (
-            <div key={d.id} className="flex items-center gap-3 px-3 py-2.5">
+            <div key={d.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3">
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{d.product} · {num(d.received_l)}L · {pkr(d.amount)}
                   {d.claim_status && <Badge tone={d.claim_status === "open" ? "amber" : "red"}>claim: {d.claim_status}</Badge>}</div>
-                <div className="truncate text-xs text-slate-500">{[d.supplier, d.tanker_no, d.tank, `rate ${pkr(d.purchase_rate)}`].filter(Boolean).join(" · ")} · {dt(d.created_at)}</div>
+                <div className="truncate text-xs text-slate-500">{[d.supplier, d.tanker_no, d.tank, `rate ${pkr(d.purchase_rate)}`].filter(Boolean).join(" · ")}</div>
               </div>
+              <DateCell when={d.created_at} />
               {d.voidable
-                ? <button disabled={busy} onClick={() => doVoid(`/corrections/delivery/${d.id}/void`, `Delivery void: ${d.supplier} ${num(d.received_l)}L — ${pkr(d.amount)}`)} className="btn-danger shrink-0"><Ban size={15} /> Void</button>
+                ? <button disabled={busy} onClick={() => doVoid(`/corrections/delivery/${d.id}/void`, `Delivery mansookh: ${d.supplier} ${num(d.received_l)}L — ${pkr(d.amount)}`)} className="btn-danger shrink-0" title="Poori delivery mansookh — payable/stock ulta"><Ban size={15} /> Mansookh</button>
                 : <span className="shrink-0 text-xs text-slate-400">claim pehle handle karein</span>}
             </div>
           ))}
@@ -303,15 +323,16 @@ function KhataVoid() {
           {!data.entries.length ? <Empty><Receipt className="mx-auto mb-1 text-slate-300" />Koi khata entry nahi</Empty> : (
             <div className="card divide-y divide-slate-100">
               {data.entries.map((e: any) => (
-                <div key={e.id} className="flex items-center gap-3 px-3 py-2.5">
+                <div key={e.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">{e.type === "debit" ? "Charge" : "Payment"} · {pkr(e.amount)}</div>
-                    <div className="truncate text-xs text-slate-500">{[e.note, e.ref].filter(Boolean).join(" · ")} · {dt(e.created_at)}</div>
+                    <div className="truncate text-xs text-slate-500">{[e.note, e.ref].filter(Boolean).join(" · ")}</div>
                   </div>
+                  <DateCell when={e.created_at} />
                   {e.voidable && <button disabled={busy} onClick={() => setEdit(e)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
                   {e.voidable
-                    ? <button disabled={busy} onClick={() => doVoid(`/corrections/khata/${e.id}/void`, `Khata ${e.type === "debit" ? "charge" : "payment"} void: ${pkr(e.amount)}`)} className="btn-danger shrink-0"><Ban size={15} /> Void</button>
-                    : <span className="shrink-0 text-right text-[11px] text-slate-400">{e.owner === "sale" ? "Sale void se" : e.owner === "other" ? "Other entries se" : "Cashier void se"}</span>}
+                    ? <button disabled={busy} onClick={() => doVoid(`/corrections/khata/${e.id}/void`, `Khata ${e.type === "debit" ? "charge" : "payment"} mansookh: ${pkr(e.amount)}`)} className="btn-danger shrink-0" title="Ye khata entry mansookh — balance ulta"><Ban size={15} /> Mansookh</button>
+                    : <span className="w-20 shrink-0 text-right text-[11px] text-slate-400">{e.owner === "sale" ? "Sale se" : e.owner === "other" ? "Other se" : "Cashier se"}</span>}
                 </div>
               ))}
             </div>
