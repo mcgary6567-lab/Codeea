@@ -153,6 +153,36 @@ test("void a rent receipt — cash/bank + rent income reverse, books tally", asy
   await tallyBooks("after voiding the rent receipt");
 });
 
+test("CEO edits a rent receipt amount — cash book + rent income follow, books tally", async () => {
+  const unit = ok(await call(admin, "POST", "/api/rentals", { name: "Kiosk B", kind: "shop", monthly_rent: 15000 }), "rental");
+  ok(await call(admin, "POST", `/api/rentals/${unit.id}/pay`, { amount: 15000, method: "cash", for_month: "2026-02" }), "rent received");
+  await tallyBooks("after rent received");
+  const pay = ok(await call(admin, "GET", "/api/corrections/rent"), "rent list").payments.find((p: any) => p.amount === 15000 && p.for_month === "2026-02");
+  assert.ok(pay, "rent payment listed");
+  ok(await call(admin, "POST", `/api/corrections/rent/${pay.id}/edit`, { reason: "it was 12000 not 15000", amount: 12000 }), "edit rent");
+  await tallyBooks("after rent edit");
+  const after = ok(await call(admin, "GET", "/api/corrections/rent"), "rent list2").payments.find((p: any) => p.id === pay.id);
+  assert.equal(Math.round(after.amount), 12000, "amount now 12000");
+  assert.equal(ok(await call(admin, "GET", "/api/books/check"), "books").ok, true);
+});
+
+test("CEO edits a delivery (litres + rate) — supplier payable and tank stock follow, books tally", async () => {
+  const stList = ok(await call(admin, "GET", "/api/stations"), "st").flatMap((s: any) => s.tanks);
+  const tank = stList.find((t: any) => t.capacity_l - t.current_l > 9000);
+  assert.ok(tank, "a tank with room");
+  const sup = ok(await call(admin, "GET", "/api/suppliers"), "sup")[0];
+  const owedBefore = await supOwed(sup.id);
+  const stockBefore = stList.find((t: any) => t.id === tank.id).current_l;
+  const del = ok(await call(admin, "POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: 4000, received_l: 4000, tanker_no: "TLR-EDIT", supplier_id: sup.id, purchase_rate: 250 }), "delivery").id;
+  await tallyBooks("after delivery");
+  ok(await call(admin, "POST", `/api/corrections/delivery/${del}/edit`, { reason: "invoice was 5000L @ 260", invoice_l: 5000, received_l: 5000, purchase_rate: 260 }), "edit delivery");
+  assert.ok(Math.abs((await supOwed(sup.id)) - (owedBefore + 5000 * 260)) < 1, "payable = old + the corrected 5000×260");
+  const stockAfter = ok(await call(admin, "GET", "/api/stations"), "st2").flatMap((s: any) => s.tanks).find((t: any) => t.id === tank.id).current_l;
+  assert.ok(Math.abs((stockAfter - stockBefore) - 5000) < 0.01, "tank up the corrected 5000 L");
+  await tallyBooks("after delivery edit");
+  assert.equal(ok(await call(admin, "GET", "/api/books/check"), "books").ok, true);
+});
+
 test("a reason is required for every correction", async () => {
   const sale = ok(await call(salesman, "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 100, payment_method: "cash" }), "s").id;
   assert.equal((await call(admin, "POST", `/api/corrections/sale/${sale}/void`, { reason: "x" })).status, 400);

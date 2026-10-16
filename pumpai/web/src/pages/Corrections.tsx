@@ -204,7 +204,25 @@ function RentVoid() {
   return <TxnList url="/corrections/rent" empty="Koi rent receipt nahi" icon={Building2} elsewhere={{}}
     row={(p) => ({ id: p.id, voidable: true, when: p.created_at, title: `Rent · ${pkr(p.amount)} · ${p.for_month}`,
       sub: [p.unit, p.tenant_name, p.method].filter(Boolean).join(" · ") })}
-    label={(p) => `Rent void: ${p.unit} — ${pkr(p.amount)} (${p.for_month})`} />;
+    label={(p) => `Rent mansookh: ${p.unit} — ${pkr(p.amount)} (${p.for_month})`}
+    edit={(p, base, onClose, onDone) => <EditRent p={p} url={`${base}/${p.id}/edit`} onClose={onClose} onDone={onDone} />} />;
+}
+
+/** Edit a rent receipt: amount / month / note. Cash book / bank and the rent income all follow. */
+function EditRent({ p, url, onClose, onDone }: { p: any; url: string; onClose: () => void; onDone: () => void }) {
+  const [amount, setAmount] = useState(String(p.amount ?? ""));
+  const [month, setMonth] = useState(p.for_month ?? "");
+  const [note, setNote] = useState(p.note ?? "");
+  return (
+    <EditModal title={`Edit rent — ${p.unit}`} onClose={onClose} onDone={onDone} url={url} canSave={Number(amount) > 0 && /^\d{4}-\d{2}$/.test(month)}
+      body={() => ({ amount: Number(amount), for_month: month, note: note || null })}
+      fields={<>
+        <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+        <Field label="Mahina (YYYY-MM)"><input className="input" value={month} onChange={(e) => setMonth(e.target.value)} placeholder="2026-02" /></Field>
+        <p className="text-xs text-slate-500">Method <b>{p.method}</b> wahi rahega. Cash book / bank aur rent income sab update honge.</p>
+        <Field label="Note (optional)"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+      </>} />
+  );
 }
 
 function SaleVoid() {
@@ -270,6 +288,7 @@ function EditSale({ sale, onClose, onDone }: { sale: any; onClose: () => void; o
 function DeliveryVoid() {
   const { data, reload } = useApi<any>("/corrections/deliveries");
   const { busy, doVoid } = useVoid(reload);
+  const [edit, setEdit] = useState<any>(null);
   return (
     <div>
       {!data ? <Loading /> : !data.deliveries.length ? <Empty><Truck className="mx-auto mb-1 text-slate-300" />Koi delivery nahi</Empty> : (
@@ -282,6 +301,7 @@ function DeliveryVoid() {
                 <div className="truncate text-xs text-slate-500">{[d.supplier, d.tanker_no, d.tank, `rate ${pkr(d.purchase_rate)}`].filter(Boolean).join(" · ")}</div>
               </div>
               <DateCell when={d.created_at} />
+              {d.voidable && <button disabled={busy} onClick={() => setEdit(d)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
               {d.voidable
                 ? <button disabled={busy} onClick={() => doVoid(`/corrections/delivery/${d.id}/void`, `Delivery mansookh: ${d.supplier} ${num(d.received_l)}L — ${pkr(d.amount)}`)} className="btn-danger shrink-0" title="Poori delivery mansookh — payable/stock ulta"><Ban size={15} /> Mansookh</button>
                 : <span className="shrink-0 text-xs text-slate-400">claim pehle handle karein</span>}
@@ -289,7 +309,31 @@ function DeliveryVoid() {
           ))}
         </div>
       )}
+      {edit && <EditDelivery d={edit} onClose={() => setEdit(null)} onDone={reload} />}
     </div>
+  );
+}
+
+/** Edit a delivery: invoice/received litres, rate, tanker no. Supplier payable + tank stock + fuel-purchase cost follow. */
+function EditDelivery({ d, onClose, onDone }: { d: any; onClose: () => void; onDone: () => void }) {
+  const [invoice, setInvoice] = useState(String(d.invoice_l ?? ""));
+  const [received, setReceived] = useState(String(d.received_l ?? ""));
+  const [rate, setRate] = useState(String(d.purchase_rate ?? ""));
+  const [tanker, setTanker] = useState(d.tanker_no ?? "");
+  const inv = Number(invoice), rec = Number(received), rt = Number(rate);
+  return (
+    <EditModal title={`Edit delivery — ${d.product}`} onClose={onClose} onDone={onDone} url={`/corrections/delivery/${d.id}/edit`}
+      canSave={inv > 0 && rec > 0 && rt > 0}
+      body={() => ({ invoice_l: inv, received_l: rec, purchase_rate: rt, tanker_no: tanker || null })}
+      fields={<>
+        <div className="flex gap-2">
+          <Field label="Invoice litres"><input className="input" type="number" inputMode="decimal" value={invoice} onChange={(e) => setInvoice(e.target.value)} /></Field>
+          <Field label="Mile (received) litres"><input className="input" type="number" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} /></Field>
+        </div>
+        <Field label="Rate (Rs/L)"><input className="input" type="number" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
+        <p className="text-xs text-slate-500">Payable: <b>{pkr((inv || 0) * (rt || 0))}</b> · tank stock received litre se adjust hoga. Kami ho to shortage claim naya ban jayega.</p>
+        <Field label="Tanker no (optional)"><input className="input" value={tanker} onChange={(e) => setTanker(e.target.value)} /></Field>
+      </>} />
   );
 }
 

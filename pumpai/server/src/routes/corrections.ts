@@ -25,6 +25,9 @@ import { AppError, round2, pkr, reverseSale, recordSale, khataEntry, audit } fro
 import { moneyMethods } from "./lookups.js";
 import { productSchema } from "../products.js";
 import { insertTxn, clientDue } from "./wholesale.js";
+import { bankAccountFor } from "./banks.js";
+import { recordPurchase } from "./suppliers.js";
+import { claimForDelivery } from "./claims.js";
 
 export const corrections = Router();
 
@@ -387,4 +390,85 @@ corrections.post("/corrections/rent/:id/void", requirePerm("corrections.manage")
   });
   audit(t, req.user!, "rent_void", `rentpay:${p.id}`, { unit: p.unit, amount: p.amount, method: p.method, for_month: p.for_month, reason });
   return { ok: true, reversed: round2(p.amount) };
+}));
+
+/** CEO edit of a rent receipt: drop the old three rows (office voucher + bank deposit + payment) and re-post the
+ *  corrected ones, so the office cash book / bank and the rent income all move to the new amount, month or method. */
+corrections.post("/corrections/rent/:id/edit", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    amount: z.number().positive().max(100_000_000).optional(), for_month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+    method: z.string().max(40).optional(), account_id: z.number().int().positive().nullable().optional(),
+    ref: z.string().max(60).nullable().optional(), note: z.string().max(200).nullable().optional(),
+  }), req.body);
+  const p = get(`SELECT p.*, r.name unit, r.tenant_name FROM rental_payments p JOIN rentals r ON r.id=p.rental_id WHERE p.id=? AND p.tenant_id=?`, Number(req.params.id), t);
+  if (!p) throw new AppError(404, "Rent payment nahi mila");
+  const amount = round2(b.amount ?? p.amount), forMonth = b.for_month ?? p.for_month, method = b.method ?? p.method;
+  const ref = b.ref !== undefined ? b.ref : p.ref, userNote = b.note !== undefined ? b.note : p.note;
+  const isCash = /^cash$/i.test(method);
+  const account = isCash ? null : bankAccountFor(t, b.account_id !== undefined ? b.account_id : p.account_id, method);
+  if (!isCash && !account) throw new AppError(400, "Bank account chunein jahan rent aaya");
+  const oldNote = `Rent — ${p.unit}${p.tenant_name ? ` (${p.tenant_name})` : ""} · ${p.for_month}${p.note ? ` · ${p.note}` : ""}`;
+  const newNote = `Rent — ${p.unit}${p.tenant_name ? ` (${p.tenant_name})` : ""} · ${forMonth}${userNote ? ` · ${userNote}` : ""}`;
+  const before = { amount: p.amount, for_month: p.for_month, method: p.method, note: p.note };
+  tx(() => {
+    // reverse the old three rows (same as the rent void)
+    if (p.voucher_id) run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", p.voucher_id, t);
+    if (p.account_id) run("DELETE FROM bank_txns WHERE id = (SELECT id FROM bank_txns WHERE tenant_id=? AND account_id=? AND kind='other_in' AND amount=? AND note=? ORDER BY id DESC LIMIT 1)", t, p.account_id, p.amount, oldNote);
+    // re-post with the corrected numbers (voucher so the office cash book counts it; bank line if it came to a bank)
+    const { id: vid } = run(`INSERT INTO cashier_vouchers (tenant_id,direction,party_type,party_name,amount,method,account_id,category,ref,note,src,created_by,created_at)
+      VALUES (?, 'in', 'other', ?, ?, ?, ?, 'Shop / hotel rent', ?, ?, ?, ?, ?)`,
+      t, p.unit, amount, method, account, ref ?? null, newNote, `rental:${p.rental_id}`, p.received_by ?? req.user!.name, p.created_at);
+    if (account) run("INSERT INTO bank_txns (tenant_id,account_id,kind,amount,party,ref,note,txn_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      t, account, "other_in", amount, p.unit, ref ?? null, newNote, p.created_at, p.received_by ?? req.user!.name, now());
+    run(`UPDATE rental_payments SET for_month=?, amount=?, method=?, account_id=?, ref=?, note=?, voucher_id=? WHERE id=? AND tenant_id=?`,
+      forMonth, amount, method, account, ref ?? null, userNote ?? null, vid, p.id, t);
+  });
+  audit(t, req.user!, "rent_edit", `rentpay:${p.id}`, { before, after: { amount, for_month: forMonth, method, note: userNote }, reason: b.reason });
+  return { ok: true, amount };
+}));
+
+/* ---------------- 7. Stock delivery edit ---------------- */
+
+/** CEO edit of a tanker delivery: reverse the purchase + stock, then re-book with the corrected litres / rate / supplier,
+ *  so the supplier payable, the tank stock and the Fuel-purchases cost all follow. A delivery whose shortage claim is past
+ *  'open' (being chased / recovered) is sent back to handle the claim first, and a bypass leftover edits from Bypass. */
+corrections.post("/corrections/delivery/:id/edit", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    invoice_l: z.number().positive().max(200000).optional(), received_l: z.number().positive().max(200000).optional(),
+    purchase_rate: z.number().positive().max(100000).optional(), tanker_no: z.string().max(40).nullable().optional(),
+    supplier_id: z.number().int().positive().optional(), freight: z.number().min(0).nullable().optional(),
+  }), req.body);
+  const d = get(`SELECT d.*, tk.id tank_id2, tk.name tank, tk.product, tk.current_l, tk.capacity_l, tk.station_id FROM deliveries d
+     JOIN tanks tk ON tk.id=d.tank_id JOIN stations st ON st.id=tk.station_id WHERE d.id=? AND st.tenant_id=?`, Number(req.params.id), t);
+  if (!d) throw new AppError(404, "Delivery nahi mili");
+  if (d.bypass_drop_id) throw new AppError(400, "Ye bypass ka bacha hua tel hai — Bypass page se badlein.");
+  const claim = get("SELECT id, status FROM shortage_claims WHERE delivery_id=?", d.id);
+  if (claim && claim.status !== "open") throw new AppError(400, `Is delivery ka shortage claim pehle hi '${claim.status}' hai — pehle claim handle karein.`);
+  const supplier = b.supplier_id ? get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id, t) : get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", d.supplier_id, t);
+  if (!supplier) throw new AppError(400, "Supplier nahi mila");
+  const invoice_l = b.invoice_l ?? d.invoice_l, received_l = b.received_l ?? d.received_l, rate = b.purchase_rate ?? d.purchase_rate;
+  const tanker_no = b.tanker_no !== undefined ? b.tanker_no : d.tanker_no, freight = b.freight !== undefined ? b.freight : d.freight;
+  // the tank must still hold the corrected litres once the old received litres are handed back
+  const tankAfterReverse = round2((d.current_l ?? 0) - (d.received_l ?? 0));
+  if (tankAfterReverse + received_l > d.capacity_l * 1.001) throw new AppError(400, `Tank capacity se zyada (${d.capacity_l}L)`);
+  const shortage = round2(((invoice_l - received_l) / invoice_l) * 100);
+  const before = { supplier: d.supplier, invoice_l: d.invoice_l, received_l: d.received_l, purchase_rate: d.purchase_rate, tanker_no: d.tanker_no };
+  tx(() => {
+    // reverse: drop the purchase leg(s), take the old received litres back out, drop a still-open claim
+    for (const s of all("SELECT id FROM supplier_txns WHERE tenant_id=? AND delivery_id=?", t, d.id)) run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", s.id, t);
+    run("UPDATE tanks SET current_l = MAX(0, current_l - ?) WHERE id=?", d.received_l, d.tank_id);
+    if (claim) run("DELETE FROM shortage_claims WHERE id=?", claim.id);
+    // re-book with the corrected values
+    run("UPDATE deliveries SET supplier=?, supplier_id=?, purchase_rate=?, tanker_no=?, invoice_l=?, received_l=?, shortage_pct=?, freight=? WHERE id=?",
+      supplier.name, supplier.id, rate, tanker_no ?? null, invoice_l, received_l, shortage, freight ?? null, d.id);
+    recordPurchase(t, { supplier_id: supplier.id, delivery_id: d.id, product: d.product, litres: invoice_l, rate, ref: tanker_no, by: req.user!.name });
+    run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", received_l, d.tank_id);
+    if (shortage >= 0.3) claimForDelivery(t, d.id);
+  });
+  audit(t, req.user!, "delivery_edit", `delivery:${d.id}`, { before, after: { supplier: supplier.name, invoice_l, received_l, purchase_rate: rate, tanker_no }, reason: b.reason });
+  return { ok: true, amount: round2(invoice_l * rate), stock_now_l: round2(tankAfterReverse + received_l) };
 }));
