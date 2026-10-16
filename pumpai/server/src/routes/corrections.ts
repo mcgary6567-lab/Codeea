@@ -21,11 +21,14 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, type Row } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { AppError, round2, pkr, reverseSale, audit } from "../services.js";
+import { AppError, round2, pkr, reverseSale, recordSale, khataEntry, audit } from "../services.js";
+import { moneyMethods } from "./lookups.js";
+import { productSchema } from "../products.js";
 
 export const corrections = Router();
 
 const reasonField = z.object({ reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)") });
+const product = productSchema();
 
 /* ---------------- 1. Sale void ---------------- */
 
@@ -55,6 +58,48 @@ corrections.post("/corrections/sale/:id/void", requirePerm("corrections.manage")
   const did = tx(() => reverseSale(t, sale));
   audit(t, req.user!, "sale_void", `sale:${sale.id}`, { product: sale.product, litres: sale.litres, amount: sale.amount, method: sale.payment_method, customer: customer?.name ?? null, reason, reversed: did });
   return { ok: true, reversed: did, amount: round2(sale.amount) };
+}));
+
+/** CEO edit of ANY fuel sale: reverse it + re-record with the new values in one transaction, so stock, meter, khata,
+ *  cash/bank and the ledger all stay balanced. Money-side fields can change on any sale; the litres/amount only while the
+ *  shift is still open (otherwise the closed shift's meter↔sales tie would break — void & re-enter instead). */
+corrections.post("/corrections/sale/:id/edit", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    product: product.optional(), litres: z.number().positive().max(60000).optional(), amount: z.number().positive().max(100_000_000).optional(),
+    payment_method: z.string().max(40).optional(), customer_id: z.number().int().positive().nullable().optional(),
+    vehicle_no: z.string().max(40).nullable().optional(), slip_no: z.string().max(40).nullable().optional(), account_id: z.number().int().positive().nullable().optional(),
+    discount: z.number().min(0).optional(), discount_kind: z.enum(["khata", "direct"]).optional(), discount_ref: z.string().trim().max(120).nullable().optional(),
+  }), req.body);
+  const sale = get(`SELECT s.*, sh.status shift_status FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN shifts sh ON sh.id=s.shift_id WHERE s.id=? AND st.tenant_id=?`, Number(req.params.id), t);
+  if (!sale) throw new AppError(404, "Sale nahi mili");
+  if (!sale.created_by) throw new AppError(400, "Meter-settlement entry edit nahi hoti — ise void karein.");
+  if (["coupon", "wallet", "loyalty"].includes(sale.payment_method) || sale.pending) throw new AppError(400, `${sale.payment_method}${sale.pending ? " (card-pending)" : ""} sale edit nahi hoti — void karke dobara daalein.`);
+  if (sale.payment_method === "wholesale") throw new AppError(400, "Wholesale (nozzle) sale edit nahi hoti — void karke dobara daalein.");
+  const method = b.payment_method ?? sale.payment_method;
+  if (![...moneyMethods(t), "khata"].includes(method)) throw new AppError(400, `Sale sirf cash / card / online / khata ho sakti hai — ${method} nahi.`);
+  const litresChanges = b.litres !== undefined || b.amount !== undefined;
+  if (litresChanges && (!sale.shift_id || sale.shift_status !== "open")) throw new AppError(400, "Band shift ki sale ke litres/amount edit nahi hote (meter hisaab). Sirf khula shift — warna void karein.");
+  const customer_id = b.customer_id !== undefined ? b.customer_id : sale.customer_id;
+  if (method === "khata" && !customer_id) throw new AppError(400, "Khata sale ke liye customer chahiye");
+  const litres = b.litres ?? (b.amount ? undefined : sale.litres);
+  const before = { product: sale.product, litres: sale.litres, amount: sale.amount, method: sale.payment_method, customer_id: sale.customer_id, vehicle_no: sale.vehicle_no, slip_no: sale.slip_no };
+  const saved = tx(() => {
+    reverseSale(t, sale);
+    return recordSale(t, {
+      station_id: sale.station_id, product: b.product ?? sale.product, litres, amount: b.amount,
+      // same fuel → keep the sale's own rate (price may have moved since); a new fuel reprices at its current rate
+      rate: (b.product && b.product !== sale.product) ? undefined : sale.rate,
+      payment_method: method, customer_id: method === "khata" ? customer_id : null,
+      nozzle_id: sale.nozzle_id, shift_id: sale.shift_id, created_by: sale.created_by, created_at: sale.created_at,
+      vehicle_no: b.vehicle_no !== undefined ? b.vehicle_no : sale.vehicle_no, slip_no: b.slip_no !== undefined ? b.slip_no : sale.slip_no,
+      account_id: b.account_id !== undefined ? b.account_id : sale.account_id,
+      discount: b.discount ?? sale.discount ?? 0, discount_kind: b.discount_kind ?? sale.discount_kind ?? undefined, discount_ref: b.discount_ref ?? sale.discount_ref ?? undefined,
+    });
+  });
+  audit(t, req.user!, "sale_edit", `sale:${sale.id}`, { before, after: { product: saved.product, litres: saved.litres, amount: saved.amount, method: saved.payment_method, customer_id: saved.customer_id }, new_sale_id: saved.id, reason: b.reason });
+  return { ok: true, sale: saved };
 }));
 
 /* ---------------- 2. Manual khata entry void ---------------- */
@@ -95,6 +140,29 @@ corrections.post("/corrections/khata/:id/void", requirePerm("corrections.manage"
     run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", k.type === "credit" ? k.amount : -k.amount, k.customer_id, t);
   });
   audit(t, req.user!, "khata_entry_void", `khata:${k.id}`, { type: k.type, amount: k.amount, ref: k.ref, note: k.note, reason });
+  return { ok: true, balance_after: round2(get("SELECT balance FROM customers WHERE id=?", k.customer_id)!.balance) };
+}));
+
+/** CEO edit of a manual khata charge/payment: reverse the old balance move, then re-post with the new type/amount/note.
+ *  Rows owned by another flow (a sale, Other-discount, opening, a cashier voucher) are sent to their own editor. */
+corrections.post("/corrections/khata/:id/edit", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({ reason: z.string().trim().min(3, "Wajah likhein"), type: z.enum(["debit", "credit"]).optional(), amount: z.number().positive().max(100_000_000).optional(), note: z.string().max(200).nullable().optional() }), req.body);
+  const k = get(`SELECT k.* FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE k.id=? AND c.tenant_id=?`, Number(req.params.id), t);
+  if (!k) throw new AppError(404, "Khata entry nahi mili");
+  const ref = String(k.ref ?? "");
+  if (ref.startsWith("SALE-")) throw new AppError(400, "Ye ek sale ki entry hai — 'Sale edit' se badlein.");
+  if (ref.startsWith("oth-disc:")) throw new AppError(400, "Ye Other-discount ki entry hai — Other entries page se badlein.");
+  if (ref === "open:") throw new AppError(400, "Ye opening balance hai — Opening balances page se badlein.");
+  if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `khata:${k.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se badlein.");
+  const type = b.type ?? k.type, amount = round2(b.amount ?? k.amount), note = b.note !== undefined ? b.note : k.note;
+  tx(() => {
+    // reverse the old row's balance move, drop it, then re-post the corrected one (khataEntry also moves the balance)
+    run("UPDATE customers SET balance = balance + ? WHERE id=?", k.type === "credit" ? k.amount : -k.amount, k.customer_id);
+    run("DELETE FROM khata_ledger WHERE id=?", k.id);
+    khataEntry(k.customer_id, type, amount, k.ref ?? null, note ?? null, null);
+  });
+  audit(t, req.user!, "khata_entry_edit", `khata:${k.id}`, { before: { type: k.type, amount: k.amount, note: k.note }, after: { type, amount, note }, reason: b.reason });
   return { ok: true, balance_after: round2(get("SELECT balance FROM customers WHERE id=?", k.customer_id)!.balance) };
 }));
 

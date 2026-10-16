@@ -158,3 +158,41 @@ test("a reason is required for every correction", async () => {
   assert.equal((await call(admin, "POST", `/api/corrections/sale/${sale}/void`, { reason: "x" })).status, 400);
   ok(await call(admin, "POST", `/api/corrections/sale/${sale}/void`, { reason: "proper wajah" }), "ok with reason");
 });
+
+test("CEO edits a sale: cash → khata moves the money to the customer; litres edit on the open shift; books tally", async () => {
+  const kh = ok(await call(admin, "GET", "/api/cashier/parties?kind=khata"), "p").khata[0];
+  const before = await bal(kh.id);
+  const sale = ok(await call(salesman, "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 2000, payment_method: "cash" }), "cash sale").id;
+  await tallyBooks("after cash sale");
+  // cash → khata: the customer is now charged the amount, cash side drops
+  const r = ok(await call(admin, "POST", `/api/corrections/sale/${sale}/edit`, { reason: "it was actually on khata", payment_method: "khata", customer_id: kh.id }), "edit cash→khata");
+  assert.ok(Math.abs((await bal(kh.id)) - (before + 2000)) < 1, "customer charged the sale amount");
+  await tallyBooks("after edit cash→khata");
+  // change the litres (open shift) — balance follows the new amount, books stay tallied
+  const r2 = ok(await call(admin, "POST", `/api/corrections/sale/${r.sale.id}/edit`, { reason: "30 L not 2000 Rs", litres: 30 }), "edit litres");
+  assert.ok(Math.abs((await bal(kh.id)) - (before + r2.sale.amount)) < 1, "balance = earlier + the new khata amount");
+  await tallyBooks("after litres edit");
+  assert.equal(ok(await call(admin, "GET", "/api/books/check"), "books").ok, true);
+  // a coupon/wallet/loyalty sale can't be edited, and a non-CEO is refused
+  assert.equal((await call(manager, "POST", `/api/corrections/sale/${r2.sale.id}/edit`, { reason: "nope", litres: 5 })).status, 403);
+});
+
+test("CEO edits a manual khata entry: the balance follows the new amount and the books tally", async () => {
+  const db = await import("../src/db.js");
+  const kh = ok(await call(admin, "GET", "/api/cashier/parties?kind=khata"), "p").khata[0];
+  const before = await bal(kh.id);
+  // a plain manual charge (no sale/cashier/opening owner), like an old adjustment
+  db.run("INSERT INTO khata_ledger (customer_id,type,amount,ref,note,created_at) VALUES (?,?,?,?,?,?)", kh.id, "debit", 5000, null, "manual charge", new Date().toISOString());
+  db.run("UPDATE customers SET balance = balance + 5000 WHERE id=?", kh.id);
+  const row = db.get("SELECT id FROM khata_ledger WHERE customer_id=? AND note='manual charge' ORDER BY id DESC LIMIT 1", kh.id)!;
+  await tallyBooks("after manual khata charge");
+  ok(await call(admin, "POST", `/api/corrections/khata/${row.id}/edit`, { reason: "it was 3000", amount: 3000 }), "edit amount");
+  assert.ok(Math.abs((await bal(kh.id)) - (before + 3000)) < 1, "balance now reflects 3000, not 5000");
+  await tallyBooks("after khata amount edit");
+  // flip it to a payment (credit) of 1000
+  const row2 = db.get("SELECT id FROM khata_ledger WHERE customer_id=? AND note='manual charge' ORDER BY id DESC LIMIT 1", kh.id)!;
+  ok(await call(admin, "POST", `/api/corrections/khata/${row2.id}/edit`, { reason: "actually a payment", type: "credit", amount: 1000 }), "edit to credit");
+  assert.ok(Math.abs((await bal(kh.id)) - (before - 1000)) < 1, "credit lowers the balance");
+  await tallyBooks("after khata type edit");
+  assert.equal(ok(await call(admin, "GET", "/api/books/check"), "books").ok, true);
+});

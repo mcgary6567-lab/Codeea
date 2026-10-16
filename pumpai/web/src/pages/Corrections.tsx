@@ -1,8 +1,25 @@
 import { useState } from "react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, PageHeader, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { pkr, num, dt } from "../lib/format";
-import { Fuel, Truck, Receipt, Ban, Search, Undo2, Factory, Container, Building2 } from "lucide-react";
+import { Fuel, Truck, Receipt, Ban, Search, Undo2, Factory, Container, Building2, Pencil } from "lucide-react";
+
+/** Shared edit modal: a reason is always required; `fields` render the editable inputs; `body()` builds the PATCH payload. */
+function EditModal({ title, onClose, onDone, url, fields, body, canSave }: { title: string; onClose: () => void; onDone: () => void; url: string; fields: React.ReactNode; body: () => any; canSave: boolean }) {
+  const { busy, run } = useAction();
+  const [reason, setReason] = useState("");
+  const save = () => run(() => api(url, { body: { ...body(), reason: reason.trim() } }), "Theek ho gaya — poore system me update, books tally").then((r) => { if (r) { onDone(); onClose(); } });
+  return (
+    <Modal open title={title} onClose={onClose}>
+      <div className="space-y-3">
+        {fields}
+        <Field label="Wajah (kyun badla) — zaroori"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. galti se zyada litre lag gaye" /></Field>
+        <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={busy || !canSave || reason.trim().length < 3} onClick={save}>Save — sab update</button></div>
+      </div>
+    </Modal>
+  );
+}
 
 type Tab = "sale" | "delivery" | "khata" | "supplier" | "wholesale" | "rent";
 const TABS: { t: Tab; label: string; short: string; icon: any }[] = [
@@ -105,6 +122,8 @@ function SaleVoid() {
   const [q, setQ] = useState("");
   const { data, reload } = useApi<any>(`/corrections/sales?q=${encodeURIComponent(q)}`);
   const { busy, doVoid } = useVoid(reload);
+  const [edit, setEdit] = useState<any>(null);
+  const editable = (s: any) => s.source !== "meter" && !s.pending && !["coupon", "wallet", "loyalty", "wholesale"].includes(s.payment_method);
   return (
     <div>
       <Field label="Dhoondein — customer, gaari ya parchi no.">
@@ -121,13 +140,40 @@ function SaleVoid() {
                   {s.pending ? <Badge tone="amber">card-hold</Badge> : null}{s.at_close ? <Badge tone="slate">close</Badge> : null}</div>
                 <div className="truncate text-xs text-slate-500">{[s.customer, s.vehicle_no, s.slip_no && `#${s.slip_no}`, s.station, s.by_name].filter(Boolean).join(" · ")} · {dt(s.created_at)}</div>
               </div>
+              {editable(s) && <button disabled={busy} onClick={() => setEdit(s)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
               <button disabled={busy} onClick={() => doVoid(`/corrections/sale/${s.id}/void`, `Sale void: ${s.product} ${num(s.litres, 2)}L — ${pkr(s.amount)} (${s.payment_method})`)}
                 className="btn-danger shrink-0"><Ban size={15} /> Void</button>
             </div>
           ))}
         </div>
       )}
+      {edit && <EditSale sale={edit} onClose={() => setEdit(null)} onDone={reload} />}
     </div>
+  );
+}
+
+/** Edit a sale's litres / amount / vehicle / slip. Backend reverses + re-records so khata, cash, stock, meter and the ledger all follow. */
+function EditSale({ sale, onClose, onDone }: { sale: any; onClose: () => void; onDone: () => void }) {
+  const [mode, setMode] = useState<"litres" | "amount">("litres");
+  const [val, setVal] = useState(String(mode === "litres" ? num(sale.litres, 2) : sale.amount));
+  const [vehicle, setVehicle] = useState(sale.vehicle_no ?? "");
+  const [slip, setSlip] = useState(sale.slip_no ?? "");
+  const n = Number(val) || 0;
+  return (
+    <EditModal title={`Edit sale — ${sale.product} (${sale.payment_method})`} onClose={onClose} onDone={onDone}
+      url={`/corrections/sale/${sale.id}/edit`} canSave={n > 0}
+      body={() => ({ [mode]: n, vehicle_no: vehicle || null, slip_no: slip || null })}
+      fields={<>
+        <div className="flex gap-2">
+          <select className="input w-32" value={mode} onChange={(e) => { const m = e.target.value as "litres" | "amount"; setMode(m); setVal(String(m === "litres" ? num(sale.litres, 2) : sale.amount)); }}>
+            <option value="litres">Litres</option><option value="amount">Amount (Rs)</option>
+          </select>
+          <input className="input flex-1" type="number" inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} />
+        </div>
+        <p className="text-xs text-slate-500">Rate wahi rahega ({pkr(sale.rate)}/L); {mode === "litres" ? "amount" : "litres"} khud ban jayega. Khata/cash/stock sab update honge.</p>
+        <Field label="Vehicle no (optional)"><input className="input" value={vehicle} onChange={(e) => setVehicle(e.target.value)} /></Field>
+        <Field label="Slip / parchi no (optional)"><input className="input" value={slip} onChange={(e) => setSlip(e.target.value)} /></Field>
+      </>} />
   );
 }
 
@@ -163,6 +209,7 @@ function KhataVoid() {
   const matches = ((parties?.khata ?? []) as any[]).filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8);
   const { data, reload } = useApi<any>(cust ? `/corrections/khata?customer_id=${cust.id}` : null);
   const { busy, doVoid } = useVoid(reload);
+  const [edit, setEdit] = useState<any>(null);
   return (
     <div>
       <Field label="Customer dhoondein">
@@ -190,6 +237,7 @@ function KhataVoid() {
                     <div className="font-medium">{e.type === "debit" ? "Charge" : "Payment"} · {pkr(e.amount)}</div>
                     <div className="truncate text-xs text-slate-500">{[e.note, e.ref].filter(Boolean).join(" · ")} · {dt(e.created_at)}</div>
                   </div>
+                  {e.voidable && <button disabled={busy} onClick={() => setEdit(e)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
                   {e.voidable
                     ? <button disabled={busy} onClick={() => doVoid(`/corrections/khata/${e.id}/void`, `Khata ${e.type === "debit" ? "charge" : "payment"} void: ${pkr(e.amount)}`)} className="btn-danger shrink-0"><Ban size={15} /> Void</button>
                     : <span className="shrink-0 text-right text-[11px] text-slate-400">{e.owner === "sale" ? "Sale void se" : e.owner === "other" ? "Other entries se" : "Cashier void se"}</span>}
@@ -199,7 +247,29 @@ function KhataVoid() {
           )}
         </>
       )}
+      {edit && <EditKhata entry={edit} onClose={() => setEdit(null)} onDone={reload} />}
       {!q.trim() && !cust && <div className="mt-6 flex flex-col items-center gap-1 text-slate-400"><Undo2 size={22} /><span className="text-sm">Customer chunein, phir galat charge ya payment void karein.</span></div>}
     </div>
+  );
+}
+
+/** Edit a manual khata charge/payment: change type (charge⇄payment), amount or note. Balance + ledger follow. */
+function EditKhata({ entry, onClose, onDone }: { entry: any; onClose: () => void; onDone: () => void }) {
+  const [type, setType] = useState<"debit" | "credit">(entry.type);
+  const [amount, setAmount] = useState(String(entry.amount));
+  const [note, setNote] = useState(entry.note ?? "");
+  const n = Number(amount) || 0;
+  return (
+    <EditModal title="Edit khata entry" onClose={onClose} onDone={onDone} url={`/corrections/khata/${entry.id}/edit`} canSave={n > 0}
+      body={() => ({ type, amount: n, note: note || null })}
+      fields={<>
+        <Field label="Kism">
+          <select className="input" value={type} onChange={(e) => setType(e.target.value as "debit" | "credit")}>
+            <option value="debit">Charge (customer pe chadhao)</option><option value="credit">Payment (customer ne diya)</option>
+          </select>
+        </Field>
+        <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+        <Field label="Note (optional)"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+      </>} />
   );
 }
