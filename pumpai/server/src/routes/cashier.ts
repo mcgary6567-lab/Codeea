@@ -309,13 +309,13 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("cashier.void"), h((req) 
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
     amount: z.number().positive().max(1_000_000_000).optional(), method: z.string().max(40).optional(),
     note: z.string().max(200).nullable().optional(), category: z.string().max(60).nullable().optional(),
+    account_id: z.number().int().positive().nullable().optional(),
   }), req.body);
   const amount = round2(b.amount ?? v.amount);
   const method = b.method ?? v.method;
   if (isCheque(method)) throw new AppError(400, "Cheque method yahan se nahi — Receive/Pay se cheque banayein.");
   const note = b.note !== undefined ? b.note : v.note, category = b.category !== undefined ? b.category : v.category;
-  const acc = isCash(method) ? null : bankAccountFor(t, v.account_id, method);
-  const before = { amount: v.amount, method: v.method, note: v.note, src: v.src };
+  const acc = isCash(method) ? null : bankAccountFor(t, b.account_id !== undefined ? b.account_id : v.account_id, method);  const before = { amount: v.amount, method: v.method, note: v.note, src: v.src };
   let newSrc = v.src;
   tx(() => {
     if (kind === "khata") {

@@ -107,6 +107,7 @@ function PaymentInbox() {
 function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) => void; onSlip: (v: any) => void }) {
   const { data, error, reload } = useApi<any>("/cashier/desk", 60_000);
   const { can } = useAuth();
+  const [editV, setEditV] = useState<any>(null);
   if (error) return <ErrorBox error={error} />;
   if (!data) return <Loading />;
   const actions = [
@@ -216,14 +217,7 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
               </button>
               <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>
               {can("cashier.void") && v.method !== "Cheque" && (
-                <button title="Edit this voucher (CEO) — poore system me update" aria-label="Edit voucher"
-                  onClick={async () => {
-                    const amt = prompt(`Naya amount (Rs)? Abhi: ${v.amount}\n(${v.party_name})`, String(v.amount)); if (amt == null) return;
-                    const n = Number(amt); if (!(n > 0)) { alert("Amount theek nahi"); return; }
-                    const reason = prompt("Wajah likhein (kyun badla):"); if (!reason || reason.trim().length < 3) { alert("Wajah zaroori (kam se kam 3 harf)"); return; }
-                    const r = await api(`/cashier/vouchers/${v.id}/edit`, { body: { amount: n, reason: reason.trim() } }).catch((e: any) => { alert(e.message); return null; });
-                    if (r) reload();
-                  }}
+                <button title="Edit this voucher (CEO) — poore system me update" aria-label="Edit voucher" onClick={() => setEditV(v)}
                   className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"><Pencil size={15} /></button>
               )}
               {can("cashier.void") && /^(khata|wholesale|other|supplier|expense|staff)$/.test(v.party_type) && v.method !== "Cheque" && (
@@ -235,7 +229,74 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
           ))}{!data.vouchers.length && <li><Empty>No vouchers yet today · <Ur>آج کوئی رسید نہیں</Ur></Empty></li>}</ul>
         </div>
       </div>
+      {editV && <EditVoucher v={editV} onClose={() => setEditV(null)} onDone={() => { setEditV(null); reload(); }} />}
     </div>
+  );
+}
+
+/** CEO popup: the whole voucher on one form — change amount / method / bank account / category / note, give a reason,
+ *  Update → the source entry is reversed and re-posted, so party balance, cash, bank and ledger all follow. */
+function EditVoucher({ v, onClose, onDone }: { v: any; onClose: () => void; onDone: () => void }) {
+  const [f, setF] = useState({ amount: String(v.amount ?? ""), method: v.method ?? "Cash", category: v.category ?? "", note: v.note ?? "", reason: "" });
+  const [account, setAccount] = useState<number | null>(v.account_id ?? null);
+  const { busy, run } = useAction();
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
+  const amount = Number(f.amount);
+  const changed = amount !== Number(v.amount) || f.method !== v.method || (f.category || "") !== (v.category || "") || (f.note || "") !== (v.note || "") || (isCash(f.method) ? null : account) !== (v.account_id ?? null);
+  const canSave = amount > 0 && f.reason.trim().length >= 3 && changed && !busy;
+  const kindLabel: Record<string, string> = { khata: "Khata customer", wholesale: "Wholesale client", supplier: "Supplier", expense: "Expense", staff: "Staff advance", other: "Other", salesman: "Salesman cash", rent: "Rent", owner: "Owner" };
+  const save = () =>
+    run(() => api(`/cashier/vouchers/${v.id}/edit`, { body: { amount, method: f.method, account_id: isCash(f.method) ? null : account, category: f.category.trim() || null, note: f.note.trim() || null, reason: f.reason.trim() } }),
+      "Voucher update ho gaya — poore system me lag gaya ✅").then((r) => { if (r) onDone(); });
+  const Ro = ({ l, c }: { l: string; c: React.ReactNode }) => <div className="min-w-0"><div className="text-[11px] uppercase tracking-wide text-slate-500">{l}</div><div className="truncate text-sm font-medium">{c}</div></div>;
+  return (
+    <Modal open onClose={onClose} title={`Edit voucher ${v.no} · ترمیم`}>
+      <div className="space-y-4">
+        {/* the entry as it stands — read-only identity */}
+        <div className={`grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border p-3 sm:grid-cols-4 ${v.direction === "in" ? "border-emerald-200 bg-emerald-50/60" : "border-rose-200 bg-rose-50/60"}`}>
+          <Ro l="Voucher" c={<span className="font-mono">{v.no}</span>} />
+          <Ro l="Type" c={<span className={v.direction === "in" ? "text-emerald-700" : "text-rose-700"}>{v.direction === "in" ? "Received · وصولی" : "Paid · ادائیگی"}</span>} />
+          <Ro l="Party" c={<>{v.party_name}<span className="block truncate text-xs font-normal text-slate-500">{kindLabel[v.party_type] ?? v.party_type}</span></>} />
+          <Ro l="Date" c={dt(v.created_at)} />
+          <Ro l="Abhi amount" c={<span className="tabular-nums">{pkr(v.amount)}</span>} />
+          <Ro l="Abhi method" c={v.method + (v.account ? ` · ${v.account}` : "")} />
+          <Ro l="Category" c={v.category || "—"} />
+          <Ro l="Note" c={v.note || "—"} />
+        </div>
+
+        {/* editable */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Amount (Rs) · رقم">
+            <input type="number" inputMode="decimal" min={1} step="any" className="input text-lg font-semibold tabular-nums" value={f.amount} onChange={set("amount")} autoFocus />
+          </Field>
+          <Field label="Method · طریقہ">
+            <select className="input" value={f.method} onChange={(e) => { setF((s) => ({ ...s, method: e.target.value })); if (isCash(e.target.value)) setAccount(null); }}>
+              {METHODS.filter(([m]) => m !== "Cheque").map(([m, ur]) => <option key={m} value={m}>{m} · {ur}</option>)}
+              {!METHODS.some(([m]) => m === f.method) && <option value={f.method}>{f.method}</option>}
+            </select>
+          </Field>
+          {!isCash(f.method) && <div className="sm:col-span-2"><AccountPicker value={account} onChange={setAccount} method={f.method} label="Bank / wallet account · اکاؤنٹ" /></div>}
+          <Field label="Category · قسم"><input className="input" value={f.category} onChange={set("category")} placeholder="e.g. Diesel, Salary, Bijli" /></Field>
+          <Field label="Note · نوٹ"><input className="input" value={f.note} onChange={set("note")} placeholder="Tafseel" /></Field>
+        </div>
+
+        {amount > 0 && amount !== Number(v.amount) && (
+          <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {pkr(v.amount)} → <b className="tabular-nums">{pkr(amount)}</b> ({amount > Number(v.amount) ? "+" : "−"}{pkr(Math.abs(amount - Number(v.amount)))}) —
+            {" "}{v.party_type === "khata" || v.party_type === "wholesale" || v.party_type === "supplier" ? "party ka balance, " : ""}{isCash(f.method) ? "cash in hand" : "bank balance"} aur ledger sab isi hisaab se badlenge.
+          </div>
+        )}
+
+        <Field label="Wajah (zaroori) · وجہ">
+          <input className="input" value={f.reason} onChange={set("reason")} placeholder="Kyun badla ja raha hai? (kam se kam 3 harf)" />
+        </Field>
+        <p className="text-xs text-slate-500">Update par purani entry reverse ho kar nayi value se dobara post hogi — khata/supplier/wholesale balance, cash, bank, day book, ledger aur reports sab me khud update. Audit log me before/after mehfooz rahega.</p>
+        <div className="flex justify-end gap-2">
+          <button className="btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="btn-primary" onClick={save} disabled={!canSave}>{busy ? "Updating…" : "Update · اپ ڈیٹ"}</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
