@@ -24,6 +24,7 @@ import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, pkr, reverseSale, recordSale, khataEntry, audit } from "../services.js";
 import { moneyMethods } from "./lookups.js";
 import { productSchema } from "../products.js";
+import { insertTxn, clientDue } from "./wholesale.js";
 
 export const corrections = Router();
 
@@ -248,6 +249,43 @@ corrections.post("/corrections/supplier-txn/:id/void", requirePerm("corrections.
   return { ok: true, reversed: round2(x.amount), withholding_reversed: round2(wht?.amount ?? 0) };
 }));
 
+/** CEO edit of a direct supplier payment / purchase / adjustment. The supplier balance (owed) and the bank leg are both
+ *  DERIVED from this row, so edit = drop the old row + insert the corrected one (same type/supplier/date/method/account).
+ *  Rows that belong to another flow (a delivery purchase, a cashier voucher, a WHT sibling, a payment whose tax is
+ *  already deposited to FBR) are sent to their own editor so nothing is counted twice. */
+corrections.post("/corrections/supplier-txn/:id/edit", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    amount: z.number().max(100_000_000).optional(), ref: z.string().max(120).nullable().optional(), note: z.string().max(200).nullable().optional(),
+    litres: z.number().positive().max(10_000_000).nullable().optional(), rate: z.number().positive().max(100000).nullable().optional(),
+  }), req.body);
+  const x = get(`SELECT x.* FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.id=? AND s.tenant_id=?`, Number(req.params.id), t);
+  if (!x) throw new AppError(404, "Supplier entry nahi mili");
+  if (x.method === "WHT") throw new AppError(400, "Ye withholding-tax ka hissa hai — asal payment edit karein.");
+  if (x.delivery_id) throw new AppError(400, "Ye entry ek tanker delivery se bani — 'Delivery' se badlein.");
+  if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `stx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se badlein.");
+  // a payment that carried withholding tax touches FBR records — too much to re-wire here; void & re-enter
+  if (x.type === "payment" && get("SELECT 1 FROM supplier_txns WHERE tenant_id=? AND supplier_id=? AND method='WHT' AND txn_date=? AND id<>?", t, x.supplier_id, x.txn_date, x.id))
+    throw new AppError(400, "Is payment par withholding tax laga hua hai — ise void karke dobara daalein.");
+  const type = x.type as string;
+  const litres = type === "purchase" ? (b.litres !== undefined ? b.litres : x.litres) : null;
+  const rate = type === "purchase" ? (b.rate !== undefined ? b.rate : x.rate) : null;
+  // a purchase's amount follows litres×rate unless given; adjustments keep their sign
+  const amount = b.amount != null ? round2(b.amount) : (type === "purchase" && litres && rate ? round2(litres * rate) : round2(x.amount));
+  if (type === "adjustment" ? amount === 0 : amount <= 0) throw new AppError(400, "Amount theek nahi");
+  const ref = b.ref !== undefined ? b.ref : x.ref, note = b.note !== undefined ? b.note : x.note;
+  const before = { type, amount: x.amount, method: x.method, ref: x.ref, note: x.note, litres: x.litres, rate: x.rate };
+  tx(() => {
+    run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", x.id, t);
+    run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,product,litres,rate,created_by,txn_date,created_at,account_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      t, x.supplier_id, type, amount, x.method ?? null, ref ?? null, note ?? null, x.product ?? null, litres, rate, x.created_by ?? req.user!.name, x.txn_date, now(), x.account_id ?? null);
+  });
+  audit(t, req.user!, "supplier_txn_edit", `stx:${x.id}`, { before, after: { type, amount, method: x.method, ref, note, litres, rate }, reason: b.reason });
+  return { ok: true, amount: round2(amount) };
+}));
+
 /* ---------------- 5. Wholesale txn void ---------------- */
 
 corrections.get("/corrections/wholesale-txns", requirePerm("corrections.manage"), h((req) => {
@@ -281,6 +319,47 @@ corrections.post("/corrections/wholesale-txn/:id/void", requirePerm("corrections
   });
   audit(t, req.user!, "wholesale_txn_void", `wtx:${x.id}`, { type: x.type, amount: x.amount, litres: x.litres, product: x.product, method: x.method, reason });
   return { ok: true, reversed: round2(x.amount) };
+}));
+
+/** CEO edit of a direct wholesale supply or payment. Old row is voided (stock put back, supplier leg cleared) and a fresh
+ *  corrected row is posted — the client's due (and the tank, on a supply) land on the new numbers. Bulk trips, cashier
+ *  vouchers, depot-direct (bypass) supplies and POS pay-now sales belong to their own flow and are refused here. */
+corrections.post("/corrections/wholesale-txn/:id/edit", requirePerm("corrections.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    litres: z.number().positive().max(10_000_000).optional(), rate: z.number().positive().max(100000).optional(), amount: z.number().positive().max(100_000_000).optional(),
+    method: z.string().max(40).optional(), vehicle_no: z.string().max(40).nullable().optional(), note: z.string().max(200).nullable().optional(),
+  }), req.body);
+  const x = get(`SELECT x.* FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.id=? AND c.tenant_id=? AND x.voided=0`, Number(req.params.id), t);
+  if (!x) throw new AppError(404, "Wholesale entry nahi mili");
+  if (x.trip_id) throw new AppError(400, "Ye ek tanker-trip (bulk) entry hai — trip ko wholesale page se badlein.");
+  if (x.sale_id) throw new AppError(400, "Ye POS par bechi gayi wholesale sale hai — ise void karke dobara daalein.");
+  if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `wtx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se badlein.");
+  if (get("SELECT 1 FROM supplier_txns WHERE tenant_id=? AND ref=?", t, `wtx:${x.id}`)) throw new AppError(400, "Ye depot-direct (bypass) supply hai — ise void karke dobara daalein.");
+  const isSupply = x.type === "supply";
+  const litres = isSupply ? (b.litres ?? x.litres) : null;
+  const rate = isSupply ? (b.rate ?? x.rate) : null;
+  const amount = b.amount != null ? round2(b.amount) : (isSupply && litres && rate ? round2(litres * rate) : round2(x.amount));
+  const method = isSupply ? x.method : (b.method ?? x.method);
+  const before = { type: x.type, litres: x.litres, rate: x.rate, amount: x.amount, method: x.method, vehicle_no: x.vehicle_no, note: x.note };
+  // a tank supply must still fit after we hand back the old litres
+  if (isSupply && x.tank_id) {
+    const avail = round2((get("SELECT current_l FROM tanks WHERE id=?", x.tank_id)?.current_l ?? 0) + (x.litres ?? 0));
+    if (litres! > avail) throw new AppError(400, `Tank me itna stock nahi (${Math.round(avail)} L mojood)`);
+  }
+  const saved = tx(() => {
+    run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=?", `${req.user!.name} (edit): ${b.reason}`, x.id);
+    if (isSupply && x.tank_id && x.litres) run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", x.litres, x.tank_id);
+    if (isSupply && x.tank_id && litres) run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", litres, x.tank_id);
+    return insertTxn(req, x.client_id, {
+      type: x.type, station_id: x.station_id, tank_id: x.tank_id, product: x.product, litres, rate, amount, method,
+      vehicle_no: b.vehicle_no !== undefined ? b.vehicle_no : x.vehicle_no, ref: x.ref, note: b.note !== undefined ? b.note : x.note,
+      txn_date: x.txn_date, account_id: x.account_id,
+    });
+  });
+  audit(t, req.user!, "wholesale_txn_edit", `wtx:${x.id}`, { before, after: { type: x.type, litres, rate, amount, method }, new_txn_id: saved.id, reason: b.reason });
+  return { ok: true, txn_id: saved.id, amount: round2(amount), due_after: clientDue(x.client_id) };
 }));
 
 /* ---------------- 6. Rent receipt void ---------------- */

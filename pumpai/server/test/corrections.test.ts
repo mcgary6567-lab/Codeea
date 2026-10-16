@@ -196,3 +196,49 @@ test("CEO edits a manual khata entry: the balance follows the new amount and the
   await tallyBooks("after khata type edit");
   assert.equal(ok(await call(admin, "GET", "/api/books/check"), "books").ok, true);
 });
+
+test("CEO edits a direct supplier payment amount — payable follows the new figure, books tally", async () => {
+  const sup = ok(await call(admin, "GET", "/api/suppliers"), "sup")[0];
+  const owedBefore = await supOwed(sup.id);
+  ok(await call(admin, "POST", `/api/suppliers/${sup.id}/payment`, { amount: 3000, method: "Cash" }), "payment");
+  assert.ok(Math.abs((await supOwed(sup.id)) - (owedBefore - 3000)) < 1, "payable dropped by 3000");
+  await tallyBooks("after supplier payment");
+  const txn = ok(await call(admin, "GET", "/api/corrections/supplier-txns"), "stx").txns.find((x: any) => x.type === "payment" && x.amount === 3000 && x.voidable);
+  assert.ok(txn, "the direct payment is listed");
+  ok(await call(admin, "POST", `/api/corrections/supplier-txn/${txn.id}/edit`, { reason: "it was 2500 not 3000", amount: 2500 }), "edit stx");
+  assert.ok(Math.abs((await supOwed(sup.id)) - (owedBefore - 2500)) < 1, "payable now reflects the corrected 2500");
+  await tallyBooks("after supplier payment edit");
+  assert.equal(ok(await call(admin, "GET", "/api/books/check"), "books").ok, true);
+  // WHT and non-CEO are refused
+  assert.equal((await call(manager, "POST", `/api/corrections/supplier-txn/${txn.id}/edit`, { reason: "nope", amount: 1 })).status, 403);
+});
+
+test("CEO edits a wholesale payment amount and a supply's litres — due & tank stock follow, books tally", async () => {
+  const clients = ok(await call(admin, "GET", "/api/wholesale/clients"), "wc");
+  const cl = clients.find((c: any) => c.rates?.PMG > 0) ?? clients[0];
+  const station = ok(await call(admin, "GET", "/api/stations"), "st")[0];
+  const dueBefore = ok(await call(admin, "GET", "/api/wholesale/clients"), "wc0").find((c: any) => c.id === cl.id).due;
+  // payment 1000 → corrected to 1500: client's due drops by the new figure
+  ok(await call(admin, "POST", `/api/wholesale/clients/${cl.id}/payment`, { amount: 1000, method: "Cash" }), "pay");
+  await tallyBooks("after wholesale payment");
+  const payTxn = ok(await call(admin, "GET", "/api/corrections/wholesale-txns"), "wtx").txns.find((x: any) => x.type === "payment" && x.amount === 1000 && x.voidable);
+  assert.ok(payTxn, "wholesale payment listed");
+  ok(await call(admin, "POST", `/api/corrections/wholesale-txn/${payTxn.id}/edit`, { reason: "he paid 1500", amount: 1500 }), "edit pay");
+  const dueAfterPay = ok(await call(admin, "GET", "/api/wholesale/clients"), "wc1").find((c: any) => c.id === cl.id).due;
+  assert.ok(Math.abs(dueAfterPay - (dueBefore - 1500)) < 1, "due dropped by the corrected 1500");
+  await tallyBooks("after wholesale payment edit");
+
+  if (cl.rates?.PMG > 0) {
+    const tankId = station.tanks.find((t: any) => t.product === "PMG")?.id;
+    const stockBefore = ok(await call(admin, "GET", "/api/stations"), "s1")[0].tanks.find((t: any) => t.id === tankId).current_l;
+    ok(await call(admin, "POST", `/api/wholesale/clients/${cl.id}/supply`, { station_id: station.id, product: "PMG", litres: 20 }), "supply");
+    await tallyBooks("after supply");
+    const supTxn = ok(await call(admin, "GET", "/api/corrections/wholesale-txns"), "wtx2").txns.find((x: any) => x.type === "supply" && x.voidable && x.litres === 20);
+    assert.ok(supTxn, "supply listed");
+    ok(await call(admin, "POST", `/api/corrections/wholesale-txn/${supTxn.id}/edit`, { reason: "30 L nikle the, 20 nahi", litres: 30 }), "edit supply litres");
+    const stockAfter = ok(await call(admin, "GET", "/api/stations"), "s2")[0].tanks.find((t: any) => t.id === tankId).current_l;
+    assert.ok(Math.abs((stockBefore - stockAfter) - 30) < 0.01, "tank now down the corrected 30 L");
+    await tallyBooks("after supply litres edit");
+    assert.equal(ok(await call(admin, "GET", "/api/books/check"), "books").ok, true);
+  }
+});

@@ -49,7 +49,7 @@ export default function Corrections() {
   return (
     <div>
       <PageHeader title="Corrections — galat entry theek karein · تصحیح"
-        subtitle="Sirf CEO. Koi galat sale, delivery, supplier/wholesale payment, manual khata ya rent entry undo karein — poora paisa, balance aur stock ulta ho jata hai. (Thekedar/carriage ki void Carriage page par hai.) Baad me Audit → Hisaab check se 0 rupaye farq confirm karein." />
+        subtitle="Sirf CEO. Koi galat sale, delivery, supplier/wholesale payment, manual khata ya rent entry Edit ya Void karein — poora paisa, balance aur stock ek saath theek ho jata hai. (Thekedar/carriage Carriage page par.) Baad me Audit → Hisaab check se 0 rupaye farq confirm karein." />
       <div className="mb-4 grid grid-cols-3 gap-1.5 sm:gap-2">
         {TABS.map((x) => (
           <button key={x.t} onClick={() => setTab(x.t)}
@@ -68,28 +68,35 @@ export default function Corrections() {
   );
 }
 
-/** A simple recent-list of txns, each with a reason-prompted Void (or a note when it belongs to another undo). */
-function TxnList({ url, empty, icon: Icon, row, label, elsewhere }: {
+/** A simple recent-list of txns, each with a reason-prompted Void (or a note when it belongs to another undo).
+ *  When `edit` is given, a voidable row also gets an Edit button that opens that render-prop's modal. */
+function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit }: {
   url: string; empty: string; icon: any;
   row: (x: any) => { title: string; sub: string; id: number; voidable: boolean; owner?: string | null };
   label: (x: any) => string; elsewhere: Record<string, string>;
+  edit?: (x: any, baseUrl: string, onClose: () => void, onDone: () => void) => React.ReactNode;
 }) {
   const { data, reload } = useApi<any>(url);
   const { busy, doVoid } = useVoid(reload);
+  const [editing, setEditing] = useState<any>(null);
   const key = Object.keys(data ?? {}).find((k) => Array.isArray((data ?? {})[k])) ?? "";
   const items: any[] = (data ?? {})[key] ?? [];
-  const voidUrl = url.split("?")[0].replace(/s$/, ""); // /corrections/supplier-txns → /corrections/supplier-txn
+  const baseUrl = url.split("?")[0].replace(/s$/, ""); // /corrections/supplier-txns → /corrections/supplier-txn
   return !data ? <Loading /> : !items.length ? <Empty><Icon className="mx-auto mb-1 text-slate-300" />{empty}</Empty> : (
+    <>
     <div className="mt-1 card divide-y divide-slate-100">
       {items.map((x) => { const r = row(x); return (
         <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
           <div className="min-w-0 flex-1"><div className="truncate font-medium">{r.title}</div><div className="truncate text-xs text-slate-500">{r.sub}</div></div>
+          {r.voidable && edit && <button disabled={busy} onClick={() => setEditing(x)} className="btn-secondary shrink-0"><Pencil size={15} /> Edit</button>}
           {r.voidable
-            ? <button disabled={busy} onClick={() => doVoid(`${voidUrl}/${r.id}/void`, label(x))} className="btn-danger shrink-0"><Ban size={15} /> Void</button>
+            ? <button disabled={busy} onClick={() => doVoid(`${baseUrl}/${r.id}/void`, label(x))} className="btn-danger shrink-0"><Ban size={15} /> Void</button>
             : <span className="shrink-0 text-right text-[11px] text-slate-400">{(r.owner && elsewhere[r.owner]) || "yahan nahi"}</span>}
         </div>
       ); })}
     </div>
+    {editing && edit?.(editing, baseUrl, () => setEditing(null), reload)}
+    </>
   );
 }
 
@@ -99,7 +106,40 @@ function SupplierVoid() {
     row={(x) => ({ id: x.id, voidable: x.voidable, owner: x.owner,
       title: `${x.type === "payment" ? "Payment" : x.type === "purchase" ? "Purchase" : "Adjustment"} · ${pkr(x.amount)}`,
       sub: [x.supplier, x.method, x.product, x.ref, dt(x.created_at ?? x.txn_date)].filter(Boolean).join(" · ") })}
-    label={(x) => `Supplier ${x.type} void: ${x.supplier} — ${pkr(x.amount)}`} />;
+    label={(x) => `Supplier ${x.type} void: ${x.supplier} — ${pkr(x.amount)}`}
+    edit={(x, base, onClose, onDone) => <EditSupplierTxn x={x} url={`${base}/${x.id}/edit`} onClose={onClose} onDone={onDone} />} />;
+}
+
+/** Edit a direct supplier payment/purchase/adjustment amount (purchase: litres×rate), ref & note. Payable + bank follow. */
+function EditSupplierTxn({ x, url, onClose, onDone }: { x: any; url: string; onClose: () => void; onDone: () => void }) {
+  const isPurchase = x.type === "purchase";
+  const [litres, setLitres] = useState(String(x.litres ?? ""));
+  const [rate, setRate] = useState(String(x.rate ?? ""));
+  const [amount, setAmount] = useState(String(x.amount ?? ""));
+  const [ref, setRef] = useState(x.ref ?? "");
+  const [note, setNote] = useState(x.note ?? "");
+  const lr = Number(litres) * Number(rate);
+  const amt = isPurchase && Number(litres) > 0 && Number(rate) > 0 ? lr : Number(amount);
+  return (
+    <EditModal title={`Edit supplier ${x.type} — ${x.supplier}`} onClose={onClose} onDone={onDone} url={url}
+      canSave={x.type === "adjustment" ? Number(amount) !== 0 : amt > 0}
+      body={() => isPurchase ? { litres: Number(litres) || null, rate: Number(rate) || null, ref: ref || null, note: note || null }
+        : { amount: Number(amount), ref: ref || null, note: note || null }}
+      fields={<>
+        {isPurchase ? <>
+          <div className="flex gap-2">
+            <Field label="Litres"><input className="input" type="number" inputMode="decimal" value={litres} onChange={(e) => setLitres(e.target.value)} /></Field>
+            <Field label="Rate (Rs/L)"><input className="input" type="number" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
+          </div>
+          <p className="text-xs text-slate-500">Amount khud ban jayega: {pkr(lr || 0)}</p>
+        </> : (
+          <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+        )}
+        <p className="text-xs text-slate-500">Method <b>{x.method ?? "—"}</b> wahi rahega. Supplier ka baqaya aur bank sab update honge.</p>
+        <Field label="Reference (optional)"><input className="input" value={ref} onChange={(e) => setRef(e.target.value)} /></Field>
+        <Field label="Note (optional)"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+      </>} />
+  );
 }
 
 function WholesaleVoid() {
@@ -108,7 +148,38 @@ function WholesaleVoid() {
     row={(x) => ({ id: x.id, voidable: x.voidable, owner: x.owner,
       title: `${x.type} · ${x.litres ? `${num(x.litres, 2)}L · ` : ""}${pkr(x.amount)}`,
       sub: [x.client, x.product, x.method, x.ref, dt(x.txn_date)].filter(Boolean).join(" · ") })}
-    label={(x) => `Wholesale ${x.type} void: ${x.client} — ${pkr(x.amount)}`} />;
+    label={(x) => `Wholesale ${x.type} void: ${x.client} — ${pkr(x.amount)}`}
+    edit={(x, base, onClose, onDone) => <EditWholesaleTxn x={x} url={`${base}/${x.id}/edit`} onClose={onClose} onDone={onDone} />} />;
+}
+
+/** Edit a direct wholesale supply (litres/rate) or payment (amount/method). Tank stock + client due follow. */
+function EditWholesaleTxn({ x, url, onClose, onDone }: { x: any; url: string; onClose: () => void; onDone: () => void }) {
+  const isSupply = x.type === "supply";
+  const [litres, setLitres] = useState(String(x.litres ?? ""));
+  const [rate, setRate] = useState(String(x.rate ?? ""));
+  const [amount, setAmount] = useState(String(x.amount ?? ""));
+  const [method, setMethod] = useState(x.method ?? "");
+  const [note, setNote] = useState(x.note ?? "");
+  const lr = Number(litres) * Number(rate);
+  return (
+    <EditModal title={`Edit wholesale ${x.type} — ${x.client}`} onClose={onClose} onDone={onDone} url={url}
+      canSave={isSupply ? Number(litres) > 0 && Number(rate) > 0 : Number(amount) > 0}
+      body={() => isSupply ? { litres: Number(litres), rate: Number(rate), note: note || null }
+        : { amount: Number(amount), method: method || undefined, note: note || null }}
+      fields={<>
+        {isSupply ? <>
+          <div className="flex gap-2">
+            <Field label="Litres"><input className="input" type="number" inputMode="decimal" value={litres} onChange={(e) => setLitres(e.target.value)} /></Field>
+            <Field label="Rate (Rs/L)"><input className="input" type="number" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
+          </div>
+          <p className="text-xs text-slate-500">Amount: <b>{pkr(lr || 0)}</b> · stock {x.product} tank se adjust hoga, client ka khata bhi.</p>
+        </> : <>
+          <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+          <Field label="Method"><input className="input" value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Cash / Online / …" /></Field>
+        </>}
+        <Field label="Note (optional)"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+      </>} />
+  );
 }
 
 function RentVoid() {
