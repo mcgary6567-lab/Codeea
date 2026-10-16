@@ -261,3 +261,80 @@ def test_the_import_page_opens_on_the_sheet_of_the_list(admin):
     assert 'name="back" value="/hr/employees"' in page
     unsafe = admin.get("/admin/migration?entity=employees&back=//evil.example").text
     assert 'value="//evil.example"' not in unsafe
+
+
+# ------------------------------------------------------------------------------------------------ old-ERP files (16 Oct 2026)
+def test_old_erp_headings_map_to_the_right_fields():
+    """The college's first imports skipped rows: headings such as "Client Name" or "Net Amount" were not mapped."""
+    m = mig.suggest_mapping("clients", ["ID", "Client Name", "Status", "Registration Date", "Email", "Cell", "WhatsApp", "Status Remarks"])
+    assert m == {"client_code": "ID", "full_name": "Client Name", "status": "Status", "joined_at": "Registration Date",
+                 "email": "Email", "phone": "Cell", "whatsapp": "WhatsApp", "notes": "Status Remarks"}
+    inv = mig.suggest_mapping("invoices", ["ID", "Client", "Invoice Date", "Total Amount", "Discount Amount", "Net Amount", "Status"])
+    assert inv["total"] == "Net Amount" and inv["client_name"] == "Client" and inv["issue_date"] == "Invoice Date"
+    pay = mig.suggest_mapping("payments", ["ID", "Receipt Date", "Client", "Total Amount", "Ref No", "Payment Mode"])
+    assert pay["received_at"] == "Receipt Date" and pay["amount"] == "Total Amount" and pay["method"] == "Payment Mode"
+    pk = mig.suggest_mapping("packages", ["ID", "Description", "Maximum Days", "Session", "Price", "Course"])
+    assert pk["name"] == "Description", "a required field outranks an optional one for the same heading"
+    emp = mig.suggest_mapping("employees", ["ID", "Name", "Designation", "Cell", "Basic Salary", "Joining Date"])
+    assert emp["full_name"] == "Name" and emp["base_salary"] == "Basic Salary" and emp["join_date"] == "Joining Date"
+    # a file that already uses our field names is unchanged
+    assert mig.suggest_mapping("clients", ["client_code", "full_name", "email"]) == {"client_code": "client_code", "full_name": "full_name", "email": "email"}
+    assert mig.coerce("30 Minutes", "int") == (30, None)
+
+
+def test_a_bad_optional_value_is_left_out_and_reported():
+    from app.models.people import Client
+    s = SessionLocal()
+    admin = s.query(User).filter(User.email == "admin@oqc.local").one()
+    s.close()
+    code = f"OLD-{TAG[-5:].upper()}"
+    try:
+        job, r = _import("clients", f"ID,Client Name,Email,Cell\n{code},Bad Row {TAG},bad-email,123\n", admin.id)
+        assert r["imported"] == 1, r
+        s = SessionLocal()
+        c = s.query(Client).filter(Client.client_code == code).one()
+        assert c.email is None and c.phone is None, "never stored as it was"
+        notes = [e["message"] for e in s.get(MigrationJob, job.id).errors]
+        assert any("Imported without email" in n for n in notes) and any("Imported without phone" in n for n in notes)
+        s.close()
+    finally:
+        s = SessionLocal()
+        s.query(Client).filter(Client.client_code == code).delete(synchronize_session=False)
+        s.query(MigrationJob).filter(MigrationJob.name.like(f"{TAG}%")).delete(synchronize_session=False)
+        s.commit()
+        s.close()
+
+
+def test_invoices_find_the_family_by_name_when_the_file_has_no_code():
+    from app.models.finance import Invoice, LedgerEntry
+    from app.models.people import Client
+    s = SessionLocal()
+    admin = s.query(User).filter(User.email == "admin@oqc.local").one()
+    fam = Client(client_code=f"C-{TAG[-5:].upper()}", full_name=f"Unique Family {TAG}", country="UK", currency="GBP", status="active")
+    s.add(fam)
+    s.commit()
+    fam_id = fam.id
+    s.close()
+    try:
+        _, r = _import("invoices", f"ID,Client,Invoice Date,Net Amount\nINV-{TAG},Unique Family {TAG},01/09/2026,45\n", admin.id)
+        assert r["imported"] == 1, r
+        s = SessionLocal()
+        assert s.query(Invoice).filter(Invoice.invoice_number == f"INV-{TAG}", Invoice.client_id == fam_id).count() == 1
+        s.close()
+    finally:
+        s = SessionLocal()
+        inv_ids = [i for (i,) in s.query(Invoice.id).filter(Invoice.invoice_number == f"INV-{TAG}")]
+        s.query(LedgerEntry).filter(LedgerEntry.client_id == fam_id).delete(synchronize_session=False)
+        s.query(Invoice).filter(Invoice.id.in_(inv_ids or [-1])).delete(synchronize_session=False)
+        s.query(Client).filter(Client.id == fam_id).delete(synchronize_session=False)
+        s.query(MigrationJob).filter(MigrationJob.name.like(f"{TAG}%")).delete(synchronize_session=False)
+        s.commit()
+        s.close()
+
+
+def test_every_sheet_card_has_an_import_button(admin):
+    page = admin.get("/admin/migration").text
+    for key in mig.ENTITIES:
+        assert f'href="/admin/migration?entity={key}"' in page, key
+    assert "Courses → Packages → Employees" in page
+    assert mig.ENTITIES["leads"]["icon"] == "filter", "funnel is not in the bundled icon set"

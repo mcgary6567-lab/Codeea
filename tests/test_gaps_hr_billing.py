@@ -283,7 +283,9 @@ def test_contract_end_reminders_fire_once_per_threshold(db):
     assert any(e30.full_name in t for t in titles)
     again = jobs_hr.contract_end_reminders(db, today)
     assert again.get("skipped") and again["notifications"] == 0
-    assert db.query(ReminderLog).filter(ReminderLog.reminder_type.like("contract_end_%")).count() == 2
+    # only this test's two employees: a running dev server's daily job may have logged real reminders for others
+    assert db.query(ReminderLog).filter(ReminderLog.reminder_type.like("contract_end_%"),
+                                        ReminderLog.entity_id.in_([e30.id, e7.id])).count() == 2
 
 
 def test_contract_end_reminders_catch_up_a_missed_day(db):

@@ -71,7 +71,7 @@ ENTITIES: dict[str, dict] = {
     },
     "leads": {
         "label": "Leads",
-        "icon": "funnel",
+        "icon": "filter",
         "match_on": "email / phone",
         "columns": [
             ("full_name", "Full name", "str", True),
@@ -111,6 +111,7 @@ ENTITIES: dict[str, dict] = {
             ("invoice_number", "Invoice number", "str", False),
             ("client_code", "Client code", "str", False),
             ("client_email", "Client email", "email", False),
+            ("client_name", "Client name (when there is no code or e-mail)", "str", False),
             ("issue_date", "Issue date", "date", True),
             ("due_date", "Due date", "date", False),
             ("currency", "Currency", "str", False),
@@ -131,6 +132,7 @@ ENTITIES: dict[str, dict] = {
             ("payment_number", "Payment number", "str", False),
             ("client_code", "Client code", "str", False),
             ("client_email", "Client email", "email", False),
+            ("client_name", "Client name (when there is no code or e-mail)", "str", False),
             ("invoice_number", "Invoice number", "str", False),
             ("amount", "Amount", "decimal", True),
             ("currency", "Currency", "str", False),
@@ -366,28 +368,132 @@ def row_count(path: str | Path) -> int:
 
 
 # ----------------------------------------------------------------------------- mapping
+# Other names a file may use for a field: the old ERP's list headings (our list pages reproduce them, so a file
+# from Export CSV maps too) and common spellings. Tried in order, after the field's own name and label.
+SYNONYMS: dict[str, dict[str, list[str]]] = {
+    "clients": {
+        "client_code": ["client code", "client id", "id", "code", "legacy code", "family code"],
+        "full_name": ["client name", "name", "parent name", "guardian name", "family name", "client"],
+        "phone": ["cell", "cell no", "mobile", "mobile no", "phone no", "contact", "contact no"],
+        "whatsapp": ["whatsapp no", "whatsapp number"],
+        "joined_at": ["registration date", "reg date", "joining date", "join date", "created"],
+        "country": ["country name"], "city": ["city name"], "status": ["client status", "family status"],
+        "notes": ["remarks", "status remarks", "comments"],
+    },
+    "students": {
+        "student_code": ["student code", "student id", "id", "code", "legacy code"],
+        "full_name": ["student name", "name", "student"],
+        "client_code": ["client code", "parent code", "family code", "client id"],
+        "client_email": ["parent email", "client email", "guardian email"],
+        "date_of_birth": ["dob", "d o b", "birth date", "date of birth"],
+        "join_date": ["registration date", "reg date", "joining date", "admission date"],
+        "status": ["student status"], "notes": ["remarks", "comments"],
+    },
+    "leads": {
+        "full_name": ["lead", "lead name", "name", "parent name", "client name"],
+        "phone": ["cell", "mobile", "contact", "contact no", "phone no"],
+        "student_age": ["age"], "stage": ["status", "lead status"], "notes": ["remarks", "comments"],
+    },
+    "teachers": {
+        "teacher_code": ["code", "id", "teacher id", "teacher code"],
+        "full_name": ["teacher", "teacher name", "name"],
+        "phone": ["cell", "mobile", "contact no"], "per_class_rate": ["rate", "class rate", "per class"],
+        "shift": ["shift name"],
+    },
+    "invoices": {
+        "invoice_number": ["id", "invoice no", "invoice id", "invoice", "bill no"],
+        "client_name": ["client", "client name", "family", "parent name"],
+        "issue_date": ["invoice date", "date", "bill date"],
+        "subtotal": ["subs total", "sub total", "gross amount"],
+        "discount": ["discount amount", "subs discount"],
+        "total": ["net amount", "grand total", "total amount", "amount", "net"],
+        "paid_amount": ["paid", "received", "received amount"], "remarks": ["description", "notes"],
+    },
+    "payments": {
+        "payment_number": ["id", "receipt no", "receipt number", "receipt id", "payment no", "voucher no"],
+        "client_name": ["client", "client name", "family", "parent name"],
+        "amount": ["total amount", "received amount", "net amount", "amount received", "paid amount"],
+        "method": ["payment mode", "mode", "payment method", "receiving destination"],
+        "reference": ["ref no", "reference no", "transaction id", "txn id"],
+        "received_at": ["receipt date", "received date", "payment date", "date"],
+        "invoice_number": ["invoice no", "invoice id"], "notes": ["description", "remarks"],
+    },
+    "employees": {
+        "employee_code": ["id", "employee id", "emp code", "emp id", "code"],
+        "full_name": ["name", "employee name", "staff name"],
+        "phone": ["cell", "mobile", "contact no"], "cnic": ["nic", "national id", "cnic no"],
+        "join_date": ["joining date", "date of joining", "doj", "hire date"],
+        "shift": ["shift name"], "base_salary": ["basic salary", "salary", "basic pay"],
+        "bank_account_no": ["account no", "bank account", "iban"],
+    },
+    "subscriptions": {
+        "subscription_code": ["code", "id", "subscription id", "subscription no"],
+        "student_code": ["student id", "student"], "teacher_code": ["teacher id"],
+        "package": ["package name"], "course": ["course name"],
+        "sessions_per_week": ["classes per week", "no of classes", "sessions"],
+        "session_minutes": ["minutes", "class duration", "duration", "session"],
+        "days": ["class days", "week days"], "price": ["fee", "monthly fee", "amount"],
+        "start_date": ["subscription date", "date"], "next_billing_date": ["next bill", "next billing"],
+        "notes": ["remarks"],
+    },
+    "courses": {
+        "code": ["course code", "short name"], "name": ["course", "course name"],
+        "course_type": ["type"], "default_session_minutes": ["minutes", "duration"], "is_active": ["status", "active"],
+    },
+    "packages": {
+        "name": ["description", "package", "package name"], "sessions_per_week": ["maximum days", "days", "classes per week"],
+        "session_minutes": ["session", "minutes", "duration"], "is_trial": ["trial"],
+    },
+}
+
+
 def suggest_mapping(entity: str, headers: list[str]) -> dict[str, str]:
-    """Auto-suggest target column -> file header using normalised name similarity."""
+    """Suggest target column -> file header: the field's own name or label first, then the other names a file
+    may use (SYNONYMS), then a close spelling. Each heading is used once."""
     def norm(s: str) -> str:
         return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
     norm_headers = {norm(h): h for h in headers}
     mapping: dict[str, str] = {}
     used: set[str] = set()
-    for target, label, _t, _req in entity_columns(entity):
-        candidates = [norm(target), norm(label.split("(")[0]), norm(target.replace("_", " "))]
-        hit = None
-        for c in candidates:
-            if c in norm_headers and norm_headers[c] not in used:
-                hit = norm_headers[c]
+    cols = entity_columns(entity)
+
+    def take(target: str, key: str) -> bool:
+        h = norm_headers.get(key)
+        if h and h not in used and target not in mapping:
+            mapping[target] = h
+            used.add(h)
+            return True
+        return False
+
+    for target, label, _t, _req in cols:
+        for key in (norm(target), norm(label.split("(")[0])):
+            if take(target, key):
                 break
-        if hit is None:
-            close = difflib.get_close_matches(norm(target), [k for k in norm_headers if norm_headers[k] not in used], n=1, cutoff=0.78)
-            if close:
-                hit = norm_headers[close[0]]
-        if hit:
-            mapping[target] = hit
-            used.add(hit)
+    for target, _label, _t, _req in cols:
+        for alt in SYNONYMS.get(entity, {}).get(target, []):
+            if take(target, norm(alt)):
+                break
+    for target, label, _t, _req in cols:
+        if target in mapping:
+            continue
+        free = [k for k in norm_headers if norm_headers[k] not in used]
+        close = difflib.get_close_matches(norm(target), free, n=1, cutoff=0.8) or \
+            difflib.get_close_matches(norm(label.split("(")[0]), free, n=1, cutoff=0.8)
+        if close:
+            take(target, close[0])
+    # a required field outranks an optional one for a heading both could use (packages list: "Description" is the
+    # package's name, not its description)
+    for target, _label, _t, required in cols:
+        if not required or target in mapping:
+            continue
+        for alt in SYNONYMS.get(entity, {}).get(target, []):
+            h = norm_headers.get(norm(alt))
+            holder = next((t for t, v in mapping.items() if v == h), None)
+            if h and holder and not next(c for c in cols if c[0] == holder)[3]:
+                del mapping[holder]
+                mapping[target] = h
+                break
     return mapping
 
 
@@ -425,10 +531,10 @@ def coerce(value: Any, kind: str) -> tuple[Any, Optional[str]]:
         d = parse_any_date(s)
         return (d, None) if d else (None, f"'{s[:40]}' is not a recognised date")
     if kind == "int":
-        try:
-            return int(float(s.replace(",", ""))), None
-        except (ValueError, TypeError):
-            return None, f"'{s[:40]}' is not a whole number"
+        m = re.search(r"-?\d+(\.\d+)?", s.replace(",", ""))  # "30 Minutes" -> 30
+        if m:
+            return int(float(m.group(0))), None
+        return None, f"'{s[:40]}' is not a whole number"
     if kind == "decimal":
         cleaned = re.sub(r"[^0-9.\-]", "", s.replace(",", ""))
         try:
@@ -593,6 +699,13 @@ def _client_for(db: Session, data: dict) -> Optional[Client]:
         c = db.query(Client).filter(func.lower(Client.email) == str(email).lower()).first()
         if c:
             return c
+    name = (data.get("client_name") or "").strip()
+    if name:
+        found = db.query(Client).filter(func.lower(Client.full_name) == name.lower()).limit(2).all()
+        if len(found) > 1:
+            raise ValueError(f"more than one family is called '{name}': give the client code")
+        if found:
+            return found[0]
     return None
 
 
@@ -662,7 +775,7 @@ def _import_row(db: Session, entity: str, clean: dict, actor: Optional[User]) ->
     if entity == "invoices":
         client = _client_for(db, clean)
         if not client:
-            raise ValueError("no matching client (client_code / client_email)")
+            raise ValueError("no matching client (client_code / client_email / client_name)")
         total = float(clean.get("total") or 0)
         issue = clean.get("issue_date") or date.today()
         obj = Invoice(invoice_number=clean.get("invoice_number") or next_code(db, Invoice, "invoice_number", "INV-", width=6),
@@ -683,7 +796,7 @@ def _import_row(db: Session, entity: str, clean: dict, actor: Optional[User]) ->
     if entity == "payments":
         client = _client_for(db, clean)
         if not client:
-            raise ValueError("no matching client (client_code / client_email)")
+            raise ValueError("no matching client (client_code / client_email / client_name)")
         amount = float(clean.get("amount") or 0)
         received = clean.get("received_at") or date.today()
         invoice = None
@@ -812,13 +925,18 @@ def import_job(db: Session, job: MigrationJob, actor: Optional[User]) -> dict:
         data = map_row(row, mapping)
         clean: dict[str, Any] = {}
         row_error: Optional[str] = None
+        dropped: list[tuple[str, str]] = []
         for target, raw in data.items():
             spec = cols.get(target)
             if not spec:
                 continue
             value, err = coerce(raw, spec[2])
-            if err and spec[3]:
-                row_error = err
+            if err:
+                if spec[3]:
+                    row_error = err
+                else:  # a bad optional value is left out, never stored as it was ("bad-email" in the e-mail column)
+                    dropped.append((target, err))
+                continue
             if value not in (None, ""):
                 clean[target] = value
         for req in required_columns(job.entity):
@@ -840,6 +958,8 @@ def import_job(db: Session, job: MigrationJob, actor: Optional[User]) -> dict:
             _import_row(db, job.entity, clean, actor)
             savepoint.commit()
             imported += 1
+            for target, err in dropped:
+                errors.append({"row": idx, "field": target, "message": f"Imported without {target}: {err}", "severity": "warning"})
             if key:
                 seen.add(key)
             if fin_field and clean.get(fin_field) is not None:
