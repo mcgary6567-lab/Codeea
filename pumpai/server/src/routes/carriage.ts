@@ -13,7 +13,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { AppError, createAlert, round2, pkr } from "../services.js";
+import { AppError, createAlert, round2, pkr, audit } from "../services.js";
 import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
@@ -284,6 +284,31 @@ carriage.post("/carriage/txns/:id/void", requirePerm("carriage.void"), h((req) =
       run("UPDATE bypass_fuel_payments SET voided=1 WHERE id=?", f.id);
     }
   });
+  return { ok: true, due: thekedarDue(x.thekedar_id) };
+}));
+
+/** CEO edit of a thekedar PAYMENT or ADJUSTMENT: the thekedar's due (and the bank, on a non-cash payment) derive from this
+ *  row, so just correct the amount / method / note in place. A kiraya (bypass) trip has fuel legs and a govt cut — it is
+ *  refused here (void & re-enter), and a discount row made from Other-entries is sent back there. */
+carriage.post("/carriage/txns/:id/edit", requirePerm("carriage.void"), h((req) => {
+  const t = tid(req);
+  const x = get("SELECT * FROM carriage_txns WHERE id=? AND tenant_id=? AND voided=0", Number(req.params.id), t);
+  if (!x) throw new AppError(404, "Entry nahi mili");
+  if (x.type === "carriage") throw new AppError(400, "Kiraya (bypass) trip edit nahi hoti — void karke dobara daalein.");
+  if (String(x.ref ?? "").startsWith("oth-disc:")) throw new AppError(400, "Ye Other-entries ka discount hai — wahin se badlein.");
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    amount: z.number().refine((n) => n !== 0, "Amount theek nahi").optional(),
+    method: z.string().max(30).nullable().optional(), account_id: accountIdField, note: z.string().max(200).nullable().optional(),
+  }), req.body);
+  if (x.type === "payment" && b.amount !== undefined && b.amount <= 0) throw new AppError(400, "Payment amount zero se zyada ho");
+  const amount = round2(b.amount ?? x.amount);
+  const method = x.type === "payment" ? (b.method !== undefined ? b.method : x.method) : x.method;
+  const acc = x.type === "payment" ? bankAccountFor(t, b.account_id !== undefined ? b.account_id : x.account_id, method ?? "cash") : x.account_id;
+  const note = b.note !== undefined ? b.note : x.note;
+  const before = { type: x.type, amount: x.amount, method: x.method, note: x.note };
+  run("UPDATE carriage_txns SET amount=?, method=?, account_id=?, note=? WHERE id=? AND tenant_id=?", amount, method ?? null, acc ?? null, note ?? null, x.id, t);
+  audit(t, req.user!, "carriage_txn_edit", `carr:${x.id}`, { before, after: { type: x.type, amount, method, note }, reason: b.reason });
   return { ok: true, due: thekedarDue(x.thekedar_id) };
 }));
 

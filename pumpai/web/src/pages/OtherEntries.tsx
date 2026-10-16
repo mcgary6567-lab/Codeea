@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
-import { Field, Loading, PageHeader, Stat, useAction } from "../components/ui";
+import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { AccountPicker } from "../components/BankParts";
 import { pkr, num, dt } from "../lib/format";
-import { TrendingUp, TrendingDown, Percent, Trash2, Search, Banknote, Landmark, Smartphone, ArrowLeftRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Percent, Trash2, Pencil, Search, Banknote, Landmark, Smartphone, ArrowLeftRight } from "lucide-react";
 
 /** Payment methods with icons — same set the cashier uses. Cash → note count; anything else → a bank/wallet account. */
 const PAY = [
@@ -36,6 +36,7 @@ export default function OtherEntries() {
   const today = new Date().toISOString().slice(0, 10);
   const [day, setDay] = useState(today);
   const { data: report, reload } = useApi<any>(`/other-entries?kind=${kind}&from=${day}&to=${day}`);
+  const [edit, setEdit] = useState<any>(null);
 
   return (
     <div>
@@ -82,6 +83,7 @@ export default function OtherEntries() {
                       <div className="font-medium">{e.party_name} · <span className="font-semibold">{pkr(e.amount)}</span></div>
                       <div className="truncate text-xs text-slate-500">{e.reason}{e.method ? ` · ${e.method}` : ""} · {dt(e.created_at)}</div>
                     </div>
+                    <button onClick={() => setEdit(e)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700" aria-label="Edit"><Pencil size={15} /></button>
                     <button onClick={() => { if (confirm(`Undo this ${meta.en.toLowerCase()} of ${pkr(e.amount)}?`)) api(`/other-entries/${e.id}`, { method: "DELETE" }).then(reload); }}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600" aria-label="Undo"><Trash2 size={15} /></button>
                   </div>
@@ -91,7 +93,32 @@ export default function OtherEntries() {
           )}
         </>
       )}
+      {edit && <EditOther e={edit} meta={meta} onClose={() => setEdit(null)} onDone={reload} />}
     </div>
+  );
+}
+
+/** Edit a recorded other-entry: amount + note (reason required). Backend reverses + re-applies so the money/balance follows. */
+function EditOther({ e, meta, onClose, onDone }: { e: any; meta: { en: string }; onClose: () => void; onDone: () => void }) {
+  const { busy, run } = useAction();
+  const [amount, setAmount] = useState(String(e.amount ?? ""));
+  const [note, setNote] = useState(e.note ?? "");
+  const [why, setWhy] = useState("");
+  const save = () => run(() => api(`/other-entries/${e.id}/edit`, {
+    body: { kind: e.kind, party_type: e.party_type, party_id: e.party_id ?? undefined, party_name: e.party_name,
+      reason: e.reason, amount: Number(amount), method: e.method ?? undefined, account_id: e.account_id ?? undefined, note: note || null, why: why.trim() },
+  }), "Theek ho gaya — poore system me update, books tally").then((r) => { if (r) { onDone(); onClose(); } });
+  return (
+    <Modal open title={`Edit ${meta.en.toLowerCase()} — ${e.party_name}`} onClose={onClose}>
+      <div className="space-y-3">
+        <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" value={amount} onChange={(ev) => setAmount(ev.target.value)} /></Field>
+        <p className="text-xs text-slate-500">Reason <b>{e.reason}</b>{e.method ? ` · ${e.method}` : ""} wahi rahega. {e.kind === "discount" ? "Party ka balance" : "Cash/bank"} naye amount par aa jayega.</p>
+        <Field label="Note (optional)"><input className="input" value={note} onChange={(ev) => setNote(ev.target.value)} /></Field>
+        <Field label="Wajah (kyun badla) — zaroori"><input className="input" value={why} onChange={(ev) => setWhy(ev.target.value)} placeholder="e.g. amount ghalat tha" /></Field>
+        <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={busy || Number(amount) <= 0 || why.trim().length < 3} onClick={save}>Save — sab update</button></div>
+      </div>
+    </Modal>
   );
 }
 

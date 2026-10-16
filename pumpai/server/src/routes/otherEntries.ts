@@ -65,46 +65,70 @@ const body = z.object({
   notes: z.record(z.enum(["5000", "1000", "500", "100", "50", "20", "10"]), z.number().int().min(0).max(100_000)).optional().nullable(),
 });
 
+/** Do the money / balance side of an other-entry (income+expense cash-bank, or a party discount). Returns its `src` tag. */
+function applyOtherMoney(t: number, by: string, b: z.infer<typeof body>, oeId: number, name: string, at: string): string {
+  const amount = round2(b.amount);
+  if (b.kind === "income" || b.kind === "expense") {
+    const ref = `${b.kind === "income" ? "oth-inc" : "oth-exp"}:${oeId}`;
+    const notes = isCash(b.method) ? Object.fromEntries(Object.entries(b.notes ?? {}).filter(([, n]) => Number(n) > 0).map(([k, n]) => [k, Number(n)])) : null;
+    return otherMoney(t, { dir: b.kind === "income" ? "in" : "out", amount, method: b.method ?? "cash", account_id: b.account_id, party: name, category: b.reason, note: b.note, ref, by, at, notes });
+  }
+  // discount: reduce the party's receivable in its own ledger; the contra is "Other discount (CEO)" (routed in ledger.ts)
+  const ref = `oth-disc:${oeId}`, pid = b.party_id!; // guaranteed by partyName() for a non-"other" party
+  if (b.party_type === "khata") {
+    const id = run("INSERT INTO khata_ledger (customer_id,type,amount,ref,note,created_at) VALUES (?,?,?,?,?,?)", pid, "credit", amount, ref, `Discount: ${b.reason}`, at).id;
+    run("UPDATE customers SET balance = balance - ? WHERE id=? AND tenant_id=?", amount, pid, t);
+    return `khata:${id}`;
+  } else if (b.party_type === "wholesale") {
+    const id = run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,amount,method,ref,note,voided,created_by,txn_date,created_at)
+      VALUES (?,?,?,?,?,?,?,0,?,?,?)`, t, pid, "payment", amount, "Discount", ref, `Discount: ${b.reason}`, by, pkDate(), at).id;
+    return `wtx:${id}`;
+  } else { // carriage / thekedar
+    const id = run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,amount,method,account_id,ref,note,voided,created_by,txn_date,created_at)
+      VALUES (?,?,?,?,?,?,?,?,0,?,?,?)`, t, pid, "payment", amount, "Discount", null, ref, `Discount: ${b.reason}`, by, pkDate(), at).id;
+    return `ctx:${id}`;
+  }
+}
+
+/** Reverse the money / balance an other-entry created, by its `src` tag (leaves the record for the caller to void/update). */
+function reverseOtherMoney(t: number, e: any) {
+  const [kind, idStr] = String(e.src ?? "").split(":");
+  const srcId = Number(idStr);
+  if (kind === "voucher") run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", srcId, t);
+  else if (kind === "bank") run("DELETE FROM bank_txns WHERE id=? AND tenant_id=?", srcId, t);
+  else if (kind === "khata") { run("DELETE FROM khata_ledger WHERE id=?", srcId); run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", e.amount, e.party_id, t); }
+  else if (kind === "wtx") run("DELETE FROM wholesale_txns WHERE id=? AND tenant_id=?", srcId, t);
+  else if (kind === "ctx") run("DELETE FROM carriage_txns WHERE id=? AND tenant_id=?", srcId, t);
+}
+
+/** Write the `other_entries` record's own columns (not the money side). */
+function writeOtherRow(t: number, b: z.infer<typeof body>, name: string, by: string, at: string, id: number | null): number {
+  const method = b.kind === "discount" ? null : (b.method ?? "cash");
+  const account_id = b.kind === "discount" ? null : (isCash(b.method) ? null : b.account_id ?? null);
+  const pid = b.party_type === "other" ? null : b.party_id ?? null;
+  if (id) {
+    run(`UPDATE other_entries SET kind=?, party_type=?, party_id=?, party_name=?, reason=?, amount=?, method=?, account_id=?, note=? WHERE id=?`,
+      b.kind, b.party_type, pid, name, b.reason, round2(b.amount), method, account_id, b.note ?? null, id);
+    return id;
+  }
+  return run(`INSERT INTO other_entries (tenant_id,kind,party_type,party_id,party_name,reason,amount,method,account_id,src,note,created_by,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, b.kind, b.party_type, pid, name, b.reason, round2(b.amount), method, account_id, null, b.note ?? null, by, at).id;
+}
+
 otherEntries.post("/other-entries", requirePerm("other_entries.manage"), h((req) => {
   const t = tid(req), by = req.user!.name;
   const b = parse(body, req.body);
-  const amount = round2(b.amount);
   // a discount must reduce a real party's outstanding — it cannot apply to a free-text "other"
   if (b.kind === "discount" && b.party_type === "other") throw new AppError(400, "Discount ke liye koi khata / wholesale / thekedar party chunein (free-text par discount nahi)");
   const name = partyName(t, b.party_type, b.party_id, b.party_name);
   const at = now();
-
   const entry = tx(() => {
-    const oe = run(`INSERT INTO other_entries (tenant_id,kind,party_type,party_id,party_name,reason,amount,method,account_id,src,note,created_by,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, b.kind, b.party_type, b.party_type === "other" ? null : b.party_id ?? null, name, b.reason, amount,
-      b.kind === "discount" ? null : (b.method ?? "cash"), b.kind === "discount" ? null : (isCash(b.method) ? null : b.account_id ?? null), null, b.note ?? null, by, at).id;
-
-    let src: string;
-    if (b.kind === "income" || b.kind === "expense") {
-      const ref = `${b.kind === "income" ? "oth-inc" : "oth-exp"}:${oe}`;
-      const notes = isCash(b.method) ? Object.fromEntries(Object.entries(b.notes ?? {}).filter(([, n]) => Number(n) > 0).map(([k, n]) => [k, Number(n)])) : null;
-      src = otherMoney(t, { dir: b.kind === "income" ? "in" : "out", amount, method: b.method ?? "cash", account_id: b.account_id, party: name, category: b.reason, note: b.note, ref, by, at, notes });
-    } else {
-      // discount: reduce the party's receivable in its own ledger; the contra is "Other discount (CEO)" (routed in ledger.ts)
-      const ref = `oth-disc:${oe}`, pid = b.party_id!; // guaranteed by partyName() for a non-"other" party
-      if (b.party_type === "khata") {
-        const id = run("INSERT INTO khata_ledger (customer_id,type,amount,ref,note,created_at) VALUES (?,?,?,?,?,?)", pid, "credit", amount, ref, `Discount: ${b.reason}`, at).id;
-        run("UPDATE customers SET balance = balance - ? WHERE id=? AND tenant_id=?", amount, pid, t);
-        src = `khata:${id}`;
-      } else if (b.party_type === "wholesale") {
-        const id = run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,amount,method,ref,note,voided,created_by,txn_date,created_at)
-          VALUES (?,?,?,?,?,?,?,0,?,?,?)`, t, pid, "payment", amount, "Discount", ref, `Discount: ${b.reason}`, by, pkDate(), at).id;
-        src = `wtx:${id}`;
-      } else { // carriage / thekedar
-        const id = run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,amount,method,account_id,ref,note,voided,created_by,txn_date,created_at)
-          VALUES (?,?,?,?,?,?,?,?,0,?,?,?)`, t, pid, "payment", amount, "Discount", null, ref, `Discount: ${b.reason}`, by, pkDate(), at).id;
-        src = `ctx:${id}`;
-      }
-    }
+    const oe = writeOtherRow(t, b, name, by, at, null);
+    const src = applyOtherMoney(t, by, b, oe, name, at);
     run("UPDATE other_entries SET src=? WHERE id=?", src, oe);
     return get("SELECT * FROM other_entries WHERE id=?", oe)!;
   });
-  audit(t, req.user!, "other_entry_add", `other:${entry.id}`, { kind: b.kind, party: name, amount });
+  audit(t, req.user!, "other_entry_add", `other:${entry.id}`, { kind: b.kind, party: name, amount: round2(b.amount) });
   return entry;
 }));
 
@@ -113,18 +137,32 @@ otherEntries.delete("/other-entries/:id", requirePerm("other_entries.manage"), h
   const t = tid(req);
   const e = get("SELECT * FROM other_entries WHERE id=? AND tenant_id=? AND voided=0", Number(req.params.id), t);
   if (!e) throw new AppError(404, "Entry not found");
-  const [kind, idStr] = String(e.src ?? "").split(":");
-  const srcId = Number(idStr);
   tx(() => {
-    if (kind === "voucher") run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", srcId, t);
-    else if (kind === "bank") run("DELETE FROM bank_txns WHERE id=? AND tenant_id=?", srcId, t);
-    else if (kind === "khata") { run("DELETE FROM khata_ledger WHERE id=?", srcId); run("UPDATE customers SET balance = balance + ? WHERE id=? AND tenant_id=?", e.amount, e.party_id, t); }
-    else if (kind === "wtx") run("DELETE FROM wholesale_txns WHERE id=? AND tenant_id=?", srcId, t);
-    else if (kind === "ctx") run("DELETE FROM carriage_txns WHERE id=? AND tenant_id=?", srcId, t);
+    reverseOtherMoney(t, e);
     run("UPDATE other_entries SET voided=1 WHERE id=?", e.id);
   });
   audit(t, req.user!, "other_entry_undo", `other:${e.id}`, { kind: e.kind, party: e.party_name, amount: e.amount });
   return { ok: true };
+}));
+
+/* ---------------- edit (reverse the old money/balance, then re-apply with the new values) ---------------- */
+otherEntries.post("/other-entries/:id/edit", requirePerm("other_entries.manage"), h((req) => {
+  const t = tid(req), by = req.user!.name;
+  const e = get("SELECT * FROM other_entries WHERE id=? AND tenant_id=? AND voided=0", Number(req.params.id), t);
+  if (!e) throw new AppError(404, "Entry nahi mili");
+  const b = parse(body.extend({ why: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)") }), req.body);
+  if (b.kind === "discount" && b.party_type === "other") throw new AppError(400, "Discount ke liye koi khata / wholesale / thekedar party chunein");
+  const name = partyName(t, b.party_type, b.party_id, b.party_name);
+  const before = { kind: e.kind, party: e.party_name, amount: e.amount, reason: e.reason };
+  const entry = tx(() => {
+    reverseOtherMoney(t, e);                       // undo the old money / balance
+    writeOtherRow(t, b, name, by, e.created_at, e.id); // update the record in place (keep its date)
+    const src = applyOtherMoney(t, by, b, e.id, name, e.created_at); // re-apply with the new values
+    run("UPDATE other_entries SET src=? WHERE id=?", src, e.id);
+    return get("SELECT * FROM other_entries WHERE id=?", e.id)!;
+  });
+  audit(t, req.user!, "other_entry_edit", `other:${e.id}`, { before, after: { kind: b.kind, party: name, amount: round2(b.amount) }, reason: b.why });
+  return entry;
 }));
 
 /* ---------------- report (per kind, grouped by party) ---------------- */

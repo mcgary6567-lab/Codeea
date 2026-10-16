@@ -137,3 +137,25 @@ test("the cashier day book hides the CEO detail but the cash still reconciles", 
   assert.equal(adminDay.totals.in_cash, cashDay.totals.in_cash);
   assert.equal(adminDay.totals.out_cash, cashDay.totals.out_cash);
 });
+
+test("CEO edits an other-entry — income amount and a khata discount both follow, books tally", async () => {
+  const khata = ok(await call(adminTok, "GET", "/api/other-entries/parties"), "parties").khata[0];
+  // income (cash) 4000 → corrected to 2500
+  const inc = ok(await call(adminTok, "POST", "/api/other-entries", { kind: "income", party_type: "other", party_name: "Scrap", reason: "Kabaari", amount: 4000, method: "cash" }), "inc");
+  await tallyBooks("after other income");
+  ok(await call(adminTok, "POST", `/api/other-entries/${inc.id}/edit`, { why: "it was 2500", kind: "income", party_type: "other", party_name: "Scrap", reason: "Kabaari", amount: 2500, method: "cash" }), "edit income");
+  await tallyBooks("after editing other income");
+  const incList = ok(await call(adminTok, "GET", `/api/other-entries?kind=income`), "inc list");
+  assert.ok(incList.list.find((r: any) => r.id === inc.id && Math.round(r.amount) === 2500), "income now 2500");
+  // a non-CEO cannot edit
+  assert.equal((await call(mgrTok, "POST", `/api/other-entries/${inc.id}/edit`, { why: "nope", kind: "income", party_type: "other", party_name: "Scrap", reason: "Kabaari", amount: 1, method: "cash" })).status, 403);
+
+  // khata discount 1000 → corrected to 600 (the customer's balance follows)
+  const disc = ok(await call(adminTok, "POST", "/api/other-entries", { kind: "discount", party_type: "khata", party_id: khata.id, reason: "Goodwill", amount: 1000 }), "disc");
+  await tallyBooks("after discount");
+  ok(await call(adminTok, "POST", `/api/other-entries/${disc.id}/edit`, { why: "600 not 1000", kind: "discount", party_type: "khata", party_id: khata.id, reason: "Goodwill", amount: 600 }), "edit discount");
+  await tallyBooks("after editing discount");
+  const discList = ok(await call(adminTok, "GET", `/api/other-entries?kind=discount`), "disc list");
+  assert.ok(discList.list.find((r: any) => r.id === disc.id && Math.round(r.amount) === 600), "discount now 600");
+  assert.equal(ok(await call(adminTok, "GET", "/api/books/check"), "books").ok, true);
+});

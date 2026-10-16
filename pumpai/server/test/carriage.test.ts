@@ -147,3 +147,19 @@ test("after all of the above: every book still tallies with the ledger", async (
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("carriage");
 });
+
+test("CEO edits a thekedar payment amount — due follows; a kiraya trip refuses edit; books tally", async () => {
+  const p = ok(await call("wholesale", "POST", `/api/carriage/thekedars/${K.id}/payment`, { amount: 3000, method: "cash", notify: false }), "pay");
+  const dueAfterPay = ok(await call("wholesale", "GET", `/api/carriage/thekedars/${K.id}`), "st1").closing_balance;
+  // 3000 → 2000 means he paid 1000 less, so the due rises by 1000
+  ok(await call("admin", "POST", `/api/carriage/txns/${p.txn.id}/edit`, { reason: "he paid 2000 not 3000", amount: 2000 }), "edit pay");
+  const dueAfterEdit = ok(await call("wholesale", "GET", `/api/carriage/thekedars/${K.id}`), "st2").closing_balance;
+  near(dueAfterEdit - dueAfterPay, 1000, "due up 1000 after lowering the payment");
+  // a non-CEO cannot edit
+  assert.equal((await call("wholesale", "POST", `/api/carriage/txns/${p.txn.id}/edit`, { reason: "nope", amount: 1 })).status, 403);
+  // a kiraya (bypass) trip entry is refused — it must be voided & re-entered
+  const trip = ok(await call("wholesale", "POST", `/api/carriage/thekedars/${K.id}/carriage`, { supplier_id: S.id, amount: 5000, lines: [{ product: "HSD", litres: 1000 }], notify: false }), "trip");
+  assert.equal((await call("admin", "POST", `/api/carriage/txns/${trip.txn.id}/edit`, { reason: "nope", amount: 1 })).status, 400);
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("carriage after payment edit");
+});

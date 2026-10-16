@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Plus, Search, Truck, Send, ArrowLeft, Ban, HandCoins, Download, Printer } from "lucide-react";
+import { Plus, Search, Truck, Send, ArrowLeft, Ban, Pencil, HandCoins, Download, Printer } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, CnicInput, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, useAction } from "../components/ui";
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
@@ -166,6 +166,7 @@ function ThekedarDetail({ id }: { id: number }) {
 
 function Statement({ data, canVoid, onChanged }: { data: any; canVoid: boolean; onChanged: () => void }) {
   const { busy, run } = useAction();
+  const [edit, setEdit] = useState<any>(null);
   const lines: any[] = data.lines ?? [];
   if (!lines.length) return <Empty>Koi entry nahi.</Empty>;
   const label = (r: any) => r.type === "carriage" ? `Kiraya${r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}${r.govt_pct ? ` · ${pkr(r.gross_amount)} − govt ${r.govt_pct}%` : ""}${r.ref ? ` · inv ${r.ref}` : ""}`
@@ -188,11 +189,39 @@ function Statement({ data, canVoid, onChanged }: { data: any; canVoid: boolean; 
           <div className="w-24 text-right tabular-nums text-rose-600">{r.debit ? pkr(r.debit) : ""}</div>
           <div className="w-24 text-right tabular-nums text-emerald-600">{r.credit ? pkr(r.credit) : ""}</div>
           <div className="w-28 text-right font-semibold tabular-nums">{r.type === "fuel_note" ? "" : pkr(r.balance)}</div>
+          {canVoid && !r.voided && (r.type === "payment" || r.type === "adjustment") && !String(r.ref ?? "").startsWith("oth-disc:") &&
+            <button className="text-xs text-emerald-700 hover:underline disabled:opacity-40" disabled={busy} onClick={() => setEdit(r)} title="Edit"><Pencil size={14} /></button>}
           {canVoid && !r.voided && <button className="text-xs text-rose-600 hover:underline disabled:opacity-40" disabled={busy} onClick={() => voidIt(r)} title="Void"><Ban size={14} /></button>}
         </li>
       ))}
       <li className="flex justify-between border-t-2 px-4 py-2 font-bold"><span>Closing (baqaya)</span><b className="tabular-nums">{pkr(data.closing_balance)}</b></li>
+      {edit && <EditCarriageTxn r={edit} onClose={() => setEdit(null)} onDone={onChanged} />}
     </ul>
+  );
+}
+
+/** CEO edit of a thekedar payment / adjustment: amount (+ method/note). Due follows; reason required. */
+function EditCarriageTxn({ r, onClose, onDone }: { r: any; onClose: () => void; onDone: () => void }) {
+  const { busy, run } = useAction();
+  const [amount, setAmount] = useState(String(r.amount ?? ""));
+  const [method, setMethod] = useState(r.method ?? "");
+  const [note, setNote] = useState(r.note ?? "");
+  const [reason, setReason] = useState("");
+  const isPay = r.type === "payment";
+  const save = () => run(() => api(`/carriage/txns/${r.id}/edit`, {
+    body: { reason: reason.trim(), amount: Number(amount), ...(isPay ? { method: method || null } : {}), note: note || null },
+  }), "Theek ho gaya — baqaya update").then((x) => { if (x) { onDone(); onClose(); } });
+  return (
+    <Modal open onClose={onClose} title={`Edit ${isPay ? "payment" : "adjustment"}`}>
+      <div className="space-y-3">
+        <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+        {isPay && <Field label="Method"><input className="input" value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Cash / Bank transfer / …" /></Field>}
+        <Field label="Note (optional)"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        <Field label="Wajah (kyun badla) — zaroori"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. amount ghalat tha" /></Field>
+        <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={busy || !(Number(amount) > 0) || reason.trim().length < 3} onClick={save}>Save</button></div>
+      </div>
+    </Modal>
   );
 }
 
