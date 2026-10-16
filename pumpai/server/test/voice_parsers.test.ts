@@ -48,6 +48,8 @@ const T = pk(0), Y = pk(-1), TM = pk(1), F2 = pk(2);
 const dow = new Date(T + "T00:00:00Z").getUTCDay();
 const next = (d: number) => pk(((d - dow + 7) % 7) || 7);
 const ym = T.slice(0, 8);
+// "15 tareekh" means the coming 15th: this month while it is still ahead, next month once it has passed
+const dayOfMonth = (d: number) => { const dt = new Date(T + "T00:00:00Z"); if (dt.getUTCDate() > d) dt.setUTCMonth(dt.getUTCMonth() + 1); dt.setUTCDate(d); return dt.toISOString().slice(0, 10); };
 const nextMonth = (() => { const d = new Date(T + "T00:00:00Z"); d.setUTCMonth(d.getUTCMonth() + 1); return d.toISOString().slice(0, 10); })();
 
 /** What the /ai/parse-sale route does: an expense when the sentence is one, otherwise a sale. */
@@ -265,7 +267,7 @@ const WS: [string, Record<string, unknown>][] = [
   ["Shah Transport parson 10000 litre diesel mangwa raha hai", { intent: "order", client_id: 2, product: "HSD", litres: 10000, date: F2 }],
   ["Malik ka agle hafte 5000 litre diesel ka order", { intent: "order", client_id: 1, product: "HSD", litres: 5000, date: pk(7) }],
   ["Green Fields monday ko 20 hazar dega", { intent: "promise", client_id: 3, amount: 20000, date: next(1) }],
-  ["Malik 15 tareekh ko 2 lakh dega", { intent: "promise", client_id: 1, amount: 200000, date: ym + "15" }],
+  ["Malik 15 tareekh ko 2 lakh dega", { intent: "promise", client_id: 1, amount: 200000, date: dayOfMonth(15) }],
   ["Shah Transport ka UBL cheque 150000 number 556677 mila", { intent: "cheque", client_id: 2, amount: 150000, bank: "United Bank (UBL)", cheque_no: "556677" }],
   ["Malik se Meezan bank ka cheque mila 2 lakh chek no 123456", { intent: "cheque", client_id: 1, amount: 200000, bank: "Meezan Bank", cheque_no: "123456" }],
   ["Green Fields ka 1 lakh ka cheque aaya MCB 778899", { intent: "cheque", client_id: 3, amount: 100000, bank: "MCB Bank", cheque_no: "778899" }],
@@ -292,7 +294,7 @@ const WS: [string, Record<string, unknown>][] = [
   ["Akram tanker 3412 Malik ko 4000 litre diesel", { intent: "supply", client_id: 1, litres: 4000, tanker_id: 1, driver_id: 2 }],
   ["LES 0981 Shah ko 3000 litre diesel", { intent: "supply", client_id: 2, litres: 3000, tanker_id: 3 }],
   ["Malik se 20 hazar mile chek se HBL", { intent: "cheque", client_id: 1, amount: 20000, bank: "Habib Bank (HBL)" }],
-  ["Malik ka 15 tareekh ka order 6000 litre diesel", { intent: "order", client_id: 1, litres: 6000, date: ym + "15" }],
+  ["Malik ka 15 tareekh ka order 6000 litre diesel", { intent: "order", client_id: 1, litres: 6000, date: dayOfMonth(15) }],
   ["Shah Transport ko 10 hazar litre diesel chahiye jumeraat ko", { intent: "order", client_id: 2, litres: 10000, date: next(4) }],
   ["Malik ko 5,000 liter diesel", { intent: "supply", client_id: 1, litres: 5000 }],
   ["Malik ne 2000 litre diesel return kiya", { intent: "return", client_id: 1, litres: 2000 }],
