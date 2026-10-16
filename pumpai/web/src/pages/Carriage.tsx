@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Search, Truck, Send, ArrowLeft, Ban, Pencil, HandCoins, Download, Printer } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, CnicInput, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, useAction } from "../components/ui";
+import { Badge, CnicInput, Empty, ErrorBox, Field, FilterChips, ListTools, Loading, Modal, PageHeader, PhoneInput, useAction, useListFilter } from "../components/ui";
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { PRODUCTS, activeProducts, dt, num, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
@@ -24,7 +24,9 @@ function ThekedarList() {
   const { data, loading, error, reload } = useApi<any[]>("/carriage/thekedars");
   const [q, setQ] = useState("");
   const [add, setAdd] = useState(false);
-  const list = (data ?? []).filter((k) => !q || k.name.toLowerCase().includes(q.toLowerCase()) || (k.phone ?? "").includes(q));
+  const [chip, setChip] = useState("");
+  const list = (data ?? []).filter((k) => (!q || k.name.toLowerCase().includes(q.toLowerCase()) || (k.phone ?? "").includes(q)) && (chip !== "due" || Number(k.due ?? 0) > 0.5));
+  const dueCount = (data ?? []).filter((k) => Number(k.due ?? 0) > 0.5).length;
   return (
     <div className="space-y-4">
       <PageHeader title="Carriage / kiraya" subtitle="Bypass on our depot ID — run with thekedars"
@@ -32,10 +34,13 @@ function ThekedarList() {
       <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Depot humari ID par load karta hai aur hamein invoice deta hai — fuel ka paisa humari books mein nahi aata. Hum sirf <b>kiraya</b> thekedar se charge karte hain, jo poora munafa hai. <Ur className="block">صرف کرایہ ٹھیکیدار کے ذمے — فیول ہمارے کھاتے میں نہیں</Ur></p>
       <CarriageSummary />
       <CollectionList />
-      <div className="relative"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input className="input pl-9" placeholder="Search thekedar…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[200px] flex-1"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input className="input pl-9" placeholder="Search thekedar…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <FilterChips value={chip} onChange={setChip} opts={[["", `All (${(data ?? []).length})`], ["due", `Due > 0 · باقی (${dueCount})`]]} />
+      </div>
       {error && <ErrorBox error={error} />}
-      {loading ? <Loading /> : !list.length ? <Empty>Koi thekedar nahi. "New thekedar" se shuru karein.</Empty> : (
+      {loading ? <Loading /> : !list.length ? <Empty>{(data ?? []).length ? "Kuch nahi mila · کچھ نہیں ملا" : "Koi thekedar nahi. \"New thekedar\" se shuru karein."}</Empty> : (
         <div className="space-y-2">
           {list.map((k) => (
             <Link key={k.id} to={`/carriage/${k.id}`} className="card flex items-center justify-between p-4 hover:ring-2 hover:ring-brand-200">
@@ -167,8 +172,16 @@ function ThekedarDetail({ id }: { id: number }) {
 function Statement({ data, canVoid, canEdit, onChanged }: { data: any; canVoid: boolean; canEdit: boolean; onChanged: () => void }) {
   const { busy, run } = useAction();
   const [edit, setEdit] = useState<any>(null);
-  const lines: any[] = data.lines ?? [];
-  if (!lines.length) return <Empty>Koi entry nahi.</Empty>;
+  const [q, setQ] = useState("");
+  const [type, setType] = useState("");
+  const allLines: any[] = data.lines ?? [];
+  const TYPE_LABEL: Record<string, string> = { carriage: "Kiraya", payment: "Payment", adjustment: "Adjustment" };
+  const typeChips = [{ k: "", label: "All", n: allLines.length }, ...["carriage", "payment", "adjustment"].map((k) => ({ k, label: TYPE_LABEL[k], n: allLines.filter((r) => r.type === k).length })).filter((c) => c.n > 0)];
+  const lines = useListFilter(allLines, { q, keep: (r) => !type || r.type === type,
+    text: (r) => [r.vehicle_no, r.tanker_no, r.ref, r.ref && `inv ${r.ref}`, r.note, r.method, r.depot_name, r.product && PRODUCTS[r.product], r.amount, r.debit, r.credit].filter((v) => v != null && v !== false && v !== "").join(" ") });
+  const tools = <div className="px-4 pt-2"><ListTools q={q} onQ={setQ} placeholder="Gaari / invoice ref… · گاڑی یا انوائس" chips={typeChips} chip={type} onChip={setType} shown={lines.length} total={allLines.length} /></div>;
+  if (!allLines.length) return <Empty>Koi entry nahi.</Empty>;
+  if (!lines.length) return <>{tools}<Empty>Kuch nahi mila · کچھ نہیں ملا</Empty></>;
   const label = (r: any) => r.type === "carriage" ? `Kiraya${r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}${r.govt_pct ? ` · ${pkr(r.gross_amount)} − govt ${r.govt_pct}%` : ""}${r.ref ? ` · inv ${r.ref}` : ""}`
     : r.type === "payment" ? `Payment${r.method ? ` · ${r.method}` : ""}${r.ref ? ` · ${r.ref}` : ""}`
       : r.type === "adjustment" ? `Adjustment${r.note ? ` · ${r.note}` : ""}`
@@ -178,6 +191,8 @@ function Statement({ data, canVoid, canEdit, onChanged }: { data: any; canVoid: 
     return run(() => api(`/carriage/txns/${r.id}/void`, { body: { reason: "correction" } }), "Reversed").then(onChanged);
   };
   return (
+    <>
+    {tools}
     <ul className="divide-y divide-slate-100">
       <li className="flex justify-between px-4 py-2 text-sm text-slate-500"><span>Opening</span><b className="tabular-nums">{pkr(data.opening_balance)}</b></li>
       {lines.map((r) => (
@@ -197,6 +212,7 @@ function Statement({ data, canVoid, canEdit, onChanged }: { data: any; canVoid: 
       <li className="flex justify-between border-t-2 px-4 py-2 font-bold"><span>Closing (baqaya)</span><b className="tabular-nums">{pkr(data.closing_balance)}</b></li>
       {edit && <EditCarriageTxn r={edit} onClose={() => setEdit(null)} onDone={onChanged} />}
     </ul>
+    </>
   );
 }
 

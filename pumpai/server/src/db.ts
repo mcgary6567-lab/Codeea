@@ -486,6 +486,7 @@ export function migrate() {
     buyer TEXT, customer_id INTEGER, method TEXT NOT NULL DEFAULT 'cash', status TEXT NOT NULL DEFAULT 'active', expires_on TEXT,
     sold_by TEXT, sold_at TEXT NOT NULL, sale_id INTEGER, used_at TEXT, used_by TEXT, void_reason TEXT)`);
   addColumn("customers", "wallet_balance", "REAL NOT NULL DEFAULT 0");
+  addColumn("fuel_coupons", "voided_at", "TEXT"); addColumn("fuel_coupons", "void_refund", "INTEGER NOT NULL DEFAULT 0"); // when cancelled, and whether money went back
   addColumn("customers", "wallet_low", "REAL"); // WhatsApp when the wallet falls below this
   addColumn("customers", "wallet_low_sent", "INTEGER NOT NULL DEFAULT 0");
   db.exec(`CREATE TABLE IF NOT EXISTS wallet_ledger (

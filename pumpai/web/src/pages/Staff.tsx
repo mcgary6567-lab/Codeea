@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wallet, Plus, Minus, Banknote, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
+import { Badge, Empty, Field, ListTools, Loading, Modal, PageHeader, PhoneInput, Stat, matchQuery, useAction, useListFilter } from "../components/ui";
 import { dt, pkr } from "../lib/format";
 import { PhotoThumb, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { DAY_STATUS, LeaveForm } from "./MyAccount";
@@ -168,9 +168,16 @@ function Accounts() {
   const [open, setOpen] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState(() => new URLSearchParams(window.location.search).get("q") ?? ""); // global search lands here with ?q=
+  const [chip, setChip] = useState(""); // "" all · owes · due (salary set, not paid this month) · inactive — client-side
+  const [station, setStation] = useState("");
+  const [role, setRole] = useState("");
   if (!data) return <Loading />;
   const owed = data.reduce((a, u) => a + Math.max(0, u.balance), 0);
-  const shown = data.filter((u) => matchQuery(q, u.name, u.job_title, u.role, u.station_name, u.phone));
+  const salaryDue = (u: any) => Boolean(u.salary && u.active && !u.salary_paid_this_month);
+  const chipKeep = (u: any) => (chip === "owes" ? u.balance > 0 : chip === "due" ? salaryDue(u) : chip === "inactive" ? !u.active : true);
+  const shown = data.filter((u) => matchQuery(q, u.name, u.job_title, u.role, u.station_name, u.phone) && chipKeep(u) && (!station || u.station_name === station) && (!role || u.role === role));
+  const stationNames = [...new Set(data.map((u) => u.station_name as string | null).filter(Boolean))] as string[];
+  const roles = [...new Set(data.map((u) => u.role as string))];
   return (
     <div className="space-y-5">
       <PageHeader title="Staff accounts" subtitle="Advances, cash shortages from shifts and salary — every entry kept automatically"
@@ -180,8 +187,14 @@ function Accounts() {
         <Stat label="Short this month" value={pkr(data.reduce((a, u) => a + u.shortages_this_month, 0))} tone="red" />
         <Stat label="Salary paid this month" value={`${data.filter((u) => u.salary_paid_this_month).length} / ${data.filter((u) => u.salary && u.active).length}`} tone="blue" hint="staff with a salary set" />
       </div>
-      <SearchBar value={q} onChange={setQ} placeholder="Staff naam ya kaam dhoondein…" />
-      {q && !shown.length && <Empty>"{q}" ke liye koi staff nahi mila.</Empty>}
+      <ListTools q={q} onQ={setQ} placeholder="Staff naam ya kaam dhoondein… · تلاش"
+        chips={[{ k: "", label: "All" }, { k: "owes", label: "Owes", n: data.filter((u) => u.balance > 0).length }, { k: "due", label: "Salary due", n: data.filter(salaryDue).length }, { k: "inactive", label: "Inactive", n: data.filter((u) => !u.active).length }]}
+        chip={chip} onChip={setChip} shown={shown.length} total={data.length}
+        right={<>
+          {stationNames.length > 1 && <select className="input w-auto" aria-label="Station" value={station} onChange={(e) => setStation(e.target.value)}><option value="">All stations</option>{stationNames.map((n) => <option key={n} value={n}>{n}</option>)}</select>}
+          {roles.length > 1 && <select className="input w-auto capitalize" aria-label="Role" value={role} onChange={(e) => setRole(e.target.value)}><option value="">All roles</option>{roles.map((r) => <option key={r} value={r}>{r}</option>)}</select>}
+        </>} />
+      {!shown.length && <Empty>{q ? `"${q}" ke liye koi staff nahi mila.` : "Is filter mein koi staff nahi."}</Empty>}
       {/* phone: one card per person */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
         {shown.map((u) => (
@@ -369,12 +382,23 @@ function DutyForm({ u, att, onSaved }: { u: any; att: any; onSaved: () => void }
 }
 
 export function LedgerList({ lines }: { lines: any[] }) {
+  // the detail endpoint returns the whole ledger, so search / day range / entry type are filtered here
+  const [q, setQ] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [type, setType] = useState("");
+  const shown = useListFilter(lines, { q, from, to, dateKey: "created_at", keep: (l) => !type || l.type === type, text: (l) => `${TYPE[l.type]?.label ?? l.type} ${l.note ?? ""} ${l.amount} ${l.created_by ?? ""} ${l.month ?? ""}` });
   if (!lines.length) return <Empty>No entries yet.</Empty>;
+  const types = [...Object.keys(TYPE), ...lines.map((l) => l.type as string).filter((t) => !TYPE[t])].filter((t, i, a) => a.indexOf(t) === i && lines.some((l) => l.type === t));
   return (
-    <div className="mt-4 max-h-[50vh] overflow-auto rounded-lg border border-slate-200">
+    <div className="mt-4">
+    <ListTools q={q} onQ={setQ} placeholder="Note ya raqam… · تلاش" chips={[{ k: "", label: "All" }, ...types.map((t) => ({ k: t, label: TYPE[t]?.label ?? t, n: lines.filter((l) => l.type === t).length }))]} chip={type} onChip={setType}
+      from={from} to={to} onFrom={setFrom} onTo={setTo} shown={shown.length} total={lines.length} />
+    {!shown.length && <Empty>Is filter mein koi entry nahi.</Empty>}
+    <div className="max-h-[50vh] overflow-auto rounded-lg border border-slate-200">
       {/* phone: one line per entry */}
       <ul className="divide-y divide-slate-100 sm:hidden">
-        {lines.map((l) => (
+        {shown.map((l) => (
           <li key={l.id} className="px-3 py-2">
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0"><Badge tone={TYPE[l.type]?.tone}>{TYPE[l.type]?.label ?? l.type}</Badge> <span className="text-xs text-slate-500">{dt(l.created_at)}</span></span>
@@ -387,7 +411,7 @@ export function LedgerList({ lines }: { lines: any[] }) {
       </ul>
       <table className="hidden w-full sm:table">
         <thead className="sticky top-0"><tr><th className="th">Date</th><th className="th">Entry</th><th className="th">Note</th><th className="th text-right">Amount</th><th className="th text-right">Owes after</th></tr></thead>
-        <tbody>{lines.map((l) => (
+        <tbody>{shown.map((l) => (
           <tr key={l.id}>
             <td className="td whitespace-nowrap text-xs">{dt(l.created_at)}</td>
             <td className="td"><Badge tone={TYPE[l.type]?.tone}>{TYPE[l.type]?.label ?? l.type}</Badge></td>
@@ -397,6 +421,7 @@ export function LedgerList({ lines }: { lines: any[] }) {
           </tr>
         ))}</tbody>
       </table>
+    </div>
     </div>
   );
 }

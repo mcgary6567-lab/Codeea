@@ -50,6 +50,10 @@ search.get("/search", requireAuth, h((req) => {
     .map((s) => ({ kind: "staff", label: s.name, sub: `${s.role}${s.phone ? ` · ${s.phone}` : ""}`, to: `/staff?q=${encodeURIComponent(s.name)}` })));
   if (can(u, "cheques.manage")) push(all(`SELECT id, direction, party_name, amount, bank, cheque_no, status FROM cheques WHERE tenant_id=? AND (cheque_no LIKE ? OR party_name LIKE ?) ORDER BY id DESC LIMIT 5`, t, q, q)
     .map((c) => ({ kind: "cheque", label: `Cheque ${c.cheque_no} · ${c.bank}`, sub: `${c.direction === "in" ? "received from" : "issued to"} ${c.party_name} · ${c.status}`, amount: c.amount, to: "/cashier?tab=cheques" })));
+  // wholesale clients' cheques live in their own register but show in the same cheque list
+  if (can(u, "cheques.manage")) push(all(`SELECT q.id, q.amount, q.bank, q.cheque_no, q.cheque_date, q.status, c.name party_name FROM wholesale_cheques q JOIN wholesale_clients c ON c.id=q.client_id
+      WHERE q.tenant_id=? AND (q.cheque_no LIKE ? OR c.name LIKE ?) ORDER BY q.id DESC LIMIT 5`, t, q, q)
+    .map((c) => ({ kind: "cheque", label: `Cheque ${c.cheque_no} · ${c.bank}`, sub: `received from ${c.party_name} (wholesale) · ${c.status} · ${c.cheque_date}`, amount: c.amount, to: "/cashier?tab=cheques" })));
   if (can(u, "sales.create")) push(all(`SELECT id, name, type, serial_no, status FROM machines WHERE tenant_id=? AND (name LIKE ? OR COALESCE(serial_no,'') LIKE ? OR COALESCE(make,'') LIKE ?) LIMIT 4`, t, q, q, q)
     .map((m) => ({ kind: "machine", label: m.name, sub: `${m.type} · ${m.status}${m.serial_no ? ` · ${m.serial_no}` : ""}`, to: `/machines?q=${encodeURIComponent(m.name)}` })));
   return { q: raw, hits: hits.slice(0, 30) };

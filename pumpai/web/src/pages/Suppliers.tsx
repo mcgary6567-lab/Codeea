@@ -4,7 +4,7 @@ import { VoucherSlip } from "./Cashier";
 import { api, linkToken, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
+import { Badge, Empty, Field, ListTools, Loading, Modal, PageHeader, PhoneInput, SearchBar, Stat, matchQuery, useAction, useListFilter } from "../components/ui";
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { Ur } from "../components/VoiceShell";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
@@ -173,6 +173,15 @@ function SupplierDetail({ id, onClose, onChanged, depots, onDepots }: { id: numb
   const [edit, setEdit] = useState(false);
   const { busy, run } = useAction();
   const title = s ? label(s) : "Supplier";
+  // on-screen ledger filters only — the printed statement and the CSV always carry the full account
+  const [lq, setLq] = useState("");
+  const [lrange, setLrange] = useState({ from: "", to: "" });
+  const [ltype, setLtype] = useState("");
+  const allLines: any[] = s?.lines ?? [];
+  const typeChips = [{ k: "", label: "All", n: allLines.length }, ...["purchase", "payment", "adjustment"].map((k) => ({ k, label: k[0].toUpperCase() + k.slice(1), n: allLines.filter((t) => t.type === k).length })).filter((c) => c.n > 0)];
+  const lines = useListFilter(allLines, { q: lq, from: lrange.from, to: lrange.to, dateKey: "txn_date", keep: (t) => !ltype || t.type === ltype,
+    text: (t) => [t.ref, t.note, t.method, t.product, t.product && PRODUCTS[t.product], t.litres, t.rate, t.debit, t.credit, t.amount].filter((v) => v != null && v !== false && v !== "").join(" ") });
+  const lineFiltered = lines.length !== allLines.length;
   // the cashier's two-copy payment voucher, for a payment made from this page
   const voucherOf = (t: any, owedAfter: number | null) => ({
     prepared: true, party_type: "supplier", balance_after: owedAfter, account: t.account_name,
@@ -237,9 +246,11 @@ function SupplierDetail({ id, onClose, onChanged, depots, onDepots }: { id: numb
               <div className="col-span-2 w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay.method === "Cheque"} hint="pay order, cheque, bank / 1LINK receipt" /></div>
             </form>
           </div>
+          {allLines.length > 0 && <ListTools q={lq} onQ={setLq} placeholder="Ref / product… · ریفرنس یا پراڈکٹ" chips={typeChips} chip={ltype} onChip={setLtype}
+            from={lrange.from} to={lrange.to} onFrom={(v) => setLrange({ ...lrange, from: v })} onTo={(v) => setLrange({ ...lrange, to: v })} shown={lines.length} total={allLines.length} />}
           <div className="max-h-96 overflow-auto rounded-lg border border-slate-200 print:hidden">
             <ul className="divide-y divide-slate-100 sm:hidden">
-              {s.lines.map((t: any) => (
+              {lines.map((t: any) => (
                 <li key={t.id} className="px-3 py-2">
                   <div className="flex items-start justify-between gap-2">
                     <span className="min-w-0"><Badge tone={t.type === "purchase" ? "blue" : t.type === "payment" ? "green" : "violet"}>{t.type}</Badge> <span className="text-xs text-slate-500">{dt(t.txn_date)}</span></span>
@@ -253,7 +264,7 @@ function SupplierDetail({ id, onClose, onChanged, depots, onDepots }: { id: numb
             </ul>
             <table className="hidden w-full sm:table">
               <thead className="sticky top-0"><tr><th className="th">Date</th><th className="th">Entry</th><th className="th">Details</th><th className="th text-right">Purchased</th><th className="th text-right">Paid</th><th className="th text-right">We owe</th><th className="th" /></tr></thead>
-              <tbody>{s.lines.map((t: any) => (
+              <tbody>{lines.map((t: any) => (
                 <tr key={t.id}>
                   <td className="td text-xs">{dt(t.txn_date)}</td>
                   <td className="td"><Badge tone={t.type === "purchase" ? "blue" : t.type === "payment" ? "green" : "violet"}>{t.type}</Badge></td>
@@ -266,6 +277,7 @@ function SupplierDetail({ id, onClose, onChanged, depots, onDepots }: { id: numb
               ))}</tbody>
             </table>
             {!s.lines.length && <Empty>No entries</Empty>}
+            {allLines.length > 0 && !lines.length && lineFiltered && <Empty>Kuch nahi mila · کچھ نہیں ملا</Empty>}
           </div>
         </div>
       )}

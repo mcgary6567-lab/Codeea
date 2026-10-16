@@ -99,7 +99,7 @@ shop.post("/shop/sales", requirePerm("sales.create"), h(async (req) => {
   }), req.body);
   if (b.payment_method !== "khata" && !moneyMethods(tid(req)).includes(b.payment_method)) throw new AppError(400, `Unknown payment method: ${b.payment_method}`);
   const stationId = scopedStation(req, b.station_id)!;
-  if (b.client_uid) { const dup = get("SELECT * FROM shop_sales WHERE client_uid=?", b.client_uid); if (dup) return { ...dup, duplicate: true }; }
+  if (b.client_uid) { const dup = get("SELECT * FROM shop_sales WHERE client_uid=? AND tenant_id=?", b.client_uid, t); if (dup) return { ...dup, duplicate: true }; }
   const salesman = req.user!.role === "salesman";
   const shift = salesman
     ? get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", stationId, req.user!.name)
@@ -167,17 +167,31 @@ shop.post("/shop/sales/:id/undo", requirePerm("sales.create"), h((req) => {
 }));
 
 /** Recent shop sales (for the CEO to review / edit / undo). Newest first, with a short item summary and the customer. */
+const pkDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional();
+const salesQuery = z.object({
+  station_id: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().int().positive().optional()),
+  limit: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().int().min(1).max(200).default(40)),
+  from: pkDay, to: pkDay, method: z.string().trim().max(40).optional(), q: z.string().trim().max(80).optional(), // item name / customer
+});
 shop.get("/shop/sales", requirePerm("sales.create"), h((req) => {
   const t = tid(req);
-  const sid = Number(req.query.station_id) || null;
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+  const f = parse(salesQuery, req.query);
+  const where = ["ss.tenant_id=?"]; const args: (string | number)[] = [t];
+  if (f.station_id) { where.push("ss.station_id=?"); args.push(f.station_id); }
+  if (f.from) { where.push("ss.created_at >= ?"); args.push(pkStart(f.from)); }
+  if (f.to) { where.push("ss.created_at < ?"); args.push(pkEnd(f.to)); }
+  if (f.method) { where.push("ss.payment_method=?"); args.push(f.method); }
+  if (f.q) {
+    const like = `%${f.q}%`;
+    where.push("(c.name LIKE ? OR EXISTS (SELECT 1 FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=ss.id AND i.name LIKE ?))");
+    args.push(like, like);
+  }
   const rows = all(
     `SELECT ss.id, ss.payment_method, ss.total, ss.customer_id, ss.created_at, ss.shift_id, c.name customer, u.name by_name,
             (SELECT GROUP_CONCAT(l.qty || ' × ' || i.name, ', ') FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=ss.id) items
      FROM shop_sales ss LEFT JOIN customers c ON c.id=ss.customer_id LEFT JOIN users u ON u.id=ss.created_by
-     WHERE ss.tenant_id=? ${sid ? "AND ss.station_id=?" : ""} ORDER BY ss.id DESC LIMIT ?`,
-    ...(sid ? [t, sid, limit] : [t, limit]));
-  return { sales: rows };
+     WHERE ${where.join(" AND ")} ORDER BY ss.id DESC LIMIT ?`, ...args, f.limit);
+  return { sales: rows, limit: f.limit };
 }));
 
 /** CEO edit of a shop sale's MONEY routing — payment method and/or khata customer (stock, lines and total stay as sold).

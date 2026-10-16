@@ -279,6 +279,12 @@ export function reverseSale(tenantId: number, sale: Row): string[] {
     const delta = redeemed - earned;
     if (delta) run("UPDATE customers SET loyalty_points = MAX(0, loyalty_points + ?) WHERE id=? AND tenant_id=?", delta, sale.customer_id, tenantId);
   }
+  // 4b) a wholesale nozzle sale: void the linked wholesale supply + on-the-spot payment, pull back an in-hand cheque (as undoSale)
+  if (sale.payment_method === "wholesale") {
+    run("UPDATE wholesale_txns SET voided=1, void_reason='Sale voided (corrections)' WHERE sale_id=? AND voided=0", sale.id);
+    run("UPDATE wholesale_cheques SET status='cancelled', updated_at=? WHERE sale_id=? AND status='in_hand'", now(), sale.id);
+    did.push("wholesale supply/payment void");
+  }
   // 5) physical stock + meter — add the litres back to the product's tank and wind the nozzle totalizer back.
   //    recordSale picked the fullest tank of that product at the station; reverse to the same selection.
   const tank = get("SELECT id FROM tanks WHERE station_id=? AND product=? ORDER BY current_l DESC LIMIT 1", sale.station_id, sale.product);

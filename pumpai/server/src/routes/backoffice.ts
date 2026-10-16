@@ -44,8 +44,8 @@ export function cashFlows(t: number, since: string, until: string) {
       one("SELECT COALESCE(SUM(x.amount),0) v FROM sales x JOIN stations s ON s.id=x.station_id WHERE s.tenant_id=? AND x.shift_id IS NULL AND x.payment_method='cash' AND x.created_at > ? AND x.created_at <= ?", ...P)
       + one("SELECT COALESCE(SUM(total),0) v FROM shop_sales WHERE tenant_id=? AND shift_id IS NULL AND payment_method='cash' AND created_at > ? AND created_at <= ?", ...P)),
     khata_cash: one(`SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND ${cashSql("k.ref")} AND k.created_at > ? AND k.created_at <= ?`, ...P),
-    wholesale_cash: one("SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
-    carriage_cash: one("SELECT COALESCE(SUM(amount),0) v FROM carriage_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
+    wholesale_cash: one(`SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND ${cashSql("method")} AND created_at > ? AND created_at <= ?`, ...P),
+    carriage_cash: one(`SELECT COALESCE(SUM(amount),0) v FROM carriage_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND ${cashSql("method")} AND created_at > ? AND created_at <= ?`, ...P),
     prepaid_cash: round2(one("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND method='cash' AND sold_at > ? AND sold_at <= ?", ...P)
       + one("SELECT COALESCE(SUM(CASE WHEN type='refund' THEN -amount ELSE amount END),0) v FROM wallet_ledger WHERE tenant_id=? AND type IN ('deposit','refund') AND method='cash' AND created_at > ? AND created_at <= ?", ...P)),
     bank_withdrawals: one("SELECT COALESCE(SUM(-amount),0) v FROM bank_txns WHERE tenant_id=? AND kind='withdraw' AND created_at > ? AND created_at <= ?", ...P),
@@ -57,7 +57,7 @@ export function cashFlows(t: number, since: string, until: string) {
     bank_deposits: one("SELECT COALESCE(SUM(amount),0) v FROM bank_deposits WHERE tenant_id=? AND created_at > ? AND created_at <= ?", ...P),
     expenses: one("SELECT COALESCE(SUM(amount),0) v FROM expenses WHERE tenant_id=? AND status='approved' AND method='cash' AND shift_id IS NULL AND created_at > ? AND created_at <= ?", ...P),
     supplier_payments: one("SELECT COALESCE(SUM(amount),0) v FROM supplier_txns WHERE tenant_id=? AND type='payment' AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
-    bypass_supplier_payments: one("SELECT COALESCE(SUM(amount),0) v FROM bypass_supplier_payments WHERE tenant_id=? AND mode IN ('we_pay','through_us') AND voided=0 AND account_id IS NULL AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
+    bypass_supplier_payments: one(`SELECT COALESCE(SUM(amount),0) v FROM bypass_supplier_payments WHERE tenant_id=? AND mode IN ('we_pay','through_us') AND voided=0 AND account_id IS NULL AND ${cashSql("method")} AND created_at > ? AND created_at <= ?`, ...P),
     other_cash: one("SELECT COALESCE(SUM(amount),0) v FROM cashier_vouchers WHERE tenant_id=? AND direction='out' AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at > ? AND created_at <= ?", ...P),
     staff_advances: one(`SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND (type='advance' OR (type='bonus' AND month IS NULL)) AND ${cashSql("method")} AND COALESCE(ref,'')<>'open:' AND created_at > ? AND created_at <= ?`, ...P), // go-live opening advances moved no cash
   };

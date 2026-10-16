@@ -606,7 +606,7 @@ export function insertTxn(req: Request, clientId: number, f: Row) {
   );
   linkPhotos(tid(req), f.photo_ids, `wtx:${id}`);
   // WhatsApp receipt to the client once the entry is committed
-  setImmediate(() => { if (get("SELECT id FROM wholesale_txns WHERE id=?", id)) wholesaleReceipt(tid(req), clientId, get("SELECT * FROM wholesale_txns WHERE id=?", id)!).catch((e) => console.error("[wholesale receipt]", e.message)); });
+  if (!f.silent) setImmediate(() => { if (get("SELECT id FROM wholesale_txns WHERE id=?", id)) wholesaleReceipt(tid(req), clientId, get("SELECT * FROM wholesale_txns WHERE id=?", id)!).catch((e) => console.error("[wholesale receipt]", e.message)); });
   return { ...get("SELECT * FROM wholesale_txns WHERE id=?", id), due_after: clientDue(clientId) };
 }
 
@@ -796,8 +796,25 @@ export function tripSheet(t: number, id: number) {
     email: biz.biz_email, website: biz.website, omc: biz.omc, color: biz.brand_color, social: Object.fromEntries(SOCIALS.map((x) => [x.key, biz[x.key]]).filter(([, v]) => v)) };
   return { ...trip, drops, delivered_l: delivered, billed, depot, business };
 }
-wholesale.get("/wholesale/trips", h((req) => all(`SELECT tr.*, s.name station_name, sp.name supplier_name FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN suppliers sp ON sp.id=tr.supplier_id
-  WHERE tr.tenant_id=? ORDER BY tr.trip_date DESC, tr.id DESC LIMIT 100`, tid(req))));
+/** Tanker trips, newest first. Optional `q` (tanker number, driver or a client on the trip), `from`/`to` (PK days) and `limit` (default 100, max 500). */
+const tripListQuery = z.object({
+  q: z.string().trim().max(80).optional(), from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+wholesale.get("/wholesale/trips", h((req) => {
+  const t = tid(req);
+  const qp = parse(tripListQuery, { ...req.query, q: req.query.q || undefined, from: req.query.from || undefined, to: req.query.to || undefined, limit: req.query.limit || undefined });
+  const where = ["tr.tenant_id=?"]; const args: (string | number)[] = [t];
+  if (qp.from) { where.push("tr.trip_date>=?"); args.push(pkStart(qp.from)); }
+  if (qp.to) { where.push("tr.trip_date<?"); args.push(pkEnd(qp.to)); }
+  if (qp.q) {
+    const like = `%${qp.q}%`;
+    where.push(`(tr.vehicle_no LIKE ? OR tr.driver_name LIKE ? OR sp.name LIKE ? OR CAST(tr.id AS TEXT)=? OR EXISTS (SELECT 1 FROM wholesale_txns w JOIN wholesale_clients c ON c.id=w.client_id WHERE w.trip_id=tr.id AND (c.name LIKE ? OR c.business_name LIKE ?)))`);
+    args.push(like, like, like, qp.q.replace(/^#/, ""), like, like);
+  }
+  return all(`SELECT tr.*, s.name station_name, sp.name supplier_name FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN suppliers sp ON sp.id=tr.supplier_id
+    WHERE ${where.join(" AND ")} ORDER BY tr.trip_date DESC, tr.id DESC LIMIT ?`, ...args, qp.limit);
+}));
 wholesale.get("/wholesale/trips/:id", h((req) => tripSheet(tid(req), Number(req.params.id))));
 
 /* ---------------- Fleet register: tankers and drivers ---------------- */
@@ -890,6 +907,9 @@ wholesale.post("/wholesale/txns/:id/void", requirePerm("wholesale.void"), h((req
   const t = get("SELECT * FROM wholesale_txns WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!t) throw new AppError(404, "Entry not found");
   if (t.voided) throw new AppError(400, "Already voided");
+  if (String(t.ref ?? "").startsWith("oth-")) throw new AppError(400, "Ye Other-entries (CEO) ki entry hai — wahin se undo karein.");
+  if (get("SELECT 1 FROM bypass_supplier_payments WHERE tenant_id=? AND wtx_id=? AND voided=0", tid(req), t.id)) throw new AppError(400, "Is par bypass supplier payment judi hai — Bypass page se void karein.");
+  if (get("SELECT 1 FROM bypass_drops WHERE tenant_id=? AND wtx_id=? AND voided=0", tid(req), t.id)) throw new AppError(400, "Ye bypass delivery (drop) ki entry hai — Bypass page se void karein.");
   return tx(() => {
     if (t.tank_id && t.litres) {
       if (t.type === "supply") run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", t.litres, t.tank_id);

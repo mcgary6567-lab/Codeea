@@ -43,7 +43,7 @@ export async function tallyBooks(label = "") {
   near(bankAccounts(t).accounts.reduce((a: number, x: any) => a + x.balance - x.opening_balance, 0), tb("Bank"), "bank");
   near(cashPosition(t).cash_in_hand + cashWithSalesmen(t).total, tb("Cash in hand"), "cash (office + with salesmen)");
   near(db.get("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND status='active' AND sold_at IS NOT NULL", t)!.v as number, -tb("Fuel coupons (unused)"), "coupons unused");
-  near(db.get("SELECT COALESCE(SUM(CASE WHEN type IN ('deposit','bonus') THEN amount ELSE -amount END),0) v FROM wallet_ledger WHERE tenant_id=?", t)!.v as number, -tb("Customer wallets"), "wallets");
+  near(db.get("SELECT COALESCE(SUM(CASE WHEN type IN ('deposit','bonus','adjustment') THEN amount ELSE -amount END),0) v FROM wallet_ledger WHERE tenant_id=?", t)!.v as number, -tb("Customer wallets"), "wallets");
   near(db.all("SELECT DISTINCT user_id FROM staff_ledger WHERE tenant_id=?", t).reduce((a, u) => a + staffBalance(u.user_id), 0), tb("Staff advances"), "staff advances");
   return { journal: J, tb };
 }

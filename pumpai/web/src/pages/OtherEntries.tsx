@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
-import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Field, ListTools, Loading, Modal, PageHeader, Stat, pkDay, useAction, useListFilter } from "../components/ui";
 import { AccountPicker } from "../components/BankParts";
 import { Ur } from "../components/VoiceShell";
 import { pkr, num, dt } from "../lib/format";
@@ -34,9 +34,13 @@ const PTYPES: { v: PType; label: string }[] = [
 export default function OtherEntries() {
   const [kind, setKind] = useState<Kind>("income");
   const meta = KINDS.find((x) => x.k === kind)!;
-  const today = new Date().toISOString().slice(0, 10);
-  const [day, setDay] = useState(today);
-  const { data: report, reload } = useApi<any>(`/other-entries?kind=${kind}&from=${day}&to=${day}`);
+  const today = pkDay(new Date().toISOString());
+  // default range: 1st of this month → today (Pakistan days); the server sums the whole range, the search below only narrows the list shown
+  const [range, setRange] = useState({ from: today.slice(0, 8) + "01", to: today });
+  const qs = Object.entries(range).filter(([, v]) => v).map(([k, v]) => `&${k}=${v}`).join("");
+  const { data: report, reload } = useApi<any>(`/other-entries?kind=${kind}${qs}`);
+  const [q, setQ] = useState("");
+  const list = useListFilter<any>(report?.list, { q, text: (e) => [e.party_name, e.reason, e.method, e.note, e.amount, PTYPES.find((x) => x.v === e.party_type)?.label].filter(Boolean).join(" ") });
   const [edit, setEdit] = useState<any>(null);
 
   return (
@@ -52,16 +56,19 @@ export default function OtherEntries() {
 
       <EntryForm kind={kind} meta={meta} onSaved={reload} />
 
-      <div className="mt-6">
-        <Field label="Date · تاریخ"><input type="date" className="input w-full sm:w-auto" value={day} max={today} onChange={(e) => setDay(e.target.value)} /></Field>
+      <div className="mt-6 flex flex-wrap items-end gap-2">
+        <Field label="From · سے"><input type="date" className="input w-auto" value={range.from} max={range.to || today} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
+        <Field label="To · تک"><input type="date" className="input w-auto" value={range.to} min={range.from || undefined} max={today} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
+        <button type="button" className="btn-secondary" onClick={() => setRange({ from: today.slice(0, 8) + "01", to: today })}>This month · اس مہینے</button>
+        <button type="button" className="btn-secondary" onClick={() => setRange({ from: today, to: today })}>Today · آج</button>
       </div>
       {!report ? <Loading /> : (
         <>
           <div className="my-3 grid grid-cols-2 gap-3">
-            <Stat label={`${meta.en} (din ka total)`} value={pkr(report.total)} tone={meta.tone} />
+            <Stat label={`${meta.en} (${report.from} → ${report.to})`} value={pkr(report.total)} tone={meta.tone} />
             <Stat label="Entries" value={report.count} />
           </div>
-          {report.by_party.length === 0 ? <p className="card p-4 text-center text-sm text-slate-500">Is din koi {meta.short.toLowerCase()} nahi.</p> : (
+          {report.by_party.length === 0 ? <p className="card p-4 text-center text-sm text-slate-500">Is arsay me koi {meta.short.toLowerCase()} nahi.</p> : (
             <div className="card mb-4 p-4">
               <h2 className="mb-2 font-semibold">Party ke hisab se · فی پارٹی</h2>
               <div className="-mx-1 overflow-x-auto">
@@ -77,8 +84,10 @@ export default function OtherEntries() {
           {report.list.length > 0 && (
             <div className="card p-4">
               <h2 className="mb-2 font-semibold">Entries · تفصیل</h2>
+              <ListTools q={q} onQ={setQ} placeholder="Party / wajah / amount dhoondein… · تلاش" shown={list.length} total={report.list.length} />
+              {!list.length && <p className="py-3 text-center text-sm text-slate-500">Is filter me kuch nahi mila.</p>}
               <div className="space-y-2">
-                {report.list.map((e: any) => (
+                {list.map((e: any) => (
                   <div key={e.id} className="flex items-center gap-2 rounded-lg border p-2 text-sm">
                     <div className="min-w-0 flex-1">
                       <div className="font-medium">{e.party_name} · <span className="font-semibold">{pkr(e.amount)}</span></div>

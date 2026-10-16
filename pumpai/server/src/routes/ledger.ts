@@ -212,6 +212,11 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     add(f.day, "Payment", `Bank card charges ${f.day} (${f.pct}% of ${Math.round(f.sales).toLocaleString()})`, [dr("Expense: Card charges", f.fee), cr(BANK, f.fee)]);
   for (const r of all(`SELECT batch, method, account_id, MIN(sold_at) sold_at, SUM(value) v, COUNT(*) n, buyer FROM fuel_coupons WHERE tenant_id=? AND sold_at >= ? AND sold_at < ? GROUP BY batch, account_id`, ...P))
     add(day(r.sold_at), "Receipt", `Fuel coupons sold — ${r.n} (${r.batch})${r.buyer ? ` to ${r.buyer}` : ""}`, [dr(via(r.method, r.account_id), r.v), cr("Fuel coupons (unused)", r.v)]);
+  // coupons cancelled with no money back (lost book): the unused liability is released to income on the day of the void
+  for (const r of all(`SELECT batch, MIN(voided_at) at, SUM(value) v, COUNT(*) n FROM fuel_coupons WHERE tenant_id=? AND status='void' AND void_refund=0 AND voided_at >= ? AND voided_at < ? GROUP BY batch`, ...P))
+    add(day(r.at), "Journal", `Coupons cancelled, no refund — ${r.n} (${r.batch})`, [dr("Fuel coupons (unused)", r.v), cr("Other income", r.v)]);
+  for (const r of all(`SELECT w.*, c.name FROM wallet_ledger w JOIN customers c ON c.id=w.customer_id WHERE w.tenant_id=? AND w.type='adjustment' AND w.created_at >= ? AND w.created_at < ?`, ...P))
+    add(day(r.created_at), "Journal", `Wallet adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Expense: Wallet adjustments", r.amount), cr("Customer wallets", r.amount)]);
   for (const r of all(`SELECT w.*, c.name FROM wallet_ledger w JOIN customers c ON c.id=w.customer_id WHERE w.tenant_id=? AND w.type IN ('deposit','refund') AND w.created_at >= ? AND w.created_at < ?`, ...P))
     add(day(r.created_at), r.type === "deposit" ? "Receipt" : "Payment", `Wallet ${r.type} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`,
       r.type === "deposit" ? [dr(via(r.method, r.account_id), r.amount), cr("Customer wallets", r.amount)] : [dr("Customer wallets", r.amount), cr(via(r.method, r.account_id), r.amount)]);

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Plus, Search, MessageCircle, Wallet, BellRing, Car, Pencil } from "lucide-react";
+import { Plus, MessageCircle, Wallet, BellRing, Car, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, CnicInput, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, Stat, statusTone, useAction } from "../components/ui";
+import { Badge, CnicInput, Empty, ErrorBox, Field, ListTools, Loading, Modal, PageHeader, PhoneInput, Stat, statusTone, useAction, useListFilter } from "../components/ui";
 import { ago, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { OpeningBalanceField, type AdvanceReceipt } from "../components/OpeningBalanceField";
@@ -17,6 +17,14 @@ import { Ur } from "../components/VoiceShell";
 
 const SEGMENTS = ["", "VIP", "Regular", "At risk", "New", "Fleet", "Agri", "Institution"];
 const segTone: Record<string, string> = { VIP: "violet", Regular: "green", "At risk": "red", New: "blue", Fleet: "amber", Agri: "amber", Institution: "blue" };
+/** Client-side chips over the loaded list — each one reads only columns every customer row carries. */
+const CHIPS: { k: string; label: string; keep: (c: any) => boolean }[] = [
+  { k: "", label: "All · سب", keep: () => true },
+  { k: "due", label: "Has balance · بقایا", keep: (c) => c.balance > 0.5 },
+  { k: "adv", label: "Advance · ایڈوانس", keep: (c) => c.balance < -0.5 },
+  { k: "over", label: "Over limit · حد سے زیادہ", keep: (c) => c.credit_limit > 0 && c.balance > c.credit_limit },
+  { k: "hold", label: "Blocked · روکا", keep: (c) => Boolean(c.khata_blocked) },
+];
 // customer types come from Settings → Lists
 
 export default function Customers() {
@@ -28,23 +36,29 @@ export default function Customers() {
   const [showArchived, setShowArchived] = useState(false);
   const list = useApi<any[]>(`/customers?q=${encodeURIComponent(q)}&segment=${encodeURIComponent(seg)}${showArchived ? "&all=1" : ""}`);
   const [adding, setAdding] = useState(false);
+  const [chip, setChip] = useState("");
+  const keep = CHIPS.find((c) => c.k === chip)?.keep;
+  const rows = useListFilter(list.data, { keep });
+  const chips = CHIPS.map((c) => ({ k: c.k, label: c.label, n: c.k ? (list.data ?? []).filter(c.keep).length : undefined }));
 
   return (
     <div>
       <PageHeader title="Customers" subtitle="AI-segmented CRM with churn & credit-risk scores"
         actions={<button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> {can("credit.set_limit") ? "Add customer / khata" : "Add customer"}</button>} />
       <div className="card">
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 p-3">
-          <div className="relative min-w-0 flex-1 basis-56"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search by name or phone" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-          <select className="input w-auto" value={seg} onChange={(e) => setSeg(e.target.value)}>
-            {SEGMENTS.map((s) => <option key={s} value={s}>{s || "All segments"}</option>)}
-          </select>
-          <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-slate-600"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived</label>
+        <div className="border-b border-slate-200 p-3 pb-1">
+          <ListTools q={q} onQ={setQ} placeholder="Name, phone or vehicle plate · نام، فون یا گاڑی" chips={chips} chip={chip} onChip={setChip} shown={rows.length} total={list.data?.length}
+            right={<>
+              <select className="input w-auto" value={seg} onChange={(e) => setSeg(e.target.value)}>
+                {SEGMENTS.map((s) => <option key={s} value={s}>{s || "All segments"}</option>)}
+              </select>
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-slate-600"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived</label>
+            </>} />
         </div>
         {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
         {/* phone: one card per customer */}
         <ul className="divide-y divide-slate-100 sm:hidden">
-          {(list.data ?? []).map((c) => (
+          {rows.map((c) => (
             <li key={c.id} className="cursor-pointer px-4 py-3 active:bg-slate-50" onClick={() => nav(`/customers/${c.id}`)}>
               <div className="flex items-start justify-between gap-2">
                 <span className="min-w-0 font-semibold">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</span>
@@ -66,7 +80,7 @@ export default function Customers() {
           ))}
         </ul>
         {list.loading && !list.data && <div className="sm:hidden"><Loading /></div>}
-        {list.data && !list.data.length && <div className="sm:hidden"><Empty>No customers found</Empty></div>}
+        {list.data && !rows.length && <div className="sm:hidden"><Empty>No customers found</Empty></div>}
         <div className="hidden overflow-x-auto sm:block">
           <table className="w-full">
             <thead><tr>
@@ -74,7 +88,7 @@ export default function Customers() {
               <th className="th text-right">Points</th><th className="th">Churn risk</th><th className="th">Credit risk</th><th className="th">Last visit</th>
             </tr></thead>
             <tbody>
-              {(list.data ?? []).map((c) => (
+              {rows.map((c) => (
                 <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => nav(`/customers/${c.id}`)}>
                   <td className="td"><div className="font-medium">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</div><div className="text-xs text-slate-500">{phone(c.phone)} · {c.type}{!c.opt_in && " · opted out"}</div></td>
                   <td className="td">{c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>}</td>
@@ -89,7 +103,7 @@ export default function Customers() {
             </tbody>
           </table>
           {list.loading && !list.data && <Loading />}
-          {list.data && !list.data.length && <Empty>No customers found</Empty>}
+          {list.data && !rows.length && <Empty>No customers found</Empty>}
         </div>
       </div>
       {adding && <AccountForm khata={can("credit.set_limit")} onClose={() => setAdding(false)} onSaved={(c) => { setAdding(false); list.reload(); nav(`/customers/${c.id}`); }} />}
@@ -161,6 +175,8 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
   const [vfuel, setVfuel] = useState("");
   const [vlimit, setVlimit] = useState("");
   const [bill, setBill] = useState(false);
+  const [lf, setLf] = useState({ q: "", from: "", to: "" }); // ledger search + date range (client-side, over the rows shown)
+  const ledger = useListFilter<any>(c?.ledger, { ...lf, dateKey: "created_at", text: (l) => [l.note, l.ref, l.product, l.vehicle_no, l.slip_no, l.amount, l.type === "credit" ? "payment" : "charge"].filter(Boolean).join(" ") });
   const refresh = () => { reload(); onChanged(); };
 
   return (
@@ -207,9 +223,11 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <section className="min-w-0">
               <h3 className="mb-2 text-sm font-semibold">Khata ledger · <Ur>کھاتہ</Ur></h3>
+              <ListTools q={lf.q} onQ={(q) => setLf({ ...lf, q })} from={lf.from} to={lf.to} onFrom={(from) => setLf({ ...lf, from })} onTo={(to) => setLf({ ...lf, to })}
+                placeholder="Slip / gaari / note / amount… · تلاش" shown={ledger.length} total={c.ledger.length} />
               <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200">
                 <ul className="divide-y divide-slate-100 sm:hidden">
-                  {c.ledger.map((l: any) => (
+                  {ledger.map((l: any) => (
                     <li key={l.id} className="px-3 py-2">
                       <div className="flex items-start justify-between gap-2"><span className="min-w-0 text-sm">{l.product ? <>{num(l.litres, 2)} L {l.product} @ Rs {l.rate}</> : l.note ?? l.ref}</span>
                         <span className={`shrink-0 text-sm font-medium tabular-nums ${l.type === "credit" ? "text-emerald-600" : ""}`}>{l.type === "credit" ? "−" : "+"}{pkr(l.amount)}</span></div>
@@ -219,13 +237,13 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
                   ))}
                 </ul>
                 <table className="hidden w-full sm:table"><tbody>
-                  {c.ledger.map((l: any) => (
+                  {ledger.map((l: any) => (
                     <tr key={l.id}><td className="td text-xs text-slate-500">{d(l.created_at)}</td>
                       <td className="td text-xs">{l.product ? <>{num(l.litres, 2)} L {l.product} @ Rs {l.rate}<div className="text-slate-400">{[l.vehicle_no, l.slip_no && `Slip ${l.slip_no}`].filter(Boolean).join(" · ")}</div></> : l.note ?? l.ref} <ProofThumbs ids={l.proof_ids} /></td>
                       <td className={`td text-right text-sm tabular-nums ${l.type === "credit" ? "text-emerald-600" : ""}`}>{l.type === "credit" ? "−" : "+"}{pkr(l.amount)}</td></tr>
                   ))}
                 </tbody></table>
-                {!c.ledger.length && <Empty>No khata entries</Empty>}
+                {!ledger.length && <Empty>{c.ledger.length ? "Is filter me koi entry nahi" : "No khata entries"}</Empty>}
               </div>
             </section>
             <section className="min-w-0">

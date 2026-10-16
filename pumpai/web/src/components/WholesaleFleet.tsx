@@ -3,7 +3,7 @@ import { Plus, Printer, Trash2, Truck, UserRound, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "./Capture";
 import { challanPages, printPages, tripSheetPage } from "./TripPrint";
-import { Badge, CnicInput, Empty, Field, Loading, Modal, PhoneInput, useAction } from "./ui";
+import { Badge, CnicInput, Empty, Field, ListTools, Loading, Modal, PhoneInput, useAction } from "./ui";
 import { supplierOpts } from "./SupplierSelect";
 import { BypassDeliveryForm } from "../pages/Bypass";
 import { PRODUCTS, d, dt, num, phone, pkr } from "../lib/format";
@@ -323,12 +323,21 @@ export function TripSheet({ id, initial, onClose }: { id: number; initial?: any;
 }
 
 export function TripsTab({ onNew }: { onNew?: () => void }) {
-  const { data } = useApi<any[]>("/wholesale/trips");
+  const [q, setQ] = useState("");
+  const [range, setRange] = useState({ from: "", to: "" });
+  const [limit, setLimit] = useState(100);
+  const [dq, setDq] = useState("");
+  useEffect(() => { const t = setTimeout(() => setDq(q.trim()), 300); return () => clearTimeout(t); }, [q]);
+  const qs = new URLSearchParams({ ...(dq ? { q: dq } : {}), ...(range.from ? { from: range.from } : {}), ...(range.to ? { to: range.to } : {}), limit: String(limit) }).toString();
+  const { data } = useApi<any[]>(`/wholesale/trips?${qs}`);
   const [open, setOpen] = useState<number | null>(null);
+  const filtered = Boolean(dq || range.from || range.to);
   if (!data) return <Loading />;
   return (
     <div className="card">
       <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-2"><h2 className="font-semibold">Tanker trips · <span lang="ur" className="font-urdu">ٹینکر ٹرپ</span></h2>{onNew && <button className="btn-primary" onClick={onNew}><Truck size={15} /> New trip · <span lang="ur" className="font-urdu">نیا ٹرپ</span></button>}</div>
+      <div className="px-4"><ListTools q={q} onQ={setQ} placeholder="Tanker / driver / client… · ٹینکر، ڈرائیور یا کلائنٹ" from={range.from} to={range.to} onFrom={(v) => setRange({ ...range, from: v })} onTo={(v) => setRange({ ...range, to: v })}
+        right={filtered ? <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => { setQ(""); setRange({ from: "", to: "" }); }}>Clear</button> : null} /></div>
       <ul className="divide-y divide-slate-100 sm:hidden">{data.map((t) => (
         <li key={t.id} className="cursor-pointer space-y-1 px-4 py-3 active:bg-slate-50" onClick={() => setOpen(t.id)}>
           <div className="flex justify-between gap-2"><span className="font-medium">#{t.id} · {t.vehicle_no ?? "—"}</span><span className="font-semibold tabular-nums">{pkr(t.amount)}</span></div>
@@ -343,7 +352,8 @@ export function TripsTab({ onNew }: { onNew?: () => void }) {
             <td className="td">{fuels(t.product)}{t.source === "depot" && <div className="text-xs text-sky-700">🏭 {depotName(t.supplier_name)}</div>}</td><td className="td text-right tabular-nums">{num(t.litres)} L</td><td className="td text-right">{t.drops}</td><td className="td text-right tabular-nums">{pkr(t.amount)}</td>
           </tr>
         ))}</tbody>
-      </table></div>{!data.length && <Empty>No tanker trips yet · ابھی کوئی ٹرپ نہیں. One trip can drop fuel at several clients — each at their own rate.</Empty>}
+      </table></div>{!data.length && (filtered ? <Empty>Kuch nahi mila · کچھ نہیں ملا</Empty> : <Empty>No tanker trips yet · ابھی کوئی ٹرپ نہیں. One trip can drop fuel at several clients — each at their own rate.</Empty>)}
+      {data.length >= limit && limit < 500 && <div className="p-3"><button type="button" className="btn-secondary w-full" onClick={() => setLimit((n) => Math.min(500, n + 100))}>Show more · <span lang="ur" className="font-urdu">مزید دکھائیں</span></button></div>}
       {open && <TripSheet id={open} onClose={() => setOpen(null)} />}
     </div>
   );

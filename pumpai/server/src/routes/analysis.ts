@@ -121,12 +121,16 @@ export function profitAndLoss(t: number, month: string, showPrivate = true) {
   // above, with showPrivate=false, books the expense half as owner's drawings, so it isn't in expensesTotal)
   const ceoIncome = showPrivate ? otherEntriesIncome(t, from, toIso) : 0;
   const ceoDiscount = showPrivate ? otherEntriesDiscount(t, from, toIso) : 0;
-  const otherIncome = r0(rentalIncome(t, from, toIso) + carriageIncome(t, from, toIso) + carriageIncomeThekedar(t, from, toIso) + ceoIncome);
+  // the smaller ledger accounts that are income or cost but not "Expense: …": a credit balance adds, a debit balance reduces
+  const MISC = ["Other income", "Bank profit", "Shortage claims recovered", "Supplier adjustments", "Cash short / over", "Other payments", "Loyalty points redeemed"];
+  const miscIncome = r0(J.trial_balance.filter((x) => MISC.includes(x.account)).reduce((a, x) => a - x.balance, 0));
+  const otherIncome = r0(rentalIncome(t, from, toIso) + carriageIncome(t, from, toIso) + carriageIncomeThekedar(t, from, toIso) + ceoIncome + miscIncome);
   const net = r0(gross + otherIncome - expensesTotal - ceoDiscount);
   return {
     month, from, to: toIso, income, cost_of_sales: cost, gross_profit: gross,
     other_income: otherIncome,
     other_income_ceo: ceoIncome,
+    other_income_misc: miscIncome,
     discount_given: discountGiven,
     discount_direct: discountDirect,
     other_discount_ceo: ceoDiscount,

@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
 import { Plus, Truck, Factory, Download, Printer, HandCoins, Ban } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Empty, ErrorBox, Field, Loading, Modal, Stat, useAction } from "../components/ui";
+import { Empty, ErrorBox, Field, ListTools, Loading, Modal, Stat, useAction, useListFilter } from "../components/ui";
 import { PRODUCTS, activeProducts, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
@@ -16,7 +16,14 @@ const Ur = ({ children, className = "" }: { children: React.ReactNode; className
 /** Bypass delivery — shown inside the Wholesale "Tanker trips" tab: buy fuel from suppliers at the depot and deliver straight to wholesale clients. */
 export function BypassPanel() {
   const sups = useApi<any[]>("/bypass/suppliers");
-  const dels = useApi<any[]>("/bypass/deliveries");
+  const [dq, setDq] = useState("");
+  const [dqDebounced, setDqDebounced] = useState("");
+  const [dRange, setDRange] = useState({ from: "", to: "" });
+  const [dLimit, setDLimit] = useState(60);
+  useEffect(() => { const t = setTimeout(() => setDqDebounced(dq.trim()), 300); return () => clearTimeout(t); }, [dq]);
+  const delsQs = new URLSearchParams({ ...(dqDebounced ? { q: dqDebounced } : {}), ...(dRange.from ? { from: dRange.from } : {}), ...(dRange.to ? { to: dRange.to } : {}), limit: String(dLimit) }).toString();
+  const dels = useApi<any[]>(`/bypass/deliveries?${delsQs}`);
+  const delsFiltered = Boolean(dqDebounced || dRange.from || dRange.to);
   const stock = useApi<any>("/bypass/stock");
   const monthly = useApi<any[]>("/bypass/monthly?months=6");
   const [openSup, setOpenSup] = useState<number | null>(null);
@@ -92,7 +99,9 @@ export function BypassPanel() {
 
       <div className="card overflow-hidden">
         <h2 className="border-b p-4 font-semibold">Recent deliveries · <Ur>حالیہ</Ur></h2>
-        {!(dels.data ?? []).length ? <Empty>Abhi tak koi delivery nahi.</Empty> : (
+        <div className="px-4 pt-3"><ListTools q={dq} onQ={setDq} placeholder="Tanker / client / supplier / fuel… · تلاش" from={dRange.from} to={dRange.to} onFrom={(v) => setDRange({ ...dRange, from: v })} onTo={(v) => setDRange({ ...dRange, to: v })}
+          right={delsFiltered ? <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => { setDq(""); setDRange({ from: "", to: "" }); }}>Clear</button> : null} /></div>
+        {dels.loading && !dels.data ? <Loading /> : !(dels.data ?? []).length ? <Empty>{delsFiltered ? "Kuch nahi mila · کچھ نہیں ملا" : "Abhi tak koi delivery nahi."}</Empty> : (
           <ul className="divide-y divide-slate-100 text-sm">
             {(dels.data ?? []).map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
@@ -109,6 +118,7 @@ export function BypassPanel() {
             ))}
           </ul>
         )}
+        {(dels.data ?? []).length >= dLimit && dLimit < 500 && <div className="p-3"><button type="button" className="btn-secondary w-full" onClick={() => setDLimit((n) => Math.min(500, n + 60))}>Show more · <Ur>مزید دکھائیں</Ur></button></div>}
       </div>
 
       {openSup && <SupplierStatement id={openSup} onClose={() => setOpenSup(null)} onChanged={refresh} />}
@@ -435,9 +445,16 @@ function SupplierStatement({ id, onClose, onChanged }: { id: number; onClose: ()
   const qs = [range.from && `from=${range.from}`, range.to && `to=${range.to}`].filter(Boolean).join("&");
   const { data, reload } = useApi<any>(`/bypass/suppliers/${id}/statement${qs ? `?${qs}` : ""}`);
   const [pay, setPay] = useState(false);
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState("");
   const refresh = () => { reload(); onChanged(); };
   const csvUrl = `/api/bypass/suppliers/${id}/statement.csv?${qs ? qs + "&" : ""}token=${linkToken()}`;
   const s = data?.supplier;
+  const allLines: any[] = data?.lines ?? [];
+  const KIND_LABEL: Record<string, string> = { purchase: "Fuel bought", payment: "Payment", adjustment: "Adjustment" };
+  const kindChips = [{ k: "", label: "All", n: allLines.length }, ...Array.from(new Set(allLines.map((l) => String(l.kind)))).map((k) => ({ k, label: KIND_LABEL[k] ?? k, n: allLines.filter((l) => l.kind === k).length }))];
+  const lines = useListFilter(allLines, { q, keep: (l) => !kind || l.kind === kind,
+    text: (l) => [l.ref, l.note, l.method, l.mode, l.vehicle_no, l.product, l.product && PRODUCTS[l.product], l.litres, l.cost_rate, l.debit, l.credit, l.amount].filter((v) => v != null && v !== false && v !== "").join(" ") });
   return (
     <Modal open onClose={onClose} title={s ? [s.company, s.name].filter(Boolean).join(" — ") : "Bypass supplier"} wide>
       {!data ? <Loading /> : (
@@ -456,12 +473,14 @@ function SupplierStatement({ id, onClose, onChanged }: { id: number; onClose: ()
             <a className="btn-secondary min-h-10" href={csvUrl}><Download size={15} /> Excel / CSV</a>
             <button className="btn-secondary min-h-10" onClick={() => window.print()}><Printer size={15} /> Print</button>
           </div>
+          <ListTools q={q} onQ={setQ} placeholder="Ref / fuel / method… · تلاش" chips={kindChips} chip={kind} onChip={setKind} shown={lines.length} total={allLines.length} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b text-left text-xs text-slate-500"><th className="py-2">Date</th><th>Entry</th><th className="text-right">We owe</th><th className="text-right">Paid</th><th className="text-right">Balance</th>{can("wholesale.void") && <th></th>}</tr></thead>
               <tbody>
                 <tr className="border-b bg-slate-50"><td className="py-2" colSpan={4}>Opening</td><td className="text-right tabular-nums">{pkr(data.opening_balance)}</td>{can("wholesale.void") && <td></td>}</tr>
-                {data.lines.map((l: any) => (
+                {allLines.length > 0 && !lines.length && <tr><td colSpan={5} className="py-4 text-center text-slate-500">Kuch nahi mila · کچھ نہیں ملا</td></tr>}
+                {lines.map((l: any) => (
                   <tr key={`${l.kind}-${l.id}`} className="border-b">
                     <td className="py-2 whitespace-nowrap">{dt(l.txn_date)}</td>
                     <td><span className="flex flex-wrap items-center gap-1">{l.kind === "purchase" ? `Bypass fuel${l.litres ? ` · ${num(l.litres)} L ${PRODUCTS[l.product] ?? l.product} @ ${l.cost_rate}` : ""}` : `Payment${l.mode && l.mode !== "we_pay" ? ` · ${l.mode}` : ""}${l.method ? ` · ${l.method}` : ""}`}{l.ref ? <span className="text-xs text-slate-400"> · {l.ref}</span> : ""}<ProofThumbs ids={l.proof_ids} onChanged={refresh} /></span></td>
@@ -549,8 +568,12 @@ function LeftoverToTank({ stock, onChanged }: { stock: any[]; onChanged: () => v
   const prodTanks = tanks.filter((t: any) => t.product === f.product);
   const onHand = stock.find((x) => x.product === f.product);
   const unit = onHand?.avg_cost ?? 0, litres = Number(f.litres) || 0;
-  const rows = (list.data ?? []).filter((r: any) => !r.voided).slice(0, 8);
-  if (!stock.length && !rows.length) return null;
+  const [lq, setLq] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const allRows = (list.data ?? []).filter((r: any) => !r.voided);
+  const matched = useListFilter(allRows, { q: lq, text: (r: any) => [r.product, PRODUCTS[r.product], r.tank, r.station, r.note, r.created_by, r.litres].filter((v) => v != null && v !== "").join(" ") });
+  const rows = showAll || lq ? matched : matched.slice(0, 8);
+  if (!stock.length && !allRows.length) return null;
   return (
     <div className="card p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -558,6 +581,9 @@ function LeftoverToTank({ stock, onChanged }: { stock: any[]; onChanged: () => v
         {can("wholesale.manage") && <button className="btn-primary" disabled={!stock.length} onClick={() => { const p = stock[0]?.product ?? ""; setF({ ...f, product: p, tank_id: String(tanks.find((t: any) => t.product === p)?.id ?? "") }); setOpen(true); }}><Plus size={15} /> Unload to tank · <Ur>ٹینک میں ڈالیں</Ur></button>}
       </div>
       <p className="mt-1 text-xs text-slate-500">Tanker mein jo tel client ko dene ke baad bach gaya aur apne pump ke tank mein khali kiya: bypass stock se nikal kar pump ke stock mein (average cost par). Supplier ka bill dobara nahi banta.</p>
+      {allRows.length > 0 && <div className="mt-3"><ListTools q={lq} onQ={setLq} placeholder="Tank / fuel / note… · تلاش" shown={rows.length} total={allRows.length}
+        right={matched.length > 8 ? <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => setShowAll((v) => !v)}>{showAll ? "Show less" : `Show all (${matched.length})`}</button> : null} /></div>}
+      {allRows.length > 0 && !rows.length && <Empty>Kuch nahi mila · کچھ نہیں ملا</Empty>}
       {rows.length > 0 && (
         <ul className="mt-3 divide-y divide-slate-100 text-sm">
           {rows.map((r: any) => (

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, Info, AlertOctagon, Check } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Loading, PageHeader, severityTone, useAction } from "../components/ui";
+import { Badge, Empty, ListTools, Loading, PageHeader, severityTone, useAction, useListFilter } from "../components/ui";
 import { ago } from "../lib/format";
 
 const icon = { critical: AlertOctagon, warning: AlertTriangle, info: Info } as Record<string, any>;
@@ -10,8 +10,14 @@ export default function Alerts() {
   const { data, reload } = useApi<any[]>("/alerts");
   const { busy, run } = useAction();
   const [showAll, setShowAll] = useState(false);
+  const [q, setQ] = useState("");
+  const [sev, setSev] = useState("");
+  const [type, setType] = useState("");
+  const base = useListFilter(data, { keep: (a) => showAll || !a.acknowledged });
+  const sevChips = [{ k: "", label: "All", n: base.length }, ...["critical", "warning", "info"].map((k) => ({ k, label: k, n: base.filter((a) => a.severity === k).length })).filter((c) => c.n > 0)];
+  const typeChips = [{ k: "", label: "All types", n: base.length }, ...Array.from(new Set(base.map((a) => String(a.type)))).sort().map((k) => ({ k, label: k.replace(/_/g, " "), n: base.filter((a) => a.type === k).length }))];
+  const rows = useListFilter(base, { q, keep: (a) => (!sev || a.severity === sev) && (!type || a.type === type), text: (a) => [a.title, a.body, a.type, a.severity, a.station_name].filter(Boolean).join(" ") });
   if (!data) return <Loading />;
-  const rows = data.filter((a) => showAll || !a.acknowledged);
 
   return (
     <div>
@@ -20,6 +26,9 @@ export default function Alerts() {
           <label className="flex min-h-9 items-center gap-2 text-sm"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show acknowledged</label>
           <button className="btn-secondary" disabled={busy} onClick={() => run(() => api("/alerts/ack-all", { body: {} }), "All alerts acknowledged").then(reload)}><Check size={15} /> Acknowledge all</button>
         </>} />
+      <ListTools q={q} onQ={setQ} placeholder="Alert dhoondein… · تلاش" chips={sevChips} chip={sev} onChip={setSev} shown={rows.length} total={base.length} />
+      {typeChips.length > 2 && <div className="mb-3 flex flex-wrap gap-1 print:hidden">{typeChips.map((c) => (
+        <button type="button" key={c.k} onClick={() => setType(c.k)} aria-pressed={type === c.k} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${type === c.k ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{c.label} {c.n}</button>))}</div>}
       <div className="card divide-y divide-slate-100">
         {rows.map((a) => {
           const I = icon[a.severity] ?? Info;
@@ -35,7 +44,7 @@ export default function Alerts() {
             </div>
           );
         })}
-        {!rows.length && <Empty>No open alerts 🎉</Empty>}
+        {!rows.length && <Empty>{base.length ? "Kuch nahi mila · کچھ نہیں ملا" : "No open alerts 🎉"}</Empty>}
       </div>
     </div>
   );

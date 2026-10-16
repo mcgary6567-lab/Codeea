@@ -129,6 +129,8 @@ export function bankMoves(t: number, accountId?: number | null, showPrivate = tr
       FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0${acc}`, t, ...A),
     ...all(`SELECT x.account_id, x.created_at at, x.amount, 'receipt' kind, 'Khata payment — ' || c.name || ' (' || COALESCE(x.ref,'') || ')' text, NULL who, 'khata:' || x.id ref
       FROM khata_ledger x JOIN customers c ON c.id=x.customer_id WHERE c.tenant_id=? AND x.type='credit'${acc}`, t, ...A),
+    ...all(`SELECT x.account_id, x.txn_date at, x.amount, 'receipt' kind, 'Carriage payment — ' || k.name || ' (' || COALESCE(x.method,'') || COALESCE(' ' || x.ref, '') || ')' text, x.created_by who, 'ctx:' || x.id ref
+      FROM carriage_txns x JOIN thekedars k ON k.id=x.thekedar_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0${acc}`, t, ...A),
     ...all(`SELECT x.account_id, x.txn_date at, -x.amount amount, 'payment' kind, 'Paid supplier — ' || s.name || ' (' || COALESCE(x.method,'') || COALESCE(' ' || x.ref, '') || ')' text, x.created_by who, 'stx:' || x.id ref
       FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.type='payment' AND COALESCE(x.method,'')<>'WHT'${acc}`, t, ...A),
     ...all(`SELECT x.account_id, x.txn_date at, -x.amount amount, 'payment' kind, 'Bypass supplier paid — ' || s.name || COALESCE(' ' || x.ref, '') text, x.created_by who, 'byppay:' || x.id ref
@@ -211,7 +213,8 @@ export function bankAccounts(t: number) {
 export function unlinkedMoney(t: number) {
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
   const one = (sql: string, ...a: unknown[]) => round2(get(sql, ...(a as []))!.v ?? 0);
-  const nonCash = (col: string) => `${col} IS NOT NULL AND LOWER(TRIM(${col})) NOT IN ('cash','wht','','paid to depot')`;
+  // methods that move no money of their own (CEO discount / to-party rows, bypass client-direct) are not "unlinked" bank money
+  const nonCash = (col: string) => `${col} IS NOT NULL AND LOWER(TRIM(${col})) NOT IN ('cash','wht','','paid to depot','paid bypass supplier','discount','ceo entry')`;
   const map = posMap(t);
   const unmapped = digitalMethods(t).filter((m) => !map[m]);
   // an unmapped-method sale that still names its own bank's POS machine IS linked, so exclude those
@@ -219,8 +222,9 @@ export function unlinkedMoney(t: number) {
     WHERE st.tenant_id=? AND s.payment_method IN (${unmapped.map(() => "?").join(",")}) AND s.account_id IS NULL AND s.created_at >= ?`, t, ...unmapped, since) : 0;
   const items = {
     received: round2(
-      one(`SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)
-      + one(`SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND k.account_id IS NULL AND ${nonCash("k.ref")} AND k.created_at >= ?`, t, since)
+      one(`SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND account_id IS NULL AND ${nonCash("method")} AND COALESCE(ref,'') NOT LIKE 'oth-%' AND created_at >= ?`, t, since)
+      + one(`SELECT COALESCE(SUM(amount),0) v FROM carriage_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND account_id IS NULL AND ${nonCash("method")} AND COALESCE(ref,'') NOT LIKE 'oth-%' AND created_at >= ?`, t, since)
+      + one(`SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND k.account_id IS NULL AND ${nonCash("k.ref")} AND COALESCE(k.ref,'') NOT LIKE 'oth-%' AND COALESCE(k.ref,'')<>'open:' AND k.created_at >= ?`, t, since)
       + one(`SELECT COALESCE(SUM(amount),0) v FROM wallet_ledger WHERE tenant_id=? AND type='deposit' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)
       + one(`SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND account_id IS NULL AND ${nonCash("method")} AND sold_at >= ?`, t, since)),
     paid: round2(

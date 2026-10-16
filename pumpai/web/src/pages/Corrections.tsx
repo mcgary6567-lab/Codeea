@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
 import { useAuth } from "../App";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { Badge, Empty, Field, ListTools, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { pkr, num } from "../lib/format";
 import { Fuel, Truck, Receipt, Ban, Search, Undo2, Factory, Container, Building2, Pencil } from "lucide-react";
 
@@ -32,6 +32,19 @@ function DateCell({ when }: { when?: string | null }) {
       <div className="text-[10px] text-slate-400">{d.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}</div>
     </div>
   );
+}
+
+/** Search + date range for a server-filtered list: the typed values, and the same values 250ms later as a query string
+ *  (`&q=…&from=…&to=…`, empty parts left out) so every keystroke does not hit the server. */
+function useServerFilter() {
+  const [f, setF] = useState({ q: "", from: "", to: "" });
+  const [qs, setQs] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQs(Object.entries(f).filter(([, v]) => v.trim()).map(([k, v]) => `&${k}=${encodeURIComponent(v.trim())}`).join("")), 250);
+    return () => clearTimeout(t);
+  }, [f]);
+  const tools = { q: f.q, onQ: (q: string) => setF({ ...f, q }), from: f.from, to: f.to, onFrom: (from: string) => setF({ ...f, from }), onTo: (to: string) => setF({ ...f, to }) };
+  return { qs, tools, active: Boolean(qs) };
 }
 
 type Tab = "sale" | "delivery" | "khata" | "supplier" | "wholesale" | "rent";
@@ -88,21 +101,24 @@ export default function Corrections() {
 
 /** A simple recent-list of txns, each with a reason-prompted Void (or a note when it belongs to another undo).
  *  When `edit` is given, a voidable row also gets an Edit button that opens that render-prop's modal. */
-function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit }: {
-  url: string; empty: string; icon: any;
+function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit, placeholder }: {
+  url: string; empty: string; icon: any; placeholder?: string;
   row: (x: any) => { title: string; sub: string; id: number; voidable: boolean; owner?: string | null; when?: string | null };
   label: (x: any) => string; elsewhere: Record<string, string>;
   edit?: (x: any, baseUrl: string, onClose: () => void, onDone: () => void) => React.ReactNode;
 }) {
-  const { data, reload } = useApi<any>(url);
+  const filter = useServerFilter();
+  const { data, reload } = useApi<any>(`${url}?limit=100${filter.qs}`);
   const { busy, doVoid } = useVoid(reload);
   const [editing, setEditing] = useState<any>(null);
   const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
   const key = Object.keys(data ?? {}).find((k) => Array.isArray((data ?? {})[k])) ?? "";
   const items: any[] = (data ?? {})[key] ?? [];
   const baseUrl = url.split("?")[0].replace(/s$/, ""); // /corrections/supplier-txns → /corrections/supplier-txn
-  return !data ? <Loading /> : !items.length ? <Empty><Icon className="mx-auto mb-1 text-slate-300" />{empty}</Empty> : (
+  return (
     <>
+    <ListTools {...filter.tools} placeholder={placeholder ?? "Naam / ref / amount dhoondein… · تلاش"} />
+    {!data ? <Loading /> : !items.length ? <Empty><Icon className="mx-auto mb-1 text-slate-300" />{filter.active ? "Is filter me kuch nahi mila" : empty}</Empty> : (
     <div className="mt-1 card divide-y divide-slate-100">
       {items.map((x) => { const r = row(x); return (
         <div key={r.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3">
@@ -115,13 +131,14 @@ function TxnList({ url, empty, icon: Icon, row, label, elsewhere, edit }: {
         </div>
       ); })}
     </div>
+    )}
     {editing && edit?.(editing, baseUrl, () => setEditing(null), reload)}
     </>
   );
 }
 
 function SupplierVoid() {
-  return <TxnList url="/corrections/supplier-txns" empty="Koi supplier entry nahi" icon={Factory}
+  return <TxnList url="/corrections/supplier-txns" empty="Koi supplier entry nahi" icon={Factory} placeholder="Supplier / ref / product / amount… · تلاش"
     elsewhere={{ delivery: "Delivery void se", cashier: "Cashier void se" }}
     row={(x) => ({ id: x.id, voidable: x.voidable, owner: x.owner, when: x.created_at ?? x.txn_date,
       title: `${x.type === "payment" ? "Payment" : x.type === "purchase" ? "Purchase" : "Adjustment"} · ${pkr(x.amount)}`,
@@ -163,7 +180,7 @@ function EditSupplierTxn({ x, url, onClose, onDone }: { x: any; url: string; onC
 }
 
 function WholesaleVoid() {
-  return <TxnList url="/corrections/wholesale-txns" empty="Koi wholesale entry nahi" icon={Container}
+  return <TxnList url="/corrections/wholesale-txns" empty="Koi wholesale entry nahi" icon={Container} placeholder="Client / gaari / ref / amount… · تلاش"
     elsewhere={{ trip: "Trip (wholesale page)", cashier: "Cashier void se" }}
     row={(x) => ({ id: x.id, voidable: x.voidable, owner: x.owner, when: x.txn_date,
       title: `${x.type} · ${x.litres ? `${num(x.litres, 2)}L · ` : ""}${pkr(x.amount)}`,
@@ -203,7 +220,7 @@ function EditWholesaleTxn({ x, url, onClose, onDone }: { x: any; url: string; on
 }
 
 function RentVoid() {
-  return <TxnList url="/corrections/rent" empty="Koi rent receipt nahi" icon={Building2} elsewhere={{}}
+  return <TxnList url="/corrections/rent" empty="Koi rent receipt nahi" icon={Building2} elsewhere={{}} placeholder="Dukan / kirayedar / mahina / amount… · تلاش"
     row={(p) => ({ id: p.id, voidable: true, when: p.created_at, title: `Rent · ${pkr(p.amount)} · ${p.for_month}`,
       sub: [p.unit, p.tenant_name, p.method].filter(Boolean).join(" · ") })}
     label={(p) => `Rent mansookh: ${p.unit} — ${pkr(p.amount)} (${p.for_month})`}
@@ -229,17 +246,14 @@ function EditRent({ p, url, onClose, onDone }: { p: any; url: string; onClose: (
 
 function SaleVoid() {
   const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
-  const [q, setQ] = useState("");
-  const { data, reload } = useApi<any>(`/corrections/sales?q=${encodeURIComponent(q)}`);
+  const filter = useServerFilter();
+  const { data, reload } = useApi<any>(`/corrections/sales?limit=100${filter.qs}`);
   const { busy, doVoid } = useVoid(reload);
   const [edit, setEdit] = useState<any>(null);
   const editable = (s: any) => s.source !== "meter" && !s.pending && !["coupon", "wallet", "loyalty", "wholesale"].includes(s.payment_method);
   return (
     <div>
-      <Field label="Dhoondein — customer, gaari ya parchi no.">
-        <div className="relative"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" />
-          <input className="input w-full pl-8" placeholder="Naam / vehicle / slip…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-      </Field>
+      <ListTools {...filter.tools} placeholder="Customer / gaari / parchi no. / amount… · تلاش" />
       {!data ? <Loading /> : !data.sales.length ? <Empty><Fuel className="mx-auto mb-1 text-slate-300" />Koi sale nahi mili</Empty> : (
         <div className="mt-3 card divide-y divide-slate-100">
           {data.sales.map((s: any) => (
@@ -290,12 +304,14 @@ function EditSale({ sale, onClose, onDone }: { sale: any; onClose: () => void; o
 
 function DeliveryVoid() {
   const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
-  const { data, reload } = useApi<any>("/corrections/deliveries");
+  const filter = useServerFilter();
+  const { data, reload } = useApi<any>(`/corrections/deliveries?limit=100${filter.qs}`);
   const { busy, doVoid } = useVoid(reload);
   const [edit, setEdit] = useState<any>(null);
   return (
     <div>
-      {!data ? <Loading /> : !data.deliveries.length ? <Empty><Truck className="mx-auto mb-1 text-slate-300" />Koi delivery nahi</Empty> : (
+      <ListTools {...filter.tools} placeholder="Supplier / tanker / tank / product… · تلاش" />
+      {!data ? <Loading /> : !data.deliveries.length ? <Empty><Truck className="mx-auto mb-1 text-slate-300" />{filter.active ? "Is filter me koi delivery nahi" : "Koi delivery nahi"}</Empty> : (
         <div className="mt-1 card divide-y divide-slate-100">
           {data.deliveries.map((d: any) => (
             <div key={d.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3">
@@ -345,9 +361,10 @@ function KhataVoid() {
   const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
   const [q, setQ] = useState("");
   const [cust, setCust] = useState<{ id: number; name: string } | null>(null);
-  const { data: parties } = useApi<any>(q.trim() ? `/cashier/parties?kind=khata` : null);
+  const { data: parties } = useApi<any>(q.trim() ? `/cashier/parties?kind=khata&q=${encodeURIComponent(q.trim())}` : null);
   const matches = ((parties?.khata ?? []) as any[]).filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8);
-  const { data, reload } = useApi<any>(cust ? `/corrections/khata?customer_id=${cust.id}` : null);
+  const filter = useServerFilter();
+  const { data, reload } = useApi<any>(cust ? `/corrections/khata?customer_id=${cust.id}&limit=100${filter.qs}` : null);
   const { busy, doVoid } = useVoid(reload);
   const [edit, setEdit] = useState<any>(null);
   return (
@@ -369,7 +386,8 @@ function KhataVoid() {
       {cust && data && (
         <>
           <div className="my-3 text-sm text-slate-600">Khata balance abhi: <b>{pkr(data.customer.balance)}</b></div>
-          {!data.entries.length ? <Empty><Receipt className="mx-auto mb-1 text-slate-300" />Koi khata entry nahi</Empty> : (
+          <ListTools {...filter.tools} placeholder="Note / ref / amount dhoondein… · تلاش" />
+          {!data.entries.length ? <Empty><Receipt className="mx-auto mb-1 text-slate-300" />{filter.active ? "Is filter me koi entry nahi" : "Koi khata entry nahi"}</Empty> : (
             <div className="card divide-y divide-slate-100">
               {data.entries.map((e: any) => (
                 <div key={e.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3">

@@ -91,11 +91,11 @@ function applyOtherMoney(t: number, by: string, b: z.infer<typeof body>, oeId: n
       party = `khata:${id}`;
     } else if (b.party_type === "wholesale") {
       const id = run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,amount,method,ref,note,voided,created_by,txn_date,created_at)
-        VALUES (?,?,?,?,?,?,?,0,?,?,?)`, t, pid, b.kind === "expense" ? "adjustment" : "payment", amount, "CEO entry", ref, note, by, pkDate(), at).id;
+        VALUES (?,?,?,?,?,?,?,0,?,?,?)`, t, pid, b.kind === "expense" ? "adjustment" : "payment", amount, "CEO entry", ref, note, by, at, at).id;
       party = `wtx:${id}`;
     } else {
       const id = run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,amount,method,account_id,ref,note,voided,created_by,txn_date,created_at)
-        VALUES (?,?,?,?,?,?,?,?,0,?,?,?)`, t, pid, b.kind === "expense" ? "adjustment" : "payment", amount, "CEO entry", null, ref, note, by, pkDate(), at).id;
+        VALUES (?,?,?,?,?,?,?,?,0,?,?,?)`, t, pid, b.kind === "expense" ? "adjustment" : "payment", amount, "CEO entry", null, ref, note, by, at, at).id;
       party = `ctx:${id}`;
     }
     return `${money}+${party}`;
@@ -108,11 +108,11 @@ function applyOtherMoney(t: number, by: string, b: z.infer<typeof body>, oeId: n
     return `khata:${id}`;
   } else if (b.party_type === "wholesale") {
     const id = run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,amount,method,ref,note,voided,created_by,txn_date,created_at)
-      VALUES (?,?,?,?,?,?,?,0,?,?,?)`, t, pid, "payment", amount, "Discount", ref, `Discount: ${b.reason}`, by, pkDate(), at).id;
+      VALUES (?,?,?,?,?,?,?,0,?,?,?)`, t, pid, "payment", amount, "Discount", ref, `Discount: ${b.reason}`, by, at, at).id;
     return `wtx:${id}`;
   } else { // carriage / thekedar
     const id = run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,amount,method,account_id,ref,note,voided,created_by,txn_date,created_at)
-      VALUES (?,?,?,?,?,?,?,?,0,?,?,?)`, t, pid, "payment", amount, "Discount", null, ref, `Discount: ${b.reason}`, by, pkDate(), at).id;
+      VALUES (?,?,?,?,?,?,?,?,0,?,?,?)`, t, pid, "payment", amount, "Discount", null, ref, `Discount: ${b.reason}`, by, at, at).id;
     return `ctx:${id}`;
   }
 }

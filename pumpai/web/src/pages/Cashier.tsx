@@ -5,7 +5,7 @@ import {
   ArrowDownCircle, ArrowUpCircle, Ban, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, Download, FileCheck2, HandCoins, Landmark, Pencil, Printer, Search, Users, X,
 } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { Badge, Empty, ErrorBox, Field, ListTools, Loading, Modal, PageHeader, useAction, useListFilter } from "../components/ui";
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { toWords } from "../lib/words";
@@ -24,6 +24,7 @@ const TABS = [
   { k: "cheques", en: "Cheques", ur: "چیک", perm: "cheques.manage" },
   { k: "handover", en: "Salesmen", ur: "سیلزمین کیش", perm: "shifts.handover" },
   { k: "daybook", en: "Day book", ur: "روزنامچہ", perm: "cashier.desk" },
+  { k: "vouchers", en: "Vouchers", ur: "رسیدیں", perm: "cashier.desk" },
   { k: "bank", en: "Bank", ur: "کیش اور بینک", perm: "cash.book" },
 ];
 
@@ -58,6 +59,7 @@ export default function Cashier() {
       {tab === "cheques" && <Cheques go={go} />}
       {tab === "handover" && <Handover />}
       {tab === "daybook" && <DayBook />}
+      {tab === "vouchers" && <Vouchers onSlip={setSlip} />}
       {tab === "bank" && <CashBank start={params.get("do")} />}
       {slip && <VoucherSlip r={slip} onClose={() => setSlip(null)} />}
     </div>
@@ -65,6 +67,8 @@ export default function Cashier() {
 }
 
 /* ================= desk ================= */
+/** Money that belongs to another module (CEO other entries, rent, claims, WHT, coupon refunds) is changed there, not on the desk. */
+const ownedSrc = (src?: string | null) => /^(oth-|rental:|claim:|wht:|coupon-refund:|bypassfuel:)/.test(String(src ?? ""));
 const TONE: Record<string, string> = { red: "bg-red-500", amber: "bg-amber-500", blue: "bg-sky-500", green: "bg-emerald-500" };
 
 /** WhatsApp payment screenshots from khata customers, waiting for the cashier to check and confirm into the khata. */
@@ -216,11 +220,11 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
                 <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
               </button>
               <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>
-              {can("entries.edit") && v.method !== "Cheque" && (
+              {can("entries.edit") && v.method !== "Cheque" && !ownedSrc(v.src) && (
                 <button title="Edit this voucher (CEO) — poore system me update" aria-label="Edit voucher" onClick={() => setEditV(v)}
                   className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"><Pencil size={15} /></button>
               )}
-              {can("cashier.void") && /^(khata|wholesale|other|supplier|expense|staff)$/.test(v.party_type) && v.method !== "Cheque" && (
+              {can("cashier.void") && /^(khata|wholesale|other|supplier|expense|staff)$/.test(v.party_type) && v.method !== "Cheque" && !ownedSrc(v.src) && (
                 <button title="Void this voucher (CEO)" aria-label="Void voucher"
                   onClick={async () => { const reason = prompt(`Is voucher ko void karein? (${pkr(v.amount)} ${v.party_name})\nWajah likhein:`); if (reason && reason.trim().length >= 3) { await api(`/cashier/vouchers/${v.id}/void`, { body: { reason: reason.trim() } }); reload(); } }}
                   className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600"><Ban size={15} /></button>
@@ -246,7 +250,7 @@ function EditVoucher({ v, onClose, onDone }: { v: any; onClose: () => void; onDo
   const [freeName, setFreeName] = useState<string>(v.party_id ? "" : v.party_name ?? "");
   const types = (dir === "in" ? IN_TYPES : OUT_TYPES) as readonly (readonly [string, string, string])[];
   const needsParty = ptype !== "other" && ptype !== "expense";
-  const sameParty = dir === v.direction && ptype === v.party_type && (needsParty ? party?.id === v.party_id : (freeName || "") === (v.party_name || "") || (!needsParty && v.party_type === "expense"));
+  const sameParty = dir === v.direction && ptype === v.party_type && (needsParty ? party?.id === v.party_id : (freeName || "") === (v.party_name || ""));
   const { busy, run } = useAction();
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
   const amount = Number(f.amount);
@@ -643,10 +647,18 @@ function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => vo
   const { data, reload, error } = useApi<any>("/cashier/cheques");
   const { can } = useAuth();
   const [filter, setFilter] = useState("open");
+  const [q, setQ] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [act, setAct] = useState<{ q: any; action: string } | null>(null);
-  const list = useMemo(() => (data?.cheques ?? []).filter((q: any) =>
-    filter === "all" ? true : filter === "bounced" ? q.status === "bounced" : filter === "in" ? q.direction === "in" && ["in_hand", "deposited"].includes(q.status)
-      : filter === "out" ? q.direction === "out" && q.status === "issued" : ["in_hand", "deposited", "issued"].includes(q.status)), [data, filter]);
+  const cheques: any[] = data?.cheques ?? [];
+  // status chip first, then the text box (cheque no / party / bank / amount) and the cheque-date range
+  const list = useListFilter<any>(cheques, {
+    q, from, to, dateKey: "cheque_date",
+    keep: (q) => filter === "all" ? true : filter === "bounced" ? q.status === "bounced" : filter === "in" ? q.direction === "in" && ["in_hand", "deposited"].includes(q.status)
+      : filter === "out" ? q.direction === "out" && q.status === "issued" : ["in_hand", "deposited", "issued"].includes(q.status),
+    text: (q) => `${q.cheque_no} ${q.party_name} ${q.bank} ${q.amount} ${q.account_name ?? ""} ${q.party_type ?? ""}`,
+  });
   if (error) return <ErrorBox error={error} />;
   if (!data) return <Loading />;
   const t = data.totals;
@@ -673,6 +685,7 @@ function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => vo
           <button className="btn-secondary min-h-10 !px-3" aria-label="Print" disabled={!list.length} onClick={() => window.print()}><Printer size={15} /><span className="hidden sm:inline"> Print · <Ur>پرنٹ</Ur></span></button>
         </div>
       </div>
+      <ListTools q={q} onQ={setQ} placeholder="Cheque no, party, bank, raqam… · چیک نمبر، پارٹی، بینک" from={from} to={to} onFrom={setFrom} onTo={setTo} shown={list.length} total={cheques.length} />
       {/* on paper: the chosen list as a register, e.g. the cheques to take to the bank */}
       <div className="hidden print:block">
         <h2 className="text-center text-base font-bold uppercase tracking-wide">Cheque register · {FILTERS.find(([k]) => k === filter)?.[1]}</h2>
@@ -759,9 +772,13 @@ function Handover() {
   const [amt, setAmt] = useState<Record<number, string>>({});
   const [note, setNote] = useState<Record<number, string>>({});
   const [allDone, setAllDone] = useState(false);
+  const [q, setQ] = useState("");
   const { busy, run } = useAction();
+  const doneAll: any[] = data?.done ?? [];
+  const done = useListFilter<any>(doneAll, { q, text: (s) => `${s.attendant} ${s.station_name ?? ""} #${s.id} ${s.handed_to ?? ""} ${s.handover_note ?? ""}` });
   if (error) return <ErrorBox error={error} />;
   if (!data) return <Loading />;
+  const shownDone = allDone || q ? done : done.slice(0, 8);
   return (
     <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
       <div className="space-y-3">
@@ -791,7 +808,8 @@ function Handover() {
       </div>
       <div className="card">
         <h2 className="p-4 pb-1 font-semibold">Received · <Ur>وصول شدہ</Ur></h2>
-        <ul className="divide-y divide-slate-100">{(allDone ? data.done : data.done.slice(0, 8)).map((s: any) => {
+        <div className="px-4 pt-1"><ListTools q={q} onQ={setQ} placeholder="Salesman ya station… · سیلزمین / اسٹیشن" shown={done.length} total={doneAll.length} /></div>
+        <ul className="divide-y divide-slate-100">{shownDone.map((s: any) => {
           const diff = Math.round((s.handed_amount ?? 0) - (s.cash_actual ?? 0));
           return (
             <li key={s.id} className="flex items-center gap-2 px-4 py-2 text-sm">
@@ -799,9 +817,67 @@ function Handover() {
               <span className="shrink-0 text-right"><b className="tabular-nums">{pkr(s.handed_amount)}</b>{diff !== 0 && <span className={`block text-xs ${diff < 0 ? "text-red-600" : "text-emerald-700"}`}>{diff < 0 ? "short" : "over"} {pkr(Math.abs(diff))}</span>}</span>
             </li>
           );
-        })}</ul>
-        {data.done.length > 8 && !allDone && <button className="w-full border-t border-slate-100 py-2.5 text-sm font-medium text-brand-700" onClick={() => setAllDone(true)}>Show all {data.done.length} · <Ur>سب دیکھیں</Ur></button>}
+        })}{!shownDone.length && <li><Empty>No handover here · <Ur>کوئی وصولی نہیں</Ur></Empty></li>}</ul>
+        {done.length > 8 && !allDone && !q && <button className="w-full border-t border-slate-100 py-2.5 text-sm font-medium text-brand-700" onClick={() => setAllDone(true)}>Show all {done.length} · <Ur>سب دیکھیں</Ur></button>}
       </div>
+    </div>
+  );
+}
+
+/* ================= voucher history ================= */
+const monthStart = () => today().slice(0, 8) + "01";
+const VOUCHER_CHIPS = [{ k: "all", label: "All · سب" }, { k: "in", label: "Received · وصولی" }, { k: "out", label: "Paid · ادائیگی" }];
+
+/** Every voucher of a date range (this month by default) with the desk's Edit / void buttons; a row opens the same slip. */
+function Vouchers({ onSlip }: { onSlip: (v: any) => void }) {
+  const { can } = useAuth();
+  const [q, setQ] = useState("");
+  const [from, setFrom] = useState(monthStart);
+  const [to, setTo] = useState(today);
+  const [dir, setDir] = useState("all");
+  const [editV, setEditV] = useState<any>(null);
+  const qs = new URLSearchParams({ from: from || monthStart(), to: to || today(), limit: "1000" });
+  if (dir !== "all") qs.set("direction", dir);
+  const { data, reload, error } = useApi<any[]>(`/cashier/vouchers?${qs}`);
+  const all: any[] = data ?? [];
+  // the server already cut the range and direction; the text box filters what came back, so typing stays instant
+  const rows = useListFilter<any>(all, { q, text: (v) => `${v.no} ${v.party_name} ${v.method} ${v.amount} ${v.category ?? ""} ${v.note ?? ""} ${v.ref ?? ""} ${v.account ?? ""} ${v.party_type}` });
+  if (error) return <ErrorBox error={error} />;
+  const sum = (d: string) => rows.filter((v) => v.direction === d && !v.voided).reduce((a, v) => a + v.amount, 0);
+  return (
+    <div className="space-y-3">
+      <ListTools q={q} onQ={setQ} placeholder="Voucher no, party, raqam, note… · رسید نمبر، پارٹی، رقم" from={from} to={to} onFrom={setFrom} onTo={setTo}
+        chips={VOUCHER_CHIPS} chip={dir} onChip={setDir} shown={rows.length} total={all.length} />
+      {!data ? <Loading /> : (
+        <div className="card">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 p-4 pb-1 text-sm">
+            <h2 className="font-semibold">Vouchers · <Ur>رسیدیں</Ur></h2>
+            <span className="text-emerald-700">Received · <Ur>وصولی</Ur> <b className="tabular-nums">{pkr(sum("in"))}</b></span>
+            <span className="text-rose-700">Paid · <Ur>ادائیگی</Ur> <b className="tabular-nums">{pkr(sum("out"))}</b></span>
+          </div>
+          <ul className="divide-y divide-slate-100">{rows.map((v: any) => (
+            <li key={v.id} className={`flex items-center hover:bg-slate-50 ${v.voided ? "opacity-60" : ""}`}>
+              <button onClick={() => onSlip({ voucher: v, account: v.account })} className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left text-sm">
+                <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
+                <span className="min-w-0 flex-1 truncate">{v.party_name}{v.voided ? <> <Badge tone="red">Void · منسوخ</Badge></> : null}
+                  <span className="block text-xs text-slate-500">{dt(v.created_at)} · {v.method}{v.account ? ` · ${v.account}` : ""}{v.category ? ` · ${v.category}` : ""}</span></span>
+                <span className={`font-semibold tabular-nums ${v.voided ? "line-through text-slate-400" : v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
+              </button>
+              {!v.voided && <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>}
+              {!v.voided && can("entries.edit") && v.method !== "Cheque" && !ownedSrc(v.src) && (
+                <button title="Edit this voucher (CEO) — poore system me update" aria-label="Edit voucher" onClick={() => setEditV(v)}
+                  className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"><Pencil size={15} /></button>
+              )}
+              {!v.voided && can("cashier.void") && /^(khata|wholesale|other|supplier|expense|staff)$/.test(v.party_type) && v.method !== "Cheque" && !ownedSrc(v.src) && (
+                <button title="Void this voucher (CEO)" aria-label="Void voucher"
+                  onClick={async () => { const reason = prompt(`Is voucher ko void karein? (${pkr(v.amount)} ${v.party_name})\nWajah likhein:`); if (reason && reason.trim().length >= 3) { await api(`/cashier/vouchers/${v.id}/void`, { body: { reason: reason.trim() } }); reload(); } }}
+                  className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600"><Ban size={15} /></button>
+              )}
+            </li>
+          ))}{!rows.length && <li><Empty>No vouchers in this range · <Ur>اس عرصے میں کوئی رسید نہیں</Ur></Empty></li>}</ul>
+        </div>
+      )}
+      {editV && <EditVoucher v={editV} onClose={() => setEditV(null)} onDone={() => { setEditV(null); reload(); }} />}
     </div>
   );
 }

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, PackagePlus, ClipboardCheck, Pencil, Undo2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { useAuth } from "../App";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
+import { Badge, Empty, Field, ListTools, Loading, Modal, PageHeader, Stat, matchQuery, useAction } from "../components/ui";
 import { dt, num, pkr } from "../lib/format";
 
 import { labelMap, useLookups } from "../lib/lookups";
@@ -17,14 +17,24 @@ export default function Shop() {
   const sid = station ?? stations.data?.[0]?.id;
   const items = useApi<any[]>(sid ? `/shop/items?station_id=${sid}&all=1` : null);
   const sum = useApi<any>("/shop/summary");
-  const sales = useApi<any>(sid ? `/shop/sales?station_id=${sid}&limit=30` : null);
+  // recent sales filters go to the server (item name / customer, PK days, payment method); the search box is debounced
+  const [sf, setSf] = useState({ q: "", from: "", to: "", method: "" });
+  const [sdq, setSdq] = useState("");
+  useEffect(() => { const id = setTimeout(() => setSdq(sf.q.trim()), 300); return () => clearTimeout(id); }, [sf.q]);
+  const salesQs = new URLSearchParams(Object.entries({ station_id: sid ? String(sid) : "", limit: "30", q: sdq, from: sf.from, to: sf.to, method: sf.method }).filter(([, v]) => v)).toString();
+  const sales = useApi<any>(sid ? `/shop/sales?${salesQs}` : null);
+  const methods = useLookups("payment_method");
   const { can } = useAuth();
   const [form, setForm] = useState<null | { kind: "item" | "in" | "count" | "moves"; item?: any }>(null);
   const [editSale, setEditSale] = useState<any>(null);
   const [q, setQ] = useState("");
+  const [cat, setCat] = useState(""); // item list: category chip or "low" (stock at / under the alert level) — client-side
   if (!items.data || !sum.data || !stations.data) return <Loading />;
   const s = sum.data;
-  const shown = items.data.filter((i) => matchQuery(q, i.name, i.category, i.sku, i.brand));
+  const isLow = (i: any) => i.reorder_level > 0 && i.stock <= i.reorder_level;
+  const shown = items.data.filter((i) => matchQuery(q, i.name, i.category, i.sku, i.brand) && (!cat || (cat === "low" ? isLow(i) : i.category === cat)));
+  const catsPresent = [...new Set(items.data.map((i) => i.category as string))];
+  const salesFiltered = Boolean(sf.q || sf.from || sf.to || sf.method);
   const reload = () => { items.reload(); sum.reload(); sales.reload(); };
   return (
     <div className="space-y-5">
@@ -39,8 +49,10 @@ export default function Shop() {
         <Stat label="Stock value (cost)" value={pkr(s.stock_value)} />
         <Stat label="Low stock" value={s.low_stock.length} tone={s.low_stock.length ? "red" : "slate"} hint={s.low_stock.slice(0, 2).map((x: any) => x.name).join(", ")} />
       </div>
-      <SearchBar value={q} onChange={setQ} placeholder="Item ya category dhoondein…" />
-      {q && !shown.length && <Empty>"{q}" ke liye koi item nahi mila.</Empty>}
+      <ListTools q={q} onQ={setQ} placeholder="Item ya category dhoondein… · تلاش"
+        chips={[{ k: "", label: "All" }, { k: "low", label: "Low stock", n: items.data.filter(isLow).length }, ...catsPresent.map((c) => ({ k: c, label: CATS[c] ?? c }))]} chip={cat} onChip={setCat}
+        shown={shown.length} total={items.data.length} />
+      {(q || cat) && !shown.length && <Empty>{q ? `"${q}" ke liye koi item nahi mila.` : "Is filter mein koi item nahi."}</Empty>}
       {/* phone: one card per item */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
         {shown.map((i) => (
@@ -89,9 +101,13 @@ export default function Shop() {
         <div className="card p-4"><h2 className="mb-2 font-semibold">Profit by category today</h2>
           {s.by_category.map((c: any) => <div key={c.category} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{CATS[c.category] ?? c.category}</span><span className="tabular-nums">{pkr(c.sales)} · profit {pkr(c.profit)}</span></div>)}</div>
       </div>
-      {sales.data?.sales?.length > 0 && (
+      {sales.data && (sales.data.sales.length > 0 || salesFiltered) && (
         <div className="card p-4">
           <h2 className="mb-2 font-semibold">Recent sales · <span className="font-urdu" lang="ur" dir="rtl">حالیہ فروخت</span></h2>
+          <ListTools q={sf.q} onQ={(v) => setSf({ ...sf, q: v })} placeholder="Item ya customer ka naam… · تلاش"
+            chips={[{ k: "", label: "All" }, { k: "khata", label: "Khata" }, ...methods.list.filter((m) => m.key !== "khata").map((m) => ({ k: m.key, label: m.label }))]} chip={sf.method} onChip={(method) => setSf({ ...sf, method })}
+            from={sf.from} to={sf.to} onFrom={(from) => setSf({ ...sf, from })} onTo={(to) => setSf({ ...sf, to })} />
+          {!sales.data.sales.length && <Empty>Is filter mein koi sale nahi mili.</Empty>}
           <div className="divide-y divide-slate-100">
             {sales.data.sales.map((v: any) => (
               <div key={v.id} className="flex items-center gap-2 py-2 text-sm">

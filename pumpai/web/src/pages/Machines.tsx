@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wrench, Plus, AlertTriangle, CheckCircle2, Clock, ShieldCheck } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
 import { pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { labelMap } from "../lib/lookups";
@@ -31,10 +31,15 @@ export default function Machines() {
   const manager = can("alerts.view");
   const [open, setOpen] = useState<number | null>(null);
   const [edit, setEdit] = useState<any>(null);
-  const [filter, setFilter] = useState(() => new URLSearchParams(window.location.search).get("q") ?? ""); // global search lands here with ?q=
+  const [q, setQ] = useState(() => new URLSearchParams(window.location.search).get("q") ?? ""); // global search lands here with ?q= — free text over name / serial / make
+  const [filter, setFilter] = useState("");
+  const [stationId, setStationId] = useState("");
   if (!data) return <Loading />;
   const s = data.summary;
-  const list = data.machines.filter((m: any) => !filter || (filter === "attention" ? m.status === "faulty" || m.status === "under_repair" || ["overdue", "due_soon"].includes(m.due.service) || m.due.warranty === "ending" : m.type === filter));
+  const stationOpts = (stations.data ?? []).filter((st: any) => data.machines.some((m: any) => m.station_id === st.id));
+  const list = data.machines.filter((m: any) => (!filter || (filter === "attention" ? m.status === "faulty" || m.status === "under_repair" || ["overdue", "due_soon"].includes(m.due.service) || m.due.warranty === "ending" : m.type === filter))
+    && (!stationId || String(m.station_id ?? "") === stationId)
+    && matchQuery(q, m.name, m.serial_no, m.make, m.model, m.location, m.vendor, m.station_name, TYPE_LABEL[m.type] ?? m.type));
   const groups = [...new Set<string>(list.map((m: any) => m.station_name ?? "All stations"))];
   return (
     <div className="space-y-5">
@@ -46,6 +51,12 @@ export default function Machines() {
         <Stat label="Service late" value={s.overdue} tone={s.overdue ? "red" : "slate"} icon={<Clock size={16} />} />
         <Stat label="Service this week" value={s.due_soon} tone={s.due_soon ? "amber" : "slate"} />
         <Stat label="Spent (90 days)" value={pkr(s.spent_90d)} hint={`${s.warranty_ending} warranties ending`} icon={<ShieldCheck size={16} />} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchBar value={q} onChange={setQ} placeholder="Name / serial / make dhoondein… · مشین تلاش" className="min-w-[220px] flex-1" />
+        {stationOpts.length > 1 && <select className="input w-auto" value={stationId} onChange={(e) => setStationId(e.target.value)} aria-label="Station">
+          <option value="">All stations</option>{stationOpts.map((st: any) => <option key={st.id} value={st.id}>{st.name}</option>)}</select>}
+        {(q || filter || stationId) && <span className="text-xs text-slate-500">{list.length} / {data.machines.length}</span>}
       </div>
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 text-sm sm:mx-0 sm:flex-wrap sm:px-0">
         {[["", "All"], ["attention", "Needs attention"], ...data.types.filter((t: string) => data.machines.some((m: any) => m.type === t)).map((t: string) => [t, TYPE_LABEL[t]])].map(([k, l]) =>
@@ -68,7 +79,7 @@ export default function Machines() {
           </div>
         </div>
       ))}
-      {!list.length && <Empty>No machines here yet. Add the dispensers, generator, compressor, fans and lights to keep their service on time.</Empty>}
+      {!list.length && <Empty>{data.machines.length ? "Kuch nahi mila · کچھ نہیں ملا" : "No machines here yet. Add the dispensers, generator, compressor, fans and lights to keep their service on time."}</Empty>}
       {open && <MachineDetail id={open} manager={manager} onEdit={(m) => { setOpen(null); setEdit(m); }} onClose={() => { setOpen(null); reload(); }} />}
       {edit && <MachineForm m={edit} stations={stations.data ?? []} types={data.types} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); reload(); }} />}
     </div>

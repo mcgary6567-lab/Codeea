@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, useApi, useLiveEvents } from "../lib/api";
-import { Badge, Empty, Loading, PageHeader, SearchBar, statusTone, matchQuery, useAction } from "../components/ui";
+import { Badge, Empty, FilterChips, Loading, PageHeader, SearchBar, statusTone, matchQuery, useAction } from "../components/ui";
 import { dt, num, phone, pkr } from "../lib/format";
 
 const NEXT: Record<string, string[]> = { pending: ["confirmed", "cancelled"], confirmed: ["dispatched", "cancelled"], dispatched: ["delivered"] };
@@ -12,9 +12,13 @@ export default function Orders() {
   const { busy, run } = useAction();
   const [stationId, setStationId] = useState<number | "">("");
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState("");
   useLiveEvents((e) => e.type === "order" && reload());
   if (!data) return <Loading />;
-  const shown = data.filter((o) => matchQuery(q, o.customer_name, o.phone, o.product, o.status, o.address, `#${o.id}`));
+  const STATUSES = ["pending", "confirmed", "dispatched", "delivered", "cancelled"];
+  const countOf = (s: string) => data.filter((o) => o.status === s).length;
+  const chips: [string, string][] = [["", `All (${data.length})`], ...STATUSES.filter((s) => countOf(s) > 0).map((s) => [s, `${s[0].toUpperCase()}${s.slice(1)} (${countOf(s)})`] as [string, string])];
+  const shown = data.filter((o) => (!status || o.status === status) && matchQuery(q, o.customer_name, o.phone, o.product, o.status, o.address, `#${o.id}`));
   const buttons = (o: any) => (NEXT[o.status] ?? []).map((s) => (
     <button key={s} disabled={busy} className={`${s === "cancelled" ? "btn-secondary" : "btn-primary"} min-h-9 !px-2.5 !py-1 text-xs sm:min-h-0`}
       onClick={() => run(() => api(`/orders/${o.id}`, { method: "PATCH", body: { status: s, station_id: stationId || stations.data?.[0]?.id } }), `Order #${o.id} ${s} — customer notified`).then(reload)}>
@@ -28,8 +32,11 @@ export default function Orders() {
         actions={<label className="flex items-center gap-2 text-sm text-slate-600">Deliver from
           <select className="input w-auto" value={stationId} onChange={(e) => setStationId(Number(e.target.value))}>
             {(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>} />
-      <SearchBar value={q} onChange={setQ} placeholder="Customer, phone, status ya order# dhoondein…" className="mb-4" />
-      {q && !shown.length && <Empty>"{q}" ke liye koi order nahi mila.</Empty>}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <SearchBar value={q} onChange={setQ} placeholder="Customer, phone, status ya order# dhoondein…" className="min-w-[220px] flex-1" />
+        <FilterChips value={status} onChange={setStatus} opts={chips} />
+      </div>
+      {(q || status) && !shown.length && data.length > 0 && <Empty>Is filter mein koi order nahi mila · کوئی آرڈر نہیں ملا</Empty>}
       {/* phone: one card per order */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
         {shown.map((o) => (

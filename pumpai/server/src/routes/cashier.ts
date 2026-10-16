@@ -258,6 +258,14 @@ async function doPay(req: Request, b: z.infer<typeof payBody>, skipCashCheck = f
 }
 
 /* ---------------- void a wrong voucher (CEO only) ---------------- */
+/** A voucher whose money belongs to another module (CEO other entries, rent, claims, WHT deposit, coupon refund) is changed
+ *  THERE — editing the voucher alone would leave that module's own record (and the P&L) on the old figure. */
+const OWNER_OF: [string, string][] = [["oth-", "Other entries (CEO)"], ["rental:", "Rent (rentals)"], ["claim:", "Shortage claims"], ["wht:", "Tax (WHT deposit)"], ["coupon-refund:", "Prepaid coupons"], ["bypassfuel:", "Bypass fuel money"]];
+export const voucherOwner = (src: string | null | undefined) => OWNER_OF.find(([p]) => String(src ?? "").startsWith(p))?.[1] ?? null;
+function ownedElsewhere(src: string | null | undefined, verb: string) {
+  const o = voucherOwner(src);
+  if (o) throw new AppError(400, `Ye entry ${o} module ki hai — wahin se ${verb}.`);
+}
 /** Reverse the money / balance a voucher's source row moved, in the SAME table it was written to (books stay tallied).
  *  Does not touch the voucher row itself. */
 function reverseVoucherSrc(t: number, v: Row, who: string, reason: string) {
@@ -292,7 +300,7 @@ function backdateSrc(t: number, src: string | null, at: string) {
   else if (kind === "wtx") run("UPDATE wholesale_txns SET txn_date=?, created_at=? WHERE id=? AND tenant_id=?", at, at, id, t);
   else if (kind === "stx") run("UPDATE supplier_txns SET txn_date=?, created_at=? WHERE id=? AND tenant_id=?", at, at, id, t);
   else if (kind === "staff") run("UPDATE staff_ledger SET created_at=? WHERE id=? AND tenant_id=?", at, id, t);
-  else if (kind === "expense") run("UPDATE expenses SET created_at=? WHERE id=? AND tenant_id=?", at, id, t);
+  else if (kind === "expense") run("UPDATE expenses SET created_at=?, expense_date=? WHERE id=? AND tenant_id=?", at, pkDate(Date.parse(at)), id, t);
   else if (kind === "bank") run("UPDATE bank_txns SET txn_date=?, created_at=? WHERE id=? AND tenant_id=?", at, at, id, t);
 }
 /**
@@ -307,9 +315,9 @@ cashier.post("/cashier/vouchers/:id/void", requirePerm("cashier.void"), h((req) 
   if (v.voided) throw new AppError(400, "Yeh voucher pehle hi void ho chuka hai");
   const reason = String((req.body?.reason ?? "")).trim();
   if (reason.length < 3) throw new AppError(400, "Void ki wajah likhein");
-  const [kind, idStr] = String(v.src ?? "").split(":");
-  const srcId = Number(idStr);
+  const [kind] = String(v.src ?? "").split(":");
   if (kind === "chq" || kind === "wchq") throw new AppError(400, "Yeh cheque entry hai — cheque register me cancel/return karein");
+  ownedElsewhere(v.src, "void karein");
 
   tx(() => {
     reverseVoucherSrc(t, v, req.user!.name, reason);
@@ -330,6 +338,7 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("entries.edit"), h(async 
   if (v.voided) throw new AppError(400, "Yeh voucher void ho chuka hai");
   const [kind, idStr] = String(v.src ?? "").split(":"); const srcId = Number(idStr);
   if (kind === "chq" || kind === "wchq") throw new AppError(400, "Ye cheque entry hai — cheque register se badlein.");
+  ownedElsewhere(v.src, "badlein");
   const b = parse(z.object({
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
     amount: z.number().positive().max(1_000_000_000).optional(), method: z.string().max(40).optional(),
@@ -349,7 +358,9 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("entries.edit"), h(async 
   const dir = b.direction ?? v.direction, ptype = b.party_type ?? v.party_type;
   const pid = b.party_id !== undefined ? b.party_id : ptype === v.party_type ? v.party_id : null;
   const freeName = b.party_name !== undefined ? b.party_name : ptype === v.party_type ? v.party_name : null;
-  const reroute = dir !== v.direction || ptype !== v.party_type || (pid ?? null) !== (v.party_id ?? null) || (!pid && (freeName ?? "") !== (v.party_name ?? ""));
+  // an 'other' voucher's money IS the voucher (cash) or a bank row: flipping cash<->bank means a different money row → re-post it
+  const moneyFlip = (kind === "" || kind === "bank") && isCash(method) !== isCash(v.method);
+  const reroute = moneyFlip || dir !== v.direction || ptype !== v.party_type || (pid ?? null) !== (v.party_id ?? null) || (!pid && (freeName ?? "") !== (v.party_name ?? ""));
   if (reroute) {
     if (v.method === DEPOT_PAY) throw new AppError(400, "Depot-direct payment ki party nahi badal sakte — void kar ke dobara banayein");
     // post the entry afresh on the new type/party (every rule of Receive/Pay applies), then take the old one out and
@@ -358,14 +369,23 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("entries.edit"), h(async 
       category: category ?? null, photo_ids: [], notify: false, cheque: null, supplier_id: null, notes: null };
     const made = dir === "in" ? await doReceive(req, parse(receiveBody, fresh)) : await doPay(req, parse(payBody, fresh), true);
     const nv = made.voucher;
-    tx(() => {
-      reverseVoucherSrc(t, v, req.user!.name, `edit: ${b.reason}`);
-      backdateSrc(t, nv.src, v.created_at);
-      run(`UPDATE cashier_vouchers SET direction=?, party_type=?, party_id=?, party_name=?, amount=?, method=?, account_id=?, category=?, ref=?, note=?, src=?, notes_json=NULL
-        WHERE id=? AND tenant_id=?`, nv.direction, nv.party_type, nv.party_id ?? null, nv.party_name, nv.amount, nv.method, nv.account_id ?? null, nv.category ?? null, nv.ref ?? null, nv.note ?? null, nv.src ?? null, v.id, t);
-      run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", nv.id, t);
-      run("UPDATE photos SET ref=? WHERE tenant_id=? AND ref=?", `voucher:${v.id}`, t, `voucher:${nv.id}`);
-    });
+    try {
+      tx(() => {
+        reverseVoucherSrc(t, v, req.user!.name, `edit: ${b.reason}`);
+        backdateSrc(t, nv.src, v.created_at);
+        run(`UPDATE cashier_vouchers SET direction=?, party_type=?, party_id=?, party_name=?, amount=?, method=?, account_id=?, category=?, ref=?, note=?, src=?, notes_json=?
+          WHERE id=? AND tenant_id=?`, nv.direction, nv.party_type, nv.party_id ?? null, nv.party_name, nv.amount, nv.method, nv.account_id ?? null, nv.category ?? null, nv.ref ?? null, nv.note ?? null, nv.src ?? null,
+          isCash(nv.method) && isCash(v.method) ? v.notes_json ?? null : null, v.id, t);
+        run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", nv.id, t);
+        // proof photos follow the entry: those on the old source row and on the fresh voucher now point at the new source / this voucher
+        run("UPDATE photos SET ref=? WHERE tenant_id=? AND ref=?", `voucher:${v.id}`, t, `voucher:${nv.id}`);
+        if (v.src && nv.src) run("UPDATE photos SET ref=? WHERE tenant_id=? AND ref=?", nv.src, t, v.src);
+      });
+    } catch (e) {
+      // the fresh posting happened outside this tx: take it back so nothing is charged twice, then surface the error
+      try { tx(() => { reverseVoucherSrc(t, nv, req.user!.name, "edit failed"); run("DELETE FROM cashier_vouchers WHERE id=? AND tenant_id=?", nv.id, t); }); } catch { /* best effort */ }
+      throw e;
+    }
     audit(t, req.user!, "cashier_voucher_edit", `voucher:${v.id}`, { before, after: { direction: nv.direction, party_type: nv.party_type, party_id: nv.party_id, party: nv.party_name, amount, method, note, src: nv.src }, reason: b.reason, rerouted: true });
     return { ok: true, amount, rerouted: true, balance_after: nv.party_type !== "other" && nv.party_type !== "expense" && nv.party_id ? balanceOf(nv.party_type, nv.party_id) : null };
   }
@@ -383,7 +403,7 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("entries.edit"), h(async 
       const old = get("SELECT * FROM wholesale_txns WHERE id=?", srcId);
       run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=? AND tenant_id=?", `${req.user!.name} (edit): ${b.reason}`, srcId, t);
       run("DELETE FROM supplier_txns WHERE tenant_id=? AND ref=?", t, `wtx:${srcId}`);
-      const r = insertTxn(req, v.party_id, { type: "payment", amount, method, ref: old?.ref ?? null, note: note ?? null, account_id: acc });
+      const r = insertTxn(req, v.party_id, { type: "payment", amount, method, ref: old?.ref ?? null, note: note ?? null, account_id: acc, txn_date: old?.txn_date ?? v.created_at, silent: true });
       newSrc = `wtx:${r.id}`;
     } else if (kind === "stx") {
       const old = get("SELECT * FROM supplier_txns WHERE id=?", srcId);
@@ -394,10 +414,14 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("entries.edit"), h(async 
     } else if (kind === "staff") {
       run("UPDATE staff_ledger SET amount=?, method=?, account_id=? WHERE id=? AND tenant_id=?", amount, method, acc, srcId, t);
     } else if (kind === "expense") {
-      run("UPDATE expenses SET amount=?, method=?, account_id=? WHERE id=? AND tenant_id=?", amount, method, acc, srcId, t);
+      // expenses keep the lowercase short method the Pay form writes ("cash", "bank", "jazzcash"…) — the cash book matches on it
+      const em = method.toLowerCase().replace(/\s+transfer$/, "");
+      run("UPDATE expenses SET amount=?, method=?, account_id=? WHERE id=? AND tenant_id=?", amount, ["cash", "bank", "jazzcash", "easypaisa", "raast", "card"].includes(em) ? em : "bank", acc, srcId, t);
     } else if (kind === "bank") {
-      run("UPDATE bank_txns SET amount=?, account_id=?, note=? WHERE id=? AND tenant_id=?", amount, acc, category || note || "Other money", srcId, t);
+      // a payment is a negative bank row (other_out), a receipt positive
+      run("UPDATE bank_txns SET amount=?, account_id=?, note=? WHERE id=? AND tenant_id=?", v.direction === "out" ? -amount : amount, acc, category || note || "Other money", srcId, t);
     }
+    if (newSrc !== v.src) { backdateSrc(t, newSrc, v.created_at); if (v.src) run("UPDATE photos SET ref=? WHERE tenant_id=? AND ref=?", newSrc, t, v.src); }
     // the voucher always mirrors the corrected figures (for an 'other' cash entry this row IS the money)
     run("UPDATE cashier_vouchers SET amount=?, method=?, account_id=?, note=?, category=?, src=? WHERE id=? AND tenant_id=?",
       amount, method, kind === "bank" || !isCash(method) ? acc : null, note ?? null, category ?? null, newSrc, v.id, t);
@@ -406,10 +430,36 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("entries.edit"), h(async 
   return { ok: true, amount, balance_after: v.party_type && v.party_id && v.party_type !== "other" ? balanceOf(v.party_type, v.party_id) : null };
 }));
 
+/** Voucher history. `date` = one PK day (default today, as before); or `from`/`to` for a range, plus optional text `q`
+ *  (party / category / note / ref / amount), `direction`, `party_type` and `limit`. Each row carries `no` and the bank
+ *  `account` name, the same shape the desk's "Today's vouchers" list has, so the slip renders the same from here. */
+const voucherQuery = z.object({
+  date: day.optional(), from: day.optional(), to: day.optional(),
+  q: z.string().trim().max(80).optional(), direction: z.enum(["in", "out"]).optional(), party_type: z.string().trim().max(30).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).default(200),
+});
 cashier.get("/cashier/vouchers", requirePerm("cashier.desk"), h((req) => {
-  const d = req.query.date ? parse(day, req.query.date) : pkDate();
-  return all(`SELECT v.*, ${proofCol("'voucher:'||v.id")} FROM cashier_vouchers v WHERE v.tenant_id=? AND v.created_at >= ? AND v.created_at < ? ORDER BY v.id DESC`, tid(req), pkStart(d), pkEnd(d))
-    .map((v) => ({ ...v, no: vno(v.direction, v.id) }));
+  const t = tid(req);
+  const f = parse(voucherQuery, req.query);
+  const where = ["v.tenant_id=?"]; const P: (string | number)[] = [t];
+  if (f.from || f.to) {
+    if (f.from) { where.push("v.created_at >= ?"); P.push(pkStart(f.from)); }
+    if (f.to) { where.push("v.created_at < ?"); P.push(pkEnd(f.to)); }
+  } else { const d = f.date ?? pkDate(); where.push("v.created_at >= ?", "v.created_at < ?"); P.push(pkStart(d), pkEnd(d)); }
+  if (f.direction) { where.push("v.direction=?"); P.push(f.direction); }
+  if (f.party_type) { where.push("v.party_type=?"); P.push(f.party_type); }
+  if (f.q) {
+    const like = `%${f.q}%`;
+    where.push("(v.party_name LIKE ? OR COALESCE(v.category,'') LIKE ? OR COALESCE(v.note,'') LIKE ? OR COALESCE(v.ref,'') LIKE ? OR CAST(v.amount AS TEXT) LIKE ?)");
+    P.push(like, like, like, like, like);
+  }
+  const seeAll = req.user!.role === "admin";
+  return all(`SELECT v.*, ${proofCol("'voucher:'||v.id")} FROM cashier_vouchers v WHERE ${where.join(" AND ")} ORDER BY v.id DESC LIMIT ?`, ...P, f.limit).map((v) => {
+    const acc = v.account_id ? get("SELECT * FROM bank_accounts WHERE id=?", v.account_id) : null;
+    const hide = !seeAll && isOtherMoney(v.src); // the CEO's private "other" money shows to the cashier only as a generic owner movement
+    return { ...v, party_name: hide ? "Owner" : v.party_name, category: hide ? (v.direction === "in" ? "Owner money in" : "Owner money out") : v.category,
+      src: hide ? null : v.src, ref: hide ? null : v.ref, note: hide ? null : v.note, no: vno(v.direction, v.id), account: acc ? accountName(acc) : null };
+  });
 }));
 
 /* ---------------- cheque register ---------------- */
@@ -493,7 +543,7 @@ function handovers(t: number) {
     // a shift with no cash at all (strike / pump closed, nothing sold) has nothing to hand over
     pending: all(`SELECT ${cols} FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.handed_at IS NULL AND sh.closed_at >= ?
       AND NOT (COALESCE(sh.cash_actual,0)=0 AND COALESCE(sh.cash_expected,0)=0) ORDER BY sh.closed_at`, t, since),
-    done: all(`SELECT ${cols} FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.handed_at IS NOT NULL ORDER BY sh.handed_at DESC LIMIT 20`, t),
+    done: all(`SELECT ${cols} FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.handed_at IS NOT NULL ORDER BY sh.handed_at DESC LIMIT 60`, t),
   };
 }
 
@@ -547,9 +597,13 @@ export function cashierDayBook(t: number, d: string, showPrivate = true) {
     ...all(`SELECT created_at at, 'in' dir, 'Shop sale (no shift)' what, '' party, 'Cash' method, total amount, NULL account_id, NULL who
       FROM shop_sales WHERE tenant_id=? AND shift_id IS NULL AND payment_method='cash' AND created_at >= ? AND created_at < ?`, ...P),
     ...all(`SELECT k.created_at at, 'in' dir, 'Khata payment' what, c.name party, COALESCE(k.ref,'') method, k.amount, k.account_id, NULL who
-      FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND COALESCE(k.ref,'') NOT LIKE 'oth-%' AND k.created_at >= ? AND k.created_at < ?`, ...P),
+      FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND COALESCE(k.ref,'') NOT LIKE 'oth-%' AND COALESCE(k.ref,'')<>'open:' AND k.created_at >= ? AND k.created_at < ?`, ...P),
+    ...all(`SELECT x.created_at at, 'in' dir, 'Carriage payment' what, k.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
+      FROM carriage_txns x JOIN thekedars k ON k.id=x.thekedar_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND COALESCE(x.ref,'') NOT LIKE 'oth-%' AND x.created_at >= ? AND x.created_at < ?`, ...P),
+    ...all(`SELECT x.created_at at, 'out' dir, 'Bypass supplier paid' what, s.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
+      FROM bypass_supplier_payments x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.mode IN ('we_pay','through_us') AND x.voided=0 AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT x.created_at at, 'in' dir, 'Wholesale payment' what, c.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
-      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND COALESCE(x.ref,'') NOT LIKE 'oth-%' AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
+      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND COALESCE(x.ref,'') NOT LIKE 'oth-%' AND ${notDepot("x.method")} AND LOWER(COALESCE(x.method,''))<>'paid bypass supplier' AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT x.created_at at, 'out' dir, 'Supplier payment' what, s.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
       FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.type='payment' AND COALESCE(x.method,'')<>'WHT' AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT created_at at, 'out' dir, 'Expense · ' || category what, COALESCE(paid_to,'') party, method, amount, account_id, created_by who
@@ -644,7 +698,7 @@ export function onlineToday(t: number, since = pkDayStart()) {
 cashier.get("/cashier/daybook", requirePerm("cashier.desk"), h((req) => cashierDayBook(tid(req), req.query.date ? parse(day, req.query.date) : pkDate(), req.user!.role === "admin")));
 
 /** The day book as a CSV (Excel) download — oldest entry first. */
-cashier.get("/cashier/daybook.csv", (req, res, next) => {
+cashier.get("/cashier/daybook.csv", requirePerm("cashier.desk"), (req, res, next) => {
   try {
     const d = req.query.date ? parse(day, req.query.date) : pkDate();
     const b = cashierDayBook(tid(req), d, req.user!.role === "admin");

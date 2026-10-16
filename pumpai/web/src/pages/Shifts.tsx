@@ -2,7 +2,7 @@ import { useOfflineQueue } from "../lib/offline";
 import { useEffect, useMemo, useState } from "react";
 import { Clock, AlertTriangle } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Field, Loading, Modal, PageHeader, statusTone, useAction } from "../components/ui";
+import { Badge, Empty, Field, ListTools, Loading, Modal, PageHeader, statusTone, useAction } from "../components/ui";
 import { PRODUCTS, dt, num, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { PhotoButton, PhotoThumb } from "../components/Capture";
@@ -12,16 +12,24 @@ import { Ur } from "../components/VoiceShell";
 const hhmm = (h: number) => `${Math.floor(h)}h ${String(Math.floor((h % 1) * 60)).padStart(2, "0")}m`;
 
 export default function Shifts() {
-  const shifts = useApi<any[]>("/shifts");
+  // list filters go to the server (status "short" = closed with cash short); the search box is debounced
+  const [flt, setFlt] = useState({ q: "", from: "", to: "", status: "", station: "" });
+  const [dq, setDq] = useState("");
+  useEffect(() => { const id = setTimeout(() => setDq(flt.q.trim()), 300); return () => clearTimeout(id); }, [flt.q]);
+  const qs = new URLSearchParams(Object.entries({ q: dq, from: flt.from, to: flt.to, status: flt.status, station_id: flt.station }).filter(([, v]) => v)).toString();
+  const shifts = useApi<any[]>(`/shifts${qs ? `?${qs}` : ""}`);
   const stations = useApi<any[]>("/stations");
   const { user } = useAuth();
   const isSalesman = user?.role === "salesman";
+  // the salesman's own open shift must show whatever the list filter is
+  const mine = useApi<any[]>(isSalesman ? "/shifts?status=open&limit=5" : null);
+  const reloadAll = () => { shifts.reload(); mine.reload(); };
   const [mgrOpen, setMgrOpen] = useState<{ station_id: string; attendant: string } | null>(null);
   const [closing, setClosing] = useState<number | null>(null);
   const [report, setReport] = useState<number | null>(null);
 
   if (!shifts.data || !stations.data) return <Loading />;
-  const myOpen = isSalesman ? shifts.data.find((s) => s.status === "open") : null;
+  const myOpen = isSalesman ? (mine.data ?? shifts.data).find((s) => s.status === "open") : null;
 
   return (
     <div className="space-y-5">
@@ -32,10 +40,16 @@ export default function Shifts() {
       {isSalesman && (myOpen ? <MyShift id={myOpen.id} onEnd={() => setClosing(myOpen.id)} /> : (
         <div className="card p-5">
           <div className="mb-3 flex items-center gap-3"><Clock className="text-slate-400" /><div><div className="font-semibold">Start your shift — {user?.name} · {user?.station_name}</div><div className="text-sm text-slate-600">Check every meter you will run and confirm the reading.</div></div></div>
-          <StartShiftSheet big onStarted={() => shifts.reload()} />
+          <StartShiftSheet big onStarted={reloadAll} />
         </div>
       ))}
 
+      <div>
+      <ListTools q={flt.q} onQ={(q) => setFlt({ ...flt, q })} placeholder="Salesman ka naam ya shift #… · تلاش"
+        chips={[{ k: "", label: "All" }, { k: "open", label: "Open" }, { k: "closed", label: "Closed" }, { k: "short", label: "Short" }]} chip={flt.status} onChip={(status) => setFlt({ ...flt, status })}
+        from={flt.from} to={flt.to} onFrom={(from) => setFlt({ ...flt, from })} onTo={(to) => setFlt({ ...flt, to })}
+        right={!isSalesman && stations.data.length > 1 ? <select className="input w-auto" aria-label="Station" value={flt.station} onChange={(e) => setFlt({ ...flt, station: e.target.value })}><option value="">All stations</option>{stations.data.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select> : undefined} />
+      {!shifts.data.length && <Empty>Koi shift nahi mili · <Ur>کوئی شفٹ نہیں ملی</Ur></Empty>}
       {/* phone: one card per shift */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
         {shifts.data.map((s) => {
@@ -90,6 +104,7 @@ export default function Shifts() {
           })}</tbody>
         </table>
       </div>
+      </div>
 
       {mgrOpen && (
         <Modal open onClose={() => setMgrOpen(null)} title="Open a shift" wide>
@@ -97,11 +112,11 @@ export default function Shifts() {
             <Field label="Station"><select className="input" value={mgrOpen.station_id} onChange={(e) => setMgrOpen({ ...mgrOpen, station_id: e.target.value })}>{stations.data.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
             <Field label="Salesman name"><input className="input" required value={mgrOpen.attendant} onChange={(e) => setMgrOpen({ ...mgrOpen, attendant: e.target.value })} /></Field>
           </div>
-          {mgrOpen.attendant.length >= 2 ? <StartShiftSheet key={mgrOpen.station_id} stationId={Number(mgrOpen.station_id)} attendant={mgrOpen.attendant} onStarted={() => { setMgrOpen(null); shifts.reload(); }} />
+          {mgrOpen.attendant.length >= 2 ? <StartShiftSheet key={mgrOpen.station_id} stationId={Number(mgrOpen.station_id)} attendant={mgrOpen.attendant} onStarted={() => { setMgrOpen(null); reloadAll(); }} />
             : <p className="text-sm text-slate-500">Enter the salesman's name to see the nozzles.</p>}
         </Modal>
       )}
-      {closing && <CloseShift id={closing} onClose={() => setClosing(null)} onClosed={(r) => { setClosing(null); setReport(r.id); shifts.reload(); }} />}
+      {closing && <CloseShift id={closing} onClose={() => setClosing(null)} onClosed={(r) => { setClosing(null); setReport(r.id); reloadAll(); }} />}
       {report && <ShiftReport id={report} onClose={() => setReport(null)} />}
     </div>
   );

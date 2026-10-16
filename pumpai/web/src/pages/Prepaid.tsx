@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import QRCode from "qrcode";
 import { Ticket, Wallet, Plus, Printer, ArrowLeft, Ban } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
+import { Badge, Empty, ErrorBox, Field, ListTools, Loading, Modal, PageHeader, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
 import { dt, pkr, PRODUCTS } from "../lib/format";
 import { useAuth } from "../App";
 import { AccountPicker } from "../components/BankParts";
@@ -28,11 +28,19 @@ export default function Prepaid() {
 }
 
 function Coupons() {
-  const { data, reload } = useApi<any>("/coupons");
+  const [q, setQ] = useState("");
+  const [dq, setDq] = useState("");
+  const [status, setStatus] = useState("");
+  useEffect(() => { const t = setTimeout(() => setDq(q.trim()), 300); return () => clearTimeout(t); }, [q]);
+  const qs = new URLSearchParams({ ...(dq ? { q: dq } : {}), ...(status ? { status } : {}) }).toString();
+  const { data, reload } = useApi<any>(`/coupons${qs ? `?${qs}` : ""}`);
   const { can } = useAuth();
   const { run } = useAction();
   const [sell, setSell] = useState(false);
   if (!data) return <Loading />;
+  const filtered = Boolean(dq || status);
+  const chips = [{ k: "", label: "All" }, { k: "active", label: "Unused left · باقی" }, { k: "used", label: "Fully used · استعمال شدہ" }, { k: "void", label: "Has cancelled · منسوخ" }];
+  const emptyMsg = filtered ? "Kuch nahi mila · کچھ نہیں ملا" : "No coupons sold yet. Sell a book to a company or for gifts — each coupon is scanned once at the POS.";
   return (
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -40,6 +48,7 @@ function Coupons() {
         <Stat label="Used" value={pkr(data.summary.used_value)} hint={`${data.summary.used} coupons scanned at the pump`} tone="green" />
         <div className="card flex items-center justify-center p-4"><button className="btn-primary" onClick={() => setSell(true)}><Plus size={15} /> Sell a coupon book</button></div>
       </div>
+      <ListTools q={q} onQ={setQ} placeholder="Buyer / book no… · خریدار یا بک نمبر" chips={chips} chip={status} onChip={setStatus} />
       {/* phone: one card per coupon book */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
         {data.batches.map((b: any) => (
@@ -57,7 +66,7 @@ function Coupons() {
             </div>
           </li>
         ))}
-        {!data.batches.length && <li><Empty>No coupons sold yet. Sell a book to a company or for gifts — each coupon is scanned once at the POS.</Empty></li>}
+        {!data.batches.length && <li><Empty>{emptyMsg}</Empty></li>}
       </ul>
       <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full min-w-[640px] text-sm">
@@ -81,7 +90,7 @@ function Coupons() {
             ))}
           </tbody>
         </table>
-        {!data.batches.length && <Empty>No coupons sold yet. Sell a book to a company or for gifts — each coupon is scanned once at the POS.</Empty>}
+        {!data.batches.length && <Empty>{emptyMsg}</Empty>}
       </div>
       {sell && <SellCoupons onClose={() => setSell(false)} onDone={() => { setSell(false); reload(); }} />}
     </>

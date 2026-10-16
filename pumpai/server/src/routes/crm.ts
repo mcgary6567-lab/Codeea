@@ -34,9 +34,9 @@ crm.get("/customers", requirePerm("customers.view"), h((req) => {
   return all(
     `SELECT c.*, (SELECT COUNT(*) FROM vehicles v WHERE v.customer_id=c.id) vehicles,
        (SELECT ROUND(SUM(amount)) FROM sales s WHERE s.customer_id=c.id AND s.created_at >= date('now','-30 day')) spend_30d
-     FROM customers c WHERE c.tenant_id=? AND (c.name LIKE ? OR c.phone LIKE ?) ${seg ? "AND c.segment=?" : ""} ${act}
+     FROM customers c WHERE c.tenant_id=? AND (c.name LIKE ? OR c.phone LIKE ? OR EXISTS (SELECT 1 FROM vehicles v WHERE v.customer_id=c.id AND v.plate_no LIKE ?)) ${seg ? "AND c.segment=?" : ""} ${act}
      ORDER BY c.last_visit_at DESC NULLS LAST, c.id DESC LIMIT 500`,
-    ...(seg ? [tid(req), q, q, seg] : [tid(req), q, q]),
+    ...(seg ? [tid(req), q, q, q, seg] : [tid(req), q, q, q]),
   );
 }));
 
@@ -160,6 +160,7 @@ crm.post("/customers/:id/khata", requireAny("khata.manage", "cash.receive"), h(a
   const b = parse(z.object({ type: z.enum(["debit", "credit"]), amount: z.number().positive(), note: z.string().optional(), method: z.string().optional(), notify: z.boolean().default(true), photo_ids: proofPhotos, account_id: accountIdField,
     cheque_bank: z.string().max(80).optional().nullable(), cheque_no: z.string().max(30).optional().nullable(), cheque_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable() }), req.body);
   if (b.type === "credit" && !b.method) b.method = "Cash"; // a payment with no method is cash — every book reads it the same way
+  if (b.type === "debit") b.method = undefined; // a charge moves no cash/bank (the ledger books it as income); cash given to a customer goes through Other entries → party khata
   if (b.type === "debit" && !can(req.user, "khata.manage")) throw new AppError(403, "The cashier can only receive payments");
   if (b.type === "credit" && isCheque(b.method)) requireProof(tid(req), b.photo_ids, "cheque");
   // a cheque not yet in the bank waits in the cheque register; the khata goes down when it clears

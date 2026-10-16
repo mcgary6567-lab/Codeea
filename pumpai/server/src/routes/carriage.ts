@@ -254,7 +254,7 @@ carriage.post("/carriage/thekedars/:id/payment", requirePerm("carriage.manage"),
   const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
   const acc = bankAccountFor(t, b.account_id, b.method ?? "cash");
   const { id } = run(`INSERT INTO carriage_txns (tenant_id,thekedar_id,type,amount,method,account_id,ref,note,created_by,txn_date,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)`, t, k.id, "payment", round2(b.amount), b.method ?? null, acc ?? null, b.ref ?? null, b.note ?? null, req.user!.name, ts, now());
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`, t, k.id, "payment", round2(b.amount), b.method ?? "Cash", acc ?? null, b.ref ?? null, b.note ?? null, req.user!.name, ts, now());
   if (b.photo_ids?.length) linkPhotos(t, b.photo_ids, `carr:${id}`);
   if (b.notify) tell(t, k, "carriage", `carr:${id}`, `${k.name}\nKiraya payment Rs ${Math.round(b.amount).toLocaleString("en-PK")} mil gayi. Baqaya Rs ${Math.round(thekedarDue(k.id)).toLocaleString("en-PK")}.\n— ${tenantName(t)}`);
   return { txn: get("SELECT * FROM carriage_txns WHERE id=?", id), due: thekedarDue(k.id) };
@@ -275,6 +275,7 @@ carriage.post("/carriage/txns/:id/void", requirePerm("carriage.void"), h((req) =
   const t = tid(req);
   const x = get("SELECT * FROM carriage_txns WHERE id=? AND tenant_id=? AND voided=0", Number(req.params.id), t);
   if (!x) throw new AppError(404, "Entry not found");
+  if (String(x.ref ?? "").startsWith("oth-")) throw new AppError(400, "Ye Other-entries (CEO) ki entry hai — wahin se undo karein.");
   const b = parse(z.object({ reason: z.string().max(200).optional().nullable() }), req.body);
   tx(() => {
     run("UPDATE carriage_txns SET voided=1, void_reason=? WHERE id=?", b.reason ?? null, x.id);
@@ -295,7 +296,7 @@ carriage.post("/carriage/txns/:id/edit", requirePerm("entries.edit"), h((req) =>
   const x = get("SELECT * FROM carriage_txns WHERE id=? AND tenant_id=? AND voided=0", Number(req.params.id), t);
   if (!x) throw new AppError(404, "Entry nahi mili");
   if (x.type === "carriage") throw new AppError(400, "Kiraya (bypass) trip edit nahi hoti — void karke dobara daalein.");
-  if (String(x.ref ?? "").startsWith("oth-disc:")) throw new AppError(400, "Ye Other-entries ka discount hai — wahin se badlein.");
+  if (String(x.ref ?? "").startsWith("oth-")) throw new AppError(400, "Ye Other-entries (CEO) ki entry hai — wahin se badlein.");
   const b = parse(z.object({
     reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
     amount: z.number().refine((n) => n !== 0, "Amount theek nahi").optional(),

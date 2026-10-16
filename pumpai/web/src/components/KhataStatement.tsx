@@ -3,7 +3,7 @@ import { Download, Printer, Send, QrCode, ExternalLink } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { ProofThumbs } from "./Capture";
 import { PortalCard } from "./PortalCard";
-import { Field, Loading, Modal, useAction } from "./ui";
+import { Field, ListTools, Loading, Modal, useAction, useListFilter } from "./ui";
 import { WhatsAppDoc } from "./WhatsAppDoc";
 import { PRODUCTS, num, phone, pkr } from "../lib/format";
 
@@ -16,6 +16,13 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
   const [range, setRange] = useState({ from: monthStart(), to: today() });
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const { data: s, reload } = useApi<any>(`/customers/${customerId}/statement?${qs}`);
+  // on-screen narrowing of the loaded statement: one vehicle and/or a text search. Print / Excel / PDF stay on the full range.
+  const [veh, setVeh] = useState("");
+  const [lq, setLq] = useState("");
+  const vehicles: string[] = [...new Set<string>(((s?.lines ?? []) as any[]).map((l) => l.vehicle_no).filter(Boolean))].sort();
+  const lines = useListFilter<any>(s?.lines, { q: lq, keep: veh ? (l) => l.vehicle_no === veh : undefined,
+    text: (l) => [l.product ? PRODUCTS[l.product] : "", l.product, l.type === "credit" ? "payment" : "", l.note, l.ref, l.slip_no, l.vehicle_no, l.amount, l.litres].filter((v) => v != null && v !== "").join(" ") });
+  const narrowed = Boolean(veh || lq.trim());
   // vehicle / slip columns only when some line has one, so the paper is not half dashes
   const cols = { vehicle: Boolean(s?.lines?.some((l: any) => l.vehicle_no)), slip: Boolean(s?.lines?.some((l: any) => l.slip_no || l.type === "credit")) };
   const csv = `/api/customers/${customerId}/statement.csv?${qs}&token=${linkToken()}`;
@@ -70,9 +77,17 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
               <div key={p.product} className="rounded-lg bg-slate-50 px-3 py-2 text-sm"><b>{PRODUCTS[p.product] ?? p.product}</b>: {num(p.litres, 2)} L · {pkr(p.amount)} · {p.entries} slips</div>
             ))}
           </div>
+          <ListTools q={lq} onQ={setLq} placeholder="Slip / note / amount dhoondein… · تلاش" shown={lines.length} total={s.lines.length}
+            right={vehicles.length > 0 ? (
+              <select className="input w-auto" value={veh} onChange={(e) => setVeh(e.target.value)} aria-label="Vehicle">
+                <option value="">All vehicles · تمام گاڑیاں</option>
+                {vehicles.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+            ) : undefined} />
+          {narrowed && <div className="hidden text-xs text-slate-500 print:block">Filtered{veh ? ` · vehicle ${veh}` : ""}{lq.trim() ? ` · "${lq.trim()}"` : ""} — {lines.length} of {s.lines.length} entries</div>}
           {/* phone: one card per slip / payment; the table from sm up and on paper (no empty vehicle / slip columns) */}
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 sm:hidden print:hidden">
-            {s.lines.map((l: any) => (
+            {lines.map((l: any) => (
               <li key={l.id} className="space-y-0.5 px-3 py-2 text-sm">
                 <div className="flex justify-between gap-2">
                   <span className="min-w-0 font-medium">{l.product ? PRODUCTS[l.product] : l.type === "credit" ? <span className="text-emerald-700">Payment</span> : l.note}
@@ -86,13 +101,13 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
                 </div>
               </li>
             ))}
-            {!s.lines.length && <li className="p-6 text-center text-sm text-slate-500">No entries in this period</li>}
+            {!lines.length && <li className="p-6 text-center text-sm text-slate-500">{narrowed ? "No entries match this filter" : "No entries in this period"}</li>}
           </ul>
           <div className="hidden max-h-[55vh] overflow-auto rounded-lg border border-slate-200 sm:block print:block print:max-h-none">
             <table className="w-full">
               <thead className="sticky top-0"><tr>{["Date & time", ...(cols.vehicle ? ["Vehicle"] : []), ...(cols.slip ? ["Slip no."] : []), "Fuel", "Litres", "Rate / L", "Charged", "Paid", "Balance"].map((h) => <th key={h} className={`th whitespace-nowrap ${["Litres", "Rate / L", "Charged", "Paid", "Balance"].includes(h) ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
               <tbody>
-                {s.lines.map((l: any) => (
+                {lines.map((l: any) => (
                   <tr key={l.id}>
                     <td className="td whitespace-nowrap text-xs">{new Date(l.created_at).toLocaleString("en-PK", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                     {cols.vehicle && <td className="td text-xs">{l.vehicle_no ?? "—"}</td>}
@@ -107,7 +122,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
                 ))}
               </tbody>
             </table>
-            {!s.lines.length && <div className="p-6 text-center text-sm text-slate-500">No entries in this period</div>}
+            {!lines.length && <div className="p-6 text-center text-sm text-slate-500">{narrowed ? "No entries match this filter" : "No entries in this period"}</div>}
           </div>
         </div>
       )}

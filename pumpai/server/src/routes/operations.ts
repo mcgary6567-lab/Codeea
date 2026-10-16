@@ -4,7 +4,7 @@ import { registerDecider, requestApproval, closeApproval } from "./approvals.js"
 import { walletAfterFill } from "./prepaid.js";
 import { askRating } from "./feedback.js";
 import { claimForDelivery } from "./claims.js";
-import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, METER, meterName, type Row } from "../db.js";
+import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, pkStart, pkEnd, METER, meterName, type Row } from "../db.js";
 import { meterSales } from "./reports.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt, correctTo15, priceOf, type SaleInput } from "../services.js";
@@ -652,11 +652,29 @@ operations.post("/sales/clear", requirePerm("khata.clear_pending"), h((req) => {
 }));
 
 /* ---------------- Shifts ---------------- */
-operations.get("/shifts", requirePerm("shifts.manage"), h((req) => all(
-  `SELECT sh.*, st.name station_name FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=?
-   ${req.user!.role === "salesman" ? "AND sh.station_id=" + Number(scopedStation(req)) + " AND sh.attendant=?" : "AND ?=?"} ORDER BY sh.id DESC LIMIT 60`,
-  tid(req), ...(req.user!.role === "salesman" ? [req.user!.name] : [1, 1]),
-).map((s) => ({ ...s, readings: all(`SELECT r.*, ${METER} label, n.meter_no FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=? ORDER BY n.meter_no`, s.id) }))));
+/** A PK calendar day (YYYY-MM-DD) in a list filter; "" means not set. */
+const pkDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional();
+const listText = z.string().trim().max(80).optional();
+const optId = z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().int().positive().optional());
+const shiftsQuery = z.object({
+  station_id: optId, attendant: listText, q: listText, from: pkDay, to: pkDay,
+  status: z.enum(["open", "closed", "short"]).or(z.literal("")).optional(), limit: z.coerce.number().int().min(1).max(500).default(60),
+});
+/** Shift list, newest first. Filters: station, attendant / free text, PK day range (opened_at), status (short = closed with cash short), limit (max 500). */
+operations.get("/shifts", requirePerm("shifts.manage"), h((req) => {
+  const f = parse(shiftsQuery, req.query);
+  const where = ["st.tenant_id=?"]; const args: (string | number)[] = [tid(req)];
+  if (req.user!.role === "salesman") { where.push("sh.station_id=?", "sh.attendant=?"); args.push(Number(scopedStation(req)), req.user!.name); }
+  else if (f.station_id) { where.push("sh.station_id=?"); args.push(f.station_id); }
+  if (f.attendant) { where.push("sh.attendant LIKE ?"); args.push(`%${f.attendant}%`); }
+  if (f.q) { where.push("(sh.attendant LIKE ? OR st.name LIKE ? OR sh.id = ?)"); args.push(`%${f.q}%`, `%${f.q}%`, Number(f.q) || 0); }
+  if (f.from) { where.push("sh.opened_at >= ?"); args.push(pkStart(f.from)); }
+  if (f.to) { where.push("sh.opened_at < ?"); args.push(pkEnd(f.to)); }
+  if (f.status === "open" || f.status === "closed") { where.push("sh.status=?"); args.push(f.status); }
+  else if (f.status === "short") where.push("sh.status='closed' AND sh.variance < 0");
+  return all(`SELECT sh.*, st.name station_name FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE ${where.join(" AND ")} ORDER BY sh.id DESC LIMIT ?`, ...args, f.limit)
+    .map((s) => ({ ...s, readings: all(`SELECT r.*, ${METER} label, n.meter_no FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=? ORDER BY n.meter_no`, s.id) }));
+}));
 
 /** Nozzles that are not part of another open shift. */
 const busyNozzles = (stationId: number) => new Set(all(
@@ -974,10 +992,26 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
 }));
 
 /* ---------------- Stock: dips & deliveries ---------------- */
-operations.get("/stock", requirePerm("stock.manage"), h((req) => ({
-  dips: all(`SELECT d.*, ${proofCol("'dip:'||d.id")}, t.name tank, t.product, s.name station FROM dip_readings d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
-  deliveries: all(`SELECT d.*, t.name tank, t.product, s.name station FROM deliveries d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
-})));
+const stockQuery = z.object({ limit: z.coerce.number().int().min(1).max(500).default(50), from: pkDay, to: pkDay, tank_id: optId, q: listText });
+/** Dip readings and tanker deliveries, newest first. Filters: tank, PK day range, free text (supplier / tanker no / tank / product / station), limit (default 50, max 500). */
+operations.get("/stock", requirePerm("stock.manage"), h((req) => {
+  const f = parse(stockQuery, req.query);
+  const where = ["s.tenant_id=?"]; const args: (string | number)[] = [tid(req)];
+  if (f.tank_id) { where.push("d.tank_id=?"); args.push(f.tank_id); }
+  if (f.from) { where.push("d.created_at >= ?"); args.push(pkStart(f.from)); }
+  if (f.to) { where.push("d.created_at < ?"); args.push(pkEnd(f.to)); }
+  const like = f.q ? `%${f.q}%` : null;
+  const common = ["t.name LIKE ?", "t.product LIKE ?", "s.name LIKE ?"];
+  const textWhere = (extra: string[]) => (like ? [`(${[...common, ...extra].join(" OR ")})`] : []);
+  const textArgs = (n: number) => (like ? Array(common.length + n).fill(like) : []);
+  return {
+    limit: f.limit,
+    dips: all(`SELECT d.*, ${proofCol("'dip:'||d.id")}, t.name tank, t.product, s.name station FROM dip_readings d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id
+      WHERE ${[...where, ...textWhere([])].join(" AND ")} ORDER BY d.id DESC LIMIT ?`, ...args, ...textArgs(0), f.limit),
+    deliveries: all(`SELECT d.*, t.name tank, t.product, s.name station FROM deliveries d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id
+      WHERE ${[...where, ...textWhere(["d.supplier LIKE ?", "d.tanker_no LIKE ?"])].join(" AND ")} ORDER BY d.id DESC LIMIT ?`, ...args, ...textArgs(2), f.limit),
+  };
+}));
 
 operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
   const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional(), temperature: z.number().min(-10).max(70).optional(), photo_ids: proofPhotos, confirm: z.boolean().optional() })

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Download, Check, X, Trash2, Settings2, Repeat, Printer } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
+import { Badge, Empty, Field, ListTools, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
 import { FixedCosts } from "../components/FixedCosts";
 import { d, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
@@ -17,7 +17,12 @@ export default function Expenses() {
   const [month, setMonth] = useState(thisMonth());
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
-  const qs = new URLSearchParams(Object.entries({ month, category, status }).filter(([, v]) => v)).toString();
+  const [station, setStation] = useState("");
+  const [method, setMethod] = useState("");
+  const [q, setQ] = useState(""); // paid to / note / receipt no / category — searched on the server, debounced
+  const [dq, setDq] = useState("");
+  useEffect(() => { const id = setTimeout(() => setDq(q.trim()), 300); return () => clearTimeout(id); }, [q]);
+  const qs = new URLSearchParams(Object.entries({ month, category, status, station_id: station, method, q: dq }).filter(([, v]) => v)).toString();
   const { data, reload } = useApi<any>(`/expenses?${qs}`);
   const cats = useApi<any>("/expense-categories");
   const stations = useApi<any[]>("/stations");
@@ -64,7 +69,10 @@ export default function Expenses() {
         <div className="col-span-2 sm:col-span-1"><Field label="Month"><input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value || thisMonth())} /></Field></div>
         <Field label="Category"><select className="input" value={category} onChange={(e) => setCategory(e.target.value)}><option value="">All</option>{cats.data.categories.map((c: any) => <option key={c.id}>{c.name}</option>)}</select></Field>
         <Field label="Status"><select className="input" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>
+        {(stations.data?.length ?? 0) > 0 && <Field label="Station"><select className="input" value={station} onChange={(e) => setStation(e.target.value)}><option value="">All</option>{stations.data!.map((st: any) => <option key={st.id} value={st.id}>{st.name}</option>)}</select></Field>}
       </div>
+      <ListTools q={q} onQ={setQ} placeholder="Kis ko diya, note, receipt no… · تلاش"
+        chips={[{ k: "", label: "All" }, ...METHODS.map((m) => ({ k: m, label: m === "bank" ? "Bank" : m.charAt(0).toUpperCase() + m.slice(1) }))]} chip={method} onChip={setMethod} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Expenses this month" value={pkrShort(s.total)} tone="red" hint={change !== null ? `${change > 0 ? "+" : ""}${change}% vs last month (${pkrShort(s.previous_month)})` : undefined} />

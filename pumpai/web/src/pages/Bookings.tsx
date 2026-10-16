@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, PageHeader, PhoneInput, useAction } from "../components/ui";
+import { Badge, Empty, Field, FilterChips, Loading, Modal, PageHeader, PhoneInput, SearchBar, matchQuery, useAction } from "../components/ui";
 import { useLookups } from "../lib/lookups";
 
 // booking services come from Settings → Lists
@@ -9,17 +9,31 @@ import { useLookups } from "../lib/lookups";
 /** Car wash / oil change / tyre bookings (customers also book themselves on WhatsApp). */
 export default function Bookings() {
   const svc = useLookups("booking_service");
-  const { data, reload } = useApi<any[]>("/bookings", 60_000);
+  const stations = useApi<any[]>("/stations");
+  const [stationId, setStationId] = useState("");
+  const [status, setStatus] = useState("");
+  const [q, setQ] = useState("");
+  const { data, reload } = useApi<any[]>(`/bookings${stationId ? `?station_id=${stationId}` : ""}`, 60_000);
   const [adding, setAdding] = useState(false);
   const { run } = useAction();
   if (!data) return <Loading />;
   const day = (iso: string) => new Date(iso).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", weekday: "long", day: "numeric", month: "short" });
-  const groups = data.reduce((a: Record<string, any[]>, b) => { (a[day(b.at)] ??= []).push(b); return a; }, {});
+  const countOf = (s: string) => data.filter((b) => b.status === s).length;
+  const chips: [string, string][] = [["", `All (${data.length})`], ...["booked", "done", "no_show", "cancelled"].filter((s) => countOf(s) > 0).map((s) => [s, `${s.replace("_", "-")} (${countOf(s)})`] as [string, string])];
+  const digits = q.replace(/\D/g, "");
+  const rows = data.filter((b) => (!status || b.status === status) && (!q.trim() || (digits && String(b.phone ?? "").replace(/\D/g, "").includes(digits)) || matchQuery(q, b.customer_name, b.vehicle_no, svc.text(b.service), b.station_name)));
+  const groups = rows.reduce((a: Record<string, any[]>, b) => { (a[day(b.at)] ??= []).push(b); return a; }, {});
   const act = (id: number, s: string, msg: string) => run(() => api(`/bookings/${id}/${s}`, { body: {} }), msg).then(reload);
   return (
     <div className="space-y-5">
       <PageHeader title="Bookings · بکنگ" subtitle="Car wash, oil change and tyre slots. Customers can book on WhatsApp and get a reminder an hour before."
         actions={<button className="btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> New booking</button>} />
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchBar value={q} onChange={setQ} placeholder="Phone number / naam / gaari… · فون یا نام" className="min-w-[220px] flex-1" />
+        {(stations.data ?? []).length > 1 && <select className="input w-auto" value={stationId} onChange={(e) => setStationId(e.target.value)} aria-label="Station">
+          <option value="">All stations</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
+        <FilterChips value={status} onChange={setStatus} opts={chips} />
+      </div>
       {Object.entries(groups).map(([d, list]) => (
         <div key={d} className="card p-4">
           <h2 className="mb-2 font-semibold">{d}</h2>
@@ -37,6 +51,7 @@ export default function Bookings() {
         </div>
       ))}
       {!data.length && <Empty>No bookings yet.</Empty>}
+      {data.length > 0 && !rows.length && <Empty>Kuch nahi mila · کچھ نہیں ملا</Empty>}
       {adding && <BookingForm onClose={() => setAdding(false)} onDone={() => { setAdding(false); reload(); }} />}
     </div>
   );

@@ -88,7 +88,10 @@ expenses.put("/expenses/settings", requirePerm("expenses.approve"), h((req) => {
 function filters(req: Request) {
   const q = parse(z.object({
     month: z.string().regex(/^\d{4}-\d{2}$/).optional(), category: z.string().optional(),
-    station_id: z.coerce.number().optional(), status: z.enum(["pending", "approved", "rejected"]).optional(),
+    station_id: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().int().positive().optional()),
+    status: z.enum(["pending", "approved", "rejected"]).or(z.literal("")).optional(),
+    method: z.enum(["cash", "bank", "jazzcash", "easypaisa", "raast", "cheque", "card"]).or(z.literal("")).optional(),
+    q: z.string().trim().max(80).optional(), // paid to / note / receipt no / category
   }), req.query);
   const month = q.month ?? new Date().toISOString().slice(0, 7);
   return { ...q, month };
@@ -100,6 +103,8 @@ function listExpenses(t: number, f: ReturnType<typeof filters>) {
   if (f.category) { where.push("e.category=?"); args.push(f.category); }
   if (f.station_id) { where.push("e.station_id=?"); args.push(f.station_id); }
   if (f.status) { where.push("e.status=?"); args.push(f.status); }
+  if (f.method) { where.push("e.method=?"); args.push(f.method); }
+  if (f.q) { const like = `%${f.q}%`; where.push("(e.paid_to LIKE ? OR e.note LIKE ? OR e.receipt_ref LIKE ? OR e.category LIKE ?)"); args.push(like, like, like, like); }
   return all(`SELECT e.*, s.name station_name FROM expenses e LEFT JOIN stations s ON s.id=e.station_id WHERE ${where.join(" AND ")} ORDER BY e.expense_date DESC, e.id DESC`, ...args);
 }
 
@@ -185,6 +190,10 @@ export async function createExpense(req: Request, b: z.infer<typeof expenseBody>
 function ownExpense(req: Request) {
   const e = get("SELECT * FROM expenses WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!e) throw new AppError(404, "Expense not found");
+  // paid out at the cash counter: the voucher is the money — change/void it from the Cashier desk so both stay in step
+  if (get("SELECT id FROM cashier_vouchers WHERE tenant_id=? AND src=? AND voided=0", tid(req), `expense:${e.id}`)) throw new AppError(400, "Ye kharcha cashier voucher se hua hai — Cashier desk se edit/void karein");
+  // booked on a shift that has already closed: the shift's cash figures were settled with it, so it cannot change now
+  if (e.shift_id && get("SELECT id FROM shifts WHERE id=? AND status='closed'", e.shift_id)) throw new AppError(400, "Ye kharcha band shift ka hai — shift close ho chuki, ab nahi badal sakta");
   if (!can(req.user, "expenses.approve") && (e.created_by !== req.user!.name || e.status !== "pending"))
     throw new AppError(403, "You can only change your own pending expenses");
   return e;
@@ -216,6 +225,8 @@ export function decideExpense(t: number, id: number, approve: boolean, by: strin
   if (e.status !== "pending") throw new AppError(400, `Expense is already ${e.status}`);
   const status = approve ? "approved" : "rejected";
   run("UPDATE expenses SET status=?, approved_by=? WHERE id=?", status, by, e.id);
+  // paid at the cash counter before approval: a rejected expense means that payout is void too (the money comes back)
+  if (!approve) run("UPDATE cashier_vouchers SET voided=1, void_reason=?, voided_by=?, voided_at=? WHERE tenant_id=? AND src=? AND voided=0", "Expense rejected", by, now(), t, `expense:${e.id}`);
   closeApproval("expense", e.id, approve, by);
   if (approve) checkBudget(t, e.category, monthOf(e.expense_date));
   return get("SELECT * FROM expenses WHERE id=?", e.id);

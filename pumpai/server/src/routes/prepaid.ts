@@ -27,11 +27,19 @@ export function couponSummary(t: number) {
   return { ...s, outstanding: round2(s.outstanding), used_value: round2(s.used_value) };
 }
 
+/** Coupon books, newest first. `q` matches buyer or batch; `status` keeps books that still have active coupons / are fully used / have voids; `limit` max 500. */
+const couponsQuery = z.object({ q: z.string().trim().max(80).optional(), status: z.enum(["active", "used", "void"]).optional(), limit: z.coerce.number().int().min(1).max(500).default(60) });
 prepaid.get("/coupons", requirePerm("khata.manage"), h((req) => {
   const t = tid(req);
+  const qp = parse(couponsQuery, { q: req.query.q || undefined, status: req.query.status || undefined, limit: req.query.limit || undefined });
+  const where = ["tenant_id=?"]; const args: (string | number)[] = [t];
+  if (qp.q) { where.push("(buyer LIKE ? OR batch LIKE ?)"); args.push(`%${qp.q}%`, `%${qp.q}%`); }
+  const having = qp.status === "active" ? "HAVING SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) > 0"
+    : qp.status === "used" ? "HAVING SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) = 0 AND SUM(CASE WHEN status='used' THEN 1 ELSE 0 END) > 0"
+    : qp.status === "void" ? "HAVING SUM(CASE WHEN status='void' THEN 1 ELSE 0 END) > 0" : "";
   const batches = all(`SELECT batch, value, product, buyer, method, expires_on, sold_by, MIN(sold_at) sold_at, COUNT(*) n,
       SUM(CASE WHEN status='used' THEN 1 ELSE 0 END) used, SUM(CASE WHEN status='void' THEN 1 ELSE 0 END) void
-    FROM fuel_coupons WHERE tenant_id=? GROUP BY batch ORDER BY MIN(id) DESC LIMIT 60`, t);
+    FROM fuel_coupons WHERE ${where.join(" AND ")} GROUP BY batch ${having} ORDER BY MIN(id) DESC LIMIT ?`, ...args, qp.limit);
   return { summary: couponSummary(t), batches };
 }));
 
@@ -75,7 +83,7 @@ prepaid.post("/coupons/void", requirePerm("settings.manage"), h((req) => {
   const where = b.batch ? "batch=?" : `code IN (${b.codes!.map(() => "?").join(",")})`;
   const keys = b.batch ? [b.batch] : b.codes!.map((c) => c.toUpperCase());
   const value = round2(get(`SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND status='active' AND ${where}`, tid(req), ...keys)!.v);
-  const r = run(`UPDATE fuel_coupons SET status='void', void_reason=? WHERE tenant_id=? AND status='active' AND ${where}`, b.reason, tid(req), ...keys);
+  const r = run(`UPDATE fuel_coupons SET status='void', void_reason=?, voided_at=?, void_refund=? WHERE tenant_id=? AND status='active' AND ${where}`, b.reason, now(), b.refund && value > 0 ? 1 : 0, tid(req), ...keys);
   if (b.refund && value > 0)
     otherMoney(tid(req), { dir: "out", amount: value, method: b.refund_method || "cash", account_id: b.account_id, party: "Coupon refund", category: "Coupon refund", note: `${r.changes} coupons — ${b.reason}`, ref: `coupon-refund:${b.batch ?? keys[0]}`, by: req.user!.name });
   audit(tid(req), req.user!, "coupons_void", b.batch ?? b.codes!.join(","), { reason: b.reason, n: r.changes });

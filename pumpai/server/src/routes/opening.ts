@@ -176,8 +176,8 @@ opening.post("/opening/stock", requirePerm("opening.manage"), h((req) => {
   if (!tank) throw new AppError(404, "Tank not found");
   if (b.litres > tank.capacity_l * 1.001) throw new AppError(400, `More than the tank's capacity (${tank.capacity_l} L)`);
   tx(() => {
-    const variance = tank.current_l ? ((b.litres - tank.current_l) / tank.current_l) * 100 : 0;
-    run("INSERT INTO dip_readings (tank_id,measured_l,book_l,variance_pct,created_at) VALUES (?,?,?,?,?)", tank.id, b.litres, tank.current_l, round2(variance), now());
+    // the go-live figure IS the book: no variance, so the first month's P&L shows no phantom stock gain/loss
+    run("INSERT INTO dip_readings (tank_id,measured_l,book_l,variance_pct,created_at) VALUES (?,?,?,?,?)", tank.id, b.litres, b.litres, 0, now());
     run("UPDATE tanks SET current_l=? WHERE id=?", b.litres, tank.id);
   });
   audit(t, req.user!, "opening_stock", `tank:${tank.id}`, { tank: tank.name, litres: b.litres, was: tank.current_l });

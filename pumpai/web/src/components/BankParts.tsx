@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeftRight, Banknote, Building2, Landmark, Pencil, Plus, Printer, Trash2, AlertTriangle, CreditCard, Zap, Smartphone } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Field, Loading, Modal, useAction } from "./ui";
+import { Field, ListTools, Loading, Modal, useAction, useListFilter } from "./ui";
 import { d, dt, pkr } from "../lib/format";
 import { PK_BANKS, ALL_PK_BANKS, bankInfo, logoUrl } from "../lib/banks";
 import { ProofPhotos, ProofThumbs } from "./Capture";
@@ -315,6 +315,13 @@ function Statement({ acc, manage, onEdit, onClose, onChanged }: { acc: any; mana
   const [range, setRange] = useState({ from: `${today().slice(0, 7)}-01`, to: today() });
   const { data, reload } = useApi<any>(`/bank/accounts/${acc.id}/statement?from=${range.from}&to=${range.to}`);
   const { busy, run } = useAction();
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState("");
+  const allLines: any[] = data?.lines ?? [];
+  const kindChips = [{ k: "", label: "All", n: allLines.length }, ...Array.from(new Set(allLines.map((l) => String(l.kind ?? "")))).filter(Boolean).sort()
+    .map((k) => ({ k, label: KIND_TAG[k] ?? k, n: allLines.filter((l) => l.kind === k).length }))];
+  const lines = useListFilter(allLines, { q, keep: (l) => !kind || l.kind === kind, text: (l) => [l.text, l.who, l.ref, l.note, l.party, l.kind, KIND_TAG[l.kind], l.amount, Math.abs(l.amount)].filter((v) => v != null).join(" ") });
+  const filtered = lines.length !== allLines.length;
   return (
     <Modal open wide onClose={onClose} title={acc.name}>
       <div className="space-y-3">
@@ -355,9 +362,10 @@ function Statement({ acc, manage, onEdit, onClose, onChanged }: { acc: any; mana
               </tbody>
             </table>
           </div>
+          <ListTools q={q} onQ={setQ} placeholder="Party / ref / note / amount… · تلاش" chips={kindChips} chip={kind} onChip={setKind} shown={lines.length} total={allLines.length} />
           {/* phone: one card per line */}
           <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200 sm:hidden print:hidden">
-            {data.lines.map((l: any, i: number) => (
+            {lines.map((l: any, i: number) => (
               <li key={i} className="flex gap-3 px-3 py-2.5 text-sm">
                 <div className="min-w-0 flex-1">
                   <div className="text-xs text-slate-500">{dt(l.at)} · <span className="font-medium text-slate-600">{KIND_TAG[l.kind] ?? l.kind}</span></div>
@@ -369,13 +377,13 @@ function Statement({ acc, manage, onEdit, onClose, onChanged }: { acc: any; mana
                 </div>
               </li>
             ))}
-            {!data.lines.length && <li className="py-6 text-center text-slate-500">Nothing in this period</li>}
+            {!lines.length && <li className="py-6 text-center text-slate-500">{filtered ? "Kuch nahi mila · کچھ نہیں ملا" : "Nothing in this period"}</li>}
           </ul>
           <div className="hidden max-h-[55vh] overflow-auto rounded-xl ring-1 ring-slate-200 sm:block print:hidden">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white"><tr><th className="th">Date</th><th className="th">Details</th><th className="th text-right">In</th><th className="th text-right">Out</th><th className="th text-right">Balance</th></tr></thead>
               <tbody>
-                {data.lines.map((l: any, i: number) => (
+                {lines.map((l: any, i: number) => (
                   <tr key={i} className="border-t border-slate-100">
                     <td className="td whitespace-nowrap text-xs text-slate-500">{dt(l.at)}</td>
                     <td className="td"><span className="mr-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">{KIND_TAG[l.kind] ?? l.kind}</span>{l.text}
@@ -388,7 +396,7 @@ function Statement({ acc, manage, onEdit, onClose, onChanged }: { acc: any; mana
                     <td className="td text-right tabular-nums">{pkr(l.balance)}</td>
                   </tr>
                 ))}
-                {!data.lines.length && <tr><td colSpan={5} className="td py-6 text-center text-slate-500">Nothing in this period</td></tr>}
+                {!lines.length && <tr><td colSpan={5} className="td py-6 text-center text-slate-500">{filtered ? "Kuch nahi mila · کچھ نہیں ملا" : "Nothing in this period"}</td></tr>}
               </tbody>
             </table>
           </div>

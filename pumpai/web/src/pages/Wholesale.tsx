@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send, Receipt } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, PhoneInput, Stat, useAction } from "../components/ui";
+import { Badge, Empty, ErrorBox, Field, ListTools, Loading, Modal, PageHeader, PhoneInput, Stat, useAction, useListFilter } from "../components/ui";
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort, dueLabel } from "../lib/format";
 import { useAuth } from "../App";
@@ -108,17 +108,18 @@ function BulkRateModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
 /** Consolidated rate-change log across every wholesale client, newest first. */
 function RateHistoryModal({ onClose }: { onClose: () => void }) {
   const { data } = useApi<any[]>("/wholesale/rate-history?limit=200");
+  const [q, setQ] = useState("");
+  const rows = useListFilter(data, { q, text: (h) => [h.client_name, h.product, PRODUCTS[h.product], h.note, h.changed_by, h.old_rate, h.new_rate].filter((v) => v != null).join(" ") });
   return (
     <Modal open onClose={onClose} title="Rate change history · ریٹ کی تاریخ" wide>
-      <div className="mb-2 flex justify-end">
-        <a className="btn-secondary min-h-9" href={`/api/wholesale/rate-history.csv?token=${linkToken()}`}><Download size={15} /> Excel / CSV</a>
-      </div>
-      {!data ? <Loading /> : !data.length ? <Empty>Abhi tak koi rate change nahi</Empty> : (
+      <ListTools q={q} onQ={setQ} placeholder="Client / fuel… · کلائنٹ یا پٹرول" shown={rows.length} total={data?.length ?? 0}
+        right={<a className="btn-secondary min-h-9" href={`/api/wholesale/rate-history.csv?token=${linkToken()}`}><Download size={15} /> Excel / CSV</a>} />
+      {!data ? <Loading /> : !data.length ? <Empty>Abhi tak koi rate change nahi</Empty> : !rows.length ? <Empty>Kuch nahi mila · کچھ نہیں ملا</Empty> : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b text-left text-xs text-slate-500"><th className="py-2">Date</th><th>Client</th><th>Fuel</th><th className="text-right">Purana → Naya</th><th>Note</th><th>By</th></tr></thead>
             <tbody>
-              {data.map((h) => (
+              {rows.map((h) => (
                 <tr key={h.id} className="border-b">
                   <td className="py-2 whitespace-nowrap">{dt(h.created_at)}</td>
                   <td className="whitespace-nowrap font-medium">{h.client_name}</td>
@@ -178,10 +179,22 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
   const [history, setHistory] = useState(false);
   const [compare, setCompare] = useState(false);
   const list = useApi<any[]>(`/wholesale/clients?q=${encodeURIComponent(q)}`);
+  const [chip, setChip] = useState("");
+  const allClients = list.data ?? [];
+  const isDue = (c: any) => Number(c.due ?? 0) > 0.5;
+  const isOver = (c: any) => Number(c.credit_limit ?? 0) > 0 && Number(c.due ?? 0) > Number(c.credit_limit);
+  const isInactive = (c: any) => !c.active;
+  const chips = [
+    { k: "", label: "All", n: allClients.length },
+    { k: "due", label: "Due > 0 · بقایا", n: allClients.filter(isDue).length },
+    { k: "over", label: "Over limit · حد سے زیادہ", n: allClients.filter(isOver).length },
+    { k: "inactive", label: "Inactive · بند", n: allClients.filter(isInactive).length },
+  ];
+  const clients = useListFilter(allClients, { keep: (c) => chip === "due" ? isDue(c) : chip === "over" ? isOver(c) : chip === "inactive" ? isInactive(c) : true });
   return (
     <div className="card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
-        <div className="relative w-full max-w-sm"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div className="font-semibold">Clients · <Ur>کلائنٹس</Ur></div>
         <div className="flex flex-wrap gap-2">
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setCompare(true)}><SlidersHorizontal size={15} /> Is mahine vs pichla</button>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setHistory(true)}><SlidersHorizontal size={15} /> Rate history</button>}
@@ -193,8 +206,9 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
       {history && <RateHistoryModal onClose={() => setHistory(false)} />}
       {compare && <RateCompareModal onClose={() => setCompare(false)} />}
       {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
+      <div className="px-3 pt-2"><ListTools q={q} onQ={setQ} placeholder="Search client · کلائنٹ" chips={chips} chip={chip} onChip={setChip} shown={clients.length} total={allClients.length} /></div>
       <ul className="divide-y divide-slate-100 sm:hidden">
-        {(list.data ?? []).map((c) => {
+        {clients.map((c) => {
           const used = c.credit_limit ? Math.min(100, (c.due / c.credit_limit) * 100) : 0;
           return (
             <li key={c.id} className={`cursor-pointer space-y-1.5 p-3 active:bg-slate-50 ${c.active ? "" : "opacity-50"}`} onClick={() => nav(`/wholesale/${c.id}`)}>
@@ -213,7 +227,7 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
         <table className="w-full">
           <thead><tr><th className="th">Client</th><th className="th">Rates (per litre)</th><th className="th text-right">This month</th><th className="th text-right">Due</th><th className="th">Limit used</th><th className="th">Last supply</th><th className="th">Last payment</th></tr></thead>
           <tbody>
-            {(list.data ?? []).map((c) => {
+            {clients.map((c) => {
               const used = c.credit_limit ? Math.min(100, (c.due / c.credit_limit) * 100) : 0;
               return (
                 <tr key={c.id} className={`cursor-pointer hover:bg-slate-50 ${c.active ? "" : "opacity-50"}`} onClick={() => nav(`/wholesale/${c.id}`)}>
@@ -230,6 +244,7 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
           </tbody>
         </table>
         {list.data && !list.data.length && <Empty>No wholesale clients yet</Empty>}
+        {list.data && list.data.length > 0 && !clients.length && <Empty>Is filter mein koi client nahi · کوئی کلائنٹ نہیں</Empty>}
       </div>
     </div>
   );
@@ -430,7 +445,7 @@ function ClientDetail({ id }: { id: string }) {
         {stmt.data ? (
           <>
             <div className="flex justify-between bg-slate-50 px-4 py-2 text-sm"><span>Opening balance{stmt.data.opening_balance < -0.5 ? " (advance)" : ""}</span><span className="font-medium tabular-nums">{pkr(Math.abs(stmt.data.opening_balance))}</span></div>
-            <LedgerTable rows={stmt.data.lines} running onVoid={(can("wholesale.void") || can("wholesale.manage")) ? async (row) => {
+            <LedgerTable rows={stmt.data.lines} running tools onVoid={(can("wholesale.void") || can("wholesale.manage")) ? async (row) => {
               if (row.type === "fuel_note") {
                 if (confirm(`Void this fuel payment of ${pkr(row.amount)}? Any bank movement will be reversed.`)) { await api(`/carriage/fuel-payments/${String(row.id).replace("bfp", "")}/void`, { body: {} }).catch((e) => alert(e.message)); refresh(); }
                 return;
@@ -455,8 +470,15 @@ function ClientDetail({ id }: { id: string }) {
   );
 }
 
-function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; running?: boolean; showClient?: boolean; onVoid?: (row: any) => void }) {
-  if (!rows.length) return <Empty>No entries</Empty>;
+function LedgerTable({ rows: allRows, running, showClient, tools, onVoid }: { rows: any[]; running?: boolean; showClient?: boolean; tools?: boolean; onVoid?: (row: any) => void }) {
+  const [q, setQ] = useState("");
+  const [type, setType] = useState("");
+  const typeChips = [{ k: "", label: "All", n: allRows.length }, ...["supply", "return", "payment", "adjustment", "carriage"].map((k) => ({ k, label: TYPE[k].label, n: allRows.filter((r) => r.type === k).length })).filter((c) => c.n > 0)];
+  const filteredRows = useListFilter(allRows, { q, keep: (r) => !type || r.type === type,
+    text: (r) => [r.vehicle_no, r.driver_name, r.trip_id && `trip #${r.trip_id}`, r.trip_id, r.ref, r.note, r.method, r.client_name, r.location, r.product && PRODUCTS[r.product], r.amount, r.void_reason].filter((v) => v != null && v !== false && v !== "").join(" ") });
+  const rows = tools ? filteredRows : allRows;
+  const bar = tools ? <div className="px-4 pt-2"><ListTools q={q} onQ={setQ} placeholder="Gaari / driver / trip / ref / note… · تلاش" chips={typeChips} chip={type} onChip={setType} shown={rows.length} total={allRows.length} /></div> : null;
+  if (!rows.length) return <>{bar}<Empty>{allRows.length ? "Kuch nahi mila · کچھ نہیں ملا" : "No entries"}</Empty></>;
   const amounts = (r: any) => {
     if (r.type === "fuel_note") return { debit: 0, credit: 0 }; // informational — never in the debit/credit columns
     const debit = running ? r.debit : r.type === "supply" || r.type === "carriage" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
@@ -465,6 +487,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
   const extra = (r: any) => [r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ");
   return (
     <>
+    {bar}
     {/* phone: one line per entry */}
     <ul className="divide-y divide-slate-100 sm:hidden print:hidden">
       {rows.map((r) => {

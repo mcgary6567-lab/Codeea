@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Ruler } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { Badge, Field, ListTools, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS } from "../lib/format";
 import { PhotoButton, PhotoThumb, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { SupplierForm } from "../components/QuickAdd";
@@ -12,7 +12,13 @@ import { PRODUCT_COLORS, dt, num } from "../lib/format";
 
 export default function Stock() {
   const dash = useApi<any>("/dashboard");
-  const stock = useApi<any>("/stock");
+  // dip / delivery history filters: free text, PK day range, tank — all applied on the server; "Show more" raises the limit (max 500)
+  const [flt, setFlt] = useState({ q: "", from: "", to: "", tank: "" });
+  const [dq, setDq] = useState("");
+  const [limit, setLimit] = useState(50);
+  useEffect(() => { const id = setTimeout(() => setDq(flt.q.trim()), 300); return () => clearTimeout(id); }, [flt.q]);
+  const stockQs = new URLSearchParams(Object.entries({ q: dq, from: flt.from, to: flt.to, tank_id: flt.tank, limit: limit > 50 ? String(limit) : "" }).filter(([, v]) => v)).toString();
+  const stock = useApi<any>(`/stock${stockQs ? `?${stockQs}` : ""}`);
   const suppliers = useApi<any[]>("/suppliers");
   const [addSup, setAddSup] = useState(false);
   const { can } = useAuth();
@@ -143,9 +149,18 @@ export default function Stock() {
         </form>
       </div>
       {(orders.data ?? []).length > 0 && <History title="Tanker orders" right={4} rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
+      <div>
+        {(() => { const multi = new Set(tanks.map((t: any) => t.station_name)).size > 1; return (
+          <ListTools q={flt.q} onQ={(q) => setFlt({ ...flt, q })} placeholder="Supplier, tanker no, tank… · تلاش"
+            chips={[{ k: "", label: "All tanks" }, ...tanks.map((t: any) => ({ k: String(t.id), label: multi ? `${t.name} · ${t.station_name}` : t.name }))]} chip={flt.tank} onChip={(tank) => setFlt({ ...flt, tank })}
+            from={flt.from} to={flt.to} onFrom={(from) => setFlt({ ...flt, from })} onTo={(to) => setFlt({ ...flt, to })} />); })()}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <History title="Dip readings" right={4} rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => (r.proof_ids?.length ? <ProofThumbs ids={r.proof_ids} /> : null)]]} />
         <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Tanker", (r) => <span className="flex items-center gap-1">{r.tanker_no}{r.photo_id ? <PhotoThumb id={r.photo_id} size={7} /> : null}</span>], ["Supplier", (r) => r.supplier ?? "—"], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
+      </div>
+      {limit < 500 && (stock.data.dips.length >= limit || stock.data.deliveries.length >= limit) && (
+        <div className="mt-3 flex justify-center print:hidden"><button type="button" className="btn-secondary" onClick={() => setLimit(Math.min(500, limit + 100))}>Show more · <span lang="ur" dir="rtl" className="font-urdu">مزید دکھائیں</span></button></div>
+      )}
       </div>
       <VarianceTrend />
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}

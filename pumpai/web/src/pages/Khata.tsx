@@ -6,7 +6,7 @@ import { Ur } from "../components/VoiceShell";
 import { TYPE_ICON } from "./Pos";
 import { BellRing } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Empty, Loading, PageHeader, SearchBar, Stat, matchQuery, useAction } from "../components/ui";
+import { Empty, ListTools, Loading, PageHeader, Stat, matchQuery, useAction } from "../components/ui";
 import { ago, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 
@@ -17,13 +17,26 @@ export default function Khata() {
   const { busy, run } = useAction();
   const [group, setGroup] = useState("");
   const [q, setQ] = useState("");
+  const [flag, setFlag] = useState(""); // "" | near | hold | risk — the stat tiles and the chips share it
   const [bill, setBill] = useState<number | null>(null);
   if (!data) return <Loading />;
   const INST = ["police", "school", "government", "hospital"];
-  const rows = data.filter((c) => (!group || (group === "institution" ? INST.includes(c.type) : c.type === group)) && matchQuery(q, c.name, c.phone, c.type));
+  // the flags each /khata row carries (no per-row overdue flag — aging has its own card below)
+  const FLAGS: Record<string, (c: any) => boolean> = {
+    near: (c) => c.credit_limit > 0 && c.balance >= 0.8 * c.credit_limit,
+    hold: (c) => Boolean(c.khata_blocked),
+    risk: (c) => c.risk_score >= 60,
+  };
+  const inGroup = (c: any) => !group || (group === "institution" ? INST.includes(c.type) : c.type === group);
+  const rows = data.filter((c) => inGroup(c) && (!flag || FLAGS[flag](c)) && matchQuery(q, c.name, c.phone, c.type));
   const total = data.reduce((a, c) => a + Math.max(0, c.balance), 0);
-  const nearLimit = data.filter((c) => c.credit_limit && c.balance >= 0.8 * c.credit_limit).length;
-  const highRisk = data.filter((c) => c.risk_score >= 60).length;
+  const nearLimit = data.filter(FLAGS.near).length;
+  const onHold = data.filter(FLAGS.hold).length;
+  const highRisk = data.filter(FLAGS.risk).length;
+  const toggle = (k: string) => setFlag((f) => (f === k ? "" : k));
+  const tile = (k: string, title: string) => ({ role: "button" as const, tabIndex: 0, title, "aria-pressed": flag === k, onClick: () => toggle(k),
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(k); } },
+    className: `cursor-pointer rounded-2xl text-left ${flag === k ? "ring-2 ring-brand-500" : ""}` });
 
   return (
     <div>
@@ -32,9 +45,9 @@ export default function Khata() {
       <div className="mb-4"><KhataVoice onDone={reload} /></div>
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Total outstanding · کل ادھار" value={pkrShort(total)} />
-        <Stat label="Credit customers · گاہک" value={data.length} />
-        <Stat label="Near limit (80%+) · حد کے قریب" value={nearLimit} tone="amber" />
-        <Stat label="High credit risk · خطرہ" value={highRisk} tone="red" />
+        <div {...tile("", "Sab customers dikhayein")}><Stat label="Credit customers · گاہک" value={data.length} /></div>
+        <div {...tile("near", "Sirf limit ke qareeb wale dikhayein")}><Stat label="Near limit (80%+) · حد کے قریب" value={nearLimit} tone="amber" /></div>
+        <div {...tile("risk", "Sirf high-risk dikhayein")}><Stat label="High credit risk · خطرہ" value={highRisk} tone="red" /></div>
       </div>
       <AgingCard onOpen={(id) => nav(`/customers/${id}`)} />
       <LimitReviewCard canSet={can("credit.set_limit")} onApplied={reload} />
@@ -46,7 +59,8 @@ export default function Khata() {
           </button>
         ))}
       </div>
-      <SearchBar value={q} onChange={setQ} placeholder="Customer naam ya phone dhoondein…" className="mb-3" />
+      <ListTools q={q} onQ={setQ} placeholder="Customer naam ya phone dhoondein… · تلاش" chip={flag} onChip={toggle} shown={rows.length} total={data.length}
+        chips={[{ k: "", label: "All · سب" }, { k: "near", label: "Near limit · حد کے قریب", n: nearLimit }, { k: "hold", label: "On hold · روکا", n: onHold }, { k: "risk", label: "High risk · خطرہ", n: highRisk }]} />
       {/* phone: one card per customer */}
       <ul className="card divide-y divide-slate-100 sm:hidden">
         {rows.map((c) => {

@@ -19,8 +19,9 @@
  */
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, run, tx, now, type Row } from "../db.js";
+import { all, get, run, tx, now, pkStart, pkEnd, type Row } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
+import type { Request } from "express";
 import { AppError, round2, pkr, reverseSale, recordSale, khataEntry, audit } from "../services.js";
 import { moneyMethods } from "./lookups.js";
 import { productSchema } from "../products.js";
@@ -34,22 +35,43 @@ export const corrections = Router();
 const reasonField = z.object({ reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)") });
 const product = productSchema();
 
+/* ---------------- shared list filters (q / from / to / limit) for every "recent rows" endpoint below ---------------- */
+
+const dayStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
+const listQuery = z.object({
+  q: z.string().trim().max(80).optional(),
+  from: z.preprocess((v) => (v === "" ? undefined : v), dayStr.optional()),
+  to: z.preprocess((v) => (v === "" ? undefined : v), dayStr.optional()),
+  limit: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().int().min(1).max(500).optional()),
+});
+/** Reads the optional `q` / `from` / `to` / `limit` of a list request: `q` LIKE-matches any of `cols` (every word),
+ *  `from`/`to` are Pakistan calendar days on `dateCol`. Returns the extra ` AND …` SQL, its params and the row cap. */
+function listFilter(req: Request, cols: string[], dateCol: string, defaultLimit: number) {
+  const f = parse(listQuery, req.query);
+  const sql: string[] = [], params: string[] = [];
+  for (const w of (f.q ?? "").split(/\s+/).filter(Boolean)) {
+    sql.push(`(${cols.map((c) => `${c} LIKE ?`).join(" OR ")})`);
+    params.push(...cols.map(() => `%${w}%`));
+  }
+  if (f.from) { sql.push(`${dateCol} >= ?`); params.push(pkStart(f.from)); }
+  if (f.to) { sql.push(`${dateCol} < ?`); params.push(pkEnd(f.to)); }
+  return { where: sql.map((x) => ` AND ${x}`).join(""), params, limit: f.limit ?? defaultLimit };
+}
+
 /* ---------------- 1. Sale void ---------------- */
 
 /** Recent fuel sales the CEO can pick from to void a wrong one. */
 corrections.get("/corrections/sales", requirePerm("corrections.manage"), h((req) => {
   const t = tid(req);
-  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 60));
-  const q = String(req.query.q ?? "").trim();
+  const f = listFilter(req, ["c.name", "s.vehicle_no", "s.slip_no", "s.product", "s.payment_method", "u.name", "CAST(s.amount AS TEXT)"], "s.created_at", 60);
   const rows = all(
     `SELECT s.id, s.product, s.litres, s.rate, s.amount, s.payment_method, s.vehicle_no, s.slip_no, s.pending, s.at_close, s.source, s.created_at,
             st.name station, c.name customer, u.name by_name
      FROM sales s JOIN stations st ON st.id=s.station_id
        LEFT JOIN customers c ON c.id=s.customer_id
        LEFT JOIN users u ON u.id=s.created_by
-     WHERE st.tenant_id=? ${q ? "AND (c.name LIKE ? OR s.vehicle_no LIKE ? OR s.slip_no LIKE ?)" : ""}
-     ORDER BY s.id DESC LIMIT ?`,
-    ...(q ? [t, `%${q}%`, `%${q}%`, `%${q}%`, limit] : [t, limit]));
+     WHERE st.tenant_id=?${f.where}
+     ORDER BY s.id DESC LIMIT ?`, t, ...f.params, f.limit);
   return { sales: rows };
 }));
 
@@ -114,14 +136,15 @@ corrections.get("/corrections/khata", requirePerm("corrections.manage"), h((req)
   const customerId = Number(req.query.customer_id);
   const c = get("SELECT id, name, balance FROM customers WHERE id=? AND tenant_id=?", customerId, t);
   if (!c) throw new AppError(404, "Customer nahi mila");
+  const f = listFilter(req, ["k.ref", "k.note", "k.type", "CAST(k.amount AS TEXT)"], "k.created_at", 60);
   const rows = all(
     `SELECT k.id, k.type, k.amount, k.ref, k.note, k.created_at,
             EXISTS(SELECT 1 FROM cashier_vouchers v WHERE v.tenant_id=? AND v.src='khata:'||k.id) via_cashier
-     FROM khata_ledger k WHERE k.customer_id=? ORDER BY k.id DESC LIMIT 60`, t, c.id)
+     FROM khata_ledger k WHERE k.customer_id=?${f.where} ORDER BY k.id DESC LIMIT ?`, t, c.id, ...f.params, f.limit)
     .map((k) => {
       // what owns this row decides where it must be undone
       const ref = String(k.ref ?? "");
-      const owner = ref.startsWith("SALE-") ? "sale" : ref.startsWith("oth-disc:") ? "other" : ref === "open:" ? "opening" : k.via_cashier ? "cashier" : null;
+      const owner = ref.startsWith("SALE-") ? "sale" : ref.startsWith("SHOP-") ? "shop" : ref.startsWith("oth-") ? "other" : ref === "open:" ? "opening" : k.via_cashier ? "cashier" : null;
       return { ...k, via_cashier: undefined, owner, voidable: owner === null };
     });
   return { customer: { id: c.id, name: c.name, balance: round2(c.balance) }, entries: rows };
@@ -135,7 +158,8 @@ corrections.post("/corrections/khata/:id/void", requirePerm("corrections.manage"
   const ref = String(k.ref ?? "");
   // these belong to another undo path — send the CEO there so nothing is reversed twice
   if (ref.startsWith("SALE-")) throw new AppError(400, "Ye ek sale ki entry hai — ise 'Sale void' se theek karein.");
-  if (ref.startsWith("oth-disc:")) throw new AppError(400, "Ye Other-discount ki entry hai — Other entries page se undo karein.");
+  if (ref.startsWith("SHOP-")) throw new AppError(400, "Ye shop sale ki khata entry hai — Shop page se sale undo/edit karein.");
+  if (ref.startsWith("oth-")) throw new AppError(400, "Ye Other-entries (CEO) ki entry hai — Other entries page se undo karein.");
   if (ref === "open:") throw new AppError(400, "Ye opening balance (purana baqaya) hai — Opening balances page se badlein.");
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `khata:${k.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani hai — Cashier desk se voucher void karein.");
   tx(() => {
@@ -156,7 +180,8 @@ corrections.post("/corrections/khata/:id/edit", requirePerm("entries.edit"), h((
   if (!k) throw new AppError(404, "Khata entry nahi mili");
   const ref = String(k.ref ?? "");
   if (ref.startsWith("SALE-")) throw new AppError(400, "Ye ek sale ki entry hai — 'Sale edit' se badlein.");
-  if (ref.startsWith("oth-disc:")) throw new AppError(400, "Ye Other-discount ki entry hai — Other entries page se badlein.");
+  if (ref.startsWith("SHOP-")) throw new AppError(400, "Ye shop sale ki khata entry hai — Shop page se sale edit karein.");
+  if (ref.startsWith("oth-")) throw new AppError(400, "Ye Other-entries (CEO) ki entry hai — Other entries page se badlein.");
   if (ref === "open:") throw new AppError(400, "Ye opening balance hai — Opening balances page se badlein.");
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `khata:${k.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se badlein.");
   const type = b.type ?? k.type, amount = round2(b.amount ?? k.amount), note = b.note !== undefined ? b.note : k.note;
@@ -164,7 +189,9 @@ corrections.post("/corrections/khata/:id/edit", requirePerm("entries.edit"), h((
     // reverse the old row's balance move, drop it, then re-post the corrected one (khataEntry also moves the balance)
     run("UPDATE customers SET balance = balance + ? WHERE id=?", k.type === "credit" ? k.amount : -k.amount, k.customer_id);
     run("DELETE FROM khata_ledger WHERE id=?", k.id);
-    khataEntry(k.customer_id, type, amount, k.ref ?? null, note ?? null, null);
+    khataEntry(k.customer_id, type, amount, k.ref ?? null, note ?? null, k.account_id ?? null);
+    // the corrected row keeps the original day (cash book / bank / ledger stay in the right period)
+    run("UPDATE khata_ledger SET created_at=? WHERE id=(SELECT MAX(id) FROM khata_ledger WHERE customer_id=?)", k.created_at, k.customer_id);
   });
   audit(t, req.user!, "khata_entry_edit", `khata:${k.id}`, { before: { type: k.type, amount: k.amount, note: k.note }, after: { type, amount, note }, reason: b.reason });
   return { ok: true, balance_after: round2(get("SELECT balance FROM customers WHERE id=?", k.customer_id)!.balance) };
@@ -174,13 +201,13 @@ corrections.post("/corrections/khata/:id/edit", requirePerm("entries.edit"), h((
 
 corrections.get("/corrections/deliveries", requirePerm("corrections.manage"), h((req) => {
   const t = tid(req);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+  const f = listFilter(req, ["d.supplier", "d.tanker_no", "tk.name", "tk.product", "CAST(ROUND(d.invoice_l*d.purchase_rate) AS INTEGER)"], "d.created_at", 40);
   const rows = all(
     `SELECT d.id, d.supplier, d.tanker_no, d.invoice_l, d.received_l, d.purchase_rate, d.shortage_pct, d.created_at,
             tk.name tank, tk.product,
             (SELECT status FROM shortage_claims c WHERE c.delivery_id=d.id) claim_status
      FROM deliveries d JOIN tanks tk ON tk.id=d.tank_id JOIN stations st ON st.id=tk.station_id
-     WHERE st.tenant_id=? ORDER BY d.id DESC LIMIT ?`, t, limit)
+     WHERE st.tenant_id=?${f.where} ORDER BY d.id DESC LIMIT ?`, t, ...f.params, f.limit)
     .map((d) => ({ ...d, amount: round2((d.invoice_l ?? 0) * (d.purchase_rate ?? 0)),
       // a delivery whose shortage claim is already being chased / recovered can't be voided here
       voidable: !d.claim_status || d.claim_status === "open" }));
@@ -216,12 +243,12 @@ corrections.post("/corrections/delivery/:id/void", requirePerm("corrections.mana
 /** Recent direct supplier_txns the CEO can void (not the ones made through a cashier voucher or a delivery). */
 corrections.get("/corrections/supplier-txns", requirePerm("corrections.manage"), h((req) => {
   const t = tid(req);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+  const f = listFilter(req, ["s.name", "x.type", "x.method", "x.ref", "x.note", "x.product", "CAST(x.amount AS TEXT)"], "x.txn_date", 40);
   const rows = all(
     `SELECT x.id, x.type, x.amount, x.method, x.ref, x.note, x.product, x.litres, x.rate, x.delivery_id, x.txn_date, s.name supplier,
             EXISTS(SELECT 1 FROM cashier_vouchers v WHERE v.tenant_id=? AND v.src='stx:'||x.id) via_cashier
      FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id
-     WHERE x.tenant_id=? AND x.method IS NOT 'WHT' ORDER BY x.id DESC LIMIT ?`, t, t, limit)
+     WHERE x.tenant_id=? AND x.method IS NOT 'WHT'${f.where} ORDER BY x.id DESC LIMIT ?`, t, t, ...f.params, f.limit)
     .map((x) => ({ ...x, via_cashier: undefined,
       // a purchase tied to a tanker delivery is undone from Delivery void; a cashier-voucher payment from Cashier void
       voidable: !x.delivery_id && !x.via_cashier,
@@ -236,6 +263,8 @@ corrections.post("/corrections/supplier-txn/:id/void", requirePerm("corrections.
   if (!x) throw new AppError(404, "Supplier entry nahi mili");
   if (x.method === "WHT") throw new AppError(400, "Ye withholding-tax ka hissa hai — asal payment void karein, ye khud-ba-khud hat jayega.");
   if (x.delivery_id) throw new AppError(400, "Ye entry ek tanker delivery se bani — 'Delivery void' se theek karein.");
+  if (String(x.ref ?? "").startsWith("wtx:")) throw new AppError(400, "Ye wholesale client ki depot-direct payment ka hissa hai — wholesale payment void karein.");
+  if (String(x.ref ?? "").startsWith("claim:")) throw new AppError(400, "Ye shortage claim ki credit note hai — Claims page se badlein.");
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `stx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se voucher void karein.");
   // a payment may have a withholding-tax sibling (same supplier, same instant, method 'WHT') + a tax_withholdings record
   const wht = x.type === "payment" ? get("SELECT * FROM supplier_txns WHERE tenant_id=? AND supplier_id=? AND method='WHT' AND txn_date=? AND id<>?", t, x.supplier_id, x.txn_date, x.id) : null;
@@ -267,6 +296,8 @@ corrections.post("/corrections/supplier-txn/:id/edit", requirePerm("entries.edit
   if (!x) throw new AppError(404, "Supplier entry nahi mili");
   if (x.method === "WHT") throw new AppError(400, "Ye withholding-tax ka hissa hai — asal payment edit karein.");
   if (x.delivery_id) throw new AppError(400, "Ye entry ek tanker delivery se bani — 'Delivery' se badlein.");
+  if (String(x.ref ?? "").startsWith("wtx:")) throw new AppError(400, "Ye wholesale client ki depot-direct payment ka hissa hai — wholesale payment se badlein.");
+  if (String(x.ref ?? "").startsWith("claim:")) throw new AppError(400, "Ye shortage claim ki credit note hai — Claims page se badlein.");
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `stx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se badlein.");
   // a payment that carried withholding tax touches FBR records — too much to re-wire here; void & re-enter
   if (x.type === "payment" && get("SELECT 1 FROM supplier_txns WHERE tenant_id=? AND supplier_id=? AND method='WHT' AND txn_date=? AND id<>?", t, x.supplier_id, x.txn_date, x.id))
@@ -283,7 +314,7 @@ corrections.post("/corrections/supplier-txn/:id/edit", requirePerm("entries.edit
     run("DELETE FROM supplier_txns WHERE id=? AND tenant_id=?", x.id, t);
     run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,product,litres,rate,created_by,txn_date,created_at,account_id)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      t, x.supplier_id, type, amount, x.method ?? null, ref ?? null, note ?? null, x.product ?? null, litres, rate, x.created_by ?? req.user!.name, x.txn_date, now(), x.account_id ?? null);
+      t, x.supplier_id, type, amount, x.method ?? null, ref ?? null, note ?? null, x.product ?? null, litres, rate, x.created_by ?? req.user!.name, x.txn_date, x.created_at ?? now(), x.account_id ?? null);
   });
   audit(t, req.user!, "supplier_txn_edit", `stx:${x.id}`, { before, after: { type, amount, method: x.method, ref, note, litres, rate }, reason: b.reason });
   return { ok: true, amount: round2(amount) };
@@ -291,14 +322,21 @@ corrections.post("/corrections/supplier-txn/:id/edit", requirePerm("entries.edit
 
 /* ---------------- 5. Wholesale txn void ---------------- */
 
+/** A wholesale row other flows hang off (CEO other-entry legs, a POS wholesale sale, bypass payments/drops) is not voidable here. */
+const wtxLinked = (t: number, x: Row): string | null =>
+  String(x.ref ?? "").startsWith("oth-") ? "Ye Other-entries (CEO) ki entry hai — wahin se badlein/undo karein."
+  : x.sale_id ? "Ye POS par bechi gayi wholesale sale hai — Sale void/edit se theek karein."
+  : get("SELECT 1 FROM bypass_supplier_payments WHERE tenant_id=? AND wtx_id=? AND voided=0", t, x.id) ? "Is par bypass supplier payment judi hai — Bypass page se void karein."
+  : get("SELECT 1 FROM bypass_drops WHERE tenant_id=? AND wtx_id=? AND voided=0", t, x.id) ? "Ye bypass delivery (drop) ki entry hai — Bypass page se void karein."
+  : null;
 corrections.get("/corrections/wholesale-txns", requirePerm("corrections.manage"), h((req) => {
   const t = tid(req);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+  const f = listFilter(req, ["c.name", "x.type", "x.method", "x.ref", "x.note", "x.product", "x.vehicle_no", "CAST(x.amount AS TEXT)"], "x.txn_date", 40);
   const rows = all(
     `SELECT x.id, x.type, x.amount, x.litres, x.rate, x.product, x.method, x.ref, x.note, x.trip_id, x.tank_id, x.txn_date, c.name client,
             EXISTS(SELECT 1 FROM cashier_vouchers v WHERE v.tenant_id=? AND v.src='wtx:'||x.id) via_cashier
      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id
-     WHERE x.tenant_id=? AND x.voided=0 ORDER BY x.id DESC LIMIT ?`, t, t, limit)
+     WHERE x.tenant_id=? AND x.voided=0${f.where} ORDER BY x.id DESC LIMIT ?`, t, t, ...f.params, f.limit)
     .map((x) => ({ ...x, via_cashier: undefined,
       // a bulk tanker-trip entry or a cashier-voucher payment is undone from its own place
       voidable: !x.trip_id && !x.via_cashier,
@@ -313,6 +351,7 @@ corrections.post("/corrections/wholesale-txn/:id/void", requirePerm("corrections
   if (!x) throw new AppError(404, "Wholesale entry nahi mili");
   if (x.trip_id) throw new AppError(400, "Ye ek tanker-trip (bulk) entry hai — trip ko wholesale page se void karein.");
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `wtx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se voucher void karein.");
+  { const why = wtxLinked(t, x); if (why) throw new AppError(400, why); }
   tx(() => {
     run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=?", `${req.user!.name}: ${reason}`, x.id);
     // a supply drew stock out of a tank — put it back
@@ -337,7 +376,7 @@ corrections.post("/corrections/wholesale-txn/:id/edit", requirePerm("entries.edi
   const x = get(`SELECT x.* FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.id=? AND c.tenant_id=? AND x.voided=0`, Number(req.params.id), t);
   if (!x) throw new AppError(404, "Wholesale entry nahi mili");
   if (x.trip_id) throw new AppError(400, "Ye ek tanker-trip (bulk) entry hai — trip ko wholesale page se badlein.");
-  if (x.sale_id) throw new AppError(400, "Ye POS par bechi gayi wholesale sale hai — ise void karke dobara daalein.");
+  { const why = wtxLinked(t, x); if (why) throw new AppError(400, why); }
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `wtx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se badlein.");
   if (get("SELECT 1 FROM supplier_txns WHERE tenant_id=? AND ref=?", t, `wtx:${x.id}`)) throw new AppError(400, "Ye depot-direct (bypass) supply hai — ise void karke dobara daalein.");
   const isSupply = x.type === "supply";
@@ -369,9 +408,10 @@ corrections.post("/corrections/wholesale-txn/:id/edit", requirePerm("entries.edi
 
 corrections.get("/corrections/rent", requirePerm("corrections.manage"), h((req) => {
   const t = tid(req);
+  const f = listFilter(req, ["r.name", "r.tenant_name", "p.method", "p.ref", "p.note", "p.for_month", "CAST(p.amount AS TEXT)"], "p.created_at", 40);
   const rows = all(
     `SELECT p.id, p.amount, p.method, p.account_id, p.for_month, p.ref, p.note, p.created_at, r.name unit, r.tenant_name
-     FROM rental_payments p JOIN rentals r ON r.id=p.rental_id WHERE p.tenant_id=? ORDER BY p.id DESC LIMIT 40`, t);
+     FROM rental_payments p JOIN rentals r ON r.id=p.rental_id WHERE p.tenant_id=?${f.where} ORDER BY p.id DESC LIMIT ?`, t, ...f.params, f.limit);
   return { payments: rows };
 }));
 
@@ -465,7 +505,7 @@ corrections.post("/corrections/delivery/:id/edit", requirePerm("entries.edit"), 
     // re-book with the corrected values
     run("UPDATE deliveries SET supplier=?, supplier_id=?, purchase_rate=?, tanker_no=?, invoice_l=?, received_l=?, shortage_pct=?, freight=? WHERE id=?",
       supplier.name, supplier.id, rate, tanker_no ?? null, invoice_l, received_l, shortage, freight ?? null, d.id);
-    recordPurchase(t, { supplier_id: supplier.id, delivery_id: d.id, product: d.product, litres: invoice_l, rate, ref: tanker_no, by: req.user!.name });
+    recordPurchase(t, { supplier_id: supplier.id, delivery_id: d.id, product: d.product, litres: invoice_l, rate, ref: tanker_no, by: req.user!.name, at: d.created_at });
     run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", received_l, d.tank_id);
     if (shortage >= 0.3) claimForDelivery(t, d.id);
   });

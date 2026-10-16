@@ -336,6 +336,13 @@ function Ledger() {
   const [r, setR] = useState({ from: `${thisMonth()}-01`, to: today() });
   const { data, error } = useApi<any>(`/ledger?from=${r.from}&to=${r.to}`);
   const q = `from=${r.from}&to=${r.to}`;
+  const [vq, setVq] = useState("");
+  const [acct, setAcct] = useState("");
+  const [shown, setShown] = useState(60);
+  const allVouchers: any[] = data ? [...data.vouchers].reverse() : [];
+  const accounts = Array.from(new Set(allVouchers.flatMap((v) => (v.lines ?? []).map((l: any) => String(l.account))))).sort();
+  const vouchers = allVouchers.filter((v) => (!acct || (v.lines ?? []).some((l: any) => l.account === acct))
+    && matchQuery(vq, v.no, v.type, v.narration, v.date, ...(v.lines ?? []).flatMap((l: any) => [l.account, l.debit || null, l.credit || null, l.debit ? num(l.debit) : null, l.credit ? num(l.credit) : null])));
   return (
     <>
       <div className="card flex flex-wrap items-end gap-3 p-4">
@@ -355,15 +362,22 @@ function Ledger() {
               <tfoot><tr className="border-t-2 border-slate-800 font-bold"><td className="py-1">Total</td><td className="text-right tabular-nums">{num(data.totals.debit)}</td><td className="text-right tabular-nums">{num(data.totals.credit)}</td></tr></tfoot></table>
           </div>
           <div className="card p-4">
-            <h3 className="mb-2 font-semibold">Latest vouchers <span className="text-sm font-normal text-slate-500">({data.voucher_count} in period)</span></h3>
+            <h3 className="mb-2 font-semibold">Latest vouchers <span className="text-sm font-normal text-slate-500">({data.voucher_count} in period{vouchers.length !== allVouchers.length ? ` · ${vouchers.length} match` : ""})</span></h3>
+            <div className="mb-2 flex flex-wrap gap-2">
+              <SearchBar className="min-w-[180px] flex-1" value={vq} onChange={(v) => { setVq(v); setShown(60); }} placeholder="Narration / account / amount… · تلاش" />
+              <select className="input w-auto" value={acct} onChange={(e) => { setAcct(e.target.value); setShown(60); }} aria-label="Account">
+                <option value="">All accounts</option>{accounts.map((a) => <option key={a} value={a}>{a}</option>)}</select>
+            </div>
+            {allVouchers.length > 0 && !vouchers.length && <Empty>Kuch nahi mila · کچھ نہیں ملا</Empty>}
             <ul className="max-h-[560px] divide-y divide-slate-100 overflow-y-auto text-sm">
-              {[...data.vouchers].reverse().slice(0, 60).map((v: any) => (
+              {vouchers.slice(0, shown).map((v: any) => (
                 <li key={v.no} className="py-2"><div className="flex justify-between"><span><b>{v.no}</b> · {v.type}</span><span className="text-xs text-slate-500">{v.date}</span></div>
                   <div className="text-xs text-slate-600">{v.narration}</div>
-                  {v.lines.map((l: any) => <div key={l.account} className="flex justify-between text-xs"><span className={l.credit ? "pl-4" : ""}>{l.account}</span><span className="tabular-nums">{l.debit ? `Dr ${num(l.debit)}` : `Cr ${num(l.credit)}`}</span></div>)}
+                  {v.lines.map((l: any) => <div key={l.account} className={`flex justify-between text-xs ${acct && l.account === acct ? "font-semibold text-slate-800" : ""}`}><span className={l.credit ? "pl-4" : ""}>{l.account}</span><span className="tabular-nums">{l.debit ? `Dr ${num(l.debit)}` : `Cr ${num(l.credit)}`}</span></div>)}
                 </li>
               ))}
             </ul>
+            {vouchers.length > shown && <button type="button" className="btn-secondary mt-2 w-full" onClick={() => setShown((n) => n + 60)}>Show more ({vouchers.length - shown} left) · مزید</button>}
           </div>
         </div>
       )}

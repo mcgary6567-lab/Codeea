@@ -46,15 +46,21 @@ export function deliverOrder(t: number, orderId: number | null | undefined, clie
   run("UPDATE wholesale_orders SET status='done', txn_id=?, done_at=? WHERE id=?", txnId, now(), o.id);
 }
 
+/** Open orders plus the recently closed ones; `limit` (default 15, max 200) and `q` (client name) only shape the closed list. */
+const ordersQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(15), q: z.string().trim().max(80).optional() });
 wholesaleDesk.get("/wholesale/orders", h((req) => {
   const t = tid(req), today = pkDate();
+  const qp = parse(ordersQuery, { limit: req.query.limit || undefined, q: req.query.q || undefined });
+  const doneWhere = qp.q ? " AND (c.name LIKE ? OR c.business_name LIKE ?)" : "";
+  const doneArgs = qp.q ? [`%${qp.q}%`, `%${qp.q}%`] : [];
   const open = openOrders(t).map((o) => ({ ...o, late: o.needed_on < today, today: o.needed_on === today }));
   const need: Record<string, number> = {};
   for (const o of open) if (o.needed_on <= addDays(today, 2)) need[o.product] = (need[o.product] ?? 0) + o.litres;
   const stock = Object.fromEntries(Object.keys(PRODUCTS).map((p) => [p, Math.round(get("SELECT COALESCE(SUM(t.current_l),0) l FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND t.product=?", t, p)!.l)]));
   return {
     open, stock, need_3_days: need,
-    done: all(`SELECT o.*, c.name client_name FROM wholesale_orders o JOIN wholesale_clients c ON c.id=o.client_id WHERE o.tenant_id=? AND o.status<>'open' ORDER BY COALESCE(o.done_at, o.created_at) DESC LIMIT 15`, t),
+    done: all(`SELECT o.*, c.name client_name FROM wholesale_orders o JOIN wholesale_clients c ON c.id=o.client_id WHERE o.tenant_id=? AND o.status<>'open'${doneWhere} ORDER BY COALESCE(o.done_at, o.created_at) DESC LIMIT ?`, t, ...doneArgs, qp.limit),
+    done_limit: qp.limit,
   };
 }));
 

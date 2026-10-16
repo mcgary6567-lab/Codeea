@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarClock, CheckCircle2, ClipboardList, HandCoins, Landmark, MessageCircle, Phone, Plus, Truck, Undo2, XCircle, Banknote } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, Modal, useAction } from "./ui";
+import { Badge, Empty, Field, Loading, Modal, SearchBar, useAction } from "./ui";
 import { PRODUCTS, num, pkr, pkrShort } from "../lib/format";
 import { ProofPhotos, ProofThumbs } from "./Capture";
 import { AccountPicker, BankLogo, BankNamePicker } from "./BankParts";
@@ -103,11 +103,14 @@ export function ChequeForm({ client, onClose, onDone }: { client?: any; onClose:
 export function OrdersTab({ onTrip }: { onTrip: () => void }) {
   const { can } = useAuth();
   const nav = useNavigate();
-  const { data, reload } = useApi<any>("/wholesale/orders");
+  const [doneQ, setDoneQ] = useState("");
+  const [doneLimit, setDoneLimit] = useState(15);
+  const { data, reload } = useApi<any>(`/wholesale/orders?limit=${doneLimit}${doneQ.trim() ? `&q=${encodeURIComponent(doneQ.trim())}` : ""}`);
   const [form, setForm] = useState(false);
   const { busy, run } = useAction();
   if (!data) return <Loading />;
   const manage = can("wholesale.manage");
+  const doneRows: any[] = data.done ?? [];
   const groups = [
     { k: "late", label: "Late — not delivered", ur: "دیر ہو گئی", rows: data.open.filter((o: any) => o.late), tone: "border-l-red-500" },
     { k: "today", label: "Deliver today", ur: "آج", rows: data.open.filter((o: any) => o.today), tone: "border-l-amber-500" },
@@ -158,10 +161,13 @@ export function OrdersTab({ onTrip }: { onTrip: () => void }) {
         </div>
       ))}
       {!data.open.length && <div className="card"><Empty>No open orders. When a client calls to book fuel, add it here so nothing is forgotten.</Empty></div>}
-      {data.done.length > 0 && <details className="card p-4 text-sm"><summary className="cursor-pointer font-semibold">Recently closed ({data.done.length})</summary>
-        <ul className="mt-2 divide-y divide-slate-100">{data.done.map((o: any) => (
+      {(doneRows.length > 0 || doneQ) && <details className="card p-4 text-sm" open={!!doneQ}><summary className="cursor-pointer font-semibold">Recently closed ({doneRows.length}{doneRows.length >= doneLimit ? "+" : ""})</summary>
+        <SearchBar className="mt-2 max-w-sm" value={doneQ} onChange={(v) => { setDoneQ(v); setDoneLimit(15); }} placeholder="Client ka naam… · کلائنٹ" />
+        <ul className="mt-2 divide-y divide-slate-100">{doneRows.map((o: any) => (
           <li key={o.id} className="flex justify-between py-1.5"><span>{o.client_name} · {num(o.litres)} L {PRODUCTS[o.product]} · {o.needed_on}</span>
-            <Badge tone={o.status === "done" ? "green" : "slate"}>{o.status === "done" ? "Delivered" : "Cancelled"}</Badge></li>))}</ul></details>}
+            <Badge tone={o.status === "done" ? "green" : "slate"}>{o.status === "done" ? "Delivered" : "Cancelled"}</Badge></li>))}
+          {!doneRows.length && <li className="py-3 text-center text-slate-500">Kuch nahi mila · کچھ نہیں ملا</li>}</ul>
+        {doneRows.length >= doneLimit && doneLimit < 200 && <button type="button" className="btn-secondary mt-2 w-full" onClick={() => setDoneLimit((n) => Math.min(200, n + 30))}>Show more · <Ur>مزید دکھائیں</Ur></button>}</details>}
       {form && <OrderForm onClose={() => setForm(false)} onDone={() => { setForm(false); reload(); }} />}
     </div>
   );

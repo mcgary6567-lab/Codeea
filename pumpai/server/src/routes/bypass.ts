@@ -10,7 +10,7 @@
  */
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, run, tx, now, pkDate } from "../db.js";
+import { all, get, run, tx, now, pkDate, pkStart, pkEnd } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, audit } from "../services.js";
 import { productSchema } from "../products.js";
@@ -266,15 +266,32 @@ bypass.get("/bypass/stock", h((req) => {
   return { total: bypassStock(t), by_product: byProduct, month: bypassMonthProfit(t) };
 }));
 
+/** Recent bypass deliveries. Optional `q` (tanker, client, supplier or product), `from`/`to` (PK days) and `limit` (default 60, max 500). */
+const deliveriesQuery = z.object({
+  q: z.string().trim().max(80).optional(), from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(60),
+});
 bypass.get("/bypass/deliveries", h((req) => {
   const t = tid(req);
+  const qp = parse(deliveriesQuery, { q: req.query.q || undefined, from: req.query.from || undefined, to: req.query.to || undefined, limit: req.query.limit || undefined });
+  const where = ["d.tenant_id=?", "d.voided=0"]; const args: (string | number)[] = [t];
+  if (qp.from) { where.push("d.txn_date>=?"); args.push(pkStart(qp.from)); }
+  if (qp.to) { where.push("d.txn_date<?"); args.push(pkEnd(qp.to)); }
+  if (qp.q) {
+    const like = `%${qp.q}%`; const prodKeys = Object.entries(PRODUCTS).filter(([k, v]) => `${k} ${v}`.toLowerCase().includes(qp.q!.toLowerCase())).map(([k]) => k);
+    where.push(`(d.vehicle_no LIKE ? OR d.driver_name LIKE ? OR COALESCE(d.tankers,'') LIKE ? OR CAST(d.id AS TEXT)=?
+      OR EXISTS (SELECT 1 FROM bypass_drops bd JOIN wholesale_clients c ON c.id=bd.client_id WHERE bd.delivery_id=d.id AND (c.name LIKE ? OR c.business_name LIKE ?))
+      OR EXISTS (SELECT 1 FROM bypass_purchases bp JOIN suppliers sp ON sp.id=bp.supplier_id WHERE bp.delivery_id=d.id AND sp.name LIKE ?)
+      ${prodKeys.length ? `OR EXISTS (SELECT 1 FROM bypass_purchases bp WHERE bp.delivery_id=d.id AND bp.product IN (${prodKeys.map(() => "?").join(",")}))` : ""})`);
+    args.push(like, like, like, qp.q.replace(/^#/, ""), like, like, like, ...prodKeys);
+  }
   return all(`SELECT d.*, ${proofCol("'byp:'||d.id")}, (SELECT COALESCE(SUM(amount),0) FROM bypass_purchases WHERE delivery_id=d.id AND voided=0) cost,
       (SELECT COALESCE(SUM(litres),0) FROM bypass_purchases WHERE delivery_id=d.id AND voided=0) litres,
       (SELECT COALESCE(SUM(litres),0) FROM bypass_drops WHERE delivery_id=d.id AND voided=0) drop_litres,
       (SELECT COALESCE(SUM(cost_amount),0) FROM bypass_drops WHERE delivery_id=d.id AND voided=0 AND tank_id IS NULL) sold_cost,
       (SELECT COALESCE(SUM(litres),0) FROM bypass_drops WHERE delivery_id=d.id AND voided=0 AND tank_id IS NOT NULL) to_tank_litres,
       (SELECT COALESCE(SUM(w.amount),0) FROM bypass_drops bd JOIN wholesale_txns w ON w.id=bd.wtx_id WHERE bd.delivery_id=d.id AND bd.voided=0 AND w.voided=0) billed
-     FROM bypass_deliveries d WHERE d.tenant_id=? AND d.voided=0 ORDER BY d.txn_date DESC, d.id DESC LIMIT 60`, t)
+     FROM bypass_deliveries d WHERE ${where.join(" AND ")} ORDER BY d.txn_date DESC, d.id DESC LIMIT ?`, ...args, qp.limit)
     // munafa = client ne jo diya (billed) − us delivery me bike maal ki cost (COGS); stock hold ho to sirf delivered hissa counts
     .map((d) => ({ ...d, margin: round2((d.billed as number) - (d.sold_cost as number)) }));
 }));

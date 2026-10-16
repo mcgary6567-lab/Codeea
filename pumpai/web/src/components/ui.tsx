@@ -179,3 +179,58 @@ export function useAction() {
   }, [toast]);
   return { busy, run };
 }
+
+/* ---------------- list tools: one search box + chips + date range, for any list on any page ---------------- */
+/** Pakistan calendar day of an ISO timestamp (or a plain YYYY-MM-DD). */
+export const pkDay = (iso?: string | null) => (!iso ? "" : /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : new Date(Date.parse(iso) + 5 * 3600_000).toISOString().slice(0, 10));
+const rowText = (r: unknown): string => {
+  if (r == null) return "";
+  if (typeof r !== "object") return String(r);
+  return Object.values(r as Record<string, unknown>).map((v) => (v && typeof v === "object" ? "" : String(v ?? ""))).join(" ");
+};
+/**
+ * Client-side filter for a list the page already holds: a free-text `q` (matches any column, case-insensitive, all words
+ * must hit), an optional `from`/`to` day on `dateKey`, and an optional `keep` predicate (chips). Returns the filtered rows.
+ */
+export function useListFilter<T>(rows: T[] | null | undefined, f: { q?: string; from?: string; to?: string; dateKey?: keyof T | ((r: T) => string | null | undefined); keep?: (r: T) => boolean; text?: (r: T) => string }): T[] {
+  const list = rows ?? [];
+  const words = (f.q ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+  const dayOf = (r: T) => { const k = f.dateKey; if (!k) return ""; return pkDay(typeof k === "function" ? k(r) : ((r as Record<string, unknown>)[k as string] as string)); };
+  return list.filter((r) => {
+    if (f.keep && !f.keep(r)) return false;
+    if (f.dateKey && (f.from || f.to)) { const d = dayOf(r); if (f.from && d < f.from) return false; if (f.to && d > f.to) return false; }
+    if (words.length) { const txt = (f.text ? f.text(r) : rowText(r)).toLowerCase(); if (!words.every((w) => txt.includes(w))) return false; }
+    return true;
+  });
+}
+/** The toolbar: search box, optional filter chips and optional from/to. Shows "n of total" so the user sees the filter is on. */
+export function ListTools({ q, onQ, placeholder = "Dhoondein… · تلاش", chips, chip, onChip, from, to, onFrom, onTo, shown, total, right }: {
+  q: string; onQ: (v: string) => void; placeholder?: string;
+  chips?: { k: string; label: string; n?: number }[]; chip?: string; onChip?: (k: string) => void;
+  from?: string; to?: string; onFrom?: (v: string) => void; onTo?: (v: string) => void;
+  shown?: number; total?: number; right?: ReactNode;
+}) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
+      <div className="relative min-w-[180px] flex-1">
+        <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input className="input pl-8" value={q} onChange={(e) => onQ(e.target.value)} placeholder={placeholder} aria-label="Search list" />
+        {q && <button type="button" onClick={() => onQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" aria-label="Clear"><X size={14} /></button>}
+      </div>
+      {onFrom && <input type="date" className="input w-auto" value={from ?? ""} onChange={(e) => onFrom(e.target.value)} aria-label="From" />}
+      {onTo && <input type="date" className="input w-auto" value={to ?? ""} onChange={(e) => onTo(e.target.value)} aria-label="To" />}
+      {chips && chips.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {chips.map((c) => (
+            <button type="button" key={c.k} onClick={() => onChip?.(c.k)} aria-pressed={chip === c.k}
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${chip === c.k ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              {c.label}{c.n != null ? ` ${c.n}` : ""}
+            </button>
+          ))}
+        </div>
+      )}
+      {right}
+      {shown != null && total != null && shown !== total && <span className="text-xs text-slate-500">{shown} / {total}</span>}
+    </div>
+  );
+}
