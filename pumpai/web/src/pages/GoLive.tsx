@@ -44,7 +44,7 @@ export default function GoLive() {
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-brand-600 transition-all" style={{ width: `${pct}%` }} /></div>
         {data.pending === 0 && <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800"><Check size={14} className="inline" /> Pump go-live ke liye tayyar hai.</div>}
       </div>
-      <div className="space-y-3">
+      <div className="stagger space-y-3">
         {data.items.map((it, i) => <Row key={it.key} n={i + 1} it={it} reload={reload} />)}
       </div>
     </div>

@@ -556,10 +556,10 @@ export default function Pos() {
       {pickBank && <BankPosPicker accounts={bankAccounts} onClose={() => setPickBank(false)} onPick={(a) => { setCardBank(a); setPickBank(false); }} />}
       {pickDirect && <DirectDiscountPicker initial={direct} litres={litres} amount={amount} max={directMax} onClose={() => setPickDirect(false)} onPick={(v) => { setDirect(v); setPickDirect(false); }} />}
       {done && (
-        <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.training ? "bg-amber-500/95" : done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => { if (done.discount_kind === "direct" && !done.discount_ref && !done.training) return; setDone(null); }}>
+        <div role="status" className={`fixed inset-0 z-50 flex animate-fade-in items-center justify-center p-6 text-center text-white ${done.training ? "bg-amber-500/95" : done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => { if (done.discount_kind === "direct" && !done.discount_ref && !done.training) return; setDone(null); }}>
           <div>
-            <div className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white ${done.offline ? "text-slate-800" : "text-emerald-600"}`}>{done.offline ? <WifiOff size={56} /> : <Check size={64} strokeWidth={3} />}</div>
-            <div className="mt-4 text-3xl font-bold">{done.training ? <>Practice sale · <Ur>مشق</Ur></> : done.offline ? <>Saved on tablet · <Ur>ٹیبلٹ میں محفوظ</Ur></> : <>Sale saved · <Ur>سیل محفوظ</Ur></>}</div>
+            <div className={`check-draw mx-auto flex h-24 w-24 animate-pop items-center justify-center rounded-full bg-white shadow-2xl ${done.offline ? "text-slate-800" : "text-emerald-600"}`}>{done.offline ? <WifiOff size={56} /> : <Check size={64} strokeWidth={3} />}</div>
+            <div className="mt-4 animate-slide-up text-3xl font-bold" style={{ animationDelay: "120ms" }}>{done.training ? <>Practice sale · <Ur>مشق</Ur></> : done.offline ? <>Saved on tablet · <Ur>ٹیبلٹ میں محفوظ</Ur></> : <>Sale saved · <Ur>سیل محفوظ</Ur></>}</div>
             {done.training && <div className="mt-1 text-lg">Well done! In real mode this sale would be saved.</div>}
             {done.offline && <div className="mt-1 text-lg">No internet — it will upload by itself</div>}
             {done.shop

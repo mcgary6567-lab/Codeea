@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode, type InputHTMLAttributes } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type InputHTMLAttributes } from "react";
 import { PrintFooter, PrintHeader } from "./Letterhead";
 import { createPortal } from "react-dom";
 import { X, CheckCircle2, AlertTriangle, Loader2, Search } from "lucide-react";
@@ -23,7 +23,7 @@ export function Stat({ label, value, hint, icon, tone = "slate" }: { label: stri
         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</span>
         {icon && <span className={`rounded-lg p-1.5 ${tones[tone]}`}>{icon}</span>}
       </div>
-      <div className="mt-2 break-words text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{value}</div>
+      <div className="mt-2 break-words text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{typeof value === "number" ? <CountUp value={value} /> : value}</div>
       {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
     </div>
   );
@@ -45,8 +45,8 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   if (!open) return null;
   // portal to <body> so a modal opened from the sidebar (or any positioned parent) sits above the whole page
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-16" onMouseDown={onClose} role="dialog" aria-modal="true" aria-label={title}>
-      <div className={`card w-full ${wide ? "max-w-3xl" : "max-w-lg"} p-5`} onMouseDown={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-16 backdrop-blur-[1px]" onMouseDown={onClose} role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`card w-full ${wide ? "max-w-3xl" : "max-w-lg"} animate-slide-up p-5 shadow-xl`} onMouseDown={(e) => e.stopPropagation()}>
         <PrintHeader />
         <div className="modal-title mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
@@ -86,9 +86,17 @@ export const CnicInput = ({ value, onChange, required, className, ...rest }: {
 };
 
 export const Spinner = () => <Loader2 className="animate-spin text-slate-400" size={20} />;
-export const Loading = () => <div className="flex h-40 items-center justify-center"><Spinner /></div>;
+/** Grey shimmer placeholder while a page/card loads — reads as "coming" rather than "stuck". */
+export const Loading = ({ rows = 4, className = "" }: { rows?: number; className?: string }) => (
+  <div className={`animate-fade-in space-y-3 ${className}`} role="status" aria-label="Loading">
+    <div className="skel h-7 w-48" />
+    <div className="grid gap-3 sm:grid-cols-3">{Array.from({ length: Math.min(rows, 3) }, (_, i) => <div key={i} className="skel h-20" />)}</div>
+    {Array.from({ length: rows }, (_, i) => <div key={i} className="skel h-10" style={{ width: `${92 - (i % 3) * 9}%` }} />)}
+  </div>
+);
+export const Skeleton = ({ className = "h-5 w-full" }: { className?: string }) => <div className={`skel ${className}`} />;
 export const Empty = ({ children }: { children: ReactNode }) => <div className="py-10 text-center text-sm text-slate-500">{children}</div>;
-export const ErrorBox = ({ error }: { error: string }) => <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>;
+export const ErrorBox = ({ error }: { error: string }) => <div className="animate-shake rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>;
 
 /** True if every word of the query appears somewhere in the given fields (case-insensitive). Empty query matches all.
  *  Use in a list filter: rows.filter((r) => matchQuery(q, r.name, r.phone, r.company, …)). */
@@ -122,14 +130,16 @@ export function FilterChips({ value, onChange, opts, className = "" }: { value: 
   );
 }
 
-type Toast = { id: number; kind: "ok" | "err"; text: string };
+type Toast = { id: number; kind: "ok" | "err"; text: string; leaving?: boolean };
 const ToastCtx = createContext<(kind: Toast["kind"], text: string) => void>(() => {});
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const push = useCallback((kind: Toast["kind"], text: string) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, kind, text }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "ok" ? 2600 : 5000);
+    const life = kind === "ok" ? 2600 : 5000;
+    setTimeout(() => setToasts((t) => t.map((x) => (x.id === id ? { ...x, leaving: true } : x))), life - 180); // fade out, then remove
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), life);
   }, []);
   const dismiss = (id: number) => setToasts((t) => t.filter((x) => x.id !== id));
   return (
@@ -138,13 +148,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {/* Prominent centered pop-up shown whenever anything is saved, approved, sent or fails — system-wide. */}
       {toasts.length > 0 && createPortal(
         <>
-          <style>{`@keyframes pumpai-pop{0%{opacity:0;transform:translateY(-12px) scale(.94)}60%{transform:translateY(0) scale(1.02)}100%{opacity:1;transform:translateY(0) scale(1)}}`}</style>
           <div className="pointer-events-none fixed inset-x-0 top-6 z-[100] flex flex-col items-center gap-3 px-4">
             {toasts.map((t) => (
               <div key={t.id} role="status" onClick={() => dismiss(t.id)}
-                style={{ animation: "pumpai-pop .28s cubic-bezier(.34,1.56,.64,1) both" }}
-                className={`pointer-events-auto flex w-full max-w-sm cursor-pointer items-center gap-3 rounded-2xl px-5 py-4 text-white shadow-2xl ring-1 ${t.kind === "ok" ? "bg-emerald-600 ring-emerald-700/30" : "bg-red-600 ring-red-700/30"}`}>
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.kind === "ok" ? "bg-white/20" : "bg-white/20"}`}>
+                className={`pointer-events-auto flex w-full max-w-sm cursor-pointer items-center gap-3 rounded-2xl px-5 py-4 text-white shadow-2xl ring-1 ${t.leaving ? "animate-fade-out" : t.kind === "ok" ? "animate-pop" : "animate-shake"} ${t.kind === "ok" ? "bg-emerald-600 ring-emerald-700/30" : "bg-red-600 ring-red-700/30"}`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 ${t.kind === "ok" && !t.leaving ? "animate-ring-pulse check-draw" : ""}`}>
                   {t.kind === "ok" ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />}
                 </span>
                 <div className="min-w-0">
@@ -236,4 +244,37 @@ export function ListTools({ q, onQ, placeholder = "Dhoondein… · تلاش", ch
       {shown != null && total != null && shown !== total && <span className="text-xs text-slate-500">{shown} / {total}</span>}
     </div>
   </>);
+}
+
+/* ---------------- motion helpers ---------------- */
+const reduceMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** Animate a number from its previous value to the new one (≈500 ms, eased). First render shows the value at once; reduced-motion shows it at once. */
+export function useCountUp(target: number, ms = 500) {
+  const [shown, setShown] = useState(target);
+  const prev = useRef(target);
+  useEffect(() => {
+    const from = prev.current, to = target;
+    prev.current = to;
+    if (from === to || reduceMotion() || !Number.isFinite(from) || !Number.isFinite(to)) { setShown(to); return; }
+    let raf = 0; const t0 = performance.now();
+    const tick = (t: number) => { const k = Math.min(1, (t - t0) / ms); const e = 1 - Math.pow(1 - k, 3); setShown(from + (to - from) * e); if (k < 1) raf = requestAnimationFrame(tick); else setShown(to); };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return shown;
+}
+/** A number that counts up/down when it changes. `format` defaults to a plain rounded figure; pass pkr/num for money/litres. */
+export function CountUp({ value, format, className }: { value: number; format?: (n: number) => string; className?: string }) {
+  const v = useCountUp(value);
+  return <span className={className}>{format ? format(v) : Math.round(v).toLocaleString("en-IN")}</span>;
+}
+/** Returns a class that flashes the element green for a moment whenever `key` changes (new row, live refresh). */
+export function useFlash(key: unknown) {
+  const [cls, setCls] = useState("");
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    setCls("row-new"); const t = setTimeout(() => setCls(""), 1700); return () => clearTimeout(t);
+  }, [key]);
+  return cls;
 }

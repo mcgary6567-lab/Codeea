@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Banknote, Landmark, Scale, TrendingUp, Users, FileCheck2 } from "lucide-react";
 import { useApi } from "../lib/api";
-import { Loading } from "./ui";
+import { Loading, CountUp } from "./ui";
 import { Ur } from "./VoiceShell";
 import { BankLogo } from "./BankParts";
 import { OnlineToday } from "./OnlineMoney";
@@ -28,7 +28,7 @@ export function OwnerOverview() {
       {/* where the money is */}
       <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 p-4 text-white shadow">
         <div className="flex items-center gap-1.5 text-sm opacity-90"><Banknote size={16} /> Your money right now · <Ur>آپ کا پیسہ ابھی</Ur></div>
-        <div className="text-3xl font-bold tabular-nums sm:text-4xl">{pkr(m.total)}</div>
+        <div className="text-3xl font-bold tabular-nums sm:text-4xl"><CountUp value={m.total} format={pkr} /></div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
           <Link to="/cash" className="rounded-xl bg-white/10 p-2 hover:bg-white/15"><div className="text-xs opacity-80">Office cash · <Ur>نقد</Ur></div><Amt v={m.office_cash} /></Link>
           <Link to="/shifts" className="rounded-xl bg-white/10 p-2 hover:bg-white/15"><div className="text-xs opacity-80">With salesmen · <Ur>سیلزمین</Ur></div><Amt v={m.with_salesmen} /></Link>
@@ -121,5 +121,5 @@ export function OwnerOverview() {
 
 /** Full rupees where there is room; short ("Rs 39.2 L") in the small boxes on a phone. */
 const Amt = ({ v }: { v: number }) => (
-  <div className="font-semibold tabular-nums"><span className="sm:hidden">{pkrShort(v)}</span><span className="hidden sm:inline">{pkr(v)}</span></div>
+  <div className="font-semibold tabular-nums"><span className="sm:hidden">{pkrShort(v)}</span><span className="hidden sm:inline"><CountUp value={v} format={pkr} /></span></div>
 );

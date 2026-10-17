@@ -182,14 +182,14 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
         return (
           <div key={g.key} className="pt-0.5">
             <button type="button" onClick={() => toggle(g.key)} aria-expanded={open}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${active ? "bg-white/10 text-white" : "text-emerald-100/90"} hover:bg-white/10`}>
+              className={`pressable flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${active ? "bg-white/10 text-white" : "text-emerald-100/90"} hover:bg-white/10`}>
               <g.icon size={17} className="shrink-0" />
               <span className="min-w-0 flex-1 leading-tight"><span className="block truncate font-medium">{g.label}</span><span lang="ur" dir="rtl" className="font-urdu block truncate text-left text-[13px] leading-5 opacity-80">{g.ur}</span></span>
               {!open && <Badge n={count} />}
               <ChevronDown size={15} className={`opacity-70 transition ${open ? "rotate-180" : ""}`} />
             </button>
             {open && (
-              <div className="ml-4 space-y-0.5 border-l border-white/15 pl-2">
+              <div className="ml-4 animate-slide-down space-y-0.5 border-l border-white/15 pl-2">
                 {kids.flatMap((n) => withSub(n, 16, true))}
               </div>
             )}
@@ -263,6 +263,7 @@ export default function Layout() {
   useOfflineQueue();
   const { user, tenant, logout, can } = useAuth();
   const nav = useNavigate();
+  const pageLoc = useLocation();
   const [open, setOpen] = useState(false);
   const brand = useBranding();
   const counts = useApi<any>(can("dashboard.view") ? "/dashboard" : null, 60_000);
@@ -417,7 +418,7 @@ export default function Layout() {
           <button onClick={toggleTheme} aria-label="Theme" className="text-slate-500">{dark ? <Sun size={20} /> : <Moon size={20} />}</button>
           <NotificationBell />
         </header>
-        <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><PrintHeader /><GoLiveBanner /><Outlet /><PrintFooter />
+        <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><PrintHeader /><GoLiveBanner /><div key={pageLoc.pathname} className="animate-page-in"><Outlet /></div><PrintFooter />
           </main>
         <PageGuideButton />
       </div>

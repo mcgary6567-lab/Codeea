@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Fuel, Wallet, Sparkles, TrendingUp, Users, CreditCard, BarChart3, Send, Receipt, Truck, Droplets, Scale, Coins } from "lucide-react";
 import { api, useApi, useLiveEvents } from "../lib/api";
-import { PageHeader, Loading, ErrorBox, Badge, Modal, severityTone } from "../components/ui";
+import { PageHeader, Loading, ErrorBox, Badge, Modal, severityTone, CountUp } from "../components/ui";
 import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort, d, ago } from "../lib/format";
 import { QuickAddTiles } from "../components/QuickAdd";
 import { HealthCard } from "./Insights";
@@ -184,7 +184,7 @@ function BizProfit({ p }: { p: any }) {
       </div>
       <div className="mb-3 rounded-xl bg-emerald-50 p-3 text-center ring-1 ring-emerald-200">
         <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Total munafa · {win === "today" ? "aaj" : win === "week" ? "is hafte" : "is mahine"}</div>
-        <div className="text-3xl font-extrabold tabular-nums text-emerald-800">{pkr(w.total)}</div>
+        <div className="text-3xl font-extrabold tabular-nums text-emerald-800"><CountUp value={w.total} format={pkr} /></div>
       </div>
       <div className="space-y-2">
         {rows.map((r) => (

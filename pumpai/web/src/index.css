@@ -10,8 +10,19 @@
 [lang="ur"] { line-height: 1.85; }
 
 @layer components {
-  .card { @apply bg-white rounded-xl border border-slate-200 shadow-sm; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed; }
+  .card { @apply bg-white rounded-xl border border-slate-200 shadow-sm transition-colors duration-200; }
+  /* tap feel on anything clickable that is not a .btn (chips, tiles, menu rows) */
+  .pressable { @apply transition-transform duration-150 active:scale-[.97]; }
+  /* grey shimmer block while data loads (replaces the spinner in list/card areas) */
+  .skel { @apply rounded-lg bg-slate-200/70 animate-shimmer; background-image: linear-gradient(90deg, rgb(226 232 240 / 0) 0, rgb(255 255 255 / .6) 50%, rgb(226 232 240 / 0) 100%); background-size: 800px 100%; background-repeat: no-repeat; }
+  .dark .skel { background-color: rgb(36 52 77 / .8); background-image: linear-gradient(90deg, transparent 0, rgb(255 255 255 / .08) 50%, transparent 100%); }
+  /* a list that just loaded: rows fade in one after another (first 20 only, see nth-child below) */
+  .stagger > * { @apply animate-slide-down; }
+  .stagger > *:nth-child(n+21) { animation: none; }
+  /* a row that was just added / changed by a live refresh */
+  .row-new { @apply animate-row-flash; }
+  .dark .row-new { animation-name: none; background-color: rgb(16 185 129 / .18); transition: background-color 1.6s ease-out; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-150 active:scale-[.96] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100; }
   .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700; }
   .btn-secondary { @apply btn bg-white border border-slate-300 text-slate-700 hover:bg-slate-50; }
   .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
@@ -96,4 +107,17 @@ input, select, textarea { min-width: 0; max-width: 100%; }
   .dark .bg-blue-50 { background-color: rgba(59,130,246,.12) !important; }
   .dark .bg-slate-50\/60 { background-color: #0f1a2b !important; }
   .dark .bg-white\/90, .dark .bg-white\/80, .dark .bg-white\/70 { background-color: rgba(17,28,46,.9) !important; }
+}
+
+/* ---------- motion (system-wide) ---------- */
+.stagger > *:nth-child(1) { animation-delay: 0ms; } .stagger > *:nth-child(2) { animation-delay: 30ms; } .stagger > *:nth-child(3) { animation-delay: 60ms; } .stagger > *:nth-child(4) { animation-delay: 90ms; }
+.stagger > *:nth-child(5) { animation-delay: 120ms; } .stagger > *:nth-child(6) { animation-delay: 150ms; } .stagger > *:nth-child(7) { animation-delay: 180ms; } .stagger > *:nth-child(8) { animation-delay: 210ms; }
+.stagger > *:nth-child(9) { animation-delay: 240ms; } .stagger > *:nth-child(10) { animation-delay: 270ms; } .stagger > *:nth-child(n+11) { animation-delay: 300ms; }
+/* theme switch: colours cross-fade instead of snapping (only the two biggest surfaces, never "all") */
+body, .card, aside { transition: background-color .2s ease, border-color .2s ease; }
+/* a tick that draws itself (lucide Check inside .check-draw) */
+.check-draw svg path, .check-draw svg polyline { stroke-dasharray: 60; animation: check-draw .45s ease-out .1s both; }
+/* the user asked the phone for less motion, or we are printing: no animation anywhere, app works exactly the same */
+@media (prefers-reduced-motion: reduce), print {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }

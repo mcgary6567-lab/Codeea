@@ -30,12 +30,14 @@ export function NotificationBell({ dark }: { dark?: boolean }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
   const unread = data?.unread ?? 0;
+  const [ring, setRing] = useState(0); const prevUnread = useRef(unread);
+  useEffect(() => { if (unread > prevUnread.current) setRing((n) => n + 1); prevUnread.current = unread; }, [unread]);
   return (
     <div className="relative" ref={ref}>
       <button aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`} onClick={() => setOpen(!open)}
         className={`relative rounded-lg p-2 ${dark ? "text-emerald-100 hover:bg-white/10" : "text-slate-600 hover:bg-slate-100"}`}>
-        <Bell size={19} />
-        {unread > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-red-600 px-1 text-center text-[11px] font-semibold leading-[18px] text-white">{unread}</span>}
+        <Bell size={19} key={`b${ring}`} className={ring ? "animate-bell origin-top" : ""} />
+        {unread > 0 && <span key={`n${unread}`} className="absolute -right-0.5 -top-0.5 min-w-[18px] animate-pop-badge rounded-full bg-red-600 px-1 text-center text-[11px] font-semibold leading-[18px] text-white">{unread}</span>}
       </button>
       {open && (
         <div className={`absolute ${dark ? "left-0" : "right-0"} z-50 mt-2 w-[min(92vw,380px)] overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-xl`}>
