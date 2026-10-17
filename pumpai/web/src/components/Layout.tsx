@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PrintFooter, PrintHeader } from "./Letterhead";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown, Ban, HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText, BookOpenCheck, Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp, Ruler, Sun, Moon,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown, Ban, HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText, BookOpenCheck, Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp, Ruler, Sun, Moon, Rocket,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { api, useApi, useLiveEvents, useLiveData } from "../lib/api";
@@ -11,6 +11,7 @@ import { NotificationsProvider, NotificationBell } from "./Notifications";
 import { QuickAddButton } from "./QuickAdd";
 import { useBranding } from "../lib/brand";
 import { InstallAppButton } from "./InstallApp";
+import { GoLiveBanner } from "./GoLiveBanner";
 import { useOfflineQueue } from "../lib/offline";
 
 /** Shortcuts under "Wholesale Supply" in the menu (open the right tab or form). */
@@ -41,7 +42,7 @@ const NAV_UR: Record<string, string> = {
   "/wholesale": "ہول سیل", "/carriage": "کرایہ", "/cashier": "کیشیئر", "/expenses": "خرچے", "/cash": "کیش بک", "/accounts": "اکاؤنٹس و ٹیکس", "/suppliers": "سپلائر", "/property": "جائیداد و کرایہ",
   "/orders": "آرڈر", "/complaints": "شکایات", "/campaigns": "مہم", "/stock": "ٹینک و اسٹاک", "/dip-charts": "ڈپ چارٹ", "/register": "اسٹاک رجسٹر", "/shop": "شاپ", "/prices": "ریٹ", "/alerts": "الرٹ",
   "/automations": "آٹومیشن", "/staff": "عملہ کھاتہ", "/kiosk": "حاضری", "/roster": "ڈیوٹی روسٹر", "/team": "ریٹنگ و کمیشن", "/checklist": "روزانہ چیک", "/compliance": "لائسنس",
-  "/machines": "مشینیں", "/my-account": "میرا حساب", "/help": "رہنمائی", "/users": "صارفین", "/audit": "آڈٹ لاگ", "/corrections": "درستگی", "/opening-balances": "پرانا حساب", "/lists": "لسٹیں", "/settings": "سیٹنگز",
+  "/machines": "مشینیں", "/my-account": "میرا حساب", "/help": "رہنمائی", "/users": "صارفین", "/audit": "آڈٹ لاگ", "/corrections": "درستگی", "/opening-balances": "پرانا حساب", "/go-live": "گو لائیو چیک لسٹ", "/lists": "لسٹیں", "/settings": "سیٹنگز",
 };
 /** Manager / owner menu groups (other roles have short menus and see them flat). */
 const GROUPS: { key: string; label: string; ur: string; icon: any; items: string[] }[] = [
@@ -53,7 +54,7 @@ const GROUPS: { key: string; label: string; ur: string; icon: any; items: string
   { key: "reports", label: "Reports & profit", ur: "رپورٹ و منافع", icon: FileBarChart, items: ["/reports", "/sales-history", "/insights", "/owner-report", "/profit", "/margins", "/discounts-report", "/suggestions"] },
   { key: "staff", label: "Staff", ur: "عملہ", icon: Wallet, items: ["/staff", "/kiosk", "/roster", "/team", "/my-account"] },
   { key: "safety", label: "Safety & machines", ur: "حفاظت و مشینیں", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines"] },
-  { key: "system", label: "System & setup", ur: "سسٹم و سیٹ اپ", icon: Settings, items: ["/settings", "/users", "/lists", "/automations", "/opening-balances", "/corrections", "/audit"] },
+  { key: "system", label: "System & setup", ur: "سسٹم و سیٹ اپ", icon: Settings, items: ["/go-live", "/settings", "/users", "/lists", "/automations", "/opening-balances", "/corrections", "/audit"] },
 ];
 /** Always on top of the grouped menu (daily first look), and always at the bottom. */
 const TOP = ["/", "/inbox", "/alerts"], BOTTOM = ["/help"];
@@ -63,7 +64,7 @@ const writeList = (k: string, v: string[]) => { try { localStorage.setItem(k, JS
 /** Which user-guide module explains a page (Help page anchors). */
 export const ROUTE_GUIDE: Record<string, string> = { "/pos": "pos", "/shifts": "shifts", "/my-account": "attendance", "/kiosk": "attendance", "/customers": "customers", "/khata": "customers", "/prices": "prices", "/stock": "stock", "/dip-charts": "dip-charts", "/register": "stock",
   "/wholesale": "wholesale", "/carriage": "carriage", "/cashier": "cashier", "/accounts": "banks", "/cash": "banks", "/expenses": "expenses", "/owner-report": "reports", "/reports": "reports", "/insights": "reports", "/profit": "reports",
-  "/suppliers": "suppliers", "/settings": "settings", "/users": "settings", "/opening-balances": "opening", "/corrections": "corrections", "/other-entries": "other-entries" };
+  "/suppliers": "suppliers", "/settings": "settings", "/users": "settings", "/opening-balances": "opening", "/go-live": "opening", "/corrections": "corrections", "/other-entries": "other-entries" };
 const itemCls = (on: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${on ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`;
 const Badge = ({ n }: { n: number }) => n > 0 ? <span className="rounded-full bg-emerald-400 px-1.5 text-xs font-semibold text-emerald-950">{n}</span> : null;
 
@@ -251,6 +252,7 @@ const NAV = [
   { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
   { to: "/audit", label: "Audit log", icon: History, perm: "audit.view" },
   { to: "/corrections", label: "Corrections (void)", icon: Ban, perm: "corrections.manage" },
+  { to: "/go-live", label: "Go-live checklist", icon: Rocket, perm: "settings.manage" },
   { to: "/opening-balances", label: "Opening balances (go-live)", icon: BookOpenCheck, perm: "opening.manage" },
   { to: "/lists", label: "Lists", icon: ListChecks, perm: "settings.manage" },
   { to: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
@@ -415,7 +417,7 @@ export default function Layout() {
           <button onClick={toggleTheme} aria-label="Theme" className="text-slate-500">{dark ? <Sun size={20} /> : <Moon size={20} />}</button>
           <NotificationBell />
         </header>
-        <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><PrintHeader /><Outlet /><PrintFooter />
+        <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><PrintHeader /><GoLiveBanner /><Outlet /><PrintFooter />
           </main>
         <PageGuideButton />
       </div>

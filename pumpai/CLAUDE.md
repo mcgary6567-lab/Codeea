@@ -171,3 +171,7 @@ Every `<input type="number">` carries `inputMode="decimal"` (phone keypad); `mai
 ## Offline fonts (never regress)
 
 `web/public/sw.js` runtime-caches Google Fonts (Inter + Noto Naskh/Nastaliq Urdu) in a separate `FONT_CACHE` (cache-first, cross-origin, keeps opaque responses), so after one online load the app reads right **offline** too; the `activate` handler keeps both `CACHE` and `FONT_CACHE`. Tailwind `fontFamily` still falls back to system-ui / serif if the CDN was never reached.
+
+## Go-live checklist — 13 first-day settings, every one skippable (never regress)
+
+`routes/golive.ts` (`GET /golive`, `POST /golive/:key/skip|done|reset`, `/golive/dismiss`, quick actions `/golive/staff` (name+role+PIN → user with auto email `<slug>@pump<t>.local`), `/golive/reorder` (litres → reorder_pct), `/golive/letterhead`, `/golive/wholesale` (module on/off)) + web `GoLive.tsx` (`/go-live`, System group, perm settings.manage) + `GoLiveBanner` in Layout (admin, while pending>0, dismissable). Keys: cash, bank, staff, opening, shift, khata, reorder, alerts, letterhead, backup, whatsapp_ai, sample, wholesale — each auto-detected from data, mark stored in settings `golive:<key>`. `newPumpDefaults()` (called from `provisionTenant`) sets shift_hours 12, khata_block_days 30, khata_auto_block, opening_date on every new pump; `setupBody.defaults.shift_hours` optional. `test/golive.test.ts`.

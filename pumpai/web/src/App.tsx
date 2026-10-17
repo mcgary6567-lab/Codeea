@@ -57,6 +57,7 @@ import OtherEntries from "./pages/OtherEntries";
 import Corrections from "./pages/Corrections";
 import SalesHistory from "./pages/SalesHistory";
 import OpeningBalances from "./pages/OpeningBalances";
+import GoLive from "./pages/GoLive";
 import Margins from "./pages/Margins";
 import ProfitExplainer from "./pages/ProfitExplainer";
 import Roster from "./pages/Roster";
@@ -173,6 +174,7 @@ export default function App() {
               <Route path="other-entries" element={<Need perm="other_entries.manage"><OtherEntries /></Need>} />
               <Route path="corrections" element={<Need perm="corrections.manage"><Corrections /></Need>} />
               <Route path="opening-balances" element={<Need perm="opening.manage"><OpeningBalances /></Need>} />
+              <Route path="go-live" element={<Need perm="settings.manage"><GoLive /></Need>} />
               <Route path="margins" element={<Need perm="reports.view"><Margins /></Need>} />
               <Route path="profit" element={<Need perm="reports.view"><ProfitExplainer /></Need>} />
               <Route path="help" element={<Help />} />
