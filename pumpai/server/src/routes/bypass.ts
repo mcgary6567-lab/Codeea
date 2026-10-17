@@ -280,7 +280,18 @@ export function bypassMonthProfit(tenantId: number) {
 bypass.get("/bypass/stock", h((req) => {
   const t = tid(req);
   const prods = all("SELECT DISTINCT product FROM bypass_purchases WHERE tenant_id=? AND voided=0", t).map((r) => r.product as string);
-  const byProduct = prods.map((p) => ({ product: p, ...bypassStock(t, p) })).filter((x) => x.litres > 0.01 || x.value > 0.5);
+  const byProduct = prods.map((p) => ({ product: p, ...bypassStock(t, p) })).filter((x) => x.litres > 0.01 || x.value > 0.5).map((x) => {
+    // the held litres are the newest purchases not yet delivered (FIFO): list them so the owner sees which depot bill they sit on
+    const lots: Record<string, unknown>[] = []; let left = x.litres;
+    for (const b of all(`SELECT b.id, b.delivery_id, b.litres, b.cost_rate, b.txn_date, b.ref, s.name supplier FROM bypass_purchases b JOIN suppliers s ON s.id=b.supplier_id
+        WHERE b.tenant_id=? AND b.voided=0 AND b.product=? ORDER BY b.txn_date DESC, b.id DESC LIMIT 40`, t, x.product)) {
+      if (left <= 0.01) break;
+      const take = Math.min(left, b.litres); left = round2(left - take);
+      lots.push({ ...b, held_l: round2(take) });
+    }
+    const oldest = lots.length ? lots[lots.length - 1].txn_date as string : null;
+    return { ...x, lots, held_since: oldest, held_days: oldest ? Math.floor((Date.now() - Date.parse(oldest)) / 86_400_000) : 0 };
+  });
   return { total: bypassStock(t), by_product: byProduct, month: bypassMonthProfit(t) };
 }));
 

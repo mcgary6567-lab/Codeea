@@ -75,7 +75,7 @@ export function BypassPanel() {
               </tbody>
             </table>
             <p className="border-t border-slate-100 bg-sky-50 px-4 py-2.5 text-xs text-sky-900">
-              Yeh maal supplier se liya ja chuka hai (uska bill chadh gaya) par abhi kisi client ko nahi diya — humare paas ruka hai. Jab rate upar jaye, <b>New trip → Depot direct</b> kholein aur <b>upar khareed (supplier) khaali chhod kar</b> sirf client drop daalein — yeh isi ruke stock se chala jayega aur munafa = us din ka rate − yeh average cost. <Ur className="block mt-0.5">ریٹ بڑھنے پر خریداری خالی چھوڑ کر صرف ڈراپ کریں — یہ رُکے اسٹاک سے جائے گا</Ur>
+              Yeh maal supplier se liya ja chuka hai (uska bill chadh gaya) par abhi kisi client ko nahi diya — humare paas ruka hai. Jab rate upar jaye, <b>New trip → 📦 Balance stock</b> kholein — client ko us din ka rate card lagega, cost yahi purani; sirf client drop daalein — yeh isi ruke stock se chala jayega aur munafa = us din ka rate − yeh average cost. <Ur className="block mt-0.5">ریٹ بڑھنے پر خریداری خالی چھوڑ کر صرف ڈراپ کریں — یہ رُکے اسٹاک سے جائے گا</Ur>
             </p>
           </>
         )}
@@ -221,7 +221,7 @@ function MonthlyProfitChart({ data }: { data: any[] }) {
 }
 
 /** The bypass delivery form body (no Modal wrapper) — shown inside the "New trip" form's Depot-bypass mode. */
-export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; onDone: (r?: any) => void }) {
+export function BypassDeliveryForm({ onClose, onDone, fromHeld = false }: { onClose: () => void; onDone: (r?: any) => void; fromHeld?: boolean }) {
   const { can } = useAuth();
   const suppliers = useApi<any[]>("/bypass/suppliers");
   const clients = useApi<any[]>("/wholesale/clients");
@@ -291,6 +291,27 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
             <option value="">— choose —</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
         </div>
 
+        {/* Balance stock: what is held from earlier depot purchases — delivered today at each client's rate card of today */}
+        {(fromHeld || (stock.data?.by_product ?? []).some((x: any) => x.litres > 0.01)) && (
+          <div className={`rounded-xl p-3 ring-1 ${fromHeld ? "bg-amber-50 ring-amber-200" : "bg-slate-50 ring-slate-200"}`}>
+            <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+              <div className="text-sm font-semibold">📦 Balance stock (pehle ka khareeda, abhi humare paas) · <Ur>باقی اسٹاک</Ur></div>
+              {fromHeld && <span className="text-xs text-amber-800">Client ko <b>aaj ka rate card</b> lagega; cost purane bill ki — farq munafa.</span>}
+            </div>
+            {!(stock.data?.by_product ?? []).some((x: any) => x.litres > 0.01) ? <p className="text-xs text-slate-500">Abhi koi balance stock nahi — Depot direct tab se zyada khareed kar kam dein to baqi yahan aata hai.</p> : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(stock.data?.by_product ?? []).filter((x: any) => x.litres > 0.01).map((x: any) => (
+                  <div key={x.product} className="rounded-lg bg-white p-2 text-sm ring-1 ring-slate-200">
+                    <div className="flex justify-between"><b>{PRODUCTS[x.product] ?? x.product}</b><b className="tabular-nums">{num(x.litres)} L</b></div>
+                    <div className="text-xs text-slate-500">cost Rs {num(x.avg_cost, 2)}/L · value {pkr(x.value)}{x.held_days ? ` · ${x.held_days} din se` : ""}</div>
+                    {(x.lots ?? []).length > 0 && <ul className="mt-1 space-y-0.5 text-[11px] text-slate-500">{x.lots.slice(0, 3).map((l: any) => <li key={l.id}>{String(l.txn_date).slice(0, 10)} · {l.supplier}{l.ref ? ` · ${l.ref}` : ""} · {num(l.held_l)} L @ Rs {num(l.cost_rate, 2)}</li>)}</ul>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tanker(s) + driver(s) — 2 jagah se maal to 2 tanker, har ek ka apna driver */}
         <div className="rounded-xl bg-slate-50 p-3">
           <div className="mb-2 text-sm font-semibold">Tanker &amp; driver <span className="font-normal text-slate-400">— 2 jagah se maal to har tanker add karein</span> · <Ur>ٹینکر و ڈرائیور</Ur></div>
@@ -305,6 +326,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           <button type="button" className="mt-2 inline-flex items-center gap-1 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 active:scale-95" onClick={() => setFleets([...fleets, { tanker_id: "", driver_id: "", vehicle_no: "" }])}><Plus size={14} /> Add tanker</button>
         </div>
 
+        {!fromHeld && <>
         {/* Supplier purchase lines — supplier + litre + full amount */}
         <div className="rounded-xl bg-slate-50 p-3">
           <div className="mb-2 text-sm font-semibold">Maal kahan se liya (supplier + litre + amount) <span className="font-normal text-slate-400">— optional, sirf stock se bechna hai to khaali</span> · <Ur>خریداری</Ur></div>
@@ -328,6 +350,7 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           <div className="mt-1 text-xs text-slate-500">Khareeda: {Object.entries(bought).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Supplier ko dene hain {pkr(buyAmt)}</div>
         </div>
 
+        </>}
         {/* Booked orders — one tap adds the order as a drop (same as a pump trip) */}
         {(() => {
           const avail = (orders.data?.open ?? []).filter((o: any) => PRODUCTS[o.product] && !drops.some((x) => x.order_id === o.id));
@@ -377,6 +400,12 @@ export function BypassDeliveryForm({ onClose, onDone }: { onClose: () => void; o
           </div>
           <button type="button" className="mt-2 inline-flex items-center gap-1 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 active:scale-95" onClick={() => setDrops([...drops, { client_id: "", product: "HSD", litres: "", amount: "", order_id: undefined, location: "" }])}><Plus size={14} /> Add drop</button>
           <div className="mt-1 text-xs text-slate-500">Diya: {Object.entries(dropped).map(([p, l]) => `${num(l)} L ${PRODUCTS[p]}`).join(" · ") || "—"} · Client se lene hain {pkr(dropAmt)}{Object.keys({ ...dropped }).map((p) => held(p) > 0 ? ` · ${PRODUCTS[p]} held stock ${num(held(p))} L` : "").join("")}</div>
+          {validDrops.length > 0 && <ul className="mt-1 space-y-0.5 text-xs">{validDrops.map((d, i) => { const c = costPerL(d.product); const m = (clientRate(d) - c) * Number(d.litres); return (
+            <li key={i} className="flex justify-between gap-2"><span className="truncate">{clientById(d.client_id)?.name} · {num(Number(d.litres))} L × <b>Rs {num(clientRate(d), 2)}</b> (aaj ka rate card)</span>
+              <span className="shrink-0 tabular-nums">{pkr(dropLineAmt(d))}{c > 0 && <span className={m >= 0 ? "text-emerald-700" : "text-rose-600"}> · munafa {pkr(m)}</span>}</span></li>); })}</ul>}
+          {(() => { const left = Object.fromEntries([...new Set([...Object.keys(bought), ...Object.keys(dropped), ...(stock.data?.by_product ?? []).map((x: any) => x.product)])]
+              .map((p) => [p, Math.round((held(p) + (bought[p] ?? 0) - (dropped[p] ?? 0) - (toTankSum[p] ?? 0)) * 100) / 100]).filter(([, l]) => (l as number) > 0.01));
+            return Object.keys(left).length ? <div className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900">📦 Baqi rahega (balance stock me): {Object.entries(left).map(([p, l]) => `${num(l as number)} L ${PRODUCTS[p]}`).join(" · ")} — baad me kisi bhi din, us din ke rate par.</div> : null; })()}
           <p className="mt-1 text-xs text-slate-400">Client ka rate uske apne rate card (CRM) se uthta hai — litre × rate = amount. Rate badalna ho to client ke rate card me badlein. Jitna khareeda + held stock se zyada drop nahi ho sakta.</p>
         </div>
 

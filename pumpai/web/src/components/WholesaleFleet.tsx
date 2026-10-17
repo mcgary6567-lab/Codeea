@@ -71,7 +71,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
   const fleet = useApi<any>("/wholesale/fleet");
   const orders = useApi<any>("/wholesale/orders");
   const depots = useApi<any[]>("/wholesale/depots");
-  const [mode, setMode] = useState<"pump" | "bypass">("pump");
+  const [mode, setMode] = useState<"pump" | "bypass" | "held">("pump");
   const [f, setF] = useState<any>({ station_id: "", product: "HSD", tanker_id: "", driver_id: "", vehicle_no: "", txn_date: today(), note: "", override_limit: false,
     source: "pump", supplier_id: "", depot_ref: "", freight_by: "rate", freight: "" });
   // depot-direct: purchase rate and billed litres per fuel (blank = the supplier's last rate / the litres dropped)
@@ -122,15 +122,15 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
     if (r) onDone(r);
   };
   return (
-    <Modal open onClose={onClose} title={mode === "bypass" ? "Depot bypass — maal depot se, seedha client ko" : "Tanker trip — one tanker, several drops"} wide>
+    <Modal open onClose={onClose} title={mode === "bypass" ? "Depot bypass — maal depot se, seedha client ko" : mode === "held" ? "Balance stock — pehle ka khareeda maal, aaj ke rate par" : "Tanker trip — one tanker, several drops"} wide>
       <div className="mb-4">
         <div className="mb-1 text-sm font-medium text-slate-700">Maal kahan se · <span lang="ur" className="font-urdu">تیل کہاں سے</span></div>
-        <div className="grid grid-cols-2 gap-2">{([["pump", "⛽ Our pump", "ہمارے پمپ سے"], ["bypass", "🏭 Depot direct (bypass)", "ڈپو سے سیدھا"]] as const).map(([k, l, u]) => (
+        <div className="grid grid-cols-3 gap-2">{([["pump", "⛽ Our pump", "ہمارے پمپ سے"], ["bypass", "🏭 Depot direct (bypass)", "ڈپو سے سیدھا"], ["held", "📦 Balance stock", "باقی اسٹاک"]] as const).map(([k, l, u]) => (
           <button type="button" key={k} onClick={() => setMode(k)} aria-pressed={mode === k}
             className={`rounded-lg px-3 py-2 text-left text-sm ring-1 ${mode === k ? "bg-brand-50 font-semibold text-brand-800 ring-brand-500" : "bg-white text-slate-600 ring-slate-200"}`}>
             {l}<span lang="ur" className="block font-urdu text-xs font-normal">{u}</span></button>))}</div>
       </div>
-      {mode === "bypass" ? <BypassDeliveryForm onClose={onClose} onDone={(r) => onDone(r?.id ? { id: r.id, bypass: true } : null)} /> : (
+      {mode === "bypass" || mode === "held" ? <BypassDeliveryForm key={mode} fromHeld={mode === "held"} onClose={onClose} onDone={(r) => onDone(r?.id ? { id: r.id, bypass: true } : null)} /> : (
       <form onSubmit={submit} className="space-y-4">
         {depot && (
           <div className="space-y-3 rounded-lg bg-sky-50 p-3 ring-1 ring-sky-200">
