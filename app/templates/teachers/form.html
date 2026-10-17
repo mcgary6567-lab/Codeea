@@ -27,6 +27,13 @@
     {{ ui.select('grade', 'Grade', grades, t.grade if t else 'B', placeholder=None, help='Changing the grade requires teachers.approve.') }}
     {{ ui.select('supervisor_id', 'Supervisor', supervisor_options, t.supervisor_id if t else None, placeholder='Unassigned') }}
   </div>
+  {% if not t and has_perm(user, 'teachers.approve') %}
+  <div class="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm" x-data="{ on: false }">
+    <label class="flex items-start gap-2"><input type="checkbox" name="verify_now" value="1" x-model="on" class="mt-0.5 h-4 w-4 rounded border-slate-300">
+      <span><b>Background check done: verify now.</b> <span class="block text-xs text-slate-600">Only verified teachers can be assigned students. Leave it unticked to verify later from the teacher's page (Verification).</span></span></label>
+    <div x-show="on" x-cloak class="mt-2">{{ ui.input('verify_rationale', 'What was checked', '', placeholder='CNIC, references and police certificate seen') }}</div>
+  </div>
+  {% endif %}
   <div class="mt-5">
     <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Courses this teacher can deliver</div>
     <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">

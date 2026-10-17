@@ -338,3 +338,35 @@ def test_every_sheet_card_has_an_import_button(admin):
         assert f'href="/admin/migration?entity={key}"' in page, key
     assert "Courses → Packages → Employees" in page
     assert mig.ENTITIES["leads"]["icon"] == "filter", "funnel is not in the bundled icon set"
+
+
+def test_teachers_import_with_their_courses_and_verification():
+    """17 Oct 2026: teachers from the old ERP already teach; the import can bring their courses and mark them verified."""
+    from app.models.core import AuditEvent
+    from app.models.people import Teacher
+    s = SessionLocal()
+    admin = s.query(User).filter(User.email == "admin@oqc.local").one()
+    teacher_user = s.query(User).filter(User.email == "teacher1@oqc.local").one()
+    s.close()
+    code = f"TV{TAG[-5:].upper()}"
+    try:
+        _, r = _import("teachers", f"Code,Teacher,Courses,Verified\n{code}1,Imported Verified {TAG},\"NAZRA, hifz\",yes\n{code}2,Imported Pending {TAG},NAZRA,no\n", admin.id)
+        assert r["imported"] == 2, r
+        s = SessionLocal()
+        yes = s.query(Teacher).filter(Teacher.teacher_code == f"{code}1").one()
+        no = s.query(Teacher).filter(Teacher.teacher_code == f"{code}2").one()
+        assert yes.is_verified is True and yes.courses == ["NAZRA", "HIFZ"]
+        assert no.is_verified is False and no.courses == ["NAZRA"]
+        assert s.query(AuditEvent).filter(AuditEvent.entity_type == "Teacher", AuditEvent.entity_id == yes.id, AuditEvent.action == "approve").count() == 1
+        s.close()
+        # someone who may not approve teachers cannot import them as verified
+        _, r2 = _import("teachers", f"Code,Teacher,Verified\n{code}3,No Right {TAG},yes\n", teacher_user.id)
+        assert r2["imported"] == 0 and r2["skipped"] == 1
+    finally:
+        s = SessionLocal()
+        ids = [i for (i,) in s.query(Teacher.id).filter(Teacher.teacher_code.like(f"{code}%"))]
+        s.query(AuditEvent).filter(AuditEvent.entity_type == "Teacher", AuditEvent.entity_id.in_(ids or [-1])).delete(synchronize_session=False)
+        s.query(Teacher).filter(Teacher.id.in_(ids or [-1])).delete(synchronize_session=False)
+        s.query(MigrationJob).filter(MigrationJob.name.like(f"{TAG}%")).delete(synchronize_session=False)
+        s.commit()
+        s.close()

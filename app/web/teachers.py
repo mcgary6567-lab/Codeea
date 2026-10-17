@@ -119,6 +119,9 @@ async def create_teacher(request: Request, db: Session = Depends(get_db), user: 
         t, pwd = svc.create_teacher_full(db, data, user, request=request)
     except ValueError as exc:
         return redirect("/teachers/new", str(exc), "error")
+    if parse_bool(form.get("verify_now")) and rbac.has_permission(user, "teachers.approve"):
+        svc.set_teacher_verification(db, t, True, user, (form.get("verify_rationale") or "").strip()
+                                     or "Background check confirmed when the teacher was added", request=request)
     db.commit()
     return render(request, "teachers/created.html", {"user": user, "t": t, "password": pwd, "login_email": t.user.email if t.user else data["email"]})
 
@@ -241,28 +244,11 @@ async def verify_teacher(id: int, request: Request, db: Session = Depends(get_db
     if not rationale:
         return redirect(f"/teachers/{t.id}", "A rationale is required to change the safeguarding verification state.", "error")
     make_verified = parse_bool(form.get("verified"))
-    before = {"is_verified": t.is_verified, "background_check_status": t.employee.background_check_status if t.employee else None}
-    t.is_verified = make_verified
-    if t.employee:
-        t.employee.background_check_status = "verified" if make_verified else "pending"
-        t.employee.background_check_date = date.today() if make_verified else None
-        if make_verified and t.employee.status == "probation":
-            t.employee.status = "active"
-    if not make_verified:
-        n = db.query(func.count(Student.id)).filter(Student.teacher_id == t.id).scalar() or 0
-        if n:
-            log_action(db, user, "safeguarding_access", "teachers", entity=t, severity="warning", request=request,
-                       description=f"Verification withdrawn while {n} students are still assigned — reassignment required.")
-    log_action(db, user, "approve" if make_verified else "revoke", "teachers", entity=t, rationale=rationale,
-               description=f"Teacher {t.teacher_code} background check {'VERIFIED' if make_verified else 'WITHDRAWN'}",
-               before=before, after={"is_verified": make_verified}, request=request, severity="warning", consequential=True)
-    if t.user_id:
-        notify(db, t.user_id, "Verification status updated",
-               "Your background check has been verified — you can now be assigned live classes." if make_verified
-               else "Your verification has been withdrawn. You cannot be assigned live classes until it is restored.",
-               event_type="verification", link="/teacher")
+    svc.set_teacher_verification(db, t, make_verified, user, rationale, request=request)
     db.commit()
-    return redirect(f"/teachers/{t.id}", f"Teacher {'verified' if make_verified else 'un-verified'}.",
+    back = form.get("next") or ""
+    target = back if back.startswith("/") and not back.startswith("//") else f"/teachers/{t.id}"
+    return redirect(target, f"{t.full_name} {'verified: they can now be assigned students' if make_verified else 'un-verified'}.",
                     "success" if make_verified else "warning")
 
 

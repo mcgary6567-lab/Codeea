@@ -350,6 +350,34 @@ def create_student(db: Session, client: Client, data: dict, user: Optional[User]
     return s
 
 
+def set_teacher_verification(db: Session, t: Teacher, make_verified: bool, user: Optional[User], rationale: str,
+                             request=None) -> None:
+    """The safeguarding gate for live classes: only a verified teacher may be assigned students (assign_teacher).
+    Verifying also marks the employee's background check; withdrawing it is logged with the students still assigned."""
+    from datetime import date as _date
+    from app.core.notify import notify
+    before = {"is_verified": t.is_verified, "background_check_status": t.employee.background_check_status if t.employee else None}
+    t.is_verified = make_verified
+    if t.employee:
+        t.employee.background_check_status = "verified" if make_verified else "pending"
+        t.employee.background_check_date = _date.today() if make_verified else None
+        if make_verified and t.employee.status == "probation":
+            t.employee.status = "active"
+    if not make_verified:
+        n = db.query(func.count(Student.id)).filter(Student.teacher_id == t.id).scalar() or 0
+        if n:
+            log_action(db, user, "safeguarding_access", "teachers", entity=t, severity="warning", request=request,
+                       description=f"Verification withdrawn while {n} students are still assigned — reassignment required.")
+    log_action(db, user, "approve" if make_verified else "revoke", "teachers", entity=t, rationale=rationale,
+               description=f"Teacher {t.teacher_code} background check {'VERIFIED' if make_verified else 'WITHDRAWN'}",
+               before=before, after={"is_verified": make_verified}, request=request, severity="warning", consequential=True)
+    if t.user_id:
+        notify(db, t.user_id, "Verification status updated",
+               "Your background check has been verified — you can now be assigned live classes." if make_verified
+               else "Your verification has been withdrawn. You cannot be assigned live classes until it is restored.",
+               event_type="verification", link="/teacher")
+
+
 def create_teacher_full(db: Session, data: dict, user: Optional[User], request=None) -> tuple[Teacher, str]:
     """Create User (role teacher) + Employee(is_teacher) + Teacher in one go. Returns (teacher, temp_password)."""
     email = (data.get("email") or "").strip().lower()

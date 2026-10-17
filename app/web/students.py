@@ -526,7 +526,11 @@ def change_teacher_page(id: int, request: Request, db: Session = Depends(get_db)
     s = _get(db, id)
     ranked = svc.recommend_teachers(db, s.course.code if s.course else None, s.gender, s.age, s.timezone, exclude_ids=[s.teacher_id] if s.teacher_id else ())
     from app.models.academic import TEACHER_CHANGE_REASONS
-    return render(request, "students/change_teacher.html", {"user": user, "s": s, "ranked": ranked, "reasons": TEACHER_CHANGE_REASONS})
+    # the teachers who cannot be chosen yet, so the reason is visible and the way to fix it is one click away
+    waiting = (db.query(Teacher).filter(Teacher.is_verified.is_(False), Teacher.status == "active")
+               .order_by(Teacher.full_name).limit(20).all())
+    return render(request, "students/change_teacher.html", {"user": user, "s": s, "ranked": ranked, "reasons": TEACHER_CHANGE_REASONS,
+                                                             "waiting": waiting, "can_verify": rbac.has_permission(user, "teachers.approve")})
 
 
 @router.post("/{id}/change-teacher", include_in_schema=False)

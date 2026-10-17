@@ -339,3 +339,66 @@ def test_teacher_match_survival_job(db):
     out2 = refresh_student_ages(db)
     assert "checked" in out2
     db.rollback()
+
+
+# ------------------------------------------------------------------------------------------------ 17 Oct 2026
+def test_a_new_teacher_can_be_verified_while_being_added(admin, db):
+    """The college could not assign teachers: new teachers start unverified and nothing said so."""
+    import uuid as _uuid
+    from app.models.people import Teacher as _T
+    tag = _uuid.uuid4().hex[:6]
+    r = admin.post("/teachers/new", data={"full_name": f"Verified On Add {tag}", "email": f"voa{tag}@example.com", "gender": "female",
+                                          "status": "active", "shift": "evening", "grade": "B", "verify_now": "1",
+                                          "verify_rationale": "CNIC and references seen"})
+    assert r.status_code == 200
+    db.expire_all()
+    t = db.query(_T).filter(_T.full_name == f"Verified On Add {tag}").one()
+    assert t.is_verified is True
+    from app.models.core import AuditEvent
+    assert db.query(AuditEvent).filter(AuditEvent.entity_type == "Teacher", AuditEvent.entity_id == t.id, AuditEvent.action == "approve").count() == 1
+
+
+def test_change_teacher_shows_who_waits_for_verification_and_verifies_in_place(admin, db):
+    import uuid as _uuid
+    from app.models.people import Teacher as _T
+    tag = _uuid.uuid4().hex[:6]
+    admin.post("/teachers/new", data={"full_name": f"Waiting Teacher {tag}", "email": f"wt{tag}@example.com", "gender": "male",
+                                      "status": "active", "shift": "evening", "grade": "B"})
+    db.expire_all()
+    t = db.query(_T).filter(_T.full_name == f"Waiting Teacher {tag}").one()
+    assert t.is_verified is False
+    s = first_student(db)
+    page = admin.get(f"/students/{s.id}/change-teacher").text
+    assert "Waiting for verification" in page and f"Waiting Teacher {tag}" in page and f'action="/teachers/{t.id}/verify"' in page
+    r = admin.post(f"/teachers/{t.id}/verify", data={"verified": "1", "rationale": "checked", "next": f"/students/{s.id}/change-teacher"},
+                   follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == f"/students/{s.id}/change-teacher"
+    db.expire_all()
+    assert db.get(_T, t.id).is_verified is True
+    assert admin.post(f"/teachers/{t.id}/verify", data={"verified": "1", "rationale": "x", "next": "//evil.example"},
+                      follow_redirects=False).headers["location"] == f"/teachers/{t.id}", "only same-site returns"
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _purge_test_teachers():
+    """The two tests above create teachers with a login and an employee record: remove them after the module."""
+    yield
+    from app.database import SessionLocal as _SL
+    from app.models.core import AuditEvent, Notification, User as _U
+    from app.models.people import Employee, SalaryStructure, Teacher as _T
+    s = _SL()
+    try:
+        for t in s.query(_T).filter(_T.full_name.like("Verified On Add %") | _T.full_name.like("Waiting Teacher %")).all():
+            emp_id, user_id = t.employee_id, t.user_id
+            s.query(AuditEvent).filter(AuditEvent.entity_type == "Teacher", AuditEvent.entity_id == t.id).delete(synchronize_session=False)
+            s.delete(t)
+            s.flush()
+            if emp_id:
+                s.query(SalaryStructure).filter(SalaryStructure.employee_id == emp_id).delete(synchronize_session=False)
+                s.query(Employee).filter(Employee.id == emp_id).delete(synchronize_session=False)
+            if user_id:
+                s.query(Notification).filter(Notification.user_id == user_id).delete(synchronize_session=False)
+                s.query(_U).filter(_U.id == user_id).delete(synchronize_session=False)
+        s.commit()
+    finally:
+        s.close()

@@ -26,9 +26,26 @@
             </div>
           </label>
         {% else %}
-          {{ ui.empty_state('No verified teacher is available for this course and timezone. Verify a teacher first.', 'user-x') }}
+          {{ ui.empty_state('No verified teacher yet. Only teachers whose background check is verified can be assigned students: verify one below, or from Teachers › the teacher › Verification.', 'user-x') }}
         {% endfor %}
         </div>
+        {% if waiting %}
+        <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-800">Waiting for verification ({{ waiting|length }}): cannot be assigned yet</div>
+          <ul class="space-y-1.5 text-sm">
+          {% for w in waiting %}
+            <li class="flex flex-wrap items-center gap-2">
+              <span class="flex-1 text-slate-800">{{ w.full_name }} <span class="font-mono text-[11px] text-slate-500">{{ w.teacher_code }}{% if w.courses %} · {{ w.courses|join(', ') }}{% endif %}</span></span>
+              {% if can_verify %}
+              <button type="submit" form="verify_{{ w.id }}" class="rounded border border-emerald-300 bg-white px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-50">Verify</button>
+              {% endif %}
+              <a href="/teachers/{{ w.id }}" class="text-xs text-brand-700 hover:underline">Open</a>
+            </li>
+          {% endfor %}
+          </ul>
+          {% if not can_verify %}<p class="mt-2 text-xs text-amber-800">Ask someone who can approve teachers (HR / academics head) to verify them.</p>{% endif %}
+        </div>
+        {% endif %}
         <div class="mt-4">{{ ui.select('reason_category', 'Reason category', reasons, 'parent_request', placeholder=None) }}</div>
         <div class="mt-3">{{ ui.textarea('reason', 'Reason for the change (required)', '', rows=3, required=True, placeholder='Parent request, timezone change, QA outcome, teacher resignation…') }}</div>
         <p class="mt-1 text-xs text-slate-500">Kept in the student's teacher history with the previous teacher and class time; nothing is overwritten.</p>
@@ -56,4 +73,11 @@
     {% endcall %}
   </div>
 </div>
+{% if can_verify %}{% for w in waiting %}
+<form id="verify_{{ w.id }}" method="post" action="/teachers/{{ w.id }}/verify" class="hidden"
+      onsubmit='return confirm({{ ("Verify " ~ w.full_name ~ "? Their background check (identity, references, police certificate) must be done.")|tojson }})'>
+  <input type="hidden" name="verified" value="1"><input type="hidden" name="next" value="/students/{{ s.id }}/change-teacher">
+  <input type="hidden" name="rationale" value="Background check confirmed from the Change teacher page">
+</form>
+{% endfor %}{% endif %}
 {% endblock %}

@@ -100,6 +100,8 @@ ENTITIES: dict[str, dict] = {
             ("timezone", "Timezone", "str", False),
             ("per_class_rate", "Per class rate", "decimal", False),
             ("status", "Status", "str", False),
+            ("courses", "Courses taught (codes, e.g. NAZRA, HIFZ)", "str", False),
+            ("verified", "Background check verified (yes/no)", "str", False),
         ],
     },
     "invoices": {
@@ -396,6 +398,7 @@ SYNONYMS: dict[str, dict[str, list[str]]] = {
     },
     "teachers": {
         "teacher_code": ["code", "id", "teacher id", "teacher code"],
+        "courses": ["courses", "course", "subjects"], "verified": ["verified", "background check", "is verified"],
         "full_name": ["teacher", "teacher name", "name"],
         "phone": ["cell", "mobile", "contact no"], "per_class_rate": ["rate", "class rate", "per class"],
         "shift": ["shift name"],
@@ -769,8 +772,16 @@ def _import_row(db: Session, entity: str, clean: dict, actor: Optional[User]) ->
                       per_class_rate=clean.get("per_class_rate") or 0, status=clean.get("status") or "active")
         if db.query(Teacher).filter(Teacher.teacher_code == obj.teacher_code).first():
             raise ValueError(f"teacher_code {obj.teacher_code} already exists")
+        if clean.get("courses"):
+            obj.courses = [c.strip().upper() for c in re.split(r"[,;/]+", str(clean["courses"])) if c.strip()]
         db.add(obj)
         db.flush()
+        if _yes(clean.get("verified"), False):
+            from app.core import rbac
+            if actor is None or not rbac.has_permission(actor, "teachers.approve"):
+                raise ValueError("verified=yes needs the teachers.approve permission (or leave the column out and verify later)")
+            from app.services.people import set_teacher_verification
+            set_teacher_verification(db, obj, True, actor, "Verified in the legacy ERP; imported as verified")
         return obj.teacher_code
     if entity == "invoices":
         client = _client_for(db, clean)

@@ -57,7 +57,7 @@ The import engine is Configuration › Data Migration (`app/services/migration.p
 | Clients / Parents | /clients | email, phone, client code |
 | Students | /students | student code, or family + name |
 | Leads | /crm/leads (List view) | email, phone |
-| Teachers | /teachers | email, teacher code |
+| Teachers | /teachers | email, teacher code. Optional columns: `courses` (e.g. "NAZRA, HIFZ") and `verified` (yes/no, needs teachers.approve) |
 | **Employees** (new) | /hr/employees | employee code, email |
 | **Subscriptions** (new) | /finance/subscriptions | subscription code |
 | **Courses** (new) | Academic Configuration › Courses | course code |
