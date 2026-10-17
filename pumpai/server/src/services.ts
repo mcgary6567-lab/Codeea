@@ -297,6 +297,31 @@ export function reverseSale(tenantId: number, sale: Row): string[] {
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** The cash a fuel / shop sale put in the salesman's bag: only a 'cash' sale is counted at shift close. */
+export const saleCash = (payment_method: string | null | undefined, amount: number | null | undefined) => (payment_method === "cash" ? round2(amount ?? 0) : 0);
+
+/**
+ * A correction (void / edit) on a sale that sits on a CLOSED shift changes the cash that shift's bag should have held.
+ * The ledger is derived from the sale rows, but the cash book runs on the shift's stored figures (cash_actual /
+ * handed_amount = what was physically counted; variance = counted − expected is the "short / over" journal line), so the
+ * two drift apart unless the shift's expected cash follows. Mirrors rebookLateSale: `freedCash` > 0 (cash sale voided, or
+ * moved to khata / card / a lower amount) lowers cash_expected and re-derives variance — the counted cash stays the truth,
+ * the freed rupees show as "over". `freedCash` < 0 (khata → cash, or a higher cash amount) is refused: that cash was never
+ * counted in the bag, so it cannot be added to a closed shift. An open shift (figures are computed at close) or no shift
+ * (counter sale) is left alone. Must run inside the caller's tx. Returns what moved, for the audit row / response.
+ */
+export function adjustClosedShiftCash(shift: Row | null | undefined, freedCash: number, what: string) {
+  if (!shift || shift.status !== "closed") return null;
+  const freed = round2(freedCash);
+  if (Math.abs(freed) < 0.005) return null;
+  if (freed < 0)
+    throw new AppError(400, `Band shift me cash nahi badh sakta — ${what} se shift #${shift.id} ka cash ${pkr(-freed)} barhta hai, jo close par gina nahi gaya tha. Is sale ko void karke aaj ki khuli shift me dobara daalein.`);
+  const expected = round2((shift.cash_expected ?? 0) - freed);
+  const variance = round2((shift.cash_actual ?? 0) - expected);
+  run("UPDATE shifts SET cash_expected=?, variance=? WHERE id=?", expected, variance, shift.id);
+  return { shift_id: shift.id as number, freed_cash: freed, cash_expected_before: round2(shift.cash_expected ?? 0), cash_expected: expected, variance };
+}
+
 /**
  * Volume Correction Factor to 15°C (simplified ASTM linear model): fuel expands in heat, so the same litres
  * measured on a hot afternoon read higher than on a cold morning. V15 = Vobserved × (1 − α·(T − 15)), where α

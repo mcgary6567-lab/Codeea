@@ -22,7 +22,7 @@ import { z } from "zod";
 import { all, get, run, tx, now, pkStart, pkEnd, type Row } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import type { Request } from "express";
-import { AppError, round2, pkr, reverseSale, recordSale, khataEntry, audit } from "../services.js";
+import { AppError, round2, pkr, reverseSale, recordSale, khataEntry, audit, adjustClosedShiftCash, saleCash } from "../services.js";
 import { moneyMethods } from "./lookups.js";
 import { productSchema } from "../products.js";
 import { insertTxn, clientDue } from "./wholesale.js";
@@ -81,9 +81,16 @@ corrections.post("/corrections/sale/:id/void", requirePerm("corrections.manage")
   const sale = get(`SELECT s.* FROM sales s JOIN stations st ON st.id=s.station_id WHERE s.id=? AND st.tenant_id=?`, Number(req.params.id), t);
   if (!sale) throw new AppError(404, "Sale nahi mili (shayad pehle hi void ho chuki)");
   const customer = sale.customer_id ? get("SELECT name FROM customers WHERE id=?", sale.customer_id) : null;
-  const did = tx(() => reverseSale(t, sale));
-  audit(t, req.user!, "sale_void", `sale:${sale.id}`, { product: sale.product, litres: sale.litres, amount: sale.amount, method: sale.payment_method, customer: customer?.name ?? null, reason, reversed: did });
-  return { ok: true, reversed: did, amount: round2(sale.amount) };
+  const shift = sale.shift_id ? get("SELECT * FROM shifts WHERE id=?", sale.shift_id) : null;
+  const { did, shiftCash } = tx(() => {
+    const did = reverseSale(t, sale);
+    // a cash sale on a CLOSED shift: that cash was counted in the bag, so the shift's expected cash drops and the rest shows as "over"
+    const shiftCash = adjustClosedShiftCash(shift, saleCash(sale.payment_method, sale.amount), "sale void");
+    if (shiftCash) did.push(`shift #${shiftCash.shift_id} cash expected ${pkr(shiftCash.cash_expected_before)} → ${pkr(shiftCash.cash_expected)}`);
+    return { did, shiftCash };
+  });
+  audit(t, req.user!, "sale_void", `sale:${sale.id}`, { product: sale.product, litres: sale.litres, amount: sale.amount, method: sale.payment_method, customer: customer?.name ?? null, reason, reversed: did, shift_cash: shiftCash });
+  return { ok: true, reversed: did, amount: round2(sale.amount), shift_cash: shiftCash };
 }));
 
 /** CEO edit of ANY fuel sale: reverse it + re-record with the new values in one transaction, so stock, meter, khata,
@@ -111,9 +118,10 @@ corrections.post("/corrections/sale/:id/edit", requirePerm("entries.edit"), h((r
   if (method === "khata" && !customer_id) throw new AppError(400, "Khata sale ke liye customer chahiye");
   const litres = b.litres ?? (b.amount ? undefined : sale.litres);
   const before = { product: sale.product, litres: sale.litres, amount: sale.amount, method: sale.payment_method, customer_id: sale.customer_id, vehicle_no: sale.vehicle_no, slip_no: sale.slip_no };
-  const saved = tx(() => {
+  const shift = sale.shift_id ? get("SELECT * FROM shifts WHERE id=?", sale.shift_id) : null;
+  const { saved, shiftCash } = tx(() => {
     reverseSale(t, sale);
-    return recordSale(t, {
+    const saved = recordSale(t, {
       station_id: sale.station_id, product: b.product ?? sale.product, litres, amount: b.amount,
       // same fuel → keep the sale's own rate (price may have moved since); a new fuel reprices at its current rate
       rate: (b.product && b.product !== sale.product) ? undefined : sale.rate,
@@ -123,9 +131,13 @@ corrections.post("/corrections/sale/:id/edit", requirePerm("entries.edit"), h((r
       account_id: b.account_id !== undefined ? b.account_id : sale.account_id,
       discount: b.discount ?? sale.discount ?? 0, discount_kind: b.discount_kind ?? sale.discount_kind ?? undefined, discount_ref: b.discount_ref ?? sale.discount_ref ?? undefined,
     });
+    // on a CLOSED shift the bag's cash follows: cash → khata/card (or a smaller cash amount) frees counted cash → expected drops;
+    // khata/card → cash would ADD cash that was never counted → refused (the tx rolls back)
+    const shiftCash = adjustClosedShiftCash(shift, saleCash(sale.payment_method, sale.amount) - saleCash(saved.payment_method, saved.amount), `${sale.payment_method} → ${saved.payment_method} edit`);
+    return { saved, shiftCash };
   });
-  audit(t, req.user!, "sale_edit", `sale:${sale.id}`, { before, after: { product: saved.product, litres: saved.litres, amount: saved.amount, method: saved.payment_method, customer_id: saved.customer_id }, new_sale_id: saved.id, reason: b.reason });
-  return { ok: true, sale: saved };
+  audit(t, req.user!, "sale_edit", `sale:${sale.id}`, { before, after: { product: saved.product, litres: saved.litres, amount: saved.amount, method: saved.payment_method, customer_id: saved.customer_id }, new_sale_id: saved.id, reason: b.reason, shift_cash: shiftCash });
+  return { ok: true, sale: saved, shift_cash: shiftCash };
 }));
 
 /* ---------------- 2. Manual khata entry void ---------------- */
@@ -265,6 +277,7 @@ corrections.post("/corrections/supplier-txn/:id/void", requirePerm("corrections.
   if (x.delivery_id) throw new AppError(400, "Ye entry ek tanker delivery se bani — 'Delivery void' se theek karein.");
   if (String(x.ref ?? "").startsWith("wtx:")) throw new AppError(400, "Ye wholesale client ki depot-direct payment ka hissa hai — wholesale payment void karein.");
   if (String(x.ref ?? "").startsWith("claim:")) throw new AppError(400, "Ye shortage claim ki credit note hai — Claims page se badlein.");
+  if (String(x.ref ?? "").startsWith("shopbuy:")) throw new AppError(400, "Ye shop ke maal ki kharidari hai — Shop page (stock history) se dekhein.");
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `stx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se voucher void karein.");
   // a payment may have a withholding-tax sibling (same supplier, same instant, method 'WHT') + a tax_withholdings record
   const wht = x.type === "payment" ? get("SELECT * FROM supplier_txns WHERE tenant_id=? AND supplier_id=? AND method='WHT' AND txn_date=? AND id<>?", t, x.supplier_id, x.txn_date, x.id) : null;
@@ -298,6 +311,7 @@ corrections.post("/corrections/supplier-txn/:id/edit", requirePerm("entries.edit
   if (x.delivery_id) throw new AppError(400, "Ye entry ek tanker delivery se bani — 'Delivery' se badlein.");
   if (String(x.ref ?? "").startsWith("wtx:")) throw new AppError(400, "Ye wholesale client ki depot-direct payment ka hissa hai — wholesale payment se badlein.");
   if (String(x.ref ?? "").startsWith("claim:")) throw new AppError(400, "Ye shortage claim ki credit note hai — Claims page se badlein.");
+  if (String(x.ref ?? "").startsWith("shopbuy:")) throw new AppError(400, "Ye shop ke maal ki kharidari hai — Shop page (stock history) se dekhein.");
   if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `stx:${x.id}`)) throw new AppError(400, "Ye cashier ke voucher se bani — Cashier desk se badlein.");
   // a payment that carried withholding tax touches FBR records — too much to re-wire here; void & re-enter
   if (x.type === "payment" && get("SELECT 1 FROM supplier_txns WHERE tenant_id=? AND supplier_id=? AND method='WHT' AND txn_date=? AND id<>?", t, x.supplier_id, x.txn_date, x.id))

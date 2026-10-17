@@ -8,8 +8,9 @@ import { z } from "zod";
 import { all, get, run, tx, now, pkDayStart, pkStart, pkEnd } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { h, parse, tid, requirePerm, scopedStation, can } from "../auth.js";
-import { AppError, round2, pkr, createAlert, audit, UNDO_SECONDS } from "../services.js";
+import { AppError, round2, pkr, createAlert, audit, UNDO_SECONDS, adjustClosedShiftCash, saleCash } from "../services.js";
 import { assertLookup, moneyMethods } from "./lookups.js";
+import { otherMoney, bankAccountFor, accountIdField } from "./banks.js";
 import { notify, staff } from "../notifications.js";
 import { shiftSummary } from "../shifts.js";
 import { receiptUrl } from "../billing.js";
@@ -58,16 +59,35 @@ shop.patch("/shop/items/:id", requirePerm("stock.manage"), h((req) => {
   return get("SELECT * FROM shop_items WHERE id=?", i.id);
 }));
 
-/** Stock received (purchase): the average cost is updated. */
+/** Stock received (purchase): the average cost is updated, and the goods' money side is booked — paid in cash at the
+ *  counter (cash voucher), from a bank/wallet (bank row), on a supplier's khata (supplier purchase → payable), or `none`
+ *  when the money was already entered elsewhere / opening stock. The ledger books the goods as "Shop stock" (asset) and
+ *  moves their cost to "Cost of shop sales" as they sell, so shop inventory and P&L cost tie without double counting. */
 shop.post("/shop/items/:id/stock-in", requirePerm("stock.manage"), h((req) => {
-  const i = ownItem(tid(req), Number(req.params.id));
-  const b = parse(z.object({ qty: z.number().positive(), cost: z.number().min(0).optional(), supplier: z.string().max(80).optional().nullable(), ref: z.string().max(40).optional().nullable(), photo_ids: proofPhotos }), req.body);
+  const t = tid(req);
+  const i = ownItem(t, Number(req.params.id));
+  const b = parse(z.object({ qty: z.number().positive(), cost: z.number().min(0).optional(), supplier: z.string().max(80).optional().nullable(), ref: z.string().max(40).optional().nullable(), photo_ids: proofPhotos,
+    paid_by: z.enum(["cash", "bank", "supplier", "none"]).default("none"), method: z.string().max(30).optional().nullable(), account_id: accountIdField, supplier_id: z.number().int().positive().optional().nullable() }), req.body);
   const unitCost = b.cost ?? i.cost;
+  const amount = round2(b.qty * unitCost);
   const avg = i.stock + b.qty > 0 ? round2((Math.max(0, i.stock) * i.cost + b.qty * unitCost) / (Math.max(0, i.stock) + b.qty)) : unitCost;
+  const sup = b.paid_by === "supplier" ? get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id ?? 0, t) : null;
+  if (b.paid_by === "supplier" && !sup) throw new AppError(400, "Supplier chunein jis ke khate par maal aaya");
+  if (b.paid_by === "bank" && !bankAccountFor(t, b.account_id, b.method ?? "bank")) throw new AppError(400, "Bank / wallet account chunein");
+  if (b.paid_by !== "none" && amount <= 0) throw new AppError(400, "Paisa book karne ke liye cost per unit likhein");
   tx(() => {
     run("UPDATE shop_items SET stock = stock + ?, cost=? WHERE id=?", b.qty, avg, i.id);
-    const mid = run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,note,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)", i.id, "purchase", b.qty, unitCost, b.ref ?? null, b.supplier ?? null, req.user!.name, now()).id;
-    linkPhotos(tid(req), b.photo_ids, `shopmove:${mid}`); // supplier bill
+    const mid = run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,note,created_by,created_at,paid_by,amount) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      i.id, "purchase", b.qty, unitCost, b.ref ?? null, sup?.name ?? b.supplier ?? null, req.user!.name, now(), b.paid_by, amount).id;
+    linkPhotos(t, b.photo_ids, `shopmove:${mid}`); // supplier bill
+    let src: string | null = null;
+    if (b.paid_by === "cash" || b.paid_by === "bank")
+      src = otherMoney(t, { dir: "out", amount, method: b.paid_by === "cash" ? "cash" : b.method ?? "bank", account_id: b.account_id, party: sup?.name ?? b.supplier ?? "Shop purchase",
+        category: "Shop purchase", note: `${i.name} × ${b.qty} ${i.unit}`, ref: `shopbuy:${mid}`, by: req.user!.name });
+    else if (sup)
+      src = `stx:${run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+        t, sup.id, "purchase", amount, `shopbuy:${mid}`, `Shop: ${i.name} × ${b.qty} ${i.unit}`, req.user!.name, now(), now()).id}`;
+    if (src) run("UPDATE shop_moves SET src=? WHERE id=?", src, mid);
   });
   return get("SELECT * FROM shop_items WHERE id=?", i.id);
 }));
@@ -210,7 +230,8 @@ shop.post("/shop/sales/:id/edit", requirePerm("entries.edit"), h((req) => {
   if (method === "khata" && !customer_id) throw new AppError(400, "Khata sale ke liye customer chahiye");
   if (method === "khata" && !get("SELECT id FROM customers WHERE id=? AND tenant_id=?", customer_id, t)) throw new AppError(400, "Customer nahi mila");
   const before = { payment_method: s.payment_method, customer_id: s.customer_id };
-  tx(() => {
+  const shift = s.shift_id ? get("SELECT * FROM shifts WHERE id=?", s.shift_id) : null;
+  const shiftCash = tx(() => {
     // reverse the old khata leg (if any)
     if (s.payment_method === "khata" && s.customer_id) {
       run("DELETE FROM khata_ledger WHERE customer_id=? AND ref=?", s.customer_id, `SHOP-${s.id}`);
@@ -224,9 +245,12 @@ shop.post("/shop/sales/:id/edit", requirePerm("entries.edit"), h((req) => {
         customer_id, "debit", s.total, `SHOP-${s.id}`, note, s.station_id, s.created_at);
       run("UPDATE customers SET balance = balance + ? WHERE id=?", s.total, customer_id);
     }
+    // shop cash is part of the shift's bag (shiftSummary.cash_expected): on a CLOSED shift, cash → khata/digital frees counted
+    // cash (expected drops, shows as "over"); khata/digital → cash would add cash never counted → refused (tx rolls back)
+    return adjustClosedShiftCash(shift, saleCash(s.payment_method, s.total) - saleCash(method, s.total), `shop ${s.payment_method} → ${method} edit`);
   });
-  audit(t, req.user!, "shop_edit", `shop:${s.id}`, { before, after: { payment_method: method, customer_id: method === "khata" ? customer_id : null }, reason: b.reason });
-  return { ok: true, total: round2(s.total) };
+  audit(t, req.user!, "shop_edit", `shop:${s.id}`, { before, after: { payment_method: method, customer_id: method === "khata" ? customer_id : null }, reason: b.reason, shift_cash: shiftCash });
+  return { ok: true, total: round2(s.total), shift_cash: shiftCash };
 }));
 
 /** Shop sales, profit and stock for a period (default today). */

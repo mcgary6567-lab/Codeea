@@ -209,3 +209,21 @@ test("after all of the above: every book still tallies with the ledger", async (
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("bypass");
 });
+
+test("void a client drop: litres back in bypass stock, client's bill cancelled, books tally; second void refused", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  // fresh purchase + one drop to W1, then undo that drop
+  const due0 = await clientDueOf(W1.id);
+  const stock0 = ok(await call("wholesale", "GET", "/api/bypass/stock"), "s0").total.litres;
+  const r = ok(await call("wholesale", "POST", "/api/bypass/deliveries", { station_id: st, purchases: [{ supplier_id: S.id, product: "HSD", litres: 300, cost_rate: 250 }], drops: [{ client_id: W1.id, product: "HSD", litres: 300, override_limit: true }] }), "delivery");
+  const det = ok(await call("wholesale", "GET", `/api/bypass/deliveries/${r.id}`), "detail");
+  const drop = det.drops.find((x: any) => !x.voided);
+  assert.ok(drop, "has a live drop");
+  assert.ok((await clientDueOf(W1.id)) > due0 + 1, "W1 billed");
+  ok(await call("admin", "POST", `/api/bypass/drops/${drop.id}/void`, { reason: "galat client" }), "void drop");
+  near(await clientDueOf(W1.id), due0, "W1's bill cancelled");
+  near(ok(await call("wholesale", "GET", "/api/bypass/stock"), "s1").total.litres, stock0 + 300, "the 300 L are back in bypass stock");
+  assert.equal((await call("admin", "POST", `/api/bypass/drops/${drop.id}/void`, { reason: "again" })).status, 400);
+  await tallyBooks("after bypass drop void");
+  assert.equal(ok(await call("admin", "GET", "/api/books/check"), "books").ok, true);
+});

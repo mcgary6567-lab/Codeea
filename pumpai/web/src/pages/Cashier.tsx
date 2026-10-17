@@ -68,7 +68,7 @@ export default function Cashier() {
 
 /* ================= desk ================= */
 /** Money that belongs to another module (CEO other entries, rent, claims, WHT, coupon refunds) is changed there, not on the desk. */
-const ownedSrc = (src?: string | null) => /^(oth-|rental:|claim:|wht:|coupon-refund:|bypassfuel:)/.test(String(src ?? ""));
+const ownedSrc = (src?: string | null) => /^(oth-|shopbuy:|rental:|claim:|wht:|coupon-refund:|bypassfuel:)/.test(String(src ?? ""));
 const TONE: Record<string, string> = { red: "bg-red-500", amber: "bg-amber-500", blue: "bg-sky-500", green: "bg-emerald-500" };
 
 /** WhatsApp payment screenshots from khata customers, waiting for the cashier to check and confirm into the khata. */
@@ -216,11 +216,11 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
             <li key={v.id} className="flex items-center hover:bg-slate-50">
               <button onClick={() => onSlip({ voucher: v, account: v.account })} className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left text-sm">
                 <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
-                <span className="min-w-0 flex-1 truncate">{v.party_name}<span className="block text-xs text-slate-500">{v.method} · {ago(v.created_at)}</span></span>
-                <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
+                <span className="min-w-0 flex-1 truncate">{v.party_name}{v.pending ? <> <PendingBadge /></> : null}<span className="block text-xs text-slate-500">{v.method} · {ago(v.created_at)}</span></span>
+                <span className={`font-semibold tabular-nums ${v.pending ? "text-amber-700" : v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
               </button>
               <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>
-              {can("entries.edit") && v.method !== "Cheque" && !ownedSrc(v.src) && (
+              {can("entries.edit") && v.method !== "Cheque" && !ownedSrc(v.src) && !v.pending && (
                 <button title="Edit this voucher (CEO) — poore system me update" aria-label="Edit voucher" onClick={() => setEditV(v)}
                   className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"><Pencil size={15} /></button>
               )}
@@ -240,6 +240,9 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
 
 /** CEO popup: the whole voucher on one form — change amount / method / bank account / category / note, give a reason,
  *  Update → the source entry is reversed and re-posted, so party balance, cash, bank and ledger all follow. */
+/** An expense paid at the counter above the approval limit: the slip is a hold until the owner approves (edit after that). */
+const PendingBadge = () => <Badge tone="amber">Approval pending · منظوری باقی</Badge>;
+
 function EditVoucher({ v, onClose, onDone }: { v: any; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ amount: String(v.amount ?? ""), method: v.method ?? "Cash", category: v.category ?? "", note: v.note ?? "", reason: "" });
   const [account, setAccount] = useState<number | null>(v.account_id ?? null);
@@ -626,8 +629,8 @@ function VoucherBody({ r, copy }: { r: any; copy: string }) {
         </dl>
         {r.message && <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900 print:hidden">{r.message}</p>}
         {/* on paper too: an expense not yet approved, or turned down, must not pass as a settled payment */}
-        {(r.approval === "pending" || r.approval === "rejected") && <div className="rounded border-2 border-dashed border-amber-600 px-2 py-1 text-center print:py-0 text-xs font-bold uppercase tracking-wide text-amber-800">
-          {r.approval === "pending" ? <>Awaiting owner approval · <Ur>مالک کی منظوری باقی</Ur></> : <>Rejected · <Ur>نامنظور</Ur></>}</div>}
+        {(r.approval === "pending" || r.approval === "rejected" || v.pending) && <div className="rounded border-2 border-dashed border-amber-600 px-2 py-1 text-center print:py-0 text-xs font-bold uppercase tracking-wide text-amber-800">
+          {r.approval === "rejected" ? <>Rejected · <Ur>نامنظور</Ur></> : <>Pending approval — not paid yet · <Ur>مالک کی منظوری باقی</Ur></>}</div>}
         <div className={`grid ${v.category ? "grid-cols-3" : "grid-cols-2"} gap-6 pt-8 text-center text-xs text-slate-500 print:pt-5`}>
           <div className="border-t border-slate-400 pt-1">{r.prepared ? <>Prepared by · <Ur>تیار کنندہ</Ur></> : <>Cashier · <Ur>کیشیئر</Ur></>}</div>
           {v.category && <div className="border-t border-slate-400 pt-1">Approved by · <Ur>منظور</Ur>{r.approved_by ? <div className="text-slate-700">{r.approved_by}</div> : null}</div>}
@@ -859,12 +862,12 @@ function Vouchers({ onSlip }: { onSlip: (v: any) => void }) {
             <li key={v.id} className={`flex items-center hover:bg-slate-50 ${v.voided ? "opacity-60" : ""}`}>
               <button onClick={() => onSlip({ voucher: v, account: v.account })} className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left text-sm">
                 <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
-                <span className="min-w-0 flex-1 truncate">{v.party_name}{v.voided ? <> <Badge tone="red">Void · منسوخ</Badge></> : null}
+                <span className="min-w-0 flex-1 truncate">{v.party_name}{v.voided ? <> <Badge tone="red">Void · منسوخ</Badge></> : v.pending ? <> <PendingBadge /></> : null}
                   <span className="block text-xs text-slate-500">{dt(v.created_at)} · {v.method}{v.account ? ` · ${v.account}` : ""}{v.category ? ` · ${v.category}` : ""}</span></span>
-                <span className={`font-semibold tabular-nums ${v.voided ? "line-through text-slate-400" : v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
+                <span className={`font-semibold tabular-nums ${v.voided ? "line-through text-slate-400" : v.pending ? "text-amber-700" : v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
               </button>
               {!v.voided && <span className="pr-2"><WhatsAppDoc kind="voucher" id={v.id} label="" small className="btn-secondary" /></span>}
-              {!v.voided && can("entries.edit") && v.method !== "Cheque" && !ownedSrc(v.src) && (
+              {!v.voided && !v.pending && can("entries.edit") && v.method !== "Cheque" && !ownedSrc(v.src) && (
                 <button title="Edit this voucher (CEO) — poore system me update" aria-label="Edit voucher" onClick={() => setEditV(v)}
                   className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"><Pencil size={15} /></button>
               )}

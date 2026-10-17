@@ -191,6 +191,7 @@ test("a reason is required for every correction", async () => {
 
 test("CEO edits a sale: cash → khata moves the money to the customer; litres edit on the open shift; books tally", async () => {
   const kh = ok(await call(admin, "GET", "/api/cashier/parties?kind=khata"), "p").khata[0];
+  (await import("../src/db.js")).run("UPDATE customers SET credit_limit = credit_limit + 100000 WHERE id=?", kh.id); // headroom: this test is about the edit, not the limit
   const before = await bal(kh.id);
   const sale = ok(await call(salesman, "POST", "/api/sales", { station_id: 1, product: "PMG", amount: 2000, payment_method: "cash" }), "cash sale").id;
   await tallyBooks("after cash sale");

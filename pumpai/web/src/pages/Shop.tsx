@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, PackagePlus, ClipboardCheck, Pencil, Undo2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { useAuth } from "../App";
+import { AccountPicker } from "../components/BankParts";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { Badge, Empty, Field, ListTools, Loading, Modal, PageHeader, Stat, matchQuery, useAction } from "../components/ui";
 import { dt, num, pkr } from "../lib/format";
@@ -199,12 +200,20 @@ function ItemForm({ item, stationId, onClose, onDone }: { item?: any; stationId:
 function StockForm({ kind, item, onClose, onDone }: { kind: "in" | "count"; item: any; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ qty: "", cost: String(item.cost ?? ""), supplier: "", reason: "Stock count" });
   const [photos, setPhotos] = useState<number[]>([]);
+  // how the goods were paid: the ledger books the stock and the money side from this
+  const [paidBy, setPaidBy] = useState<"cash" | "bank" | "supplier" | "none">("cash");
+  const [method, setMethod] = useState("Bank transfer");
+  const [account, setAccount] = useState<number | null>(null);
+  const [supplierId, setSupplierId] = useState<string>("");
+  const suppliers = useApi<any[]>(kind === "in" ? "/suppliers" : null);
+  const total = Math.round((Number(f.qty) || 0) * (Number(f.cost) || 0));
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={kind === "in" ? `Stock received — ${item.name}` : `Count stock — ${item.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        const r = kind === "in" ? await run(() => api(`/shop/items/${item.id}/stock-in`, { body: { qty: Number(f.qty), cost: Number(f.cost) || 0, supplier: f.supplier || null, photo_ids: photos } }), "Stock added")
+        const r = kind === "in" ? await run(() => api(`/shop/items/${item.id}/stock-in`, { body: { qty: Number(f.qty), cost: Number(f.cost) || 0, supplier: f.supplier || null, photo_ids: photos,
+            paid_by: paidBy, method: paidBy === "bank" ? method : null, account_id: paidBy === "bank" ? account : null, supplier_id: paidBy === "supplier" ? Number(supplierId) || null : null } }), "Stock added")
           : await run(() => api(`/shop/items/${item.id}/adjust`, { body: { counted: Number(f.qty), reason: f.reason } }), (x: any) => x.difference ? `Difference ${x.difference} ${item.unit} recorded` : "Matches the book");
         if (r) onDone();
       }}>
@@ -213,6 +222,21 @@ function StockForm({ kind, item, onClose, onDone }: { kind: "in" | "count"; item
         {kind === "in" ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Cost per unit (Rs)"><input className="input" type="number" inputMode="decimal" min={0} step="0.01" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>
           <Field label="Supplier"><input className="input" value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })} /></Field>
+          <div className="sm:col-span-2">
+            <span className="label">Paisa kahan se gaya? · <span lang="ur" dir="rtl" className="font-urdu">رقم کہاں سے</span> {total > 0 && <b className="ml-1 tabular-nums">{pkr(total)}</b>}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {([["cash", "Cash counter · نقد"], ["bank", "Bank / wallet · بینک"], ["supplier", "Supplier khata (udhaar) · ادھار"], ["none", "Koi entry nahi (pehle se likha)"]] as const).map(([k, l]) => (
+                <button type="button" key={k} onClick={() => setPaidBy(k)} className={`rounded-full px-3 py-1 text-xs font-semibold ${paidBy === k ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}>{l}</button>
+              ))}
+            </div>
+            {paidBy === "bank" && <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <select className="input" value={method} onChange={(e) => { setMethod(e.target.value); setAccount(null); }}>{["Bank transfer", "Raast", "JazzCash", "Easypaisa", "Card"].map((m) => <option key={m}>{m}</option>)}</select>
+              <AccountPicker method={method} value={account} onChange={setAccount} required label="Account" />
+            </div>}
+            {paidBy === "supplier" && <select className="input mt-2" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
+              <option value="">— supplier chunein —</option>{(suppliers.data ?? []).map((s: any) => <option key={s.id} value={s.id}>{s.name}{s.company ? ` · ${s.company}` : ""}</option>)}</select>}
+            <p className="mt-1 text-[11px] text-slate-500">{paidBy === "none" ? "Sirf stock barhega — paisa kahin aur (expense) likha ja chuka hai ya opening stock hai." : paidBy === "supplier" ? "Supplier ka payable barhega; cash/bank nahi hilega." : "Cash book / bank se nikal kar shop stock me jama hoga — kharcha nahi, maal hai; bikne par cost lagegi."}</p>
+          </div>
           <div className="sm:col-span-2"><ProofPhotos value={photos} onChange={setPhotos} hint="supplier bill / delivery slip" /></div>
         </div> : <Field label="Reason"><select className="input" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })}>{["Stock count", "Damaged", "Expired", "Used in service", "Other"].map((x) => <option key={x}>{x}</option>)}</select></Field>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>

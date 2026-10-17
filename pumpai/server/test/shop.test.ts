@@ -116,3 +116,24 @@ test("CEO edits a shop sale's payment routing: cash → khata and back; balance 
   await tallyBooks("after shop edit → cash");
   assert.equal((await call("salesman", "POST", `/api/shop/sales/${sale.id}/edit`, { reason: "no", payment_method: "khata", customer_id: acct.id })).status, 403, "non-CEO refused");
 });
+
+test("shop stock-in books the money side: cash → cash book down, supplier → payable up, 'none' → stock only; books tally", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  const items = ok(await call("manager", "GET", "/api/shop/items?station_id=1"), "items");
+  const it = items.find((i: any) => i.cost > 0) ?? items[0];
+  const cash0 = ok(await call("admin", "GET", "/api/cash"), "cash0").cash_in_hand;
+  ok(await call("manager", "POST", `/api/shop/items/${it.id}/stock-in`, { qty: 10, cost: 100, paid_by: "cash" }), "cash stock-in");
+  near(ok(await call("admin", "GET", "/api/cash"), "cash1").cash_in_hand, cash0 - 1000, "Rs 1,000 left the counter for the goods");
+  await tallyBooks("after cash shop purchase");
+  const sup = ok(await call("admin", "GET", "/api/suppliers"), "sup")[0];
+  const owed0 = sup.owed;
+  ok(await call("manager", "POST", `/api/shop/items/${it.id}/stock-in`, { qty: 5, cost: 200, paid_by: "supplier", supplier_id: sup.id }), "supplier stock-in");
+  near(ok(await call("admin", "GET", "/api/suppliers"), "sup2").find((s: any) => s.id === sup.id).owed, owed0 + 1000, "supplier payable up by the goods");
+  await tallyBooks("after supplier shop purchase");
+  const cash2 = ok(await call("admin", "GET", "/api/cash"), "cash2").cash_in_hand;
+  ok(await call("manager", "POST", `/api/shop/items/${it.id}/stock-in`, { qty: 3, cost: 50, paid_by: "none" }), "no-money stock-in");
+  near(ok(await call("admin", "GET", "/api/cash"), "cash3").cash_in_hand, cash2, "no money moved");
+  assert.equal((await call("manager", "POST", `/api/shop/items/${it.id}/stock-in`, { qty: 1, cost: 50, paid_by: "supplier" })).status, 400, "supplier required");
+  await tallyBooks("after no-money stock-in");
+  assert.equal(ok(await call("admin", "GET", "/api/books/check"), "books").ok, true);
+});

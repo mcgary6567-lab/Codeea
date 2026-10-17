@@ -55,6 +55,7 @@ export function useApi<T = any>(path: string | null, pollMs?: number) {
   }, []);
   useEffect(() => {
     setLoading(true);
+    setData(null); setError(null); // a new path never flashes the previous one's rows
     reload();
     if (!pollMs) return;
     const id = setInterval(reload, pollMs);

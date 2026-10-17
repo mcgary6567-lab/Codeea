@@ -37,7 +37,7 @@ const OWN_CAP = "Owner's capital", OWN_DRAW = "Owner's drawings";
 /** Go-live opening balances (khata, staff advances) are brought forward against this equity account, never P&L. */
 const OPENING_EQ = "Opening balances (go-live)", OPEN_REF = "open:";
 const specialSide = (ref: string | null | undefined) =>
-  !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held" : null;
+  !ref ? null : ref.startsWith("shopbuy:") ? "Shop stock" : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : ref.startsWith("bypassfuel:") ? "Depot money held" : null;
 /** CEO-only "other" markers: income / expense / discount. Hidden from non-admin views (shown as owner capital/drawings). */
 const otherKind = (ref: string | null | undefined): "inc" | "exp" | "disc" | "pty" | null =>
   !ref ? null : ref.startsWith("oth-inc:") ? "inc" : ref.startsWith("oth-exp:") ? "exp" : ref.startsWith("oth-disc:") ? "disc" : ref.startsWith("oth-pty:") ? "pty" : null;
@@ -112,6 +112,23 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     const taxAmt = round2(shopTax.filter((r) => r.d === d && !tax.exempt.includes(r.c)).reduce((a, r) => a + splitTax(r.a, tax.gst_pct, true).tax, 0));
     add(d, "Sales", `Shop & lubricant sales ${d}`, [...rows.map((r) => dr(sold(r.m, d), r.a)), cr("Shop sales", total - taxAmt), cr("Output sales tax", taxAmt)]);
   }
+  // shop inventory: goods received with no money entry here (opening / entered elsewhere) come in against the go-live equity;
+  // the cost of what sold each day moves from stock to cost of sales; a count difference is a loss (expense) or a gain
+  for (const r of all(`SELECT m.*, i.name FROM shop_moves m JOIN shop_items i ON i.id=m.item_id WHERE i.tenant_id=? AND m.type='purchase' AND COALESCE(m.paid_by,'none')='none' AND m.created_at >= ? AND m.created_at < ?`, ...P)) {
+    const v = round2(Math.abs(r.amount ?? r.qty * (r.cost ?? 0)));
+    if (v) add(day(r.created_at), "Journal", `Shop goods in (no money entry) — ${r.name} × ${r.qty}`, [dr("Shop stock", v), cr(OPENING_EQ, v)]);
+  }
+  for (const r of all(`SELECT date(datetime(created_at,'+5 hours')) d, SUM(cost_total) c FROM shop_sales WHERE tenant_id=? AND created_at >= ? AND created_at < ? GROUP BY d`, ...P))
+    if (r.c) add(r.d, "Journal", `Cost of shop goods sold ${r.d}`, [dr("Cost of shop sales", r.c), cr("Shop stock", r.c)]);
+  for (const r of all(`SELECT m.*, i.name FROM shop_moves m JOIN shop_items i ON i.id=m.item_id WHERE i.tenant_id=? AND m.type='adjust' AND m.created_at >= ? AND m.created_at < ?`, ...P)) {
+    const v = round2(Math.abs(r.qty * (r.cost ?? 0)));
+    if (v) add(day(r.created_at), "Journal", `Shop stock ${r.qty < 0 ? "loss" : "gain"} — ${r.name} ${r.qty > 0 ? "+" : ""}${r.qty}${r.note ? ` (${r.note})` : ""}`,
+      r.qty < 0 ? [dr("Expense: Shop stock loss", v), cr("Shop stock", v)] : [dr("Shop stock", v), cr("Other income", v)]);
+  }
+  // withholding tax deducted from a payee outside the supplier flow (rent, contractor): the deducted part is still a cost
+  // of that bill and sits in the payable until it is deposited with FBR (the deposit voucher, ref wht:, clears it)
+  for (const r of all(`SELECT w.* FROM tax_withholdings w WHERE w.tenant_id=? AND w.supplier_txn_id IS NULL AND w.supplier_id IS NULL AND w.txn_date >= ? AND w.txn_date < ?`, ...P))
+    add(day(r.txn_date), "Journal", `Income tax withheld — ${r.payee}${r.section ? ` (s.${r.section})` : ""}`, [dr("Expense: Withholding tax (on behalf)", r.amount), cr("Withholding tax payable", r.amount)]);
   // khata: payments received, and charges other than fuel (late fee, adjustments)
   for (const r of all(`SELECT k.*, c.name FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.created_at >= ? AND k.created_at < ? AND COALESCE(k.ref,'') NOT LIKE 'SALE%' AND COALESCE(k.ref,'') NOT LIKE 'SHOP-%'`, ...P)) {
     // go-live opening balance: brought forward, not this period's income
@@ -177,7 +194,8 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
   // suppliers (purchase cost, payments, withholding, credit notes)
   for (const r of all(`SELECT s.*, p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)) {
     const d = day(r.created_at), pay = `Payable — ${r.name}`;
-    if (r.type === "purchase") add(d, "Purchase", `Fuel purchase — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? ""} @ ${r.rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Fuel purchases", r.amount), cr(pay, r.amount)]);
+    if (r.type === "purchase" && String(r.ref ?? "").startsWith("shopbuy:")) add(d, "Purchase", `Shop goods — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Shop stock", r.amount), cr(pay, r.amount)]);
+    else if (r.type === "purchase") add(d, "Purchase", `Fuel purchase — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? ""} @ ${r.rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Fuel purchases", r.amount), cr(pay, r.amount)]);
     if (r.type === "payment" && r.method === DEPOT_PAY) continue; // booked with the client's payment above
     if (r.type === "payment") add(d, "Payment", `${r.method === "WHT" ? "Income tax withheld" : "Paid"} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(pay, r.amount), cr(r.method === "WHT" ? "Withholding tax payable" : via(r.method, r.account_id), r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Supplier adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(r.amount < 0 ? pay : "Supplier adjustments", Math.abs(r.amount)), cr(r.amount < 0 ? "Shortage claims recovered" : pay, Math.abs(r.amount))]);

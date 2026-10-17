@@ -487,6 +487,16 @@ export function migrate() {
     sold_by TEXT, sold_at TEXT NOT NULL, sale_id INTEGER, used_at TEXT, used_by TEXT, void_reason TEXT)`);
   addColumn("customers", "wallet_balance", "REAL NOT NULL DEFAULT 0");
   addColumn("fuel_coupons", "voided_at", "TEXT"); addColumn("fuel_coupons", "void_refund", "INTEGER NOT NULL DEFAULT 0"); // when cancelled, and whether money went back
+  // shop stock-in money leg: how the goods were paid (cash | bank | supplier | none) and the money row it made (voucher:/bank:/stx:)
+  addColumn("shop_moves", "paid_by", "TEXT"); addColumn("shop_moves", "src", "TEXT"); addColumn("shop_moves", "amount", "REAL");
+  // search paths the global search / list filters hit on a big pump
+  for (const ix of [
+    "CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(tenant_id, name)", "CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(tenant_id, phone)",
+    "CREATE INDEX IF NOT EXISTS idx_vehicles_plate ON vehicles(plate_no)", "CREATE INDEX IF NOT EXISTS idx_wclients_name ON wholesale_clients(tenant_id, name)",
+    "CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(tenant_id, name)", "CREATE INDEX IF NOT EXISTS idx_thekedars_name ON thekedars(tenant_id, name)",
+    "CREATE INDEX IF NOT EXISTS idx_vouchers_day ON cashier_vouchers(tenant_id, created_at)", "CREATE INDEX IF NOT EXISTS idx_cheques_no ON cheques(tenant_id, cheque_no)",
+    "CREATE INDEX IF NOT EXISTS idx_sales_vehicle ON sales(vehicle_no)", "CREATE INDEX IF NOT EXISTS idx_sales_slip ON sales(slip_no)",
+  ]) { try { db.exec(ix); } catch { /* older sqlite without the column */ } }
   addColumn("customers", "wallet_low", "REAL"); // WhatsApp when the wallet falls below this
   addColumn("customers", "wallet_low_sent", "INTEGER NOT NULL DEFAULT 0");
   db.exec(`CREATE TABLE IF NOT EXISTS wallet_ledger (

@@ -235,6 +235,24 @@ bypass.post("/bypass/to-tank/:id/void", requirePerm("wholesale.void"), h((req) =
   return { ok: true, stock: bypassStock(t, d.product) };
 }));
 
+/** Void a client drop of a bypass delivery: the litres go back to the bypass stock, the client's bill is voided.
+ *  Refused when money already hangs off the client's row (cashier voucher / bypass supplier payment). */
+bypass.post("/bypass/drops/:wtxId/void", requirePerm("wholesale.void"), h((req) => {
+  const t = tid(req);
+  const { reason } = parse(z.object({ reason: z.string().trim().min(3).max(200) }), req.body);
+  const d = get("SELECT * FROM bypass_drops WHERE wtx_id=? AND tenant_id=? AND tank_id IS NULL", Number(req.params.wtxId), t);
+  if (!d) throw new AppError(404, "Drop nahi mila");
+  if (d.voided) throw new AppError(400, "Ye drop pehle hi void hai");
+  if (get("SELECT 1 FROM cashier_vouchers WHERE tenant_id=? AND src=? AND voided=0", t, `wtx:${d.wtx_id}`)) throw new AppError(400, "Is drop par cashier voucher bana hai — pehle woh void karein");
+  if (get("SELECT 1 FROM bypass_supplier_payments WHERE tenant_id=? AND wtx_id=? AND voided=0", t, d.wtx_id)) throw new AppError(400, "Is drop par bypass supplier payment judi hai — pehle woh void karein");
+  tx(() => {
+    run("UPDATE bypass_drops SET voided=1, note=COALESCE(note,'') || ? WHERE id=?", ` [void: ${reason}]`, d.id);
+    run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=? AND tenant_id=?", `${req.user!.name} (drop void): ${reason}`, d.wtx_id, t);
+  });
+  audit(t, req.user!, "bypass_drop_void", `bypdrop:${d.id}`, { reason, litres: d.litres, cost: d.cost_amount, client_id: d.client_id, wtx_id: d.wtx_id });
+  return { ok: true, stock: bypassStock(t, d.product) };
+}));
+
 /** Bypass munafa for a date window: client revenue − delivered cost for drops in [fromIso, toIso). */
 export function bypassProfit(tenantId: number, fromIso: string, toIso?: string) {
   const billed = get(`SELECT COALESCE(SUM(w.amount),0) v FROM bypass_drops bd JOIN wholesale_txns w ON w.id=bd.wtx_id

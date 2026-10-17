@@ -131,6 +131,12 @@ export function BypassPanel() {
  *  rate from that client's own rate card (the rate the CEO set) and the amount billed to their khata. */
 export function BypassVoucher({ id, onClose }: { id: number; onClose: () => void }) {
   const { data, error, reload } = useApi<any>(`/bypass/deliveries/${id}`);
+  const { can } = useAuth();
+  const voidDrop = async (x: any) => {
+    const reason = prompt(`${x.client_name} ka ${num(x.litres, 0)} L drop mansookh karein? Stock wapas bypass me, client ka bill cancel.\nWajah likhein:`);
+    if (!reason || reason.trim().length < 3) return;
+    try { await api(`/bypass/drops/${x.id}/void`, { body: { reason: reason.trim() } }); reload(); } catch (e: any) { alert(e.message); }
+  };
   const vehicle = data
     ? (data.tankers?.length ? data.tankers : [{ tanker_no: data.vehicle_no, driver_name: data.driver_name }])
         .map((tk: any) => [tk.tanker_no ? `🚛 ${tk.tanker_no}` : "", tk.driver_name ? `👤 ${tk.driver_name}` : ""].filter(Boolean).join(" ")).filter(Boolean).join(" · ") || "—"
@@ -154,6 +160,7 @@ export function BypassVoucher({ id, onClose }: { id: number; onClose: () => void
                 <div className="flex justify-between gap-2 text-xs text-slate-600"><span>{PRODUCTS[x.product]} · {num(x.litres, 2)} L × Rs {x.rate}/L</span><span className="shrink-0">{x.ref ?? ""}</span></div>
                 {x.balance != null && <div className="text-xs text-slate-500">Khata balance ab: {pkr(x.balance)}</div>}
                 {!x.voided && <button className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs font-medium text-brand-700 underline" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id), data.business?.color)}><Printer size={13} /> Client voucher</button>}
+                {!x.voided && can("wholesale.void") && <button className="ml-3 mt-1 inline-flex min-h-9 items-center text-xs font-medium text-rose-600 underline" onClick={() => voidDrop(x)}>Mansookh · منسوخ</button>}
               </li>
             ))}
             <li className="flex justify-between p-3 font-semibold"><span>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</span><span className="text-right tabular-nums">{num(data.delivered_l, 2)} L<span className="block">{pkr(data.billed)}</span></span></li>
@@ -167,7 +174,8 @@ export function BypassVoucher({ id, onClose }: { id: number; onClose: () => void
                 <td className="td">{i + 1}</td><td className="td">{x.client_name}{x.phone ? <div className="text-xs text-slate-500">{phone(x.phone)}</div> : null}</td>
                 <td className="td">{PRODUCTS[x.product]}</td><td className="td text-right tabular-nums">{num(x.litres, 2)}</td><td className="td text-right tabular-nums font-medium">{x.rate}</td>
                 <td className="td text-right tabular-nums">{pkr(x.amount)}</td><td className="td text-right tabular-nums text-slate-500">{x.balance != null ? pkr(x.balance) : "—"}</td>
-                <td className="td print:hidden">{!x.voided && <button className="text-brand-700 underline" title="Print this client's voucher" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id), data.business?.color)}>voucher</button>}</td>
+                <td className="td print:hidden whitespace-nowrap">{!x.voided && <button className="text-brand-700 underline" title="Print this client's voucher" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id), data.business?.color)}>voucher</button>}
+                  {!x.voided && can("wholesale.void") && <button className="ml-2 text-rose-600 underline" title="Void this drop (stock back, client bill cancelled)" onClick={() => voidDrop(x)}>mansookh</button>}</td>
               </tr>
             ))}</tbody>
             <tfoot><tr className="font-semibold"><td className="td" colSpan={3}>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</td><td className="td text-right tabular-nums">{num(data.delivered_l, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(data.billed)}</td><td className="td" colSpan={2} /></tr></tfoot>

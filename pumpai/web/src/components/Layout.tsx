@@ -35,7 +35,7 @@ const CASHIER_SUB = [
 const SUBS: Record<string, typeof WHOLESALE_SUB> = { "/wholesale": WHOLESALE_SUB, "/cashier": CASHIER_SUB };
 /** Urdu next to the English in the short menus (salesman, wholesale officer, cashier). */
 const NAV_UR: Record<string, string> = {
-  "/": "ڈیش بورڈ", "/reports": "رپورٹس", "/insights": "مالک کی نظر", "/owner-report": "ماہانہ رپورٹ", "/discounts-report": "رعایتیں", "/other-entries": "متفرق آمدن/خرچہ",
+  "/": "ڈیش بورڈ", "/reports": "رپورٹس", "/sales-history": "سیل کی تاریخ", "/insights": "مالک کی نظر", "/owner-report": "ماہانہ رپورٹ", "/discounts-report": "رعایتیں", "/other-entries": "متفرق آمدن/خرچہ",
   "/margins": "مارجن و ہدف", "/profit": "منافع کی وضاحت", "/suggestions": "تجاویز", "/inbox": "واٹس ایپ",
   "/pos": "سیل", "/shifts": "شفٹ", "/customers": "گاہک", "/khata": "کھاتہ", "/prepaid": "کوپن و والٹ", "/card-pending": "کارڈ پینڈنگ", "/bookings": "بکنگ",
   "/wholesale": "ہول سیل", "/carriage": "کرایہ", "/cashier": "کیشیئر", "/expenses": "خرچے", "/cash": "کیش بک", "/accounts": "اکاؤنٹس و ٹیکس", "/suppliers": "سپلائر", "/property": "جائیداد و کرایہ",
@@ -50,7 +50,7 @@ const GROUPS: { key: string; label: string; ur: string; icon: any; items: string
   { key: "wholesale", label: "Wholesale & carriage", ur: "ہول سیل و کرایہ", icon: Container, items: ["/wholesale", "/carriage"] },
   { key: "stock", label: "Stock & prices", ur: "اسٹاک و ریٹ", icon: Droplets, items: ["/stock", "/dip-charts", "/register", "/prices", "/shop", "/suppliers"] },
   { key: "money", label: "Money & accounts", ur: "پیسہ و حساب", icon: Landmark, items: ["/cashier", "/cash", "/expenses", "/accounts", "/property", "/other-entries"] },
-  { key: "reports", label: "Reports & profit", ur: "رپورٹ و منافع", icon: FileBarChart, items: ["/reports", "/insights", "/owner-report", "/profit", "/margins", "/discounts-report", "/suggestions"] },
+  { key: "reports", label: "Reports & profit", ur: "رپورٹ و منافع", icon: FileBarChart, items: ["/reports", "/sales-history", "/insights", "/owner-report", "/profit", "/margins", "/discounts-report", "/suggestions"] },
   { key: "staff", label: "Staff", ur: "عملہ", icon: Wallet, items: ["/staff", "/kiosk", "/roster", "/team", "/my-account"] },
   { key: "safety", label: "Safety & machines", ur: "حفاظت و مشینیں", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines"] },
   { key: "system", label: "System & setup", ur: "سسٹم و سیٹ اپ", icon: Settings, items: ["/settings", "/users", "/lists", "/automations", "/opening-balances", "/corrections", "/audit"] },
@@ -205,6 +205,7 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
   { to: "/reports", label: "Reports", icon: FileBarChart, perm: "reports.view" },
+  { to: "/sales-history", label: "Sales history", icon: Receipt, perm: "sales.view" },
   { to: "/insights", label: "Owner insights", icon: HeartPulse, perm: "reports.view" },
   { to: "/owner-report", label: "Monthly report (PDF)", icon: FileBarChart, perm: "reports.view" },
   { to: "/discounts-report", label: "Discounts & overrides", icon: Tag, perm: "reports.view" },

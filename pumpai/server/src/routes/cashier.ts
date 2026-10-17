@@ -32,6 +32,9 @@ export const cashier = Router();
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const isCash = (m?: string | null) => !m || /^cash$/i.test(m.trim());
 const vno = (dir: string, id: number) => `${dir === "in" ? "RV" : "PV"}-${String(id).padStart(5, "0")}`;
+/** An expense voucher paid at the counter above the approval limit is a *hold* until the owner approves: the slip exists, but the
+ *  money is not out of the books yet (cash book / ledger / bank moves read `expenses.status='approved'`). `pending` = 1 marks it. */
+const PENDING_COL = "EXISTS(SELECT 1 FROM expenses e WHERE e.tenant_id=v.tenant_id AND v.src='expense:'||e.id AND e.status='pending') pending";
 
 function voucher(req: Request, v: { direction: "in" | "out"; party_type: string; party_id?: number | null; party_name: string; amount: number; method: string;
   account_id?: number | null; category?: string | null; ref?: string | null; note?: string | null; src?: string | null; notes_json?: string | null }) {
@@ -251,8 +254,9 @@ async function doPay(req: Request, b: z.infer<typeof payBody>, skipCashCheck = f
       t, account, "other_out", -b.amount, name, b.ref ?? null, b.category || b.note || "Other payment", now(), req.user!.name, now());
     src = `bank:${id}`;
   }
-  const v = voucher(req, { direction: "out", party_type: b.party_type, party_id: p?.id, party_name: name, amount: b.amount, method: cheque ? "Cheque" : b.method,
-    account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src, notes_json: notesJson(b.method, b.notes) });
+  // an expense still waiting for the owner is a hold, not money out: the voucher carries `pending: 1` until it is approved (or voided on reject)
+  const v = { ...voucher(req, { direction: "out", party_type: b.party_type, party_id: p?.id, party_name: name, amount: b.amount, method: cheque ? "Cheque" : b.method,
+    account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src, notes_json: notesJson(b.method, b.notes) }), pending: approval === "pending" ? 1 : 0 };
   if (!src) linkPhotos(t, b.photo_ids, `voucher:${v.id}`);
   return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message, approval };
 }
@@ -260,7 +264,7 @@ async function doPay(req: Request, b: z.infer<typeof payBody>, skipCashCheck = f
 /* ---------------- void a wrong voucher (CEO only) ---------------- */
 /** A voucher whose money belongs to another module (CEO other entries, rent, claims, WHT deposit, coupon refund) is changed
  *  THERE — editing the voucher alone would leave that module's own record (and the P&L) on the old figure. */
-const OWNER_OF: [string, string][] = [["oth-", "Other entries (CEO)"], ["rental:", "Rent (rentals)"], ["claim:", "Shortage claims"], ["wht:", "Tax (WHT deposit)"], ["coupon-refund:", "Prepaid coupons"], ["bypassfuel:", "Bypass fuel money"]];
+const OWNER_OF: [string, string][] = [["oth-", "Other entries (CEO)"], ["shopbuy:", "Shop (stock-in)"], ["rental:", "Rent (rentals)"], ["claim:", "Shortage claims"], ["wht:", "Tax (WHT deposit)"], ["coupon-refund:", "Prepaid coupons"], ["bypassfuel:", "Bypass fuel money"]];
 export const voucherOwner = (src: string | null | undefined) => OWNER_OF.find(([p]) => String(src ?? "").startsWith(p))?.[1] ?? null;
 function ownedElsewhere(src: string | null | undefined, verb: string) {
   const o = voucherOwner(src);
@@ -454,7 +458,7 @@ cashier.get("/cashier/vouchers", requirePerm("cashier.desk"), h((req) => {
     P.push(like, like, like, like, like);
   }
   const seeAll = req.user!.role === "admin";
-  return all(`SELECT v.*, ${proofCol("'voucher:'||v.id")} FROM cashier_vouchers v WHERE ${where.join(" AND ")} ORDER BY v.id DESC LIMIT ?`, ...P, f.limit).map((v) => {
+  return all(`SELECT v.*, ${proofCol("'voucher:'||v.id")}, ${PENDING_COL} FROM cashier_vouchers v WHERE ${where.join(" AND ")} ORDER BY v.id DESC LIMIT ?`, ...P, f.limit).map((v) => {
     const acc = v.account_id ? get("SELECT * FROM bank_accounts WHERE id=?", v.account_id) : null;
     const hide = !seeAll && isOtherMoney(v.src); // the CEO's private "other" money shows to the cashier only as a generic owner movement
     return { ...v, party_name: hide ? "Owner" : v.party_name, category: hide ? (v.direction === "in" ? "Owner money in" : "Owner money out") : v.category,
@@ -674,7 +678,14 @@ export function cashierDayBook(t: number, d: string, showPrivate = true) {
     discount: round2(get(`SELECT COALESCE(SUM(s.discount),0) v FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)!.v as number),
     card_fee: round2(cardFees(t).filter((f) => f.day === d).reduce((a, f) => a + f.fee, 0)),
   };
-  return { date: d, rows, totals: { ...totals, withdrawn, counted }, summary, cash: { opening, closing, book_starts: started ? null : first, starts_today: startsToday } };
+  // expense vouchers paid at the counter that still wait for the owner: shown as holds, never counted as cash out
+  // (the expense rows above read status='approved' only; a hold enters the book the moment it is approved)
+  const holds = all(`SELECT v.id, v.created_at at, v.party_name party, 'Expense · ' || COALESCE(v.category,'') what, v.method, v.amount, v.created_by who, 1 pending
+    FROM cashier_vouchers v JOIN expenses e ON e.tenant_id=v.tenant_id AND v.src='expense:'||e.id
+    WHERE v.tenant_id=? AND v.voided=0 AND e.status='pending' AND v.created_at >= ? AND v.created_at < ?`, ...P)
+    .map((r) => ({ ...r, amount: round2(r.amount), cash: isCash(r.method) }));
+  return { date: d, rows, totals: { ...totals, withdrawn, counted, on_hold: round2(holds.reduce((a, r) => a + r.amount, 0)) }, holds, summary,
+    cash: { opening, closing, book_starts: started ? null : first, starts_today: startsToday } };
 }
 
 /**
@@ -732,7 +743,7 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   const seeAll = req.user!.role === "admin";
   const book = cashierDayBook(t, today, seeAll);
   // with the bank account's name, so a voucher printed again from the list says where the money went
-  const vouchers = all("SELECT * FROM cashier_vouchers WHERE tenant_id=? AND created_at >= ? AND voided=0 ORDER BY id DESC LIMIT 12", t, pkDayStart()).map((v) => {
+  const vouchers = all(`SELECT v.*, ${PENDING_COL} FROM cashier_vouchers v WHERE v.tenant_id=? AND v.created_at >= ? AND v.voided=0 ORDER BY v.id DESC LIMIT 12`, t, pkDayStart()).map((v) => {
     const acc = v.account_id ? get("SELECT * FROM bank_accounts WHERE id=?", v.account_id) : null;
     // the CEO's private "other" money shows to the cashier only as a generic owner movement
     const hide = !seeAll && isOtherMoney(v.src);
