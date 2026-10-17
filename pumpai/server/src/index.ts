@@ -21,6 +21,7 @@ import { wholesaleVoice } from "./routes/wholesaleVoice.js";
 import { khataVoice } from "./routes/khataVoice.js";
 import { cashier } from "./routes/cashier.js";
 import { search } from "./routes/search.js";
+import { live, announceWrites } from "./routes/live.js";
 import { salesHistory } from "./routes/salesHistory.js";
 import { owner } from "./routes/owner.js";
 import { users } from "./routes/users.js";
@@ -211,6 +212,7 @@ const api = express.Router();
 // API data is live and per-user — never let a browser or proxy cache a reply (reports must reflect the newest entry)
 api.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate"); next(); });
 api.use(requireAuth);
+api.use(announceWrites); // every successful write is announced on /live so open screens refresh by themselves
 api.use(auditTrail); // every change is written to the audit log
 api.get("/me", h((req) => ({
   user: { ...req.user, station_name: req.user!.station_id ? get("SELECT name FROM stations WHERE id=?", req.user!.station_id)?.name : null },
@@ -239,6 +241,7 @@ api.use(wholesaleVoice);
 api.use(khataVoice);
 api.use(cashier);
 api.use(search);
+api.use(live);
 api.use(salesHistory);
 api.use(owner);
 api.use(users);

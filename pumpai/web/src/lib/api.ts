@@ -11,6 +11,18 @@ export const linkToken = () => encodeURIComponent(media);
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
+/* ---- live data: after any write, every list / total on screen refreshes by itself (no browser reload) ---- */
+/** This tab's id: its own writes are announced back on /live too — those are skipped (already refreshed locally). */
+export const CLIENT_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+const listeners = new Set<() => void>();
+let changeTimer: ReturnType<typeof setTimeout> | null = null;
+/** Tell every mounted useApi to refetch (debounced: a burst of writes = one refresh). */
+export function notifyChanged() {
+  if (changeTimer) clearTimeout(changeTimer);
+  changeTimer = setTimeout(() => { changeTimer = null; for (const l of [...listeners]) { try { l(); } catch { /* one bad listener must not stop the rest */ } } }, 350);
+}
+export const onDataChanged = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
+
 const DEVICE_KEY = "pumpai_device";
 /** Links this tablet to the business so staff can sign in with name + PIN. */
 export const getDevice = () => { try { return localStorage.getItem(DEVICE_KEY); } catch { return null; } };
@@ -22,10 +34,12 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
     method: opts.method ?? (opts.body ? "POST" : "GET"),
     // never let the browser / a proxy serve a stale GET — reports must show the latest entry at once
     cache: "no-store",
-    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...opts.headers },
+    headers: { "content-type": "application/json", "x-client-id": CLIENT_ID, ...(token ? { authorization: `Bearer ${token}` } : {}), ...opts.headers },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  // a write that went through: every screen in this tab refreshes (other tabs / devices hear it on /live)
+  if (res.ok && (opts.method ?? (opts.body ? "POST" : "GET")) !== "GET") notifyChanged();
   if (res.status === 401 && !path.startsWith("/auth/")) {
     setToken(null);
     window.location.href = "/login";
@@ -61,7 +75,29 @@ export function useApi<T = any>(path: string | null, pollMs?: number) {
     const id = setInterval(reload, pollMs);
     return () => clearInterval(id);
   }, [path, pollMs, reload]);
+  // any write anywhere (this tab or, via /live, another tab / device) → refetch silently; the old rows stay until the new ones land
+  useEffect(() => onDataChanged(() => { if (pathRef.current && document.visibilityState !== "hidden") reload(); }), [reload]);
   return { data, error, loading, reload, setData };
+}
+
+/** Mount once (Layout): listens to the server's /live feed and turns other tabs' / devices' writes into a refresh here;
+ *  also refreshes when the tab comes back to the foreground (a phone that slept through a few entries). */
+export function useLiveData() {
+  useEffect(() => {
+    if (!getToken()) return;
+    let es: EventSource | null = null, retry: ReturnType<typeof setTimeout> | null = null;
+    const open = () => {
+      if (!media || es) return;
+      es = new EventSource(`/api/live?token=${linkToken()}`);
+      es.onmessage = (m) => { try { const e = JSON.parse(m.data); if (e.type === "changed" && e.client !== CLIENT_ID) notifyChanged(); } catch { /* ignore */ } };
+      es.onerror = () => { es?.close(); es = null; if (!retry) retry = setTimeout(() => { retry = null; open(); }, 5000); };
+    };
+    open();
+    const wait = setInterval(() => { if (!es) open(); }, 3000); // the media token arrives a moment after login
+    const onVis = () => { if (document.visibilityState === "visible") { notifyChanged(); if (!es) open(); } };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { es?.close(); if (retry) clearTimeout(retry); clearInterval(wait); document.removeEventListener("visibilitychange", onVis); };
+  }, []);
 }
 
 /** Subscribe to server-sent live events (new WhatsApp messages, orders...). */

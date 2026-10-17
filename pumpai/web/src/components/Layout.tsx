@@ -5,7 +5,7 @@ import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown, Ban, HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText, BookOpenCheck, Building2, ListChecks, Lightbulb, UserCheck, Hourglass, Search, CircleHelp, Ruler, Sun, Moon,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
-import { api, useApi, useLiveEvents } from "../lib/api";
+import { api, useApi, useLiveEvents, useLiveData } from "../lib/api";
 import { pkr } from "../lib/format";
 import { NotificationsProvider, NotificationBell } from "./Notifications";
 import { QuickAddButton } from "./QuickAdd";
@@ -264,7 +264,8 @@ export default function Layout() {
   const [open, setOpen] = useState(false);
   const brand = useBranding();
   const counts = useApi<any>(can("dashboard.view") ? "/dashboard" : null, 60_000);
-  useLiveEvents(() => counts.reload(), can("whatsapp.inbox"));
+  useLiveEvents((e) => { if (e?.type !== "changed") counts.reload(); }, can("whatsapp.inbox"));
+  useLiveData(); // every entry, from any tab or device, refreshes the open screens without a browser reload
   const k = counts.data?.kpis;
   const badgeVal: Record<string, number> = { unread: k?.whatsapp.unread ?? 0, orders: k?.pending_orders ?? 0, alerts: k?.open_alerts ?? 0 };
   const [q, setQ] = useState("");
