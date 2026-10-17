@@ -3,7 +3,7 @@ import { Download, Printer, Send, QrCode, ExternalLink } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { ProofThumbs } from "./Capture";
 import { PortalCard } from "./PortalCard";
-import { Field, ListTools, Loading, Modal, useAction, useListFilter } from "./ui";
+import { Field, ListTools, Loading, Modal, useAction, useListFilter, useNewRows } from "./ui";
 import { WhatsAppDoc } from "./WhatsAppDoc";
 import { PRODUCTS, num, phone, pkr } from "../lib/format";
 
@@ -20,6 +20,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
   const [veh, setVeh] = useState("");
   const [lq, setLq] = useState("");
   const vehicles: string[] = [...new Set<string>(((s?.lines ?? []) as any[]).map((l) => l.vehicle_no).filter(Boolean))].sort();
+  const fresh = useNewRows<any>(s?.lines, (l) => l.id);
   const lines = useListFilter<any>(s?.lines, { q: lq, keep: veh ? (l) => l.vehicle_no === veh : undefined,
     text: (l) => [l.product ? PRODUCTS[l.product] : "", l.product, l.type === "credit" ? "payment" : "", l.note, l.ref, l.slip_no, l.vehicle_no, l.amount, l.litres].filter((v) => v != null && v !== "").join(" ") });
   const narrowed = Boolean(veh || lq.trim());
@@ -88,7 +89,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
           {/* phone: one card per slip / payment; the table from sm up and on paper (no empty vehicle / slip columns) */}
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 sm:hidden print:hidden">
             {lines.map((l: any) => (
-              <li key={l.id} className="space-y-0.5 px-3 py-2 text-sm">
+              <li key={l.id} className={`space-y-0.5 px-3 py-2 text-sm ${fresh.has(l.id) ? "row-new" : ""}`}>
                 <div className="flex justify-between gap-2">
                   <span className="min-w-0 font-medium">{l.product ? PRODUCTS[l.product] : l.type === "credit" ? <span className="text-emerald-700">Payment</span> : l.note}
                     {l.litres != null && <span className="font-normal text-slate-600"> · {num(l.litres, 2)} L{l.rate != null ? ` × ${Number(l.rate).toFixed(2)}` : ""}</span>}</span>
@@ -108,7 +109,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
               <thead className="sticky top-0"><tr>{["Date & time", ...(cols.vehicle ? ["Vehicle"] : []), ...(cols.slip ? ["Slip no."] : []), "Fuel", "Litres", "Rate / L", "Charged", "Paid", "Balance"].map((h) => <th key={h} className={`th whitespace-nowrap ${["Litres", "Rate / L", "Charged", "Paid", "Balance"].includes(h) ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
               <tbody>
                 {lines.map((l: any) => (
-                  <tr key={l.id}>
+                  <tr key={l.id} className={fresh.has(l.id) ? "row-new" : ""}>
                     <td className="td whitespace-nowrap text-xs">{new Date(l.created_at).toLocaleString("en-PK", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                     {cols.vehicle && <td className="td text-xs">{l.vehicle_no ?? "—"}</td>}
                     {cols.slip && <td className="td text-xs font-medium">{l.slip_no ?? (l.type === "credit" ? l.ref ?? "Payment" : "—")}</td>}

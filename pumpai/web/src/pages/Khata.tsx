@@ -6,7 +6,7 @@ import { Ur } from "../components/VoiceShell";
 import { TYPE_ICON } from "./Pos";
 import { BellRing } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Empty, ListTools, Loading, PageHeader, Stat, matchQuery, useAction } from "../components/ui";
+import { Empty, ListTools, Loading, PageHeader, Stat, matchQuery, useAction, useNewRows } from "../components/ui";
 import { ago, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 
@@ -19,6 +19,7 @@ export default function Khata() {
   const [q, setQ] = useState("");
   const [flag, setFlag] = useState(""); // "" | near | hold | risk — the stat tiles and the chips share it
   const [bill, setBill] = useState<number | null>(null);
+  const fresh = useNewRows<any>(data, (c) => `${c.id}:${Math.round(c.balance)}`);
   if (!data) return <Loading />;
   const INST = ["police", "school", "government", "hospital"];
   // the flags each /khata row carries (no per-row overdue flag — aging has its own card below)
@@ -66,7 +67,7 @@ export default function Khata() {
         {rows.map((c) => {
           const util = c.credit_limit ? Math.min(100, (c.balance / c.credit_limit) * 100) : 0;
           return (
-            <li key={c.id} className="px-4 py-3 active:bg-slate-50" onClick={() => nav(`/customers/${c.id}`)}>
+            <li key={c.id} className={`px-4 py-3 active:bg-slate-50 ${fresh.has(`${c.id}:${Math.round(c.balance)}`) ? "row-new" : ""}`} onClick={() => nav(`/customers/${c.id}`)}>
               <div className="flex items-start gap-2">
                 <span className="min-w-0 flex-1"><span className="block font-semibold">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</span>
                   <span className="text-xs text-slate-500">{phone(c.phone)}{c.khata_blocked ? <span className="ml-1 rounded bg-red-100 px-1.5 font-semibold text-red-700">On hold · روکا</span> : null}</span></span>
@@ -90,7 +91,7 @@ export default function Khata() {
             {rows.map((c) => {
               const util = c.credit_limit ? Math.min(100, (c.balance / c.credit_limit) * 100) : 0;
               return (
-                <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => nav(`/customers/${c.id}`)}>
+                <tr key={c.id} className={`cursor-pointer hover:bg-slate-50 ${fresh.has(`${c.id}:${Math.round(c.balance)}`) ? "row-new" : ""}`} onClick={() => nav(`/customers/${c.id}`)}>
                   <td className="td"><div className="font-medium">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</div><div className="text-xs text-slate-500">{phone(c.phone)} · {c.type}{c.khata_blocked ? <span className="ml-1 rounded bg-red-100 px-1.5 font-semibold text-red-700">On hold</span> : null}</div></td>
                   <td className="td text-right font-medium tabular-nums">{pkr(c.balance)}</td>
                   <td className="td text-right tabular-nums text-slate-600">{pkr(c.credit_limit)}</td>

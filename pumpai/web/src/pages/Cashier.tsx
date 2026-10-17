@@ -5,7 +5,7 @@ import {
   ArrowDownCircle, ArrowUpCircle, Ban, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, Download, FileCheck2, HandCoins, Landmark, Pencil, Printer, Search, Users, X,
 } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
-import { Badge, Empty, ErrorBox, Field, ListTools, Loading, Modal, PageHeader, useAction, useListFilter } from "../components/ui";
+import { Badge, Empty, ErrorBox, Field, ListTools, Loading, Modal, PageHeader, useAction, useListFilter, useNewRows } from "../components/ui";
 import { WhatsAppDoc } from "../components/WhatsAppDoc";
 import { ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { toWords } from "../lib/words";
@@ -112,6 +112,7 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
   const { data, error, reload } = useApi<any>("/cashier/desk", 60_000);
   const { can } = useAuth();
   const [editV, setEditV] = useState<any>(null);
+  const fresh = useNewRows<any>(data?.vouchers, (v) => `${v.id}:${v.voided ? 1 : 0}:${v.amount}`);
   if (error) return <ErrorBox error={error} />;
   if (!data) return <Loading />;
   const actions = [
@@ -213,7 +214,7 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
         <div className="card">
           <h2 className="p-4 pb-1 font-semibold">Today's vouchers · <Ur>آج کی رسیدیں</Ur></h2>
           <ul className="divide-y divide-slate-100">{data.vouchers.map((v: any) => (
-            <li key={v.id} className="flex items-center hover:bg-slate-50">
+            <li key={v.id} className={`flex items-center hover:bg-slate-50 ${fresh.has(`${v.id}:${v.voided ? 1 : 0}:${v.amount}`) ? "row-new" : ""}`}>
               <button onClick={() => onSlip({ voucher: v, account: v.account })} className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left text-sm">
                 <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
                 <span className="min-w-0 flex-1 truncate">{v.party_name}{v.pending ? <> <PendingBadge /></> : null}<span className="block text-xs text-slate-500">{v.method} · {ago(v.created_at)}</span></span>
@@ -870,6 +871,7 @@ function Vouchers({ onSlip }: { onSlip: (v: any) => void }) {
   if (dir !== "all") qs.set("direction", dir);
   const { data, reload, error } = useApi<any[]>(`/cashier/vouchers?${qs}`);
   const all: any[] = data ?? [];
+  const fresh = useNewRows<any>(data, (v) => `${v.id}:${v.voided ? 1 : 0}:${v.amount}`);
   // the server already cut the range and direction; the text box filters what came back, so typing stays instant
   const rows = useListFilter<any>(all, { q, text: (v) => `${v.no} ${v.party_name} ${v.method} ${v.amount} ${v.category ?? ""} ${v.note ?? ""} ${v.ref ?? ""} ${v.account ?? ""} ${v.party_type}` });
   if (error) return <ErrorBox error={error} />;
@@ -886,7 +888,7 @@ function Vouchers({ onSlip }: { onSlip: (v: any) => void }) {
             <span className="text-rose-700">Paid · <Ur>ادائیگی</Ur> <b className="tabular-nums">{pkr(sum("out"))}</b></span>
           </div>
           <ul className="divide-y divide-slate-100">{rows.map((v: any) => (
-            <li key={v.id} className={`flex items-center hover:bg-slate-50 ${v.voided ? "opacity-60" : ""}`}>
+            <li key={v.id} className={`flex items-center hover:bg-slate-50 ${v.voided ? "opacity-60" : ""} ${fresh.has(`${v.id}:${v.voided ? 1 : 0}:${v.amount}`) ? "row-new" : ""}`}>
               <button onClick={() => onSlip({ voucher: v, account: v.account })} className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left text-sm">
                 <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
                 <span className="min-w-0 flex-1 truncate">{v.party_name}{v.voided ? <> <Badge tone="red">Void · منسوخ</Badge></> : v.pending ? <> <PendingBadge /></> : null}

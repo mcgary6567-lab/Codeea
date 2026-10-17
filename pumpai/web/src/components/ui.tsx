@@ -268,6 +268,25 @@ export function CountUp({ value, format, className }: { value: number; format?: 
   const v = useCountUp(value);
   return <span className={className}>{format ? format(v) : Math.round(v).toLocaleString("en-IN")}</span>;
 }
+/** Which rows are NEW since the list last rendered (a save, another device's entry via the live feed) — flash them with `.row-new`.
+ *  The first load marks nothing; `keyOf` may include a changing field (e.g. `${id}:${balance}`) so an updated row flashes too. */
+export function useNewRows<T>(rows: T[] | null | undefined, keyOf: (r: T) => string | number) {
+  const seen = useRef<Set<string | number> | null>(null);
+  const [fresh, setFresh] = useState<Set<string | number>>(() => new Set());
+  const keyRef = useRef(keyOf); keyRef.current = keyOf;
+  useEffect(() => {
+    if (!rows) return;
+    const keys = rows.map(keyRef.current);
+    if (!seen.current) { seen.current = new Set(keys); return; }
+    const add = keys.filter((k) => !seen.current!.has(k));
+    for (const k of keys) seen.current.add(k);
+    if (!add.length) return;
+    setFresh(new Set(add));
+    const t = setTimeout(() => setFresh(new Set()), 1700);
+    return () => clearTimeout(t);
+  }, [rows]);
+  return fresh;
+}
 /** Returns a class that flashes the element green for a moment whenever `key` changes (new row, live refresh). */
 export function useFlash(key: unknown) {
   const [cls, setCls] = useState("");
