@@ -210,7 +210,8 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
               if (r) { setPay(null); setAmount(""); setPhotos([]); refresh(); }
             }}>
               <Field label={pay === "credit" ? "Payment amount · رقم وصول" : "Charge amount · کھاتے میں رقم"}><input className="input w-40" type="number" inputMode="decimal" min={1} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-              <Field label="Method · طریقہ"><select className="input w-40" value={method} onChange={(e) => setMethod(e.target.value)}>{["Cash", "JazzCash", "Easypaisa", "Raast", "Bank transfer", "Cheque"].map((m) => <option key={m}>{m}</option>)}</select></Field>
+              {pay === "credit" && <Field label="Method · طریقہ"><select className="input w-40" value={method} onChange={(e) => setMethod(e.target.value)}>{["Cash", "JazzCash", "Easypaisa", "Raast", "Bank transfer", "Cheque"].map((m) => <option key={m}>{m}</option>)}</select></Field>}
+              {pay === "debit" && <span className="text-xs text-slate-500">Charge sirf khate me likhta hai (cash nahi hilta). Cash dena ho to Other entries → party khata.</span>}
               {pay === "credit" && <div className="w-full"><AccountPicker method={method} value={account} onChange={setAccount} /></div>}
               <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay === "credit" && method === "Cheque"} hint={pay === "credit" ? "cheque, receipt, payment screenshot" : "bill / slip for the charge"} /></div>
               <button className="btn-primary" disabled={busy || (pay === "credit" && method === "Cheque" && !photos.length)}>Save · محفوظ کریں</button><button type="button" className="btn-secondary" onClick={() => setPay(null)}>Cancel · منسوخ</button>

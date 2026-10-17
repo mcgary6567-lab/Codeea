@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-14",
+ "updated": "2026-10-17",
  "modules": [
   {
    "id": "pos",
@@ -333,6 +333,10 @@
     {
      "en": "The app compares book stock vs dip and flags a loss as possible leak/theft.",
      "ur": "ایپ بُک اسٹاک اور ڈِپ کا موازنہ کرکے نقصان کو ممکنہ لیکج/چوری دکھاتی ہے۔"
+    },
+    {
+     "en": "Shop 'Stock received' now asks how the goods were paid — cash counter, bank/wallet, supplier khata, or no money entry (already recorded / opening). The ledger carries shop stock and its cost as it sells; Hisaab check shows an advisory row for it.",
+     "ur": "دکان کا 'اسٹاک موصول' اب پوچھتا ہے پیسہ کہاں سے گیا — کیش کاؤنٹر، بینک، سپلائر کھاتہ، یا کوئی انٹری نہیں۔ لیجر میں دکان کا اسٹاک اور بکنے پر اس کی لاگت درج ہوتی ہے۔"
     }
    ],
    "tips": [
@@ -487,6 +491,22 @@
     {
      "en": "Day book: count the cash and close the day — it must match the cash in hand.",
      "ur": "ڈے بُک: کیش گنیں اور دن بند کریں — یہ کیش اِن ہینڈ سے ملنا چاہیے۔"
+    },
+    {
+     "en": "Vouchers tab: every receipt/payment of any day — search by party, amount or voucher no; date range; Received/Paid chips.",
+     "ur": "واؤچرز ٹیب: کسی بھی دن کی ہر رسید — نام، رقم یا نمبر سے تلاش، تاریخ کی حد، وصولی/ادائیگی چپس۔"
+    },
+    {
+     "en": "CEO (or a role given 'edit any entry'): the pencil on a voucher opens the whole entry — change amount, method, bank, even the party or Received/Paid — and the khata, cash, bank and ledger all follow. Mansookh (void) reverses it.",
+     "ur": "سی ای او: واؤچر پر پنسل سے پوری انٹری کھلتی ہے — رقم، طریقہ، بینک، حتیٰ کہ پارٹی یا وصولی/ادائیگی بدلیں — کھاتہ، کیش، بینک اور لیجر سب خود درست ہوتے ہیں۔ منسوخ اسے الٹ دیتا ہے۔"
+    },
+    {
+     "en": "An expense above the approval limit is a HOLD: the slip prints 'pending approval' and the cash book counts it only once the owner approves (rejected → voucher voided).",
+     "ur": "منظوری کی حد سے بڑا خرچہ ہولڈ ہے: پرچی پر 'منظوری باقی' آتا ہے اور کیش بک اسے مالک کی منظوری کے بعد ہی گنتی ہے۔"
+    },
+    {
+     "en": "Day book: pick a 'to' day to see several days stitched together; Ctrl/⌘K finds a voucher by its number (RV-/PV-).",
+     "ur": "روزنامچہ: 'تک' کی تاریخ دیں تو کئی دن ایک ساتھ؛ Ctrl/⌘K سے واؤچر نمبر (RV-/PV-) سے تلاش۔"
     }
    ],
    "tips": [
@@ -625,6 +645,10 @@
     {
      "en": "Press Print / PDF to save the report on the letterhead and share on WhatsApp.",
      "ur": "پرنٹ / پی ڈی ایف دبا کر رپورٹ لیٹر ہیڈ پر محفوظ کریں اور واٹس ایپ پر بھیجیں۔"
+    },
+    {
+     "en": "Sales history: every fuel sale with search (customer, gaari, slip, salesman), date range, method/product/station filters, totals and CSV.",
+     "ur": "سیل کی تاریخ: ہر فیول سیل — گاہک، گاڑی، پرچی، سیلزمین سے تلاش، تاریخ کی حد، طریقہ/پراڈکٹ فلٹر، ٹوٹل اور CSV۔"
     }
    ],
    "tips": [
@@ -809,6 +833,18 @@
     {
      "en": "Cash receive/pay vouchers are voided from the Cashier desk instead.",
      "ur": "کیش واؤچر کیشیئر ڈیسک سے منسوخ ہوتے ہیں۔"
+    },
+    {
+     "en": "Every tab has search + date range, so an old entry is reachable. Edit opens the full entry; Mansookh reverses it. Only CEO — or a role the CEO ticks 'edit any entry' for in Users & Roles.",
+     "ur": "ہر ٹیب میں تلاش اور تاریخ کی حد ہے۔ ترمیم پوری انٹری کھولتی ہے؛ منسوخ اسے الٹ دیتا ہے۔ صرف سی ای او — یا وہ رول جسے Users & Roles میں اجازت دی گئی ہو۔"
+    },
+    {
+     "en": "On a CLOSED shift a cash sale can be voided or moved to khata (the shift's expected cash drops, the counted cash stays true); adding cash to a closed shift is refused.",
+     "ur": "بند شفٹ پر نقد سیل منسوخ یا کھاتے پر منتقل ہو سکتی ہے (شفٹ کا متوقع کیش کم ہوتا ہے)؛ بند شفٹ میں کیش بڑھانا منع ہے۔"
+    },
+    {
+     "en": "Sales history (Reports) → 'fix' on a row jumps straight to that sale here.",
+     "ur": "سیل کی تاریخ (رپورٹس) میں 'fix' دبائیں تو وہی سیل یہاں کھلتی ہے۔"
     }
    ],
    "tips": [
@@ -843,6 +879,14 @@
     {
      "en": "Pick the party, amount, how the money moved (cash / bank), and the reason. Save.",
      "ur": "پارٹی، رقم، طریقہ اور وجہ لکھ کر محفوظ کریں۔"
+    },
+    {
+     "en": "With a khata customer, wholesale client or thekedar chosen, keep 'Party ke khate par bhi daalein' ON: an expense = money given to them (their khata is DEBITED), an income = money received from them (CREDITED). Turn it OFF when the party is only a label and it is the pump's own income/expense.",
+     "ur": "پارٹی منتخب ہو تو 'پارٹی کے کھاتے پر بھی' آن رکھیں: خرچہ = انہیں پیسہ دیا (ڈیبٹ)، آمدن = ان سے لیا (کریڈٹ)۔ آف کریں جب پارٹی صرف نام ہو اور یہ پمپ کا اپنا خرچہ/آمدن ہو۔"
+    },
+    {
+     "en": "Date range + search on the list; Edit/Undo reverse both legs (money and khata) together.",
+     "ur": "فہرست پر تاریخ کی حد اور تلاش؛ ترمیم/واپسی دونوں حصے ایک ساتھ الٹتے ہیں۔"
     }
    ],
    "tips": [

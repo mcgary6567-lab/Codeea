@@ -731,6 +731,7 @@ function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => vo
                 <div className="text-right"><div className="font-bold tabular-nums">{pkr(q.amount)}</div><ProofThumbs ids={q.proof_ids} /></div>
               </div>
               {actions(q).length > 0 && <div className="mt-2 flex flex-wrap gap-2">
+                {can("entries.edit") && ["in_hand", "issued"].includes(q.status) && <button onClick={() => setAct({ q, action: "edit" })} className="min-h-9 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700"><Pencil size={13} className="mr-1 inline" />Edit · <Ur>ترمیم</Ur></button>}
                 {actions(q).map(([a, en, ur]) => (
                   <button key={a} onClick={() => setAct({ q, action: a })} className={`min-h-9 rounded-lg px-3 py-1.5 text-xs font-semibold ${a === "bounce" ? "bg-red-50 text-red-700" : a === "clear" || a === "deposit" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}>{en} · <Ur>{ur}</Ur></button>
                 ))}
@@ -740,8 +741,34 @@ function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => vo
         })}
         {!list.length && <li><Empty>No cheques here · <Ur>کوئی چیک نہیں</Ur></Empty></li>}
       </ul>
-      {act && <ChequeAct q={act.q} action={act.action} onClose={() => setAct(null)} onDone={() => { setAct(null); reload(); }} />}
+      {act && (act.action === "edit"
+        ? <ChequeEdit q={act.q} onClose={() => setAct(null)} onDone={() => { setAct(null); reload(); }} />
+        : <ChequeAct q={act.q} action={act.action} onClose={() => setAct(null)} onDone={() => { setAct(null); reload(); }} />)}
     </div>
+  );
+}
+
+/** CEO: fix an open cheque's amount / bank / number / date (the register voucher follows). */
+function ChequeEdit({ q, onClose, onDone }: { q: any; onClose: () => void; onDone: () => void }) {
+  const [f, setF] = useState({ amount: String(q.amount), bank: q.bank ?? "", cheque_no: q.cheque_no ?? "", cheque_date: q.cheque_date ?? "", reason: "" });
+  const { busy, run } = useAction();
+  const url = q.src === "w" ? `/wholesale/cheques/${q.id}/edit` : `/cashier/cheques/${q.id}/edit`;
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
+  return (
+    <Modal open onClose={onClose} title={`Edit cheque ${q.cheque_no} · ترمیم`}>
+      <form className="space-y-3" onSubmit={async (e) => { e.preventDefault();
+        if (await run(() => api(url, { body: { amount: Number(f.amount), bank: f.bank, cheque_no: f.cheque_no, cheque_date: f.cheque_date, reason: f.reason.trim() } }), "Cheque update ho gaya")) onDone(); }}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Amount (Rs)"><input className="input" type="number" inputMode="decimal" min={1} step="any" value={f.amount} onChange={set("amount")} /></Field>
+          <Field label="Cheque date"><input className="input" type="date" value={f.cheque_date} onChange={set("cheque_date")} /></Field>
+          <Field label="Bank"><input className="input" value={f.bank} onChange={set("bank")} /></Field>
+          <Field label="Cheque no"><input className="input" value={f.cheque_no} onChange={set("cheque_no")} /></Field>
+        </div>
+        <Field label="Wajah (zaroori) · وجہ"><input className="input" value={f.reason} onChange={set("reason")} placeholder="Kyun badla?" /></Field>
+        <p className="text-xs text-slate-500">Sirf hath me / issued cheque badal sakta hai — bank me gaya cheque bounce/return kar ke dobara likhein.</p>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || f.reason.trim().length < 3 || !(Number(f.amount) > 0)}>Update</button></div>
+      </form>
+    </Modal>
   );
 }
 
@@ -894,11 +921,13 @@ const shiftDay = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z")
 
 function DayBook() {
   const [date, setDate] = useState(() => new URLSearchParams(window.location.search).get("date") ?? today()); // a voucher found by number opens its day
+  const [to, setTo] = useState(""); // optional end day → the book of several days stitched together
   const [filter, setFilter] = useState<string>("all");
   const [q, setQ] = useState("");
   const [shown, setShown] = useState(60);
-  const { data, error } = useApi<any>(`/cashier/daybook?date=${date}`);
-  useEffect(() => setShown(60), [date, filter, q]);
+  const range = to && to > date;
+  const { data, error } = useApi<any>(range ? `/cashier/daybook?from=${date}&to=${to}` : `/cashier/daybook?date=${date}`);
+  useEffect(() => setShown(60), [date, to, filter, q]);
   const rows = useMemo(() => {
     const all: any[] = data?.rows ?? [];
     const term = q.trim().toLowerCase();
@@ -920,6 +949,8 @@ function DayBook() {
         <div className="flex items-center gap-1">
           <button className="btn-secondary min-h-10 !px-2" aria-label="Previous day" onClick={() => setDate(shiftDay(date, -1))}><ChevronLeft size={18} /></button>
           <input type="date" className="input min-h-10 w-[9.5rem] sm:w-auto" value={date} max={today()} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Day" />
+          <span className="text-xs text-slate-400">to</span>
+          <input type="date" className="input min-h-10 w-[9.5rem] sm:w-auto" value={to} min={date} max={today()} onChange={(e) => setTo(e.target.value)} aria-label="To day (optional)" />
           <button className="btn-secondary min-h-10 !px-2" aria-label="Next day" disabled={isToday} onClick={() => setDate(shiftDay(date, 1))}><ChevronRight size={18} /></button>
         </div>
         {!isToday && <button className="btn-secondary min-h-10 !px-3 text-sm" onClick={() => setDate(today())}>Today<span className="hidden sm:inline"> · <Ur>آج</Ur></span></button>}
@@ -969,7 +1000,7 @@ function DayBook() {
             {/* screen shows up to `shown` with a "show more"; print always shows every row */}
             {rows.map((r: any, i: number) => (
               <li key={i} className={`items-center gap-3 px-4 py-2 text-sm print:flex print:py-1 ${i < shown ? "flex" : "hidden"} ${r.before_start ? "opacity-60" : ""}`}>
-                <span className="min-w-0 flex-1"><span className="block font-medium">{r.what}{r.before_start && <span className="ml-1 text-xs font-normal text-amber-700">(before the count)</span>}</span><span className="block break-words text-xs text-slate-500">{[new Date(r.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }), r.party, r.method, r.account, r.who].filter(Boolean).join(" · ")}</span></span>
+                <span className="min-w-0 flex-1"><span className="block font-medium">{r.what}{r.before_start && <span className="ml-1 text-xs font-normal text-amber-700">(before the count)</span>}</span><span className="block break-words text-xs text-slate-500">{[r.day ? r.day + " " : "", new Date(r.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }), r.party, r.method, r.account, r.who].filter(Boolean).join(" · ")}</span></span>
                 <span className={`shrink-0 self-start whitespace-nowrap font-semibold tabular-nums ${r.dir === "in" ? "text-emerald-700" : r.dir === "out" ? "text-rose-700" : r.dir === "count" ? "text-amber-700" : "text-sky-700"}`}>{r.dir === "in" ? "+" : r.dir === "out" ? "−" : r.dir === "count" ? (r.start ? "=" : r.signed < 0 ? "−" : r.signed > 0 ? "+" : "✓") : "⇄"} {pkr(r.amount)}</span>
               </li>
             ))}

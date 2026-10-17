@@ -264,6 +264,27 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
 }
 
 /** Printable trip sheet: tanker, driver and every drop. */
+/** CEO: fix the sheet details of a booked trip — tanker, driver, day, note (drops' money/litres stay as booked). */
+function TripEdit({ data, onDone }: { data: any; onDone: () => void }) {
+  const { can } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ vehicle_no: data.vehicle_no ?? "", driver_name: data.driver_name ?? "", trip_date: String(data.trip_date ?? "").slice(0, 10), note: data.note ?? "", reason: "" });
+  const { busy, run } = useAction();
+  if (!can("entries.edit")) return null;
+  if (!open) return <div className="print:hidden"><button type="button" className="text-xs text-brand-700 underline" onClick={() => setOpen(true)}>Edit sheet (tanker / driver / date) · ترمیم</button></div>;
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
+  return (
+    <form className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 print:hidden sm:grid-cols-5" onSubmit={async (e) => { e.preventDefault();
+      if (await run(() => api(`/wholesale/trips/${data.id}`, { method: "PATCH", body: { vehicle_no: f.vehicle_no || null, driver_name: f.driver_name || null, trip_date: f.trip_date || undefined, note: f.note || null, reason: f.reason.trim() } }), "Trip sheet update ho gayi")) { setOpen(false); onDone(); } }}>
+      <input className="input" value={f.vehicle_no} onChange={set("vehicle_no")} placeholder="Tanker no" />
+      <input className="input" value={f.driver_name} onChange={set("driver_name")} placeholder="Driver" />
+      <input className="input" type="date" value={f.trip_date} onChange={set("trip_date")} />
+      <input className="input" value={f.reason} onChange={set("reason")} placeholder="Wajah (zaroori)" />
+      <div className="flex gap-1"><button className="btn-primary flex-1" disabled={busy || f.reason.trim().length < 3}>Save</button><button type="button" className="btn-secondary" onClick={() => setOpen(false)}>×</button></div>
+    </form>
+  );
+}
+
 export function TripSheet({ id, initial, onClose }: { id: number; initial?: any; onClose: () => void }) {
   // just saved: show what the save returned (no second trip to the server)
   const fetched = useApi<any>(initial ? null : `/wholesale/trips/${id}`);
@@ -277,6 +298,7 @@ export function TripSheet({ id, initial, onClose }: { id: number; initial?: any;
         </div>
       ) : !data ? <Loading /> : (
         <div className="space-y-3 text-sm">
+          <TripEdit data={data} onDone={() => fetched.reload()} />
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div><b>{dt(data.trip_date)}</b> · {fuels(data.product)} {data.depot ? <>straight from <b>{depotName(data.supplier_name)}</b>{data.depot_ref ? ` (${data.depot_ref})` : ""} · {data.station_name}'s books</> : <>from {data.station_name}{data.tank_name ? ` (${data.tank_name})` : ""}</>}</div>
             <div>🚛 <b>{data.vehicle_no ?? "—"}</b> · 👤 {data.driver_name ?? "—"}{data.driver_phone ? ` · ${phone(data.driver_phone)}` : ""}{data.driver_cnic ? ` · CNIC ${data.driver_cnic}` : ""}{data.driver_licence ? ` · licence ${data.driver_licence}` : ""}</div>

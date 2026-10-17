@@ -64,7 +64,7 @@ export default function SalesHistory() {
                     <td className="td">{r.payment_method}</td>
                     <td className="td">{r.customer_id && can("customers.view") ? <Link className="text-brand-700 underline" to={`/customers/${r.customer_id}`}>{r.customer_name}</Link> : r.customer_name ?? ""}{r.vehicle_no ? <span className="block text-xs text-slate-500">{r.vehicle_no}</span> : null}</td>
                     <td className="td">{r.slip_no ?? ""}</td>
-                    <td className="td">{r.attendant ?? ""}{can("entries.edit") ? <Link className="ml-2 text-xs text-brand-700 underline" to={`/corrections?q=${encodeURIComponent(r.vehicle_no || r.customer_name || r.slip_no || "")}`}>fix</Link> : null}</td>
+                    <td className="td">{r.attendant ?? ""}{can("entries.edit") ? <Link className="ml-2 text-xs text-brand-700 underline" to={`/corrections?sale=${r.id}`}>fix</Link> : null}</td>
                   </tr>
                 ))}</tbody>
               </table>

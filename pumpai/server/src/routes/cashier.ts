@@ -371,7 +371,10 @@ cashier.post("/cashier/vouchers/:id/edit", requirePerm("entries.edit"), h(async 
     // move the new posting onto the SAME voucher number — so the slip, the party's khata, cash/bank and ledger all follow
     const fresh = { party_type: ptype, party_id: pid ?? null, party_name: freeName ?? null, amount, method, account_id: acc, ref: v.ref ?? null, note: note ?? null,
       category: category ?? null, photo_ids: [], notify: false, cheque: null, supplier_id: null, notes: null };
+    // an edit is not a payment event: keep the new customer's khata hold exactly as it was (khataEntry lifts it on a credit)
+    const holdBefore = dir === "in" && ptype === "khata" && pid ? get("SELECT khata_blocked FROM customers WHERE id=? AND tenant_id=?", pid, t)?.khata_blocked ?? 0 : 0;
     const made = dir === "in" ? await doReceive(req, parse(receiveBody, fresh)) : await doPay(req, parse(payBody, fresh), true);
+    if (holdBefore) run("UPDATE customers SET khata_blocked=1 WHERE id=? AND tenant_id=?", pid, t);
     const nv = made.voucher;
     try {
       tx(() => {
@@ -470,6 +473,26 @@ cashier.get("/cashier/vouchers", requirePerm("cashier.desk"), h((req) => {
 cashier.get("/cashier/cheques", requirePerm("cheques.manage"), h((req) => {
   const list = allCheques(tid(req));
   return { cheques: list, totals: chequeTotals(list) };
+}));
+
+/** Fix a cheque's details while it is still open (in hand / issued): amount, bank, number, date — with a reason. A deposited
+ *  or cleared cheque has already moved money; that one is bounced/returned and re-entered. */
+cashier.post("/cashier/cheques/:id/edit", requirePerm("entries.edit"), h((req) => {
+  const t = tid(req);
+  const q = get("SELECT * FROM cheques WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!q) throw new AppError(404, "Cheque not found");
+  if (!["in_hand", "issued"].includes(q.status)) throw new AppError(400, "Ye cheque bank me ja chuka hai — bounce/return karke dobara likhein");
+  const b = parse(z.object({ reason: z.string().trim().min(3), amount: z.number().positive().max(1_000_000_000).optional(), bank: z.string().trim().min(2).max(80).optional(),
+    cheque_no: z.string().trim().min(1).max(30).optional(), cheque_date: day.optional() }), req.body);
+  const before = { amount: q.amount, bank: q.bank, cheque_no: q.cheque_no, cheque_date: q.cheque_date };
+  const after = { amount: b.amount ?? q.amount, bank: b.bank ?? q.bank, cheque_no: b.cheque_no ?? q.cheque_no, cheque_date: b.cheque_date ?? q.cheque_date };
+  tx(() => {
+    run("UPDATE cheques SET amount=?, bank=?, cheque_no=?, cheque_date=?, updated_at=? WHERE id=?", after.amount, after.bank, after.cheque_no, after.cheque_date, now(), q.id);
+    // the register voucher (src chq:<id>) mirrors the cheque
+    run("UPDATE cashier_vouchers SET amount=?, ref=? WHERE tenant_id=? AND src=?", after.amount, after.cheque_no, t, `chq:${q.id}`);
+  });
+  audit(t, req.user!, "cheque_edit", `chq:${q.id}`, { before, after, reason: b.reason });
+  return { ok: true, cheque: get("SELECT * FROM cheques WHERE id=?", q.id) };
 }));
 
 cashier.post("/cashier/cheques/:id/:action", requirePerm("cheques.manage"), h(async (req) => {
@@ -706,7 +729,18 @@ export function onlineToday(t: number, since = pkDayStart()) {
   return { methods, total: round2(methods.reduce((a, o) => a + o.total, 0)), open_shifts };
 }
 
-cashier.get("/cashier/daybook", requirePerm("cashier.desk"), h((req) => cashierDayBook(tid(req), req.query.date ? parse(day, req.query.date) : pkDate(), req.user!.role === "admin")));
+cashier.get("/cashier/daybook", requirePerm("cashier.desk"), h((req) => {
+  const t = tid(req), priv = req.user!.role === "admin";
+  const f = parse(z.object({ date: day.optional(), from: day.optional(), to: day.optional() }), req.query);
+  if (!f.from || !f.to || f.from === f.to) return cashierDayBook(t, f.date ?? f.from ?? pkDate(), priv);
+  // a range: one book per day, stitched — rows carry their day, totals add up, opening = first day's, closing = last day's
+  const days: string[] = []; for (let d = new Date(f.from + "T00:00:00Z"); days.length < 62 && d.toISOString().slice(0, 10) <= f.to; d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
+  const books = days.map((d) => ({ d, b: cashierDayBook(t, d, priv) }));
+  const totals: Record<string, number> = {};
+  for (const { b } of books) for (const [k, v] of Object.entries(b.totals as Record<string, unknown>)) if (typeof v === "number") totals[k] = round2((totals[k] ?? 0) + v);
+  return { date: f.from, from: f.from, to: f.to, days: days.length, rows: books.flatMap(({ d, b }) => (b.rows as Row[]).map((r) => ({ ...r, day: d }))), holds: books.flatMap(({ b }) => b.holds ?? []),
+    totals, summary: null, cash: { opening: books[0].b.cash.opening, closing: books[books.length - 1].b.cash.closing, book_starts: null, starts_today: false } };
+}));
 
 /** The day book as a CSV (Excel) download — oldest entry first. */
 cashier.get("/cashier/daybook.csv", requirePerm("cashier.desk"), (req, res, next) => {

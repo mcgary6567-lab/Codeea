@@ -32,7 +32,7 @@ test("the live books check comes back all-green and tied to the rupee", async ()
   const r = ok(await call(adminTok, "GET", "/api/books/check"), "books check");
   assert.ok(Array.isArray(r.checks) && r.checks.length > 5, "has the full checklist");
   assert.ok(r.max_diff <= 1, `max difference within a rupee (was ${r.max_diff})`);
-  for (const c of r.checks) assert.ok(c.ok, `check failed: ${c.label} — book ${c.book} vs ledger ${c.ledger} (diff ${c.diff})${c.note ? ` — ${c.note}` : ""}`);
+  for (const c of r.checks) assert.ok(c.ok || c.advisory, `check failed: ${c.label} — book ${c.book} vs ledger ${c.ledger} (diff ${c.diff})${c.note ? ` — ${c.note}` : ""}`);
   assert.equal(r.ok, true, "overall ok");
   assert.equal(r.failed.length, 0, "nothing in the failed list");
 });

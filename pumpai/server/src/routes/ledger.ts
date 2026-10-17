@@ -143,8 +143,8 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     else add(day(r.created_at), "Journal", `Khata charge — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Khata receivable", r.amount), cr("Other income", r.amount)]);
   }
   // wholesale
-  for (const r of all(`SELECT w.*, c.name FROM wholesale_txns w JOIN wholesale_clients c ON c.id=w.client_id WHERE w.tenant_id=? AND w.voided=0 AND w.created_at >= ? AND w.created_at < ?`, ...P)) {
-    const d = day(r.created_at);
+  for (const r of all(`SELECT w.*, c.name FROM wholesale_txns w JOIN wholesale_clients c ON c.id=w.client_id WHERE w.tenant_id=? AND w.voided=0 AND w.txn_date >= ? AND w.txn_date < ?`, ...P)) {
+    const d = day(r.txn_date);
     if (isToParty(r.ref)) continue; // booked from the cash/bank row against Wholesale receivable
     if (r.type === "supply") add(d, "Sales", `Wholesale supply — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}`, [dr("Wholesale receivable", r.amount), cr("Wholesale sales", r.amount)]);
     if (r.type === "return") add(d, "Credit note", `Wholesale return — ${r.name} ${r.litres} L`, [dr("Wholesale sales", r.amount), cr("Wholesale receivable", r.amount)]);
@@ -163,8 +163,8 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Carriage income", r.amount)]);
   }
   // carriage / kiraya with thekedars (bypass on our depot ID): their own receivable, booked as income (no fuel on our books)
-  for (const r of all(`SELECT c.*, k.name FROM carriage_txns c JOIN thekedars k ON k.id=c.thekedar_id WHERE c.tenant_id=? AND c.voided=0 AND c.created_at >= ? AND c.created_at < ?`, ...P)) {
-    const d = day(r.created_at);
+  for (const r of all(`SELECT c.*, k.name FROM carriage_txns c JOIN thekedars k ON k.id=c.thekedar_id WHERE c.tenant_id=? AND c.voided=0 AND c.txn_date >= ? AND c.txn_date < ?`, ...P)) {
+    const d = day(r.txn_date);
     if (isToParty(r.ref)) continue; // booked from the cash/bank row against Carriage receivable
     if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Carriage receivable", r.amount), cr("Carriage income", r.amount)]);
     if (r.type === "payment") {
@@ -176,24 +176,24 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     if (r.type === "adjustment") add(d, "Journal", `Carriage adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, r.amount >= 0 ? [dr("Carriage receivable", r.amount), cr("Other income", r.amount)] : [dr("Other income", -r.amount), cr("Carriage receivable", -r.amount)]);
   }
   // bypass delivery: fuel bought from suppliers goes into bypass stock (asset); its cost hits P&L only when delivered
-  for (const r of all(`SELECT b.*, s.name FROM bypass_purchases b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.created_at >= ? AND b.created_at < ?`, ...P)) {
-    add(day(r.created_at), "Purchase", `Bypass fuel — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.cost_rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass stock", r.amount), cr("Bypass suppliers payable", r.amount)]);
+  for (const r of all(`SELECT b.*, s.name FROM bypass_purchases b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.txn_date >= ? AND b.txn_date < ?`, ...P)) {
+    add(day(r.txn_date), "Purchase", `Bypass fuel — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.cost_rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass stock", r.amount), cr("Bypass suppliers payable", r.amount)]);
   }
   // delivered out of the bypass stock: its share of the cost moves from stock to cost of sales
-  for (const r of all(`SELECT d.*, tk.name tank_name FROM bypass_drops d LEFT JOIN tanks tk ON tk.id=d.tank_id WHERE d.tenant_id=? AND d.voided=0 AND d.cost_amount > 0 AND d.created_at >= ? AND d.created_at < ?`, ...P)) {
+  for (const r of all(`SELECT d.*, tk.name tank_name FROM bypass_drops d LEFT JOIN tanks tk ON tk.id=d.tank_id WHERE d.tenant_id=? AND d.voided=0 AND d.cost_amount > 0 AND d.txn_date >= ? AND d.txn_date < ?`, ...P)) {
     // leftover unloaded into our own tank: the fuel becomes pump stock (bought at the bypass average cost), not a bypass sale
-    if (r.tank_id) add(day(r.created_at), "Journal", `Bypass leftover to pump stock — ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.unit_cost} → ${r.tank_name ?? "tank"}`, [dr("Fuel purchases", r.cost_amount), cr("Bypass stock", r.cost_amount)]);
-    else add(day(r.created_at), "Journal", `Bypass delivered — ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.unit_cost}`, [dr("Bypass fuel cost", r.cost_amount), cr("Bypass stock", r.cost_amount)]);
+    if (r.tank_id) add(day(r.txn_date), "Journal", `Bypass leftover to pump stock — ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.unit_cost} → ${r.tank_name ?? "tank"}`, [dr("Fuel purchases", r.cost_amount), cr("Bypass stock", r.cost_amount)]);
+    else add(day(r.txn_date), "Journal", `Bypass delivered — ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""} @ ${r.unit_cost}`, [dr("Bypass fuel cost", r.cost_amount), cr("Bypass stock", r.cost_amount)]);
   }
-  for (const r of all(`SELECT b.*, s.name FROM bypass_supplier_payments b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.created_at >= ? AND b.created_at < ?`, ...P)) {
-    const d = day(r.created_at);
+  for (const r of all(`SELECT b.*, s.name FROM bypass_supplier_payments b JOIN suppliers s ON s.id=b.supplier_id WHERE b.tenant_id=? AND b.voided=0 AND b.txn_date >= ? AND b.txn_date < ?`, ...P)) {
+    const d = day(r.txn_date);
     if (r.mode === "we_pay") add(d, "Payment", `Bypass supplier paid — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass suppliers payable", r.amount), cr(via(r.method, r.account_id), r.amount)]);
     else if (r.mode === "through_us") add(d, "Payment", `Bypass forwarded to ${r.name} (through us)${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass suppliers payable", r.amount), cr(via(r.method, r.account_id), r.amount)]);
     else if (r.mode === "client_direct") add(d, "Journal", `Bypass — client paid ${r.name} direct${r.ref ? ` (${r.ref})` : ""}`, [dr("Bypass suppliers payable", r.amount), cr("Wholesale receivable", r.amount)]);
   }
   // suppliers (purchase cost, payments, withholding, credit notes)
-  for (const r of all(`SELECT s.*, p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)) {
-    const d = day(r.created_at), pay = `Payable — ${r.name}`;
+  for (const r of all(`SELECT s.*, p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.tenant_id=? AND s.txn_date >= ? AND s.txn_date < ?`, ...P)) {
+    const d = day(r.txn_date), pay = `Payable — ${r.name}`;
     if (r.type === "purchase" && String(r.ref ?? "").startsWith("shopbuy:")) add(d, "Purchase", `Shop goods — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Shop stock", r.amount), cr(pay, r.amount)]);
     else if (r.type === "purchase") add(d, "Purchase", `Fuel purchase — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? ""} @ ${r.rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Fuel purchases", r.amount), cr(pay, r.amount)]);
     if (r.type === "payment" && r.method === DEPOT_PAY) continue; // booked with the client's payment above

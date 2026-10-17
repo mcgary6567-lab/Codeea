@@ -10,7 +10,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDate, pkStart, pkEnd, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, requireRole } from "../auth.js";
-import { AppError, createAlert, round2, pkr } from "../services.js";
+import { AppError, createAlert, round2, pkr, audit } from "../services.js";
 import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
@@ -205,6 +205,24 @@ wholesaleDesk.post("/wholesale/clients/:id/cheques", requireAny("wholesale.manag
 }));
 
 /** deposit → clear (the payment is entered, into the chosen bank account) / bounce / return to the client. */
+/** Fix an in-hand wholesale cheque's details (amount / bank / number / date) with a reason — CEO edit permission. */
+wholesaleDesk.post("/wholesale/cheques/:id/edit", requirePerm("entries.edit"), h((req) => {
+  const t = tid(req);
+  const q = get("SELECT * FROM wholesale_cheques WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!q) throw new AppError(404, "Cheque not found");
+  if (q.status !== "in_hand") throw new AppError(400, "Ye cheque bank me ja chuka hai — bounce karke dobara likhein");
+  const b = parse(z.object({ reason: z.string().trim().min(3), amount: z.number().positive().max(1_000_000_000).optional(), bank: z.string().trim().min(2).max(80).optional(),
+    cheque_no: z.string().trim().min(1).max(30).optional(), cheque_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }), req.body);
+  const before = { amount: q.amount, bank: q.bank, cheque_no: q.cheque_no, cheque_date: q.cheque_date };
+  const after = { amount: b.amount ?? q.amount, bank: b.bank ?? q.bank, cheque_no: b.cheque_no ?? q.cheque_no, cheque_date: b.cheque_date ?? q.cheque_date };
+  tx(() => {
+    run("UPDATE wholesale_cheques SET amount=?, bank=?, cheque_no=?, cheque_date=?, updated_at=? WHERE id=?", after.amount, after.bank, after.cheque_no, after.cheque_date, now(), q.id);
+    run("UPDATE cashier_vouchers SET amount=?, ref=? WHERE tenant_id=? AND src=?", after.amount, after.cheque_no, t, `wchq:${q.id}`);
+  });
+  audit(t, req.user!, "cheque_edit", `wchq:${q.id}`, { before, after, reason: b.reason });
+  return { ok: true, cheque: get("SELECT * FROM wholesale_cheques WHERE id=?", q.id) };
+}));
+
 wholesaleDesk.post("/wholesale/cheques/:id/:action", requireAny("wholesale.manage", "cheques.manage"), h(async (req) => {
   const t = tid(req);
   const q = ownCheque(t, Number(req.params.id));

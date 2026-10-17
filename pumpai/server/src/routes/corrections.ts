@@ -64,6 +64,8 @@ function listFilter(req: Request, cols: string[], dateCol: string, defaultLimit:
 corrections.get("/corrections/sales", requirePerm("corrections.manage"), h((req) => {
   const t = tid(req);
   const f = listFilter(req, ["c.name", "s.vehicle_no", "s.slip_no", "s.product", "s.payment_method", "u.name", "CAST(s.amount AS TEXT)"], "s.created_at", 60);
+  const one = Number(req.query.id); // deep link: exactly this sale
+  if (one) { f.where += " AND s.id=?"; f.params.push(String(one)); }
   const rows = all(
     `SELECT s.id, s.product, s.litres, s.rate, s.amount, s.payment_method, s.vehicle_no, s.slip_no, s.pending, s.at_close, s.source, s.created_at,
             st.name station, c.name customer, u.name by_name

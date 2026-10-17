@@ -11,7 +11,7 @@ const KINDS: [string, string, string][] = [
 const tone = (k: string) => KINDS.find((x) => x[0] === k)?.[2] ?? "slate";
 const show = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v));
 
-type CheckRow = { label: string; book: number; ledger: number; diff: number; ok: boolean; note?: string };
+type CheckRow = { advisory?: boolean; label: string; book: number; ledger: number; diff: number; ok: boolean; note?: string };
 type CheckResult = { ok: boolean; checked_at: string; max_diff: number; checks: CheckRow[]; failed: string[] };
 
 /** CEO-only "Hisaab check" — one button re-runs the whole-system reconciliation live and proves everything tallies to 0 rupee. */
@@ -63,7 +63,7 @@ function BooksCheck() {
                     <td className="text-right tabular-nums">{pkr(c.book)}</td>
                     <td className="text-right tabular-nums">{pkr(c.ledger)}</td>
                     <td className={`text-right tabular-nums ${Math.abs(c.diff) > 1 ? "font-semibold text-red-700" : "text-slate-400"}`}>{pkr(c.diff)}</td>
-                    <td className="py-1.5 pl-3">{c.ok ? <Badge tone="green">OK</Badge> : <Badge tone="red">Farq</Badge>}</td>
+                    <td className="py-1.5 pl-3">{c.ok ? <Badge tone="green">OK</Badge> : c.advisory ? <Badge tone="amber">Advisory</Badge> : <Badge tone="red">Farq</Badge>}</td>
                   </tr>
                 ))}
               </tbody>

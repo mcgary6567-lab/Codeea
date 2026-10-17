@@ -21,7 +21,7 @@ import { staffBalance } from "./staff.js";
 
 export const books = Router();
 
-type Check = { label: string; book: number; ledger: number; diff: number; ok: boolean; note?: string };
+type Check = { label: string; book: number; ledger: number; diff: number; ok: boolean; note?: string; advisory?: boolean };
 
 export function reconcileBooks(t: number) {
   const J = journal(t, "2000-01-01", new Date(Date.now() + 29 * 3600_000).toISOString().slice(0, 10));
@@ -52,6 +52,14 @@ export function reconcileBooks(t: number) {
   safe("Wholesale receivable", () => push("Wholesale receivable", all("SELECT id, opening_balance FROM wholesale_clients WHERE tenant_id=?", t).reduce((a, c) => a + clientDue(c.id) - c.opening_balance, 0), tb("Wholesale receivable")));
   safe("Carriage receivable (thekedars)", () => push("Carriage receivable (thekedars)", all("SELECT id, opening_balance FROM thekedars WHERE tenant_id=?", t).reduce((a, k) => a + thekedarDue(k.id) - k.opening_balance, 0), tb("Carriage receivable")));
   safe("Suppliers payable", () => push("Suppliers payable", all("SELECT id, name, opening_balance FROM suppliers WHERE tenant_id=?", t).reduce((a, s) => a + supplierOwed(s.id) - s.opening_balance, 0), all("SELECT name FROM suppliers WHERE tenant_id=?", t).reduce((a, s) => a - tb(`Payable — ${s.name}`), 0)));
+  safe("Shop stock (items × avg cost)", () => {
+    const book = get("SELECT COALESCE(SUM(stock * cost),0) v FROM shop_items WHERE tenant_id=? AND active=1", t)!.v as number;
+    const ledger = tb("Shop stock");
+    const tol = Math.max(TOL, Math.abs(book) * 0.02); // avg cost moves with every purchase, so 2% is the honest tolerance here
+    // advisory: stock that was on the shelves before stock-in carried a money leg was never booked, so an old pump sees a gap here until it is counted in
+    rows.push({ label: "Shop stock (items × avg cost) — advisory", book: round2(book), ledger: round2(ledger), diff: round2(book - ledger), ok: Math.abs(book - ledger) <= tol, advisory: true,
+      note: Math.abs(book - ledger) > tol ? "purana shop stock bina money entry ke tha, ya count ka farq — Shop page par 'Stock received → Koi entry nahi' se purana stock book karein" : undefined });
+  });
   safe("Withholding tax payable (undeposited)", () => push("Withholding tax payable", get("SELECT COALESCE(SUM(amount),0) v FROM tax_withholdings WHERE tenant_id=? AND cpr_no IS NULL", t)!.v as number, -tb("Withholding tax payable")));
   safe("Fuel coupons (unused)", () => push("Fuel coupons (unused)", get("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND status='active' AND sold_at IS NOT NULL", t)!.v as number, -tb("Fuel coupons (unused)")));
   safe("Customer wallets", () => push("Customer wallets", get("SELECT COALESCE(SUM(CASE WHEN type IN ('deposit','bonus','adjustment') THEN amount ELSE -amount END),0) v FROM wallet_ledger WHERE tenant_id=?", t)!.v as number, -tb("Customer wallets")));
@@ -59,8 +67,8 @@ export function reconcileBooks(t: number) {
   safe("Bypass stock", () => push("Bypass stock", bypassStockValue(t), tb("Bypass stock")));
   safe("Bypass suppliers payable", () => push("Bypass suppliers payable", all("SELECT DISTINCT supplier_id FROM bypass_purchases WHERE tenant_id=?", t).reduce((a, s) => a + bypassOwed(s.supplier_id), 0), -tb("Bypass suppliers payable")));
 
-  const failed = rows.filter((r) => !r.ok);
-  const maxDiff = rows.reduce((m, r) => Math.max(m, Math.abs(r.diff)), 0);
+  const failed = rows.filter((r) => !r.ok && !r.advisory); // advisory rows inform, they never fail the check
+  const maxDiff = rows.filter((r) => !r.advisory).reduce((m, r) => Math.max(m, Math.abs(r.diff)), 0);
   return { ok: failed.length === 0, checked_at: new Date().toISOString(), max_diff: round2(maxDiff), checks: rows, failed: failed.map((r) => r.label) };
 }
 

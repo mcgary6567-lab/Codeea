@@ -9,6 +9,7 @@
 import { BRAND_CSS, brandHead, brandFoot } from "../brandPrint.js";
 import { Router } from "express";
 import { z } from "zod";
+import { bankAccountFor } from "./banks.js";
 import jwt from "jsonwebtoken";
 import { pinLink } from "./pinPortal.js";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
@@ -127,10 +128,16 @@ care.patch("/govt-bills/:id", requirePerm("khata.manage"), h((req) => {
 care.post("/govt-bills/:id/paid", requirePerm("khata.manage"), h((req) => {
   const bill = get("SELECT * FROM khata_bills WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!bill) throw new AppError(404, "Bill not found");
-  const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2).default("cheque"), ref: z.string().max(60).optional().nullable() }), req.body);
+  const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2).default("Bank transfer"), ref: z.string().max(60).optional().nullable(), account_id: z.number().int().positive().optional().nullable() }), req.body);
+  // a government cheque is always banked: it is booked as a bank receipt into the chosen account (ref = cheque no), never left hanging
+  const method = /cheque/i.test(b.method) ? "Bank transfer" : b.method;
+  // no account named: the pump's first active bank account (most pumps bank government cheques in one place)
+  const fallback = b.account_id ?? get("SELECT id FROM bank_accounts WHERE tenant_id=? AND active=1 ORDER BY id LIMIT 1", tid(req))?.id ?? null;
+  const account = /^cash$/i.test(method) ? null : bankAccountFor(tid(req), fallback, method);
+  if (!/^cash$/i.test(method) && !account) throw new AppError(400, "Kaun se bank account me aaya? pehle Banks me ek account banayein");
   const paid = round2(bill.paid_amount + b.amount);
   tx(() => {
-    khataEntry(bill.customer_id, "credit", b.amount, b.method, `Bill ${bill.bill_no}${b.ref ? ` · ${b.ref}` : ""}`);
+    khataEntry(bill.customer_id, "credit", b.amount, method, `Bill ${bill.bill_no}${b.ref ? ` · ${/cheque/i.test(b.method) ? "cheque " : ""}${b.ref}` : ""}`, account);
     run("UPDATE khata_bills SET paid_amount=?, status=? WHERE id=?", paid, paid >= bill.amount - 0.5 ? "paid" : "partly", bill.id);
   });
   return get("SELECT * FROM khata_bills WHERE id=?", bill.id);

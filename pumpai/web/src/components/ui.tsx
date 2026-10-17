@@ -210,7 +210,10 @@ export function ListTools({ q, onQ, placeholder = "Dhoondein… · تلاش", ch
   from?: string; to?: string; onFrom?: (v: string) => void; onTo?: (v: string) => void;
   shown?: number; total?: number; right?: ReactNode;
 }) {
-  return (
+  const chipLabel = chips?.find((c) => c.k === chip)?.label;
+  const bits = [q && `search "${q}"`, (from || to) && `${from || "…"} → ${to || "…"}`, chip && chip !== "all" && chipLabel].filter(Boolean);
+  return (<>
+    {bits.length > 0 && <p className="hidden text-xs text-slate-500 print:block">Filtered · {bits.join(" · ")}</p>}
     <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
       <div className="relative min-w-[180px] flex-1">
         <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -232,5 +235,5 @@ export function ListTools({ q, onQ, placeholder = "Dhoondein… · تلاش", ch
       {right}
       {shown != null && total != null && shown !== total && <span className="text-xs text-slate-500">{shown} / {total}</span>}
     </div>
-  );
+  </>);
 }

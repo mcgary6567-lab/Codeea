@@ -7,7 +7,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDayStart, pkDate, pkStart, pkEnd, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
-import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } from "../services.js";
+import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices, audit } from "../services.js";
 import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
@@ -816,6 +816,26 @@ wholesale.get("/wholesale/trips", h((req) => {
     WHERE ${where.join(" AND ")} ORDER BY tr.trip_date DESC, tr.id DESC LIMIT ?`, ...args, qp.limit);
 }));
 wholesale.get("/wholesale/trips/:id", h((req) => tripSheet(tid(req), Number(req.params.id))));
+/** CEO edit of a trip's sheet details (tanker / driver / date / note) — the money and litres per drop stay as booked. */
+wholesale.patch("/wholesale/trips/:id", requirePerm("entries.edit"), h((req) => {
+  const t = tid(req);
+  const trip = get("SELECT * FROM wholesale_trips WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!trip) throw new AppError(404, "Trip not found");
+  const b = parse(z.object({ reason: z.string().trim().min(3), tanker_id: z.number().int().optional().nullable(), driver_id: z.number().int().optional().nullable(), vehicle_no: z.string().max(30).optional().nullable(),
+    driver_name: z.string().max(80).optional().nullable(), note: z.string().max(200).optional().nullable(), trip_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }), req.body);
+  const f = fleet(t, { tanker_id: b.tanker_id ?? trip.tanker_id, driver_id: b.driver_id ?? trip.driver_id, vehicle_no: b.vehicle_no ?? trip.vehicle_no });
+  const driverName = b.driver_name ?? f.driver_name ?? trip.driver_name;
+  const when = b.trip_date ? new Date(`${b.trip_date}T12:00:00+05:00`).toISOString() : trip.trip_date;
+  const before = { tanker_id: trip.tanker_id, driver_id: trip.driver_id, vehicle_no: trip.vehicle_no, driver_name: trip.driver_name, trip_date: trip.trip_date, note: trip.note };
+  tx(() => {
+    run("UPDATE wholesale_trips SET tanker_id=?, driver_id=?, vehicle_no=?, driver_name=?, note=?, trip_date=? WHERE id=?", f.tanker_id, f.driver_id, f.vehicle_no, driverName, b.note ?? trip.note, when, trip.id);
+    // every drop of the trip carries the same sheet details and day
+    run("UPDATE wholesale_txns SET tanker_id=?, driver_id=?, vehicle_no=?, driver_name=?, txn_date=? WHERE trip_id=? AND tenant_id=?", f.tanker_id, f.driver_id, f.vehicle_no, driverName, when, trip.id, t);
+    run("UPDATE supplier_txns SET txn_date=? WHERE trip_id=? AND tenant_id=?", when, trip.id, t);
+  });
+  audit(t, req.user!, "trip_edit", `trip:${trip.id}`, { before, after: { tanker_id: f.tanker_id, driver_id: f.driver_id, vehicle_no: f.vehicle_no, driver_name: driverName, trip_date: when, note: b.note ?? trip.note }, reason: b.reason });
+  return tripSheet(t, trip.id);
+}));
 
 /* ---------------- Fleet register: tankers and drivers ---------------- */
 const tankerBody = z.object({

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, useApi } from "../lib/api";
 import { useAuth } from "../App";
 import { Badge, Empty, Field, ListTools, Loading, Modal, PageHeader, useAction } from "../components/ui";
@@ -247,13 +248,17 @@ function EditRent({ p, url, onClose, onDone }: { p: any; url: string; onClose: (
 function SaleVoid() {
   const canEdit = useAuth().can("entries.edit"); // CEO (or a role the CEO allowed in Users & Roles)
   const filter = useServerFilter();
-  const { data, reload } = useApi<any>(`/corrections/sales?limit=100${filter.qs}`);
+  const [params, setParams] = useSearchParams();
+  const saleId = params.get("sale"); // deep link from Sales history: exactly this sale
+  const { data, reload } = useApi<any>(`/corrections/sales?limit=100${saleId ? `&id=${encodeURIComponent(saleId)}` : filter.qs}`);
+  useEffect(() => { if (saleId && (filter.tools.q || filter.tools.from || filter.tools.to)) { params.delete("sale"); setParams(params, { replace: true }); } }, [filter.tools.q, filter.tools.from, filter.tools.to]); // typing a search leaves the deep link
   const { busy, doVoid } = useVoid(reload);
   const [edit, setEdit] = useState<any>(null);
   const editable = (s: any) => s.source !== "meter" && !s.pending && !["coupon", "wallet", "loyalty", "wholesale"].includes(s.payment_method);
   return (
     <div>
       <ListTools {...filter.tools} placeholder="Customer / gaari / parchi no. / amount… · تلاش" />
+      {saleId && <div className="mt-2 flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-1.5 text-xs text-brand-800">Sirf sale #{saleId} dikh rahi hai <button type="button" className="underline" onClick={() => { params.delete("sale"); setParams(params, { replace: true }); }}>sab dikhayein</button></div>}
       {!data ? <Loading /> : !data.sales.length ? <Empty><Fuel className="mx-auto mb-1 text-slate-300" />Koi sale nahi mili</Empty> : (
         <div className="mt-3 card divide-y divide-slate-100">
           {data.sales.map((s: any) => (
