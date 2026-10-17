@@ -97,8 +97,6 @@ staffRouter.post("/staff/:id/entry", h(async (req) => {
     /** how the money moved (advance / bonus / repayment); cash when not given */
     method: z.string().max(30).optional().nullable(), account_id: z.number().int().positive().optional().nullable() }), req.body);
   if (b.type !== "advance" && !can(req.user, "staff.manage")) throw new AppError(403, "The cashier can only give an advance");
-  // a deduction is money kept back out of a salary — it only exists inside a salary run; cash handed back is a "repayment"
-  if (b.type === "deduction") throw new AppError(400, "Deduction sirf salary run me hoti hai — nakad wapsi ke liye 'Paid back' (repayment) use karein");
   if (["repayment", "deduction"].includes(b.type) && b.amount > staffBalance(u.id) + 0.01) throw new AppError(400, `${u.name} owes only ${pkr(staffBalance(u.id))}`);
   const moves = ["advance", "repayment", "bonus"].includes(b.type);
   const method = moves ? (b.method || "Cash") : null;

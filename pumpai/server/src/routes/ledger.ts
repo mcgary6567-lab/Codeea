@@ -246,7 +246,8 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     if (r.type === "advance") add(d, "Payment", `Advance — ${r.name}`, [dr("Staff advances", r.amount), cr(way, r.amount)]);
     if (r.type === "repayment") add(d, "Receipt", `Advance paid back — ${r.name}`, [dr(way, r.amount), cr("Staff advances", r.amount)]);
     // kept back out of a cash salary (the salary expense was booked in full from cash) — or set off with no cash at all
-    if (r.type === "deduction") add(d, "Journal", `Advance recovered — ${r.name}`, [dr(r.month ? CASH : "Salaries payable", r.amount), cr("Staff advances", r.amount)]);
+    // a manual set-off (no salary month) forgives the advance: it is a staff cost now, not a payable nobody ever clears
+    if (r.type === "deduction") add(d, "Journal", `Advance ${r.month ? "recovered" : "adjusted (set off)"} — ${r.name}`, [dr(r.month ? CASH : "Expense: Staff advance adjusted", r.amount), cr("Staff advances", r.amount)]);
     if (r.type === "shortage") add(d, "Journal", `Cash shortage charged — ${r.name}`, [dr("Staff advances", r.amount), cr("Cash short / over", r.amount)]);
     if (r.type === "bonus" && !r.month) add(d, "Payment", `Bonus — ${r.name}`, [dr("Expense: Staff bonus", r.amount), cr(way, r.amount)]);
   }
