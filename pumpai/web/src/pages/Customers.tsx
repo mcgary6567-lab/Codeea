@@ -85,7 +85,7 @@ export default function Customers() {
           <table className="w-full">
             <thead><tr>
               <th className="th">Customer</th><th className="th">Segment</th><th className="th text-right">30-day spend</th><th className="th text-right">Khata</th>
-              <th className="th text-right">Points</th><th className="th">Churn risk</th><th className="th">Credit risk</th><th className="th">Last visit</th>
+              <th className="th hidden text-right lg:table-cell">Points</th><th className="th hidden lg:table-cell">Churn risk</th><th className="th">Credit risk</th><th className="th">Last visit</th>
             </tr></thead>
             <tbody>
               {rows.map((c) => (
@@ -94,8 +94,8 @@ export default function Customers() {
                   <td className="td">{c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>}</td>
                   <td className="td text-right tabular-nums">{pkr(c.spend_30d ?? 0)}</td>
                   <td className="td text-right tabular-nums">{c.balance > 0.5 ? pkr(c.balance) : c.balance < -0.5 ? <span className="text-emerald-700">Adv. {pkr(-c.balance)}</span> : "—"}</td>
-                  <td className="td text-right tabular-nums">{num(c.loyalty_points)}</td>
-                  <td className="td"><RiskBar v={c.churn_score * 100} /></td>
+                  <td className="td hidden text-right tabular-nums lg:table-cell">{num(c.loyalty_points)}</td>
+                  <td className="td hidden lg:table-cell"><RiskBar v={c.churn_score * 100} /></td>
                   <td className="td">{c.credit_limit > 0 ? <RiskBar v={c.risk_score} /> : <span className="text-xs text-slate-400">no credit</span>}</td>
                   <td className="td text-xs text-slate-500">{ago(c.last_visit_at)}</td>
                 </tr>
