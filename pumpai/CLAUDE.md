@@ -81,6 +81,7 @@ NOT built (deliberate, too risky for zero-rupee/meter integrity once later shift
 ## Live "Hisaab check" — whole-system reconciliation on one button (CEO-only)
 
 `routes/books.ts` `reconcileBooks(t)` + `GET /books/check` (perm `audit.view` = ADMIN). It runs the SAME ties `test/helpers/tally.ts` enforces — journal debit=credit, nothing in Suspense, and every cash/bank/khata/wholesale/carriage/supplier/coupon/wallet/staff/bypass-stock balance equals its ledger account — but LIVE and WITHOUT throwing (each check wrapped in `safe()`, TOL=1 rupee), returning `{ok, checked_at, max_diff, checks:[{label,book,ledger,diff,ok,note}], failed}`. Web: `Audit.tsx` `BooksCheck` card — the CEO presses it (especially after a correction like a voucher void) and sees green "Sab tally — 0 rupaye ka farq" or the exact mismatched line(s). Keep it mirroring tally.ts; `test/books_check.test.ts` guards it (all-green on demo, still 0 after a CEO void, manager 403).
+- **One-click old shop stock** `POST /books/shop-stock/book` (perm `opening.manage`): books the whole shelf-vs-ledger gap (`shopStockGap`) as itemised `shop_moves` rows `type='book'` (qty 0, `amount`), ledger → Dr/Cr "Shop stock" against "Opening balances (go-live)" (never P&L, no cash, stock counts untouched); second press books 0. Button appears under the Hisaab check when the advisory shop-stock row is off (`Audit.tsx`).
 
 ## Carriage / thekedar collection (overdue + reminders)
 

@@ -118,6 +118,11 @@ export function journal(t: number, fromDay: string, toDay: string, showPrivate =
     const v = round2(Math.abs(r.amount ?? r.qty * (r.cost ?? 0)));
     if (v) add(day(r.created_at), "Journal", `Shop goods in (no money entry) — ${r.name} × ${r.qty}`, [dr("Shop stock", v), cr(OPENING_EQ, v)]);
   }
+  // one-click go-live booking of old shelf stock (books.ts): the shelf value comes in against the go-live equity, never P&L
+  for (const r of all(`SELECT m.*, i.name FROM shop_moves m JOIN shop_items i ON i.id=m.item_id WHERE i.tenant_id=? AND m.type='book' AND m.created_at >= ? AND m.created_at < ?`, ...P)) {
+    const v = round2(Math.abs(r.amount ?? 0));
+    if (v) add(day(r.created_at), "Opening", `Shop stock booked (go-live) — ${r.name}${r.note ? ` (${r.note})` : ""}`, (r.amount ?? 0) > 0 ? [dr("Shop stock", v), cr(OPENING_EQ, v)] : [dr(OPENING_EQ, v), cr("Shop stock", v)]);
+  }
   for (const r of all(`SELECT date(datetime(created_at,'+5 hours')) d, SUM(cost_total) c FROM shop_sales WHERE tenant_id=? AND created_at >= ? AND created_at < ? GROUP BY d`, ...P))
     if (r.c) add(r.d, "Journal", `Cost of shop goods sold ${r.d}`, [dr("Cost of shop sales", r.c), cr("Shop stock", r.c)]);
   for (const r of all(`SELECT m.*, i.name FROM shop_moves m JOIN shop_items i ON i.id=m.item_id WHERE i.tenant_id=? AND m.type='adjust' AND m.created_at >= ? AND m.created_at < ?`, ...P)) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, ChevronDown, ChevronRight, ShieldCheck, Scale, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { Download, ChevronDown, ChevronRight, ShieldCheck, Scale, CheckCircle2, AlertTriangle, Loader2, Package } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, PageHeader } from "../components/ui";
 import { dt, pkr } from "../lib/format";
@@ -19,6 +19,17 @@ function BooksCheck() {
   const [res, setRes] = useState<CheckResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [booking, setBooking] = useState(false);
+  const [booked, setBooked] = useState<{ booked: number; items: { name: string; amount: number }[] } | null>(null);
+  const shopGap = res?.checks.find((c) => c.advisory && !c.ok && /shop stock/i.test(c.label));
+  const bookShop = async () => {
+    if (!shopGap) return;
+    if (!confirm(`Shop ka purana stock ${pkr(Math.abs(shopGap.diff))} ek click me book ho jayega (Opening balances ke against — na P&L, na cash). Theek hai?`)) return;
+    setBooking(true); setErr("");
+    try { setBooked(await api("/books/shop-stock/book", { body: { note: "Purana shop stock book kiya (one click)" } })); await run(); }
+    catch (e: any) { setErr(e?.message ?? "Book nahi ho saka"); }
+    finally { setBooking(false); }
+  };
   const run = async () => {
     setLoading(true); setErr(""); setRes(null);
     try { setRes(await api<CheckResult>("/books/check")); }
@@ -69,6 +80,22 @@ function BooksCheck() {
               </tbody>
             </table>
           </div>
+          {shopGap && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+              <div>
+                <div className="font-medium">Shop ka purana stock ledger me nahi likha — farq {pkr(Math.abs(shopGap.diff))}</div>
+                <div className="text-xs text-amber-700">Ek click me har item ka baqi stock "Opening balances (go-live)" ke against book ho jayega. Na munafa badlega, na cash. Item ki ginti wahi rahegi.</div>
+              </div>
+              <button className="btn-primary" onClick={bookShop} disabled={booking}>
+                {booking ? <Loader2 size={15} className="animate-spin" /> : <Package size={15} />} Purana shop stock book karein
+              </button>
+            </div>
+          )}
+          {booked && booked.booked !== 0 && (
+            <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              Book ho gaya: {pkr(booked.booked)} · {booked.items.map((i) => `${i.name} ${pkr(i.amount)}`).join(" · ")}
+            </div>
+          )}
           <div className="mt-2 text-[11px] text-slate-400">Checked at {dt(res.checked_at)}</div>
         </div>
       )}

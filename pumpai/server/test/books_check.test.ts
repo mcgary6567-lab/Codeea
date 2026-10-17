@@ -49,3 +49,29 @@ test("the check survives a CEO correction — void a cash voucher, hisaab still 
 test("the books check is CEO-only (a manager cannot run it)", async () => {
   assert.equal((await call(mgrTok, "GET", "/api/books/check")).status, 403);
 });
+
+test("one click books old shop stock against go-live equity — advisory gap closes, hisaab still 0", async () => {
+  const st = ok(await call(adminTok, "GET", "/api/stations"), "stations");
+  const station_id = (Array.isArray(st) ? st : st.stations)[0].id;
+  // an item that was already on the shelf before go-live: stock typed in, no purchase / money entry anywhere
+  ok(await call(adminTok, "POST", "/api/shop/items", { station_id, name: "Old shelf oil 1L", category: "lubricant", cost: 900, price: 1200, stock: 20 }), "item");
+  const c1 = ok(await call(adminTok, "GET", "/api/books/check"), "check");
+  const row1 = c1.checks.find((c: any) => /shop stock/i.test(c.label));
+  assert.ok(row1.advisory && row1.diff >= 18_000 - 1, `shelf gap expected, got ${JSON.stringify(row1)}`);
+  assert.equal(c1.ok, true, "advisory never fails the check");
+  const mgr = await call(mgrTok, "POST", "/api/books/shop-stock/book", {});
+  assert.equal(mgr.status, 403, "manager cannot book");
+  const b = ok(await call(adminTok, "POST", "/api/books/shop-stock/book", { note: "go-live shelf" }), "book");
+  assert.ok(Math.abs(b.booked - row1.diff) <= 1, `booked the whole gap: ${JSON.stringify(b)}`);
+  assert.ok(b.items.some((i: any) => i.name === "Old shelf oil 1L" && Math.abs(i.amount - 18_000) <= 1), "itemised on the shelf item");
+  assert.ok(Math.abs(b.after.gap) <= 1, `gap closed: ${JSON.stringify(b.after)}`);
+  const c2 = ok(await call(adminTok, "GET", "/api/books/check"), "check again");
+  assert.equal(c2.ok, true); assert.equal(c2.checks.find((c: any) => /shop stock/i.test(c.label)).ok, true, "shop stock row now green");
+  const again = ok(await call(adminTok, "POST", "/api/books/shop-stock/book", {}), "second press");
+  assert.equal(again.booked, 0, "pressing again books nothing");
+  // the stock count itself never moved
+  const items = ok(await call(adminTok, "GET", "/api/shop/items"), "items");
+  assert.equal((Array.isArray(items) ? items : items.items).find((i: any) => i.name === "Old shelf oil 1L").stock, 20);
+  const { tallyBooks } = await import("./helpers/tally.js");
+  tallyBooks();
+});
