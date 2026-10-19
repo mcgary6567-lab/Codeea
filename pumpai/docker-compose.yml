@@ -1,0 +1,38 @@
+# PumpAI with automatic HTTPS (Caddy). Copy deploy/docker.env.example to .env, set DOMAIN, then:
+#   docker compose up -d
+#   docker compose logs app | grep "SETUP CODE"     ← the code the setup wizard asks for (first start only)
+services:
+  app:
+    build: .
+    restart: always
+    init: true                 # passes "stop" to the app, so the database is closed cleanly
+    stop_grace_period: 30s
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DB_PATH: /data/pumpai.db
+      BACKUP_DIR: /data/backups
+      PUBLIC_URL: https://${DOMAIN}
+      SUPERVISED: "1"
+    volumes:
+      - pumpai-data:/data
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+  caddy:
+    image: caddy:2
+    restart: always
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      app: { condition: service_healthy }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+volumes:
+  pumpai-data:
+  caddy-data:

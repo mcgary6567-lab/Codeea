@@ -1,0 +1,273 @@
+/**
+ * Lubricants, filters, tuck shop and tyre shop: items per station with stock, barcode sale from the
+ * POS (cash / digital / khata), stock-in from suppliers, adjustments, low-stock alerts and profit.
+ * Shop cash goes into the salesman's shift cash like fuel cash.
+ */
+import { Router } from "express";
+import { z } from "zod";
+import { all, get, run, tx, now, pkDayStart, pkStart, pkEnd } from "../db.js";
+import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
+import { h, parse, tid, requirePerm, scopedStation, can } from "../auth.js";
+import { AppError, round2, pkr, createAlert, audit, UNDO_SECONDS, adjustClosedShiftCash, saleCash } from "../services.js";
+import { assertLookup, moneyMethods } from "./lookups.js";
+import { otherMoney, bankAccountFor, accountIdField } from "./banks.js";
+import { notify, staff } from "../notifications.js";
+import { shiftSummary } from "../shifts.js";
+import { receiptUrl } from "../billing.js";
+
+export const shop = Router();
+export const SHOP_CATEGORIES = ["lubricant", "filter", "coolant", "tyre", "battery", "tuck", "service", "other"] as const;
+
+const itemBody = z.object({
+  station_id: z.number(), name: z.string().min(2).max(80), category: z.string().max(40).default("other"), // one of Settings → Lists → Shop categories
+  sku: z.string().max(40).optional().nullable(), barcode: z.string().max(40).optional().nullable(), unit: z.string().max(12).default("pc"),
+  cost: z.number().min(0).default(0), price: z.number().positive(), reorder_level: z.number().min(0).default(0), stock: z.number().min(0).optional(),
+});
+
+function ownItem(t: number, id: number) {
+  const i = get("SELECT * FROM shop_items WHERE id=? AND tenant_id=?", id, t);
+  if (!i) throw new AppError(404, "Item not found");
+  return i;
+}
+
+shop.get("/shop/items", requirePerm("sales.create"), h((req) => {
+  const station = scopedStation(req, req.query.station_id ? Number(req.query.station_id) : null);
+  const bc = req.query.barcode ? String(req.query.barcode) : null;
+  return all(`SELECT i.*, s.name station_name FROM shop_items i JOIN stations s ON s.id=i.station_id WHERE i.tenant_id=?
+    ${station ? "AND i.station_id=" + Number(station) : ""} ${bc ? "AND (i.barcode=? OR i.sku=?)" : ""} AND (i.active=1 OR ?) ORDER BY i.category, i.name`,
+    tid(req), ...(bc ? [bc, bc] : []), req.query.all ? 1 : 0).map((i) => (can(req.user, "stock.manage") ? i : { ...i, cost: undefined }));
+}));
+
+shop.post("/shop/items", requirePerm("stock.manage"), h((req) => {
+  const b = parse(itemBody, req.body);
+  assertLookup(tid(req), "shop_category", b.category);
+  if (!get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, tid(req))) throw new AppError(400, "Station not found");
+  if (b.barcode && get("SELECT id FROM shop_items WHERE tenant_id=? AND station_id=? AND barcode=?", tid(req), b.station_id, b.barcode)) throw new AppError(400, "This barcode is already used at this station");
+  const { id } = run(`INSERT INTO shop_items (tenant_id,station_id,sku,barcode,name,category,unit,cost,price,stock,reorder_level,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    tid(req), b.station_id, b.sku ?? null, b.barcode ?? null, b.name, b.category, b.unit, b.cost, b.price, b.stock ?? 0, b.reorder_level, now());
+  if (b.stock) run("INSERT INTO shop_moves (item_id,type,qty,cost,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)", id, "opening", b.stock, b.cost, "Opening stock", req.user!.name, now());
+  return get("SELECT * FROM shop_items WHERE id=?", id);
+}));
+
+shop.patch("/shop/items/:id", requirePerm("stock.manage"), h((req) => {
+  const i = ownItem(tid(req), Number(req.params.id));
+  const b = parse(itemBody.omit({ station_id: true, stock: true }).partial().extend({ active: z.boolean().optional() }), req.body);
+  assertLookup(tid(req), "shop_category", b.category);
+  const m = { ...i, ...b, active: b.active === undefined ? i.active : b.active ? 1 : 0 };
+  run("UPDATE shop_items SET name=?, category=?, sku=?, barcode=?, unit=?, cost=?, price=?, reorder_level=?, active=? WHERE id=?",
+    m.name, m.category, m.sku ?? null, m.barcode ?? null, m.unit, m.cost, m.price, m.reorder_level, m.active, i.id);
+  return get("SELECT * FROM shop_items WHERE id=?", i.id);
+}));
+
+/** Stock received (purchase): the average cost is updated, and the goods' money side is booked — paid in cash at the
+ *  counter (cash voucher), from a bank/wallet (bank row), on a supplier's khata (supplier purchase → payable), or `none`
+ *  when the money was already entered elsewhere / opening stock. The ledger books the goods as "Shop stock" (asset) and
+ *  moves their cost to "Cost of shop sales" as they sell, so shop inventory and P&L cost tie without double counting. */
+shop.post("/shop/items/:id/stock-in", requirePerm("stock.manage"), h((req) => {
+  const t = tid(req);
+  const i = ownItem(t, Number(req.params.id));
+  const b = parse(z.object({ qty: z.number().positive(), cost: z.number().min(0).optional(), supplier: z.string().max(80).optional().nullable(), ref: z.string().max(40).optional().nullable(), photo_ids: proofPhotos,
+    paid_by: z.enum(["cash", "bank", "supplier", "none"]).default("none"), method: z.string().max(30).optional().nullable(), account_id: accountIdField, supplier_id: z.number().int().positive().optional().nullable() }), req.body);
+  const unitCost = b.cost ?? i.cost;
+  const amount = round2(b.qty * unitCost);
+  const avg = i.stock + b.qty > 0 ? round2((Math.max(0, i.stock) * i.cost + b.qty * unitCost) / (Math.max(0, i.stock) + b.qty)) : unitCost;
+  const sup = b.paid_by === "supplier" ? get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id ?? 0, t) : null;
+  if (b.paid_by === "supplier" && !sup) throw new AppError(400, "Supplier chunein jis ke khate par maal aaya");
+  if (b.paid_by === "bank" && !bankAccountFor(t, b.account_id, b.method ?? "bank")) throw new AppError(400, "Bank / wallet account chunein");
+  if (b.paid_by !== "none" && amount <= 0) throw new AppError(400, "Paisa book karne ke liye cost per unit likhein");
+  tx(() => {
+    run("UPDATE shop_items SET stock = stock + ?, cost=? WHERE id=?", b.qty, avg, i.id);
+    const mid = run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,note,created_by,created_at,paid_by,amount) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      i.id, "purchase", b.qty, unitCost, b.ref ?? null, sup?.name ?? b.supplier ?? null, req.user!.name, now(), b.paid_by, amount).id;
+    linkPhotos(t, b.photo_ids, `shopmove:${mid}`); // supplier bill
+    let src: string | null = null;
+    if (b.paid_by === "cash" || b.paid_by === "bank")
+      src = otherMoney(t, { dir: "out", amount, method: b.paid_by === "cash" ? "cash" : b.method ?? "bank", account_id: b.account_id, party: sup?.name ?? b.supplier ?? "Shop purchase",
+        category: "Shop purchase", note: `${i.name} × ${b.qty} ${i.unit}`, ref: `shopbuy:${mid}`, by: req.user!.name });
+    else if (sup)
+      src = `stx:${run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+        t, sup.id, "purchase", amount, `shopbuy:${mid}`, `Shop: ${i.name} × ${b.qty} ${i.unit}`, req.user!.name, now(), now()).id}`;
+    if (src) run("UPDATE shop_moves SET src=? WHERE id=?", src, mid);
+  });
+  return get("SELECT * FROM shop_items WHERE id=?", i.id);
+}));
+
+/** Stock count / damage / expiry: set the real quantity; the difference is logged. */
+shop.post("/shop/items/:id/adjust", requirePerm("stock.manage"), h((req) => {
+  const i = ownItem(tid(req), Number(req.params.id));
+  const b = parse(z.object({ counted: z.number().min(0), reason: z.string().min(2).max(120) }), req.body);
+  const diff = round2(b.counted - i.stock);
+  tx(() => {
+    run("UPDATE shop_items SET stock=? WHERE id=?", b.counted, i.id);
+    run("INSERT INTO shop_moves (item_id,type,qty,cost,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)", i.id, "adjust", diff, i.cost, b.reason, req.user!.name, now());
+  });
+  return { ...get("SELECT * FROM shop_items WHERE id=?", i.id)!, difference: diff };
+}));
+
+shop.get("/shop/items/:id/moves", requirePerm("stock.manage"), h((req) => {
+  const i = ownItem(tid(req), Number(req.params.id));
+  return all(`SELECT m.*, ${proofCol("'shopmove:'||m.id")} FROM shop_moves m WHERE m.item_id=? ORDER BY m.id DESC LIMIT 100`, i.id);
+}));
+
+/** Sell shop items from the POS. */
+shop.post("/shop/sales", requirePerm("sales.create"), h(async (req) => {
+  const t = tid(req);
+  const b = parse(z.object({
+    station_id: z.number(), lines: z.array(z.object({ item_id: z.number(), qty: z.number().positive().max(10_000) })).min(1).max(50),
+    payment_method: z.string().max(40), customer_id: z.number().nullable().optional(), // money method (Settings → Lists) or khata
+    client_uid: z.string().min(8).max(64).nullable().optional(),
+  }), req.body);
+  if (b.payment_method !== "khata" && !moneyMethods(tid(req)).includes(b.payment_method)) throw new AppError(400, `Unknown payment method: ${b.payment_method}`);
+  const stationId = scopedStation(req, b.station_id)!;
+  if (b.client_uid) { const dup = get("SELECT * FROM shop_sales WHERE client_uid=? AND tenant_id=?", b.client_uid, t); if (dup) return { ...dup, duplicate: true }; }
+  const salesman = req.user!.role === "salesman";
+  const shift = salesman
+    ? get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", stationId, req.user!.name)
+    : get("SELECT id FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", stationId);
+  if (salesman && !shift) throw new AppError(400, "Start your shift first");
+  const items = b.lines.map((l) => {
+    const i = get("SELECT * FROM shop_items WHERE id=? AND tenant_id=? AND station_id=? AND active=1", l.item_id, t, stationId);
+    if (!i) throw new AppError(400, "Item not found at this station");
+    if (i.stock < l.qty) throw new AppError(400, `Only ${i.stock} ${i.unit} of ${i.name} in stock`);
+    return { i, qty: l.qty };
+  });
+  const total = round2(items.reduce((a, x) => a + x.qty * x.i.price, 0));
+  const cost = round2(items.reduce((a, x) => a + x.qty * x.i.cost, 0));
+  const customer = b.customer_id ? get("SELECT * FROM customers WHERE id=? AND tenant_id=?", b.customer_id, t) : null;
+  if (b.payment_method === "khata") {
+    if (!customer) throw new AppError(400, "Khata sale needs a customer");
+    if (customer.khata_blocked) throw new AppError(400, `${customer.name}: khata is on hold because payment is overdue. Ask the manager.`);
+    if (customer.balance + total > customer.credit_limit) throw new AppError(400, `Credit limit exceeded: balance ${pkr(customer.balance)}, limit ${pkr(customer.credit_limit)}`);
+  }
+  const low: string[] = [];
+  const id = tx(() => {
+    const { id } = run("INSERT INTO shop_sales (tenant_id,station_id,shift_id,customer_id,payment_method,total,cost_total,client_uid,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      t, stationId, shift?.id ?? null, customer?.id ?? null, b.payment_method, total, cost, b.client_uid ?? null, req.user!.id, now());
+    for (const { i, qty } of items) {
+      run("INSERT INTO shop_sale_lines (sale_id,item_id,qty,price,cost) VALUES (?,?,?,?,?)", id, i.id, qty, i.price, i.cost);
+      run("UPDATE shop_items SET stock = stock - ? WHERE id=?", qty, i.id);
+      run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,created_by,created_at) VALUES (?,?,?,?,?,?,?)", i.id, "sale", -qty, i.cost, `shop:${id}`, req.user!.name, now());
+      if (i.reorder_level > 0 && i.stock - qty <= i.reorder_level) low.push(`${i.name} (${round2(i.stock - qty)} ${i.unit} left)`);
+    }
+    if (b.payment_method === "khata" && customer) {
+      run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,station_id,created_at) VALUES (?,?,?,?,?,?,?)`,
+        customer.id, "debit", total, `SHOP-${id}`, items.map((x) => `${x.qty} × ${x.i.name}`).join(", "), stationId, now());
+      run("UPDATE customers SET balance = balance + ? WHERE id=?", total, customer.id);
+    }
+    return id;
+  });
+  if (low.length) {
+    const a = createAlert(t, { station_id: stationId, type: "shop_low_stock", severity: "warning", title: `Shop stock low: ${low.join(", ")}`, dedupe_key: `shoplow-${stationId}-${low.join("|")}` });
+    if (a) await notify(t, staff(t, ["manager", "admin"]), { type: "shop_low_stock", title: a.title, body: "Order more from the supplier." });
+  }
+  return { ...get("SELECT * FROM shop_sales WHERE id=?", id)!, receipt_url: receiptUrl(t, "s", id), lines: all("SELECT l.*, i.name, i.unit FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=?", id),
+    shift_summary: shift ? shiftSummary(shift.id) : null };
+}));
+
+shop.post("/shop/sales/:id/undo", requirePerm("sales.create"), h((req) => {
+  const s = get("SELECT ss.*, sh.status shift_status FROM shop_sales ss LEFT JOIN shifts sh ON sh.id=ss.shift_id WHERE ss.id=? AND ss.tenant_id=?", Number(req.params.id), tid(req));
+  if (!s) throw new AppError(404, "Sale not found");
+  if (req.user!.role === "salesman" && (s.created_by !== req.user!.id || Date.now() - Date.parse(s.created_at) > UNDO_SECONDS * 1000))
+    throw new AppError(400, "Undo time (2 minutes) has passed. Ask the manager.");
+  if (s.shift_id && s.shift_status !== "open") throw new AppError(400, "The shift is closed; this sale can no longer be undone");
+  tx(() => {
+    for (const l of all("SELECT * FROM shop_sale_lines WHERE sale_id=?", s.id)) {
+      run("UPDATE shop_items SET stock = stock + ? WHERE id=?", l.qty, l.item_id);
+      run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,created_by,created_at) VALUES (?,?,?,?,?,?,?)", l.item_id, "undo", l.qty, l.cost, `shop:${s.id}`, req.user!.name, now());
+    }
+    if (s.payment_method === "khata" && s.customer_id) {
+      run("DELETE FROM khata_ledger WHERE customer_id=? AND ref=?", s.customer_id, `SHOP-${s.id}`);
+      run("UPDATE customers SET balance = balance - ? WHERE id=?", s.total, s.customer_id);
+    }
+    run("DELETE FROM shop_sale_lines WHERE sale_id=?", s.id);
+    run("DELETE FROM shop_sales WHERE id=?", s.id);
+  });
+  audit(tid(req), req.user!, "shop_undo", `shop:${s.id}`, { total: s.total, payment: s.payment_method });
+  return { ok: true };
+}));
+
+/** Recent shop sales (for the CEO to review / edit / undo). Newest first, with a short item summary and the customer. */
+const pkDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional();
+const salesQuery = z.object({
+  station_id: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().int().positive().optional()),
+  limit: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().int().min(1).max(200).default(40)),
+  from: pkDay, to: pkDay, method: z.string().trim().max(40).optional(), q: z.string().trim().max(80).optional(), // item name / customer
+});
+shop.get("/shop/sales", requirePerm("sales.create"), h((req) => {
+  const t = tid(req);
+  const f = parse(salesQuery, req.query);
+  const where = ["ss.tenant_id=?"]; const args: (string | number)[] = [t];
+  if (f.station_id) { where.push("ss.station_id=?"); args.push(f.station_id); }
+  if (f.from) { where.push("ss.created_at >= ?"); args.push(pkStart(f.from)); }
+  if (f.to) { where.push("ss.created_at < ?"); args.push(pkEnd(f.to)); }
+  if (f.method) { where.push("ss.payment_method=?"); args.push(f.method); }
+  if (f.q) {
+    const like = `%${f.q}%`;
+    where.push("(c.name LIKE ? OR EXISTS (SELECT 1 FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=ss.id AND i.name LIKE ?))");
+    args.push(like, like);
+  }
+  const rows = all(
+    `SELECT ss.id, ss.payment_method, ss.total, ss.customer_id, ss.created_at, ss.shift_id, c.name customer, u.name by_name,
+            (SELECT GROUP_CONCAT(l.qty || ' × ' || i.name, ', ') FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=ss.id) items
+     FROM shop_sales ss LEFT JOIN customers c ON c.id=ss.customer_id LEFT JOIN users u ON u.id=ss.created_by
+     WHERE ${where.join(" AND ")} ORDER BY ss.id DESC LIMIT ?`, ...args, f.limit);
+  return { sales: rows, limit: f.limit };
+}));
+
+/** CEO edit of a shop sale's MONEY routing — payment method and/or khata customer (stock, lines and total stay as sold).
+ *  The khata leg is reversed on the old customer and re-posted on the new one, so every book stays tallied to the rupee. */
+shop.post("/shop/sales/:id/edit", requirePerm("entries.edit"), h((req) => {
+  const t = tid(req);
+  const s = get("SELECT * FROM shop_sales WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!s) throw new AppError(404, "Shop sale nahi mili");
+  const b = parse(z.object({
+    reason: z.string().trim().min(3, "Wajah likhein (kam se kam 3 harf)"),
+    payment_method: z.string().max(40).optional(), customer_id: z.number().int().positive().nullable().optional(),
+  }), req.body);
+  const method = b.payment_method ?? s.payment_method;
+  const customer_id = b.customer_id !== undefined ? b.customer_id : s.customer_id;
+  if (method !== "khata" && !moneyMethods(t).includes(method)) throw new AppError(400, `Unknown payment method: ${method}`);
+  if (method === "khata" && !customer_id) throw new AppError(400, "Khata sale ke liye customer chahiye");
+  if (method === "khata" && !get("SELECT id FROM customers WHERE id=? AND tenant_id=?", customer_id, t)) throw new AppError(400, "Customer nahi mila");
+  const before = { payment_method: s.payment_method, customer_id: s.customer_id };
+  const shift = s.shift_id ? get("SELECT * FROM shifts WHERE id=?", s.shift_id) : null;
+  const shiftCash = tx(() => {
+    // reverse the old khata leg (if any)
+    if (s.payment_method === "khata" && s.customer_id) {
+      run("DELETE FROM khata_ledger WHERE customer_id=? AND ref=?", s.customer_id, `SHOP-${s.id}`);
+      run("UPDATE customers SET balance = balance - ? WHERE id=?", s.total, s.customer_id);
+    }
+    run("UPDATE shop_sales SET payment_method=?, customer_id=? WHERE id=?", method, method === "khata" ? customer_id : null, s.id);
+    // re-post the khata leg on the new customer (if now khata)
+    if (method === "khata" && customer_id) {
+      const note = all("SELECT l.qty, i.name FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=?", s.id).map((x: any) => `${x.qty} × ${x.name}`).join(", ");
+      run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,station_id,created_at) VALUES (?,?,?,?,?,?,?)`,
+        customer_id, "debit", s.total, `SHOP-${s.id}`, note, s.station_id, s.created_at);
+      run("UPDATE customers SET balance = balance + ? WHERE id=?", s.total, customer_id);
+    }
+    // shop cash is part of the shift's bag (shiftSummary.cash_expected): on a CLOSED shift, cash → khata/digital frees counted
+    // cash (expected drops, shows as "over"); khata/digital → cash would add cash never counted → refused (tx rolls back)
+    return adjustClosedShiftCash(shift, saleCash(s.payment_method, s.total) - saleCash(method, s.total), `shop ${s.payment_method} → ${method} edit`);
+  });
+  audit(t, req.user!, "shop_edit", `shop:${s.id}`, { before, after: { payment_method: method, customer_id: method === "khata" ? customer_id : null }, reason: b.reason, shift_cash: shiftCash });
+  return { ok: true, total: round2(s.total), shift_cash: shiftCash };
+}));
+
+/** Shop sales, profit and stock for a period (default today). */
+export function shopSummary(t: number, from = pkDayStart(), to = new Date().toISOString(), stationId?: number | null) {
+  const st = stationId ? `AND ss.station_id=${Number(stationId)}` : "";
+  const tot = get(`SELECT COALESCE(SUM(total),0) sales, COALESCE(SUM(cost_total),0) cost, COUNT(*) n FROM shop_sales ss WHERE tenant_id=? AND created_at >= ? AND created_at < ? ${st}`, t, from, to)!;
+  return {
+    sales: round2(tot.sales), cost: round2(tot.cost), profit: round2(tot.sales - tot.cost), count: tot.n,
+    by_category: all(`SELECT i.category, ROUND(SUM(l.qty*l.price),2) sales, ROUND(SUM(l.qty*(l.price-l.cost)),2) profit FROM shop_sale_lines l
+      JOIN shop_sales ss ON ss.id=l.sale_id JOIN shop_items i ON i.id=l.item_id WHERE ss.tenant_id=? AND ss.created_at >= ? AND ss.created_at < ? ${st} GROUP BY i.category ORDER BY sales DESC`, t, from, to),
+    top: all(`SELECT i.name, ROUND(SUM(l.qty),2) qty, ROUND(SUM(l.qty*l.price),2) sales FROM shop_sale_lines l JOIN shop_sales ss ON ss.id=l.sale_id
+      JOIN shop_items i ON i.id=l.item_id WHERE ss.tenant_id=? AND ss.created_at >= ? AND ss.created_at < ? ${st} GROUP BY i.id ORDER BY sales DESC LIMIT 8`, t, from, to),
+    stock_value: round2(get("SELECT COALESCE(SUM(stock*cost),0) v FROM shop_items WHERE tenant_id=? AND active=1", t)!.v),
+    low_stock: all("SELECT id, name, stock, unit, reorder_level FROM shop_items WHERE tenant_id=? AND active=1 AND reorder_level > 0 AND stock <= reorder_level ORDER BY stock", t),
+  };
+}
+shop.get("/shop/summary", requirePerm("stock.manage"), h((req) => {
+  const q = parse(z.object({ from: z.string().optional(), to: z.string().optional() }), req.query);
+  return shopSummary(tid(req), q.from ? pkStart(q.from) : pkDayStart(), q.to ? pkEnd(q.to) : new Date().toISOString());
+}));
