@@ -53,6 +53,12 @@ export default function ProfitExplainer() {
         <Row id="income" sign="+" label="Total income" ur="کل آمدن" amount={p.income.total} tone="green" detail={detailTable(<>
           {line("Fuel — retail (POS)", pkr(p.income.fuel_retail))}
           {line("Fuel — wholesale", pkr(p.income.fuel_wholesale))}
+          {p.wholesale_margin?.litres > 0 && <>
+            <tr><td colSpan={2} className="pt-2 text-xs font-semibold text-slate-500">Wholesale ka munafa (gross profit me shaamil)</td></tr>
+            {line(`Wholesale bika — ${num(p.wholesale_margin.litres, 0)} L @ Rs ${p.wholesale_margin.avg_rate.toFixed(2)}`, pkr(p.wholesale_margin.revenue))}
+            {line(`− Laagat — ${num(p.wholesale_margin.litres, 0)} L × Rs ${p.wholesale_margin.avg_cost.toFixed(2)}`, `− ${pkr(p.wholesale_margin.cost)}`)}
+            {line("= Wholesale ka munafa", pkr(p.wholesale_margin.profit), p.wholesale_margin.profit >= 0 ? "font-semibold text-emerald-700" : "font-semibold text-red-600")}
+          </>}
           {line("Shop & lubricants", pkr(p.income.shop))}
           {p.discount_given > 0 && line("Khata discount diya (fuel se minus ho chuka)", `− ${pkr(p.discount_given)}`)}
           {p.discount_direct > 0 && line("Direct discount diya POS par (fuel se minus ho chuka)", `− ${pkr(p.discount_direct)}`)}

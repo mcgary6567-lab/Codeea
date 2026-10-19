@@ -100,6 +100,15 @@ export function profitAndLoss(t: number, month: string, showPrivate = true) {
   const income = {
     fuel_retail: r0(s.retail_sales), fuel_wholesale: r0(s.wholesale_net), shop: r0(s.shop_sales), total: r0(s.revenue),
   };
+  // Wholesale's own gross margin, shown as its own line so the owner can see what wholesale earns (it is already
+  // inside gross profit above — this is a breakout, not an extra addition). Cost = wholesale litres × that fuel's avg cost.
+  const whCostOf = (p: string) => (r.stock.products.find((x: any) => x.product === p)?.avg_cost ?? 0) as number;
+  const whCost = r0((r.wholesale.by_product as any[]).reduce((a, w) => a + (Number(w.net_l) || 0) * whCostOf(w.product), 0));
+  const whLitres = r0(s.wholesale_litres);
+  const wholesale_margin = {
+    litres: whLitres, revenue: r0(income.fuel_wholesale), cost: whCost, profit: r0(income.fuel_wholesale - whCost),
+    avg_rate: whLitres ? round2(income.fuel_wholesale / whLitres) : 0, avg_cost: whLitres ? round2(whCost / whLitres) : 0,
+  };
   const cost = { fuel: r0(fuelCost), shop: r0(shopCost), stock_gain_loss: r0(dipLoss), total: r0(fuelCost + shopCost - dipLoss) };
   const gross = r0(income.total - cost.total);
   // Expenses come from the ledger (every "Expense: *" account), so bank card charges (MDR), bank charges and staff
@@ -127,7 +136,7 @@ export function profitAndLoss(t: number, month: string, showPrivate = true) {
   const otherIncome = r0(rentalIncome(t, from, toIso) + carriageIncome(t, from, toIso) + carriageIncomeThekedar(t, from, toIso) + ceoIncome + miscIncome);
   const net = r0(gross + otherIncome - expensesTotal - ceoDiscount);
   return {
-    month, from, to: toIso, income, cost_of_sales: cost, gross_profit: gross,
+    month, from, to: toIso, income, wholesale_margin, cost_of_sales: cost, gross_profit: gross,
     other_income: otherIncome,
     other_income_ceo: ceoIncome,
     other_income_misc: miscIncome,
