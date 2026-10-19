@@ -302,8 +302,17 @@ export function productMargins(t: number, month: string) {
   const to = pkEnd(`${month}-${String(lastDay).padStart(2, "0")}`);
   const sales = all(`SELECT s.product, SUM(s.litres) l, SUM(s.amount) rev FROM sales s JOIN stations st ON st.id=s.station_id
     WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? GROUP BY s.product`, t, from, to);
+  // Bulk wholesale supplied via the Wholesale page lives in wholesale_txns, not `sales`, so it was missing from the
+  // per-fuel margin. Add it (net of returns). A nozzle-wholesale fill is already a `sales` row and its mirror txn
+  // carries sale_id, so we take only sale_id IS NULL here — no double counting.
+  const wh = all(`SELECT product, SUM(CASE WHEN type='supply' THEN litres ELSE -litres END) l, SUM(CASE WHEN type='supply' THEN amount ELSE -amount END) rev
+    FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND sale_id IS NULL AND type IN ('supply','return') AND product IS NOT NULL AND txn_date >= ? AND txn_date < ? GROUP BY product`, t, from, to);
+  const byP = new Map<string, { l: number; rev: number }>();
+  for (const r of sales) byP.set(r.product, { l: Number(r.l), rev: Number(r.rev) });
+  for (const r of wh) { const e = byP.get(r.product) ?? { l: 0, rev: 0 }; e.l += Number(r.l); e.rev += Number(r.rev); byP.set(r.product, e); }
+  const merged = [...byP.entries()].map(([product, v]) => ({ product, l: round2(v.l), rev: round2(v.rev) }));
   const prices = currentPrices(t);
-  return sales.filter((r) => r.l > 0).map((r) => {
+  return merged.filter((r) => r.l > 0).map((r) => {
     // weighted average purchase cost this month, else the latest purchase rate, else current pump price
     const wp = get(`SELECT SUM(litres*rate) v, SUM(litres) l FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? AND created_at >= ? AND created_at < ?`, t, r.product, from, to);
     const cost = wp?.l ? wp.v / wp.l : (get("SELECT rate FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? ORDER BY txn_date DESC LIMIT 1", t, r.product)?.rate ?? prices[r.product]?.price ?? 0);

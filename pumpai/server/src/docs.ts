@@ -155,7 +155,8 @@ function khataDoc(t: number, id: number, o: DocOpts): Doc {
   kv(pg, [["Opening balance", money(s.opening_balance)], ["Fuel / charges", money(s.totals.charged)], ["Payments", money(s.totals.paid)], [s.closing_balance < -0.5 ? "Closing — advance with us" : "Closing balance (owes)", money(Math.abs(s.closing_balance))]], 4);
   table(pg, [{ k: "d", w: 2.2, label: "Date" }, { k: "p", w: 4.2, label: "Particulars" }, { k: "l", w: 1.3, label: "Litres", align: "right" }, { k: "r", w: 1.2, label: "Rate", align: "right" }, { k: "dr", w: 1.6, label: "Debit", align: "right" }, { k: "cr", w: 1.6, label: "Credit", align: "right" }, { k: "b", w: 1.8, label: "Balance", align: "right" }],
     s.lines.map((l: any) => ({ d: dateOf(l.created_at), p: l.type === "debit" ? `${l.product ? (PRODUCTS[l.product] ?? l.product) : "Charge"}${l.vehicle_no ? ` · ${l.vehicle_no}` : ""}${l.slip_no ? ` · slip ${l.slip_no}` : ""}${!l.product && l.note ? ` · ${l.note}` : ""}` : `Payment${l.ref ? ` · ${l.ref}` : ""}${l.note ? ` · ${l.note}` : ""}`,
-      l: l.litres ? l.litres.toFixed(2) : "", r: l.rate ? l.rate.toFixed(2) : "", dr: l.type === "debit" ? money(l.amount) : "", cr: l.type === "credit" ? money(l.amount) : "", b: money(l.balance) })));
+      l: l.litres ? l.litres.toFixed(2) : "", r: l.rate ? l.rate.toFixed(2) : "", dr: l.type === "debit" ? money(l.amount) : "", cr: l.type === "credit" ? money(l.amount) : "", b: money(l.balance) }))
+      .concat([{ __bold: true, p: "Total", dr: money(s.totals.charged), cr: money(s.totals.paid), b: money(s.closing_balance) } as any]));
   if (s.totals.by_product.length) {
     pg.need(16); pg.pdf.text(L, pg.y + 10, "By fuel", 9, { bold: true }); pg.y += 14;
     table(pg, [{ k: "p", w: 3, label: "Fuel" }, { k: "n", w: 1, label: "Fills", align: "right" }, { k: "l", w: 2, label: "Litres", align: "right" }, { k: "a", w: 2, label: "Amount", align: "right" }], s.totals.by_product.map((p: any) => ({ p: PRODUCTS[p.product] ?? p.product, n: p.entries, l: p.litres.toFixed(2), a: money(p.amount) })));
@@ -171,7 +172,8 @@ function wholesaleDoc(t: number, id: number, o: DocOpts): Doc {
   kv(pg, [["Opening balance", money(s.opening_balance)], ["Billed", money(s.lines.reduce((a: number, l: any) => a + l.debit, 0))], ["Received / returned", money(s.lines.reduce((a: number, l: any) => a + l.credit, 0))], [s.closing_balance < -0.5 ? "Closing — advance with us" : "Closing balance (due)", money(Math.abs(s.closing_balance))]], 4);
   table(pg, [{ k: "d", w: 2.2, label: "Date" }, { k: "p", w: 4.4, label: "Particulars" }, { k: "l", w: 1.4, label: "Litres", align: "right" }, { k: "r", w: 1.2, label: "Rate", align: "right" }, { k: "dr", w: 1.6, label: "Debit", align: "right" }, { k: "cr", w: 1.6, label: "Credit", align: "right" }, { k: "b", w: 1.8, label: "Balance", align: "right" }],
     s.lines.filter((l: any) => l.type !== "fuel_note").map((l: any) => ({ d: dateOf(l.txn_date), p: `${l.voided ? "VOID · " : ""}${dirLabel(l.type)}${l.product ? ` ${PRODUCTS[l.product] ?? l.product}` : ""}${l.vehicle_no ? ` · ${l.vehicle_no}` : ""}${l.method ? ` · ${l.method}` : ""}${l.ref ? ` · ${l.ref}` : ""}`,
-      l: l.litres ? Number(l.litres).toFixed(0) : "", r: l.rate ? Number(l.rate).toFixed(2) : "", dr: l.debit ? money(l.debit) : "", cr: l.credit ? money(l.credit) : "", b: money(l.balance) })));
+      l: l.litres ? Number(l.litres).toFixed(0) : "", r: l.rate ? Number(l.rate).toFixed(2) : "", dr: l.debit ? money(l.debit) : "", cr: l.credit ? money(l.credit) : "", b: money(l.balance) }))
+      .concat([{ __bold: true, p: "Total", dr: money(s.lines.reduce((a: number, l: any) => a + l.debit, 0)), cr: money(s.lines.reduce((a: number, l: any) => a + l.credit, 0)), b: money(s.closing_balance) } as any]));
   sig(pg, ["Prepared by", "Client"]);
   return { title: `Statement — ${c.name}`, filename: `statement-${c.name.replace(/[^\w-]+/g, "_")}.pdf`, pdf: pg.done(`Statement ${c.name}`), party: { phone: c.phone, name: c.name },
     caption: `${c.name}: account statement (${period(o)}). Due ${money(s.closing_balance)}.` };
@@ -183,7 +185,8 @@ function carriageDoc(t: number, id: number, o: DocOpts): Doc {
   kv(pg, [["Opening", money(s.opening_balance)], ["Kiraya billed", money(s.lines.reduce((a: number, l: any) => a + l.debit, 0))], ["Paid", money(s.lines.reduce((a: number, l: any) => a + l.credit, 0))], ["Closing (due)", money(s.closing_balance)]], 4);
   table(pg, [{ k: "d", w: 2.2, label: "Date" }, { k: "p", w: 5, label: "Particulars" }, { k: "l", w: 1.4, label: "Litres", align: "right" }, { k: "dr", w: 1.7, label: "Debit", align: "right" }, { k: "cr", w: 1.7, label: "Credit", align: "right" }, { k: "b", w: 1.8, label: "Balance", align: "right" }],
     s.lines.filter((l: any) => l.type !== "fuel_note").map((l: any) => ({ d: dateOf(l.txn_date), p: `${l.voided ? "VOID · " : ""}${dirLabel(l.type)}${l.product ? ` ${PRODUCTS[l.product] ?? l.product}` : ""}${l.depot_name ? ` · ${l.depot_name}` : ""}${l.vehicle_no ? ` · ${l.vehicle_no}` : ""}${l.method ? ` · ${l.method}` : ""}${l.ref ? ` · ${l.ref}` : ""}`,
-      l: l.litres ? Number(l.litres).toFixed(0) : "", dr: l.debit ? money(l.debit) : "", cr: l.credit ? money(l.credit) : "", b: money(l.balance) })));
+      l: l.litres ? Number(l.litres).toFixed(0) : "", dr: l.debit ? money(l.debit) : "", cr: l.credit ? money(l.credit) : "", b: money(l.balance) }))
+      .concat([{ __bold: true, p: "Total", dr: money(s.lines.reduce((a: number, l: any) => a + l.debit, 0)), cr: money(s.lines.reduce((a: number, l: any) => a + l.credit, 0)), b: money(s.closing_balance) } as any]));
   sig(pg, ["Prepared by", "Thekedar"]);
   return { title: `Carriage statement — ${k.name}`, filename: `carriage-${k.name.replace(/[^\w-]+/g, "_")}.pdf`, pdf: pg.done(`Carriage ${k.name}`), party: { phone: k.phone, name: k.name },
     caption: `${k.name}: kiraya statement (${period(o)}). Due ${money(s.closing_balance)}.` };
@@ -200,7 +203,8 @@ function supplierDoc(t: number, id: number, o: DocOpts): Doc {
   kv(pg, [["Opening (we owe)", money(opening)], ["Purchases", money(lines.reduce((a, l) => a + l.debit, 0))], ["Paid", money(lines.reduce((a, l) => a + l.credit, 0))], ["Closing (we owe)", money(o.to ? bal : supplierOwed(s.id))]], 4);
   table(pg, [{ k: "d", w: 2.2, label: "Date" }, { k: "p", w: 4.6, label: "Particulars" }, { k: "l", w: 1.4, label: "Litres", align: "right" }, { k: "r", w: 1.2, label: "Rate", align: "right" }, { k: "dr", w: 1.6, label: "Purchase", align: "right" }, { k: "cr", w: 1.6, label: "Paid", align: "right" }, { k: "b", w: 1.8, label: "Balance", align: "right" }],
     lines.map((l) => ({ d: dateOf(l.txn_date), p: `${dirLabel(l.type)}${l.product ? ` ${PRODUCTS[l.product] ?? l.product}` : ""}${l.method ? ` · ${l.method}` : ""}${l.ref ? ` · ${l.ref}` : ""}${l.note ? ` · ${l.note}` : ""}`,
-      l: l.litres ? Number(l.litres).toFixed(0) : "", r: l.rate ? Number(l.rate).toFixed(2) : "", dr: l.debit ? money(l.debit) : "", cr: l.credit ? money(l.credit) : "", b: money(l.balance) })));
+      l: l.litres ? Number(l.litres).toFixed(0) : "", r: l.rate ? Number(l.rate).toFixed(2) : "", dr: l.debit ? money(l.debit) : "", cr: l.credit ? money(l.credit) : "", b: money(l.balance) }))
+      .concat([{ __bold: true, p: "Total", dr: money(lines.reduce((a, l) => a + l.debit, 0)), cr: money(lines.reduce((a, l) => a + l.credit, 0)), b: money(o.to ? bal : supplierOwed(s.id)) } as any]));
   sig(pg, ["Prepared by", "Supplier (confirmed)"]);
   return { title: `Supplier statement — ${s.name}`, filename: `supplier-${s.name.replace(/[^\w-]+/g, "_")}.pdf`, pdf: pg.done(`Supplier ${s.name}`), party: { phone: s.phone, name: s.name },
     caption: `${s.name}: account statement (${period(o)}). We owe ${money(supplierOwed(s.id))}.` };
