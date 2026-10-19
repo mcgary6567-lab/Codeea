@@ -297,6 +297,40 @@ export function reverseSale(tenantId: number, sale: Row): string[] {
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/* ---------------- Party balances (suppliers / wholesale clients / thekedars) ----------------
+ * One parameterised balance engine behind supplierOwed / clientDue / thekedarDue.
+ * Positive = they owe us; negative = their advance lies with us. opening_balance is the go-live carry.
+ * Each kind keeps its own sign rule and voided handling — the SQL is byte-for-byte the old per-helper SQL. */
+export type PartyKind = "supplier" | "client" | "thekedar";
+const PARTY: Record<PartyKind, { table: string; fk: string; parent: string; sign: string; voided: boolean }> = {
+  supplier: { table: "supplier_txns", fk: "supplier_id", parent: "suppliers",
+    sign: "CASE type WHEN 'purchase' THEN amount WHEN 'payment' THEN -amount ELSE amount END", voided: false },
+  client: { table: "wholesale_txns", fk: "client_id", parent: "wholesale_clients",
+    sign: "CASE type WHEN 'supply' THEN amount WHEN 'return' THEN -amount WHEN 'payment' THEN -amount ELSE amount END", voided: true },
+  thekedar: { table: "carriage_txns", fk: "thekedar_id", parent: "thekedars",
+    sign: "CASE type WHEN 'payment' THEN -amount ELSE amount END", voided: true },
+};
+
+/** Balance of one party, optionally as of a date (txn_date < before). */
+export function partyBalance(kind: PartyKind, id: number, before?: string): number {
+  const p = PARTY[kind];
+  const open = get(`SELECT opening_balance FROM ${p.parent} WHERE id=?`, id)!.opening_balance as number;
+  const v = p.voided ? "AND voided=0 " : "";
+  const r = get(`SELECT COALESCE(SUM(${p.sign}),0) s FROM ${p.table} WHERE ${p.fk}=? ${v}${before ? "AND txn_date < ?" : ""}`,
+    ...(before ? [id, before] : [id]))!;
+  return round2(open + Number(r.s));
+}
+
+/** Every party of one kind for a tenant → its balance, in a single query (no per-row N+1). */
+export function partyBalanceAll(kind: PartyKind, tenantId: number): Map<number, number> {
+  const p = PARTY[kind];
+  const v = p.voided ? "AND x.voided=0 " : "";
+  const m = new Map<number, number>();
+  for (const r of all(`SELECT a.id, a.opening_balance + COALESCE((SELECT SUM(${p.sign}) FROM ${p.table} x WHERE x.${p.fk}=a.id ${v}),0) s
+      FROM ${p.parent} a WHERE a.tenant_id=?`, tenantId)) m.set(Number(r.id), round2(Number(r.s)));
+  return m;
+}
+
 /** The cash a fuel / shop sale put in the salesman's bag: only a 'cash' sale is counted at shift close. */
 export const saleCash = (payment_method: string | null | undefined, amount: number | null | undefined) => (payment_method === "cash" ? round2(amount ?? 0) : 0);
 

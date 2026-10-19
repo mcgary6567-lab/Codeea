@@ -7,7 +7,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDayStart, pkDate, pkStart, pkEnd, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
-import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices, audit } from "../services.js";
+import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices, audit, partyBalance, partyBalanceAll } from "../services.js";
 import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
@@ -29,7 +29,6 @@ const product = productSchema();
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional();
 
 /** Signed effect of a ledger row on the amount the client owes us. */
-const DUE_SQL = `CASE type WHEN 'supply' THEN amount WHEN 'return' THEN -amount WHEN 'payment' THEN -amount ELSE amount END`;
 
 function ownClient(tenantId: number, id: number) {
   const c = get("SELECT * FROM wholesale_clients WHERE id=? AND tenant_id=?", id, tenantId);
@@ -38,10 +37,11 @@ function ownClient(tenantId: number, id: number) {
 }
 
 export function clientDue(clientId: number, before?: string): number {
-  const c = get("SELECT opening_balance FROM wholesale_clients WHERE id=?", clientId)!;
-  const r = get(`SELECT COALESCE(SUM(${DUE_SQL}),0) d FROM wholesale_txns WHERE client_id=? AND voided=0 ${before ? "AND txn_date < ?" : ""}`,
-    ...(before ? [clientId, before] : [clientId]))!;
-  return round2(c.opening_balance + r.d);
+  return partyBalance("client", clientId, before);
+}
+/** Every wholesale client of a tenant → its due, in one query (no per-row N+1). */
+export function clientDueAll(tenantId: number): Map<number, number> {
+  return partyBalanceAll("client", tenantId);
 }
 
 /** Carriage / kiraya income from bypass-on-our-ID supplies in a period (whole amount is profit — no fuel cost on our books). */
@@ -127,7 +127,8 @@ wholesale.get("/wholesale/summary", h((req) => {
   const month = new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString();
   const today = pkDayStart();
   const clients = all("SELECT id FROM wholesale_clients WHERE tenant_id=?", t);
-  const dues = clients.map((c) => clientDue(c.id));
+  const owed = clientDueAll(t);
+  const dues = clients.map((c) => owed.get(c.id) ?? 0);
   return {
     total_due: round2(dues.reduce((a, b) => a + b, 0)),
     clients: clients.length,
@@ -181,8 +182,9 @@ wholesale.get("/wholesale/dashboard", h((req) => {
   const lastMtdProfit = profitFor(lastMonthStart, lastMonthSameDay);
 
   // clients: due, limit, ageing, ordering rhythm, margin
+  const owedAll = clientDueAll(t);
   const clients = all("SELECT * FROM wholesale_clients WHERE tenant_id=? AND active=1 ORDER BY name", t).map((c) => {
-    const due = clientDue(c.id);
+    const due = owedAll.get(c.id) ?? 0;
     const ag = ageing(c.id, due, nowMs);
     const sup = all("SELECT txn_date FROM wholesale_txns WHERE client_id=? AND type='supply' AND voided=0 AND txn_date >= ? ORDER BY txn_date", c.id, new Date(nowMs - 60 * DAYMS).toISOString()).map((x) => Date.parse(x.txn_date));
     const gaps = sup.slice(1).map((x, i) => (x - sup[i]) / DAYMS);
@@ -305,12 +307,13 @@ wholesale.get("/wholesale/dashboard", h((req) => {
 wholesale.get("/wholesale/clients", h((req) => {
   const q = `%${String(req.query.q ?? "").trim()}%`;
   const month = new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString();
+  const owed = clientDueAll(tid(req));
   return all("SELECT * FROM wholesale_clients WHERE tenant_id=? AND (name LIKE ? OR business_name LIKE ? OR phone LIKE ?) ORDER BY active DESC, name", tid(req), q, q, q)
     .map((c) => {
       const s = get(`SELECT COALESCE(SUM(CASE WHEN type='supply' AND txn_date >= ? THEN litres END),0) month_l,
           MAX(CASE WHEN type='payment' THEN txn_date END) last_payment, MAX(CASE WHEN type='supply' THEN txn_date END) last_supply
         FROM wholesale_txns WHERE client_id=? AND voided=0`, month, c.id)!;
-      return { ...c, rates: rates(c.id), rate_card: rateCard(c.id), due: clientDue(c.id), month_l: s.month_l, last_payment: s.last_payment, last_supply: s.last_supply };
+      return { ...c, rates: rates(c.id), rate_card: rateCard(c.id), due: owed.get(c.id) ?? 0, month_l: s.month_l, last_payment: s.last_payment, last_supply: s.last_supply };
     });
 }));
 

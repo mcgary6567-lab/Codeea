@@ -13,7 +13,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { AppError, createAlert, round2, pkr, audit } from "../services.js";
+import { AppError, createAlert, round2, pkr, audit, partyBalance, partyBalanceAll } from "../services.js";
 import { productSchema } from "../products.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
@@ -39,12 +39,12 @@ const bankMove = (t: number, account: number, dir: "in" | "out", amount: number,
     t, account, dir === "in" ? "other_in" : "other_out", dir === "in" ? amount : -amount, party, ref, note, at, by, now());
 
 /** What a thekedar owes us for carriage (kiraya billed − paid ± adjustments), plus his opening balance. */
-const DUE_SQL = `CASE type WHEN 'payment' THEN -amount ELSE amount END`;
 export function thekedarDue(thekedarId: number, before?: string): number {
-  const k = get("SELECT opening_balance FROM thekedars WHERE id=?", thekedarId)!;
-  const r = get(`SELECT COALESCE(SUM(${DUE_SQL}),0) d FROM carriage_txns WHERE thekedar_id=? AND voided=0 ${before ? "AND txn_date < ?" : ""}`,
-    ...(before ? [thekedarId, before] : [thekedarId]))!;
-  return round2(k.opening_balance + r.d);
+  return partyBalance("thekedar", thekedarId, before);
+}
+/** Every thekedar of a tenant → his carriage due, in one query (no per-row N+1). */
+export function thekedarDueAll(tenantId: number): Map<number, number> {
+  return partyBalanceAll("thekedar", tenantId);
 }
 /** Carriage / kiraya income (whole kiraya is profit — no fuel cost on our books) in a period. */
 export function carriageIncomeThekedar(tenantId: number, fromIso: string, toIso?: string): number {
@@ -65,8 +65,9 @@ const overdueDays = (t: number) => Math.max(1, Number(getSetting(t, "carriage_ov
 export function thekedarAging(t: number) {
   const nowMs = Date.now();
   const thr = overdueDays(t);
+  const dues = thekedarDueAll(t);
   const rows = all("SELECT * FROM thekedars WHERE tenant_id=? AND COALESCE(active,1)=1", t).map((k) => {
-    const due = thekedarDue(k.id);
+    const due = dues.get(k.id) ?? 0;
     const last = get(`SELECT MAX(CASE WHEN type='payment' THEN txn_date END) lp, MAX(CASE WHEN type='carriage' THEN txn_date END) lc FROM carriage_txns WHERE thekedar_id=? AND voided=0`, k.id)!;
     const days = (iso: string | null) => (iso ? Math.floor((nowMs - Date.parse(iso)) / DAYMS) : null);
     // FIFO: how old is the oldest kiraya still not covered by payments?
@@ -119,7 +120,8 @@ carriage.get("/carriage/depots", h((req) =>
 carriage.get("/carriage/thekedars", h((req) => {
   const t = tid(req);
   const list = all("SELECT * FROM thekedars WHERE tenant_id=? ORDER BY active DESC, name", t);
-  return list.map((k) => ({ ...k, due: thekedarDue(k.id) }));
+  const dues = thekedarDueAll(t);
+  return list.map((k) => ({ ...k, due: dues.get(k.id) ?? 0 }));
 }));
 
 carriage.post("/carriage/thekedars", requirePerm("carriage.manage"), h((req) => {

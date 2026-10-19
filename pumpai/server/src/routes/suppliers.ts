@@ -6,7 +6,7 @@ import { all, get, run, now, tx } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField, chequeToRegister, accountName } from "./banks.js";
 import { h, parse, tid, can, requirePerm } from "../auth.js";
-import { AppError, normalizePhone, round2 } from "../services.js";
+import { AppError, normalizePhone, round2, partyBalance, partyBalanceAll } from "../services.js";
 import { announce } from "../notifications.js";
 
 export const suppliers = Router();
@@ -47,14 +47,13 @@ suppliers.patch("/depots/:id", requirePerm("suppliers.manage"), h((req) => {
   return depotOut(tid(req), get("SELECT * FROM depots WHERE id=?", d.id));
 }));
 
-const OWED_SQL = `CASE type WHEN 'purchase' THEN amount WHEN 'payment' THEN -amount ELSE amount END`;
-
 /** What we currently owe this supplier (positive = we owe them). */
 export function supplierOwed(supplierId: number, before?: string): number {
-  const s = get("SELECT opening_balance FROM suppliers WHERE id=?", supplierId)!;
-  const r = get(`SELECT COALESCE(SUM(${OWED_SQL}),0) o FROM supplier_txns WHERE supplier_id=? ${before ? "AND txn_date < ?" : ""}`,
-    ...(before ? [supplierId, before] : [supplierId]))!;
-  return round2(s.opening_balance + r.o);
+  return partyBalance("supplier", supplierId, before);
+}
+/** Every supplier of a tenant → what we owe, in one query (no per-row N+1). */
+export function supplierOwedAll(tenantId: number): Map<number, number> {
+  return partyBalanceAll("supplier", tenantId);
 }
 
 export function recordPurchase(tenantId: number, f: { supplier_id: number; delivery_id?: number | null; trip_id?: number | null; product: string | null; litres: number | null; rate: number | null;
@@ -71,13 +70,16 @@ function own(tenantId: number, id: number) {
   return s;
 }
 
-suppliers.get("/suppliers", h((req) => all(`SELECT s.*, d.name depot_name, d.address depot_address, d.city depot_city
+suppliers.get("/suppliers", h((req) => {
+  const owed = supplierOwedAll(tid(req));
+  return all(`SELECT s.*, d.name depot_name, d.address depot_address, d.city depot_city
     FROM suppliers s LEFT JOIN depots d ON d.id=s.depot_id WHERE s.tenant_id=? ORDER BY s.active DESC, COALESCE(d.name,''), s.company, s.name`, tid(req)).map((s) => ({
-  ...s, owed: supplierOwed(s.id),
-  ...get(`SELECT MAX(CASE WHEN type='purchase' THEN txn_date END) last_purchase, MAX(CASE WHEN type='payment' THEN txn_date END) last_payment,
-      COALESCE(SUM(CASE WHEN type='purchase' AND txn_date >= ? THEN litres END),0) month_l FROM supplier_txns WHERE supplier_id=?`,
-    new Date().toISOString().slice(0, 7) + "-01", s.id)!,
-}))));
+    ...s, owed: owed.get(s.id) ?? 0,
+    ...get(`SELECT MAX(CASE WHEN type='purchase' THEN txn_date END) last_purchase, MAX(CASE WHEN type='payment' THEN txn_date END) last_payment,
+        COALESCE(SUM(CASE WHEN type='purchase' AND txn_date >= ? THEN litres END),0) month_l FROM supplier_txns WHERE supplier_id=?`,
+      new Date().toISOString().slice(0, 7) + "-01", s.id)!,
+  }));
+}));
 
 const supplierBody = z.object({
   name: z.string().min(2).max(80), phone: z.string().optional().nullable(), opening_balance: z.number().optional(),
