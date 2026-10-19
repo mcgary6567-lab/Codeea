@@ -10,7 +10,7 @@ import { round2, pkr } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { parseWholesale } from "../ai/vision.js";
 import { missingFor } from "../ai/parseWholesale.js";
-import { clientDue, rateCard } from "./wholesale.js";
+import { clientDue, clientDueAll, rateCard } from "./wholesale.js";
 import { openOrders, promises, cheques } from "./wholesaleDesk.js";
 
 export const wholesaleVoice = Router();
@@ -69,7 +69,8 @@ wholesaleVoice.post("/wholesale/ai/command", requirePerm("wholesale.view"), h(as
     const d = get(`SELECT COALESCE(SUM(CASE WHEN type='supply' THEN litres END),0) l, COALESCE(SUM(CASE WHEN type='supply' THEN amount END),0) billed, COALESCE(SUM(CASE WHEN type='payment' THEN amount END),0) got, COUNT(CASE WHEN type='supply' THEN 1 END) n
       FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ?`, t, pkDayStart())!;
     const ord = openOrders(t).filter((o) => o.needed_on <= today);
-    const due = round2(all("SELECT id FROM wholesale_clients WHERE tenant_id=? AND active=1", t).reduce((a, c) => a + clientDue(c.id), 0));
+    const wd = clientDueAll(t);
+    const due = round2(all("SELECT id FROM wholesale_clients WHERE tenant_id=? AND active=1", t).reduce((a, c) => a + (wd.get(c.id) ?? 0), 0));
     answer = {
       en: `Today: ${n(d.l)} L supplied in ${d.n} entries (billed ${pkr(d.billed)}), ${pkr(d.got)} received. ${ord.length ? `${ord.length} order(s) still to deliver today. ` : ""}Total due with all clients ${pkr(due)}.`,
       ur: `آج ${n(d.l)} لیٹر سپلائی ہوا (${n(d.billed)} روپے کا بل)، ${n(d.got)} روپے وصول ہوئے۔ ${ord.length ? `${ord.length} آرڈر آج دینے باقی ہیں۔ ` : ""}سب کلائنٹس کے ذمے کل ${n(due)} روپے ہیں۔`,

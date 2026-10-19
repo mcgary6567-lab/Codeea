@@ -19,9 +19,9 @@ import { bankAccountFor, accountName, bankAccounts, accountIdField, posMap, POS_
 import { taxSettings, splitTax } from "./tax.js";
 import { cashPosition, handoverMode } from "./backoffice.js";
 import { chargeShortage } from "./staff.js";
-import { clientDue, insertTxn } from "./wholesale.js";
+import { clientDue, clientDueAll, insertTxn } from "./wholesale.js";
 import { promises } from "./wholesaleDesk.js";
-import { supplierOwed } from "./suppliers.js";
+import { supplierOwed, supplierOwedAll } from "./suppliers.js";
 import { staffBalance } from "./staff.js";
 import { createExpense } from "./expenses.js";
 import { notify, staff } from "../notifications.js";
@@ -110,11 +110,11 @@ cashier.get("/cashier/parties", requirePerm("cashier.desk"), h((req) => {
   const out: Record<string, Row[]> = {};
   if (!kind || kind === "khata") out.khata = all(`SELECT id, name, phone, balance, credit_limit FROM customers WHERE tenant_id=? AND (name LIKE ? OR COALESCE(phone,'') LIKE ?)
     ORDER BY (balance > 0) DESC, balance DESC, name LIMIT 30`, t, q, q);
-  if (!kind || kind === "wholesale") out.wholesale = all("SELECT id, name, phone, business_name FROM wholesale_clients WHERE tenant_id=? AND active=1 AND (name LIKE ? OR COALESCE(business_name,'') LIKE ? OR COALESCE(phone,'') LIKE ?) ORDER BY name LIMIT 30", t, q, q, q)
-    .map((c) => ({ ...c, balance: round2(clientDue(c.id)) })).sort((a, b) => b.balance - a.balance);
-  if (!kind || kind === "supplier") out.supplier = all(`SELECT s.id, s.name, s.phone, s.company, s.depot_id, d.name depot_name FROM suppliers s LEFT JOIN depots d ON d.id=s.depot_id
+  if (!kind || kind === "wholesale") { const d = clientDueAll(t); out.wholesale = all("SELECT id, name, phone, business_name FROM wholesale_clients WHERE tenant_id=? AND active=1 AND (name LIKE ? OR COALESCE(business_name,'') LIKE ? OR COALESCE(phone,'') LIKE ?) ORDER BY name LIMIT 30", t, q, q, q)
+    .map((c) => ({ ...c, balance: round2(d.get(c.id) ?? 0) })).sort((a, b) => b.balance - a.balance); }
+  if (!kind || kind === "supplier") { const d = supplierOwedAll(t); out.supplier = all(`SELECT s.id, s.name, s.phone, s.company, s.depot_id, d.name depot_name FROM suppliers s LEFT JOIN depots d ON d.id=s.depot_id
     WHERE s.tenant_id=? AND (s.name LIKE ? OR COALESCE(s.company,'') LIKE ? OR COALESCE(d.name,'') LIKE ?) ORDER BY COALESCE(d.name,''), s.company, s.name LIMIT 30`, t, q, q, q)
-    .map((s) => ({ ...s, balance: round2(supplierOwed(s.id)) })).sort((a, b) => b.balance - a.balance);
+    .map((s) => ({ ...s, balance: round2(d.get(s.id) ?? 0) })).sort((a, b) => b.balance - a.balance); }
   if (!kind || kind === "staff") out.staff = all("SELECT id, name, phone, role FROM users WHERE tenant_id=? AND active=1 AND role<>'admin' AND name LIKE ? ORDER BY name LIMIT 30", t, q)
     .map((u) => ({ ...u, balance: staffBalance(u.id) }));
   return out;
@@ -786,7 +786,8 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   });
   const counted = cash.last_count && cash.last_count.at >= pkDayStart();
   const online = onlineToday(t);
-  const payables = all("SELECT id, name FROM suppliers WHERE tenant_id=?", t).map((s) => ({ id: s.id, name: s.name, owed: round2(supplierOwed(s.id)) })).filter((s) => s.owed > 0).sort((a, b) => b.owed - a.owed).slice(0, 5);
+  const supOwed = supplierOwedAll(t);
+  const payables = all("SELECT id, name FROM suppliers WHERE tenant_id=?", t).map((s) => ({ id: s.id, name: s.name, owed: round2(supOwed.get(s.id) ?? 0) })).filter((s) => s.owed > 0).sort((a, b) => b.owed - a.owed).slice(0, 5);
 
   // what to do now, in English and Urdu (numbers and dates kept left-to-right inside the Urdu line)
   const L = (x: string | number) => `\u2066${x}\u2069`;

@@ -11,9 +11,9 @@ import { notDepot } from "./banks.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
-import { clientDue, carriageIncome } from "./wholesale.js";
-import { thekedarDue, carriageIncomeThekedar } from "./carriage.js";
-import { supplierOwed } from "./suppliers.js";
+import { clientDue, clientDueAll, carriageIncome } from "./wholesale.js";
+import { thekedarDue, thekedarDueAll, carriageIncomeThekedar } from "./carriage.js";
+import { supplierOwed, supplierOwedAll } from "./suppliers.js";
 import { tankOutlook } from "../ai/analytics.js";
 import { rentalIncome } from "./property.js";
 import { shopSummary } from "./shop.js";
@@ -107,28 +107,37 @@ export function buildReport(t: number, from: string, to: string) {
 
   /* ---------- Stock movement (reconstructed) ---------- */
   const tanks = all("SELECT t.*, s.name station_name FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=?", t);
-  const moves = (since: string, until?: string) => {
-    const end = until ? "AND x.ts < ?" : "";
-    const args = (extra: (string | number)[]) => [t, since, ...(until ? [until] : []), ...extra];
-    const q = (sql: string) => Object.fromEntries(all(sql, ...args([])).map((r) => [r.product, r.v ?? 0]));
+  // Every tank movement that happened at or after `since` (up to now). Each report needs movements at two
+  // anchor points only — `from` and `to` — so we read exactly two move-sets and derive the in-period amount
+  // by subtracting (since from) − (since to) = [from, to). Halves the stock queries vs. a third ranged pass.
+  type MoveSet = Record<"received" | "retail_out" | "wholesale_out" | "returns_in" | "dip_adjust", Record<string, number>>;
+  const moves = (since: string): MoveSet => {
+    const q = (sql: string) => Object.fromEntries(all(sql, t, since).map((r) => [r.product, r.v ?? 0]));
     return {
-      received: q(`SELECT t.product, SUM(x.received_l) v FROM (SELECT tank_id, received_l, created_at ts FROM deliveries) x JOIN tanks t ON t.id=x.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND x.ts >= ? ${end} GROUP BY t.product`),
-      retail_out: q(`SELECT x.product, SUM(x.litres) v FROM (SELECT product, litres, station_id, created_at ts FROM sales) x JOIN stations s ON s.id=x.station_id WHERE s.tenant_id=? AND x.ts >= ? ${end} GROUP BY x.product`),
-      wholesale_out: q(`SELECT x.product, SUM(x.litres) v FROM (SELECT tenant_id, product, litres, created_at ts FROM wholesale_txns WHERE type='supply' AND voided=0 AND tank_id IS NOT NULL) x WHERE x.tenant_id=? AND x.ts >= ? ${end} GROUP BY x.product`),
-      returns_in: q(`SELECT x.product, SUM(x.litres) v FROM (SELECT tenant_id, product, litres, created_at ts FROM wholesale_txns WHERE type='return' AND voided=0 AND tank_id IS NOT NULL) x WHERE x.tenant_id=? AND x.ts >= ? ${end} GROUP BY x.product`),
-      dip_adjust: q(`SELECT t.product, SUM(x.measured_l - x.book_l) v FROM (SELECT tank_id, measured_l, book_l, created_at ts FROM dip_readings) x JOIN tanks t ON t.id=x.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND x.ts >= ? ${end} GROUP BY t.product`),
+      received: q(`SELECT t.product, SUM(x.received_l) v FROM (SELECT tank_id, received_l, created_at ts FROM deliveries) x JOIN tanks t ON t.id=x.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND x.ts >= ? GROUP BY t.product`),
+      retail_out: q(`SELECT x.product, SUM(x.litres) v FROM (SELECT product, litres, station_id, created_at ts FROM sales) x JOIN stations s ON s.id=x.station_id WHERE s.tenant_id=? AND x.ts >= ? GROUP BY x.product`),
+      wholesale_out: q(`SELECT x.product, SUM(x.litres) v FROM (SELECT tenant_id, product, litres, created_at ts FROM wholesale_txns WHERE type='supply' AND voided=0 AND tank_id IS NOT NULL) x WHERE x.tenant_id=? AND x.ts >= ? GROUP BY x.product`),
+      returns_in: q(`SELECT x.product, SUM(x.litres) v FROM (SELECT tenant_id, product, litres, created_at ts FROM wholesale_txns WHERE type='return' AND voided=0 AND tank_id IS NOT NULL) x WHERE x.tenant_id=? AND x.ts >= ? GROUP BY x.product`),
+      dip_adjust: q(`SELECT t.product, SUM(x.measured_l - x.book_l) v FROM (SELECT tank_id, measured_l, book_l, created_at ts FROM dip_readings) x JOIN tanks t ON t.id=x.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND x.ts >= ? GROUP BY t.product`),
     };
   };
   const current: Record<string, number> = {};
   for (const tk of tanks) current[tk.product] = (current[tk.product] ?? 0) + tk.current_l;
-  const stockAt = (ts: string) => {
-    const m = moves(ts);
-    return Object.fromEntries(Object.keys(current).map((p) => [p,
-      (current[p] ?? 0) - (m.received[p] ?? 0) - (m.returns_in[p] ?? 0) + (m.retail_out[p] ?? 0) + (m.wholesale_out[p] ?? 0) - (m.dip_adjust[p] ?? 0)]));
+  const stockFrom = (m: MoveSet) => Object.fromEntries(Object.keys(current).map((p) => [p,
+    (current[p] ?? 0) - (m.received[p] ?? 0) - (m.returns_in[p] ?? 0) + (m.retail_out[p] ?? 0) + (m.wholesale_out[p] ?? 0) - (m.dip_adjust[p] ?? 0)]));
+  const sinceFrom = moves(from);
+  const sinceTo = moves(to);
+  const sub = (a: Record<string, number>, b: Record<string, number>) =>
+    Object.fromEntries([...new Set([...Object.keys(a), ...Object.keys(b)])].map((p) => [p, (a[p] ?? 0) - (b[p] ?? 0)]));
+  const opening = stockFrom(sinceFrom);
+  const closing = Date.parse(to) >= Date.now() - 60_000 ? current : stockFrom(sinceTo);
+  const inPeriod: MoveSet = {
+    received: sub(sinceFrom.received, sinceTo.received),
+    retail_out: sub(sinceFrom.retail_out, sinceTo.retail_out),
+    wholesale_out: sub(sinceFrom.wholesale_out, sinceTo.wholesale_out),
+    returns_in: sub(sinceFrom.returns_in, sinceTo.returns_in),
+    dip_adjust: sub(sinceFrom.dip_adjust, sinceTo.dip_adjust),
   };
-  const opening = stockAt(from);
-  const closing = Date.parse(to) >= Date.now() - 60_000 ? current : stockAt(to);
-  const inPeriod = moves(from, to);
   const products = Object.keys(PRODUCTS).filter((p) => p in current);
 
   /* ---------- Purchases & cost ---------- */
@@ -289,17 +298,18 @@ export function balances(t: number) {
     const lp = lastPay("SELECT MAX(created_at) d FROM khata_ledger WHERE customer_id=? AND type='credit'", c.id);
     return { ...c, kind: "Khata customer", last_payment: lp, days_since_payment: age(lp) };
   });
+  const wsDue = clientDueAll(t), carDue = thekedarDueAll(t), supOwed = supplierOwedAll(t);
   const wsRows = all("SELECT id, name, phone, credit_limit FROM wholesale_clients WHERE tenant_id=?", t).map((c) => {
     const lp = lastPay("SELECT MAX(txn_date) d FROM wholesale_txns WHERE client_id=? AND type='payment' AND voided=0", c.id);
-    return { ...c, balance: clientDue(c.id), kind: "Wholesale client", last_payment: lp, days_since_payment: age(lp) };
+    return { ...c, balance: wsDue.get(c.id) ?? 0, kind: "Wholesale client", last_payment: lp, days_since_payment: age(lp) };
   }).filter((c) => c.balance !== 0);
   const carRows = all("SELECT id, name, phone FROM thekedars WHERE tenant_id=?", t).map((k) => {
     const lp = lastPay("SELECT MAX(txn_date) d FROM carriage_txns WHERE thekedar_id=? AND type='payment' AND voided=0", k.id);
-    return { ...k, balance: thekedarDue(k.id), kind: "Thekedar (carriage)", last_payment: lp, days_since_payment: age(lp) };
+    return { ...k, balance: carDue.get(k.id) ?? 0, kind: "Thekedar (carriage)", last_payment: lp, days_since_payment: age(lp) };
   }).filter((k) => k.balance !== 0);
   const supRows = all("SELECT id, name, phone FROM suppliers WHERE tenant_id=?", t).map((s) => {
     const lp = lastPay("SELECT MAX(txn_date) d FROM supplier_txns WHERE supplier_id=? AND type='payment'", s.id);
-    return { ...s, owed: supplierOwed(s.id), kind: "Supplier", last_payment: lp };
+    return { ...s, owed: supOwed.get(s.id) ?? 0, kind: "Supplier", last_payment: lp };
   });
 
   const recv = [...khataRows.filter((c) => c.balance > 0), ...wsRows.filter((c) => c.balance > 0), ...carRows.filter((c) => c.balance > 0)]

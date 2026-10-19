@@ -23,14 +23,33 @@ export function closeDb() {
 export type Row = any;
 type Params = SQLInputValue[] | [Record<string, SQLInputValue>];
 
+/** Prepared statements are reused across calls — the same SQL text is compiled once, then cached.
+ * node:sqlite statements are reusable, so this cuts the repeated prepare() cost on hot queries. */
+const stmtCache = new Map<string, ReturnType<typeof db.prepare>>();
+function prep(sql: string) {
+  let s = stmtCache.get(sql);
+  if (!s) { s = db.prepare(sql); stmtCache.set(sql, s); }
+  return s;
+}
+export const _stmtCacheSize = () => stmtCache.size;
+export function _clearStmtCache() { stmtCache.clear(); }
+
+// A query counter the perf tests read to prove a list endpoint stays flat as rows grow (no N+1).
+let queryCount = 0;
+export const _queryCount = () => queryCount;
+export const _resetQueryCount = () => { queryCount = 0; };
+
 export function all<T = Row>(sql: string, ...params: Params): T[] {
-  return db.prepare(sql).all(...(params as SQLInputValue[])) as T[];
+  queryCount++;
+  return prep(sql).all(...(params as SQLInputValue[])) as T[];
 }
 export function get<T = Row>(sql: string, ...params: Params): T | undefined {
-  return db.prepare(sql).get(...(params as SQLInputValue[])) as T | undefined;
+  queryCount++;
+  return prep(sql).get(...(params as SQLInputValue[])) as T | undefined;
 }
 export function run(sql: string, ...params: Params) {
-  const r = db.prepare(sql).run(...(params as SQLInputValue[]));
+  queryCount++;
+  const r = prep(sql).run(...(params as SQLInputValue[]));
   return { id: Number(r.lastInsertRowid), changes: Number(r.changes) };
 }
 let txDepth = 0;

@@ -20,9 +20,9 @@ import { all, get, run, tx, now, getSetting, setSetting, pkDate, pkStart } from 
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, audit, normalizePhone } from "../services.js";
 import { bankAccounts } from "./banks.js";
-import { supplierOwed } from "./suppliers.js";
-import { clientDue } from "./wholesale.js";
-import { thekedarDue } from "./carriage.js";
+import { supplierOwed, supplierOwedAll } from "./suppliers.js";
+import { clientDue, clientDueAll } from "./wholesale.js";
+import { thekedarDue, thekedarDueAll } from "./carriage.js";
 import { staffBalance } from "./staff.js";
 import { cashPosition } from "./backoffice.js";
 import { assertLookup } from "./lookups.js";
@@ -65,9 +65,9 @@ opening.get("/opening", requirePerm("opening.manage"), h((req) => {
     as_of: asOf(t),
     khata: all("SELECT id, name, phone, type, city, credit_limit, balance FROM customers WHERE tenant_id=? AND active=1 ORDER BY (credit_limit > 0) DESC, name", t)
       .map((c) => ({ ...c, opening: khataOpening(c.id) })),
-    suppliers: all("SELECT id, name, phone, opening_balance FROM suppliers WHERE tenant_id=? AND active=1 ORDER BY name", t).map((s) => ({ ...s, owed: supplierOwed(s.id) })),
-    wholesale: all("SELECT id, name, business_name, phone, opening_balance FROM wholesale_clients WHERE tenant_id=? ORDER BY name", t).map((c) => ({ ...c, due: clientDue(c.id) })),
-    carriage: all("SELECT id, name, phone, opening_balance FROM thekedars WHERE tenant_id=? ORDER BY name", t).map((k) => ({ ...k, due: thekedarDue(k.id) })),
+    suppliers: ((d) => all("SELECT id, name, phone, opening_balance FROM suppliers WHERE tenant_id=? AND active=1 ORDER BY name", t).map((s) => ({ ...s, owed: d.get(s.id) ?? 0 })))(supplierOwedAll(t)),
+    wholesale: ((d) => all("SELECT id, name, business_name, phone, opening_balance FROM wholesale_clients WHERE tenant_id=? ORDER BY name", t).map((c) => ({ ...c, due: d.get(c.id) ?? 0 })))(clientDueAll(t)),
+    carriage: ((d) => all("SELECT id, name, phone, opening_balance FROM thekedars WHERE tenant_id=? ORDER BY name", t).map((k) => ({ ...k, due: d.get(k.id) ?? 0 })))(thekedarDueAll(t)),
     banks: bankAccounts(t).accounts.map((a: any) => ({ id: a.id, bank: a.bank, title: a.title, account_no: a.account_no, kind: a.kind, opening_balance: a.opening_balance, opening_date: a.opening_date, balance: a.balance })),
     staff: all("SELECT id, name, role FROM users WHERE tenant_id=? AND active=1 AND role<>'admin' ORDER BY name", t).map((u) => ({
       ...u, balance: staffBalance(u.id), opening: get("SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE user_id=? AND ref=?", u.id, OPEN_REF)!.v })),

@@ -10,10 +10,10 @@ import { all, get, run, tx, now } from "../db.js";
 import { h, tid, requirePerm } from "../auth.js";
 import { round2, AppError, audit } from "../services.js";
 import { journal } from "./ledger.js";
-import { clientDue } from "./wholesale.js";
-import { thekedarDue } from "./carriage.js";
+import { clientDue, clientDueAll } from "./wholesale.js";
+import { thekedarDue, thekedarDueAll } from "./carriage.js";
 import { bypassOwed, bypassStockValue } from "./bypass.js";
-import { supplierOwed } from "./suppliers.js";
+import { supplierOwed, supplierOwedAll } from "./suppliers.js";
 import { bankAccounts } from "./banks.js";
 import { cashPosition } from "./backoffice.js";
 import { cashWithSalesmen } from "./cashier.js";
@@ -49,9 +49,9 @@ export function reconcileBooks(t: number) {
     }
     push("Khata receivable (customers)", khata, tb("Khata receivable"), allMatch ? undefined : "a customer balance differs from its own khata ledger");
   });
-  safe("Wholesale receivable", () => push("Wholesale receivable", all("SELECT id, opening_balance FROM wholesale_clients WHERE tenant_id=?", t).reduce((a, c) => a + clientDue(c.id) - c.opening_balance, 0), tb("Wholesale receivable")));
-  safe("Carriage receivable (thekedars)", () => push("Carriage receivable (thekedars)", all("SELECT id, opening_balance FROM thekedars WHERE tenant_id=?", t).reduce((a, k) => a + thekedarDue(k.id) - k.opening_balance, 0), tb("Carriage receivable")));
-  safe("Suppliers payable", () => push("Suppliers payable", all("SELECT id, name, opening_balance FROM suppliers WHERE tenant_id=?", t).reduce((a, s) => a + supplierOwed(s.id) - s.opening_balance, 0), all("SELECT name FROM suppliers WHERE tenant_id=?", t).reduce((a, s) => a - tb(`Payable — ${s.name}`), 0)));
+  safe("Wholesale receivable", () => { const d = clientDueAll(t); return push("Wholesale receivable", all("SELECT id, opening_balance FROM wholesale_clients WHERE tenant_id=?", t).reduce((a, c) => a + (d.get(c.id) ?? 0) - c.opening_balance, 0), tb("Wholesale receivable")); });
+  safe("Carriage receivable (thekedars)", () => { const d = thekedarDueAll(t); return push("Carriage receivable (thekedars)", all("SELECT id, opening_balance FROM thekedars WHERE tenant_id=?", t).reduce((a, k) => a + (d.get(k.id) ?? 0) - k.opening_balance, 0), tb("Carriage receivable")); });
+  safe("Suppliers payable", () => { const d = supplierOwedAll(t); return push("Suppliers payable", all("SELECT id, name, opening_balance FROM suppliers WHERE tenant_id=?", t).reduce((a, s) => a + (d.get(s.id) ?? 0) - s.opening_balance, 0), all("SELECT name FROM suppliers WHERE tenant_id=?", t).reduce((a, s) => a - tb(`Payable — ${s.name}`), 0)); });
   safe("Shop stock (items × avg cost)", () => {
     const book = get("SELECT COALESCE(SUM(stock * cost),0) v FROM shop_items WHERE tenant_id=? AND active=1", t)!.v as number;
     const ledger = tb("Shop stock");
