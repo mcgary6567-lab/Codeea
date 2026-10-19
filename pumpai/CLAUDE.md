@@ -6,22 +6,25 @@ PumpAI is a petrol-pump CRM: Express + TypeScript + `node:sqlite` (`DatabaseSync
 
 Every deploy ships the **complete current codebase**, not just the latest change. Deploying must never remove, overwrite, or regress a feature built earlier. Concretely:
 
-- The deploy uses `git subtree split --prefix=pumpai` and pushes the whole `pumpai/` tree to the live repo's `main`. `git` is additive — history accumulates; nothing from before is dropped unless code is actually deleted. So **do not delete or simplify-away existing features** when adding new ones.
+- ⚠️ Production is the SEPARATE repo **`mcgary6567-lab/petrol-pumpai`**, checked out at `/home/user/petrol-pumpai` (project at the repo root: `server/`, `web/`). This `Codeea/pumpai` tree is NOT the live site and has DIVERGED from production. Do the work in `/home/user/petrol-pumpai` and push to its `main` (see below).
 - Before deploying, make sure the change is purely additive/surgical. Never replace a working file wholesale in a way that drops behaviour.
 - After any change, keep the whole-system checks green (see below) so a regression can't slip out.
-- The dev branch is `ccr-bd7a93fb-tpb3gq`. Develop and push there only.
+- Do NOT use the old `git subtree split --prefix=pumpai … push pumpai` flow — it pushed to the wrong repo `mcgary6567-lab/pumpai`, which is NOT live.
 
-## Deploy command (run from `/home/user/Codeea`)
+## Deploy command (production repo = `mcgary6567-lab/petrol-pumpai`, project at root)
 
 ```
-git add -A pumpai && git commit -qm "<msg>
+cd /home/user/petrol-pumpai
+git fetch -q origin main            # keep the shallow clone current → thin push
+git add -A && git commit -qm "<msg>
 
-<attribution lines>" && git push -q -u origin ccr-bd7a93fb-tpb3gq \
- && git branch -f pumpai-export $(git subtree split --prefix=pumpai) >/dev/null 2>&1 \
- && git push -q pumpai pumpai-export:main && echo "DEPLOYED OK"
+<attribution lines>"
+git push -q origin main && echo "DEPLOYED OK"
 ```
 
-Deploy after every change. The live Vercel site is network-blocked from the sandbox, so **verify on a local production build** instead: run the demo server with `NODE_ENV=development DEMO_DATA=1 WEB_DIST=.../web/dist` and drive it with Playwright (`/opt/node-tools/node_modules/playwright`). Login: `admin@pumpai.pk` / `demo1234` (email form → "Sign in with email instead"; the "Sign in" button has no `type="submit"`, target it by text).
+The push triggers the **Fly Deploy** GitHub Action (`.github/workflows/fly-deploy.yml`); watch it with `gh run list --repo mcgary6567-lab/petrol-pumpai --branch main`. (If `/home/user/petrol-pumpai` is missing, attach it with the `add_repo` tool.)
+
+Deploy after every change. The live site is network-blocked from the sandbox, so **verify on a local production build** instead: build the web (`cd /home/user/petrol-pumpai/web && npx vite build`), run the demo server `cd /home/user/petrol-pumpai/server && NODE_ENV=development DEMO_DATA=1 PORT=4712 WEB_DIST=/home/user/petrol-pumpai/web/dist DB_PATH=<scratch>/pp.db npx tsx src/index.ts`, and drive it with Playwright (`/opt/node-tools/node_modules/playwright`). Login: `admin@pumpai.pk` / `demo1234` (set `localStorage.pumpai_token` from `POST /api/auth/login`).
 
 ## STANDING REQUIREMENT — bank-statement letterhead on every document
 
