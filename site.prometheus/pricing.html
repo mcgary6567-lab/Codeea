@@ -91,7 +91,8 @@ a{color:inherit}
 
 /* compare table */
 .pr-compare{max-width:720px;margin:0 auto;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--white)}
-.pr-compare table{width:100%;border-collapse:collapse;font-size:.95rem}
+.pr-compare table{width:100%;border-collapse:collapse;font-size:.95rem;table-layout:fixed}
+.pr-compare col.c1{width:34%}.pr-compare col.c2,.pr-compare col.c3{width:33%}
 .pr-compare th,.pr-compare td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--line)}
 .pr-compare thead th{background:#f7fafd;font-weight:800;color:var(--ink)}
 .pr-compare thead th:last-child{color:var(--cyan-dark)}
@@ -139,6 +140,8 @@ a{color:inherit}
   .footer-nav a{display:inline-block;padding:6px 2px}
   .social a{width:44px;height:44px}
   .pr-price b{font-size:2.8rem}
+  .pr-compare th,.pr-compare td{padding:10px 9px;font-size:.8rem}
+  .pr-compare thead th{font-size:.78rem}
 }
 </style>
 </head>
@@ -188,7 +191,8 @@ a{color:inherit}
     <p class="lede">Most trading bots bill you every month, forever — and some take a cut of your trades on top. Prometheus is a single payment for lifetime access.</p>
     <div class="pr-compare">
       <table>
-        <thead><tr><th>&nbsp;</th><th>Typical subscription bot</th><th>Prometheus AI</th></tr></thead>
+        <colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup>
+        <thead><tr><th>&nbsp;</th><th>Subscription bot</th><th>Prometheus AI</th></tr></thead>
         <tbody>
           <tr><td>Pricing</td><td>$30–$100+ / month</td><td><span class="yes">$267 once</span></td></tr>
           <tr><td>Cost after 2 years</td><td>$720–$2,400+</td><td><span class="yes">$267</span></td></tr>
