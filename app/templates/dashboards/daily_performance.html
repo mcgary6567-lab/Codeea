@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Daily Performance Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header("Daily Performance Dashboard", "One day across academics, marketing, billing and HR, compared with the day before.") %}
+  {{ ui.button("Monthly Performance", href="/dashboards/monthly-performance", icon="bar-chart-3", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/dashboards/daily-performance') %}
+  <div class="w-40">{{ ui.input('day', 'Date', day, type='date') }}</div>
+  <input type="hidden" name="department" value="{{ department }}">
+{% endcall %}
+
+<div class="mb-4 flex flex-wrap gap-1 border-b border-slate-200">
+  {% for key, label in opts.daily_tabs %}
+  <a href="/dashboards/daily-performance?day={{ day }}&department={{ key }}"
+     class="-mb-px border-b-2 px-3 py-2 text-sm font-medium {{ 'border-brand-600 text-brand-700' if department == key else 'border-transparent text-slate-500 hover:text-slate-800' }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+{% set c, b = d.today, d.before %}
+
+{% if department in ('all', 'academics') %}
+<h2 class="mb-2 text-sm font-semibold text-slate-700">Academics</h2>
+{% set link = "/classes?date_from=" ~ day ~ "&date_to=" ~ day ~ "&status=" %}
+<div class="mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
+  {{ ui.stat("Classes", c.classes.total, color=palette(0), hint="yesterday " ~ b.classes.total, href=link) }}
+  {{ ui.stat("Done", c.classes.done, color=palette(1), delta=d.delta.done, href=link ~ "done") }}
+  {{ ui.stat("Missed", c.classes.missed, color=palette(2), hint="yesterday " ~ b.classes.missed, href=link ~ "missed") }}
+  {{ ui.stat("Student Absent", c.classes.absent, color=palette(3), hint="yesterday " ~ b.classes.absent, href=link ~ "absent") }}
+  {{ ui.stat("On Leave", c.classes.leave, color=palette(4), href=link ~ "leave") }}
+  {{ ui.stat("Late Starts", c.classes.late, color=palette(5), hint="yesterday " ~ b.classes.late) }}
+  {{ ui.stat("Short Classes", c.classes.short, color=palette(6), hint="yesterday " ~ b.classes.short) }}
+  {{ ui.stat("Completion %", c.classes.completion, color=palette(7), hint="yesterday " ~ b.classes.completion) }}
+</div>
+<div class="mb-6 grid gap-4 lg:grid-cols-3">
+  {% call ui.card("Today's classes by status") %}{{ ui.chart('dpStatus', 260) }}{% endcall %}
+  <div class="lg:col-span-2">
+  {% call ui.card("Teacher Wise", "Most missed and late first") %}
+  {{ ui.table_start(['Teacher', 'Classes', 'Done', 'Missed', 'Absent', 'Late', 'Short', 'First join', 'Completion %'], compact=True) }}
+  {% for r in d.teachers %}
+  <tr>
+    <td class="px-3 py-1.5"><a class="text-brand-700 hover:underline" href="/classes?date_from={{ day }}&date_to={{ day }}&teacher_id={{ r.teacher_id }}">{{ r.teacher }}</a></td>
+    <td class="px-3 py-1.5 text-right">{{ r.total }}</td>
+    <td class="px-3 py-1.5 text-right">{{ r.done }}</td>
+    <td class="px-3 py-1.5 text-right {{ 'font-semibold text-rose-600' if r.missed }}">{{ r.missed }}</td>
+    <td class="px-3 py-1.5 text-right">{{ r.absent }}</td>
+    <td class="px-3 py-1.5 text-right">{{ r.late }}</td>
+    <td class="px-3 py-1.5 text-right">{{ r.short }}</td>
+    <td class="px-3 py-1.5">{{ r.first_join.strftime('%H:%M') if r.first_join else '—' }}</td>
+    <td class="px-3 py-1.5 text-right font-semibold">{{ r.completion }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No classes on this day.', 9) }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+  </div>
+</div>
+{% endif %}
+
+{% if department in ('all', 'marketing') %}
+<h2 class="mb-2 text-sm font-semibold text-slate-700">Marketing</h2>
+<div class="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+  {{ ui.stat("Leads Generated", c.marketing.leads, color=palette(0), delta=d.delta.leads, href="/crm/leads") }}
+  {{ ui.stat("Leads Converted", c.marketing.converted, color=palette(1), hint="yesterday " ~ b.marketing.converted) }}
+  {{ ui.stat("Trials Booked", c.marketing.trials, color=palette(2), hint="yesterday " ~ b.marketing.trials, href="/trials/running") }}
+  {{ ui.stat("Trials Attended", c.marketing.trials_attended, color=palette(3), hint="yesterday " ~ b.marketing.trials_attended) }}
+</div>
+{% endif %}
+
+{% if department in ('all', 'billing') %}
+<h2 class="mb-2 text-sm font-semibold text-slate-700">Billing</h2>
+<div class="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+  {{ ui.stat("Invoices Raised", c.billing.invoices, color=palette(0), hint="yesterday " ~ b.billing.invoices, href="/finance/invoices") }}
+  {{ ui.stat("Invoiced", c.billing.invoiced|money(d.base), color=palette(1), hint="yesterday " ~ b.billing.invoiced|money(d.base)) }}
+  {{ ui.stat("Receipts", c.billing.receipts, color=palette(2), hint="yesterday " ~ b.billing.receipts, href="/finance/receipts") }}
+  {{ ui.stat("Received", c.billing.received|money(d.base), color=palette(3), delta=d.delta.received) }}
+</div>
+{% endif %}
+
+{% if department in ('all', 'hr') %}
+<h2 class="mb-2 text-sm font-semibold text-slate-700">HR</h2>
+<div class="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+  {{ ui.stat("Active Staff", c.hr.staff, color=palette(0), href="/hr/employees") }}
+  {{ ui.stat("Present", c.hr.present, color=palette(1), delta=d.delta.present) }}
+  {{ ui.stat("Late", c.hr.late, color=palette(2), hint="yesterday " ~ b.hr.late) }}
+  {{ ui.stat("Absent", c.hr.absent, color=palette(3), hint="yesterday " ~ b.hr.absent) }}
+  {{ ui.stat("On Leave", c.hr.leave, color=palette(4), hint="yesterday " ~ b.hr.leave) }}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  OQC.doughnut('dpStatus', {{ d.chart.labels|tojson }}, {{ d.chart.data|tojson }});
+})();
+</script>
+{% endblock %}

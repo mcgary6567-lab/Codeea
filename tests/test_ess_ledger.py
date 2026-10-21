@@ -668,8 +668,8 @@ def test_bonuses_tab_is_read_only_and_separate_from_violations(staff_a, session,
     assert "Bonus Type" not in violations, "violations stay on their own tab"
     assert "Severity" in violations and "Deduction" in violations
     assert "Severity" not in bonuses
-    # Read-only: no form posts from the bonuses tab.
-    assert "<form method=\"post\"" not in bonuses
+    # Read-only: no form posts from the bonuses tab (the page content; the header's favourites star is a form).
+    assert "<form method=\"post\"" not in bonuses.split("<main", 1)[-1]
 
 
 def test_complaints_tab_creates_and_lists_only_your_own(staff_a, staff_b, session, ids):

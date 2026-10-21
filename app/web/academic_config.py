@@ -1001,6 +1001,50 @@ async def question_create(request: Request, db: Session = Depends(get_db), user:
     return redirect(_question_back(form, item), "Question added to the bank.")
 
 
+@router.get("/question-bank/template.csv", include_in_schema=False)
+def question_template(user: User = Depends(require(f"{MODULE}.view"))):
+    from app.services import migration as mig
+
+    return Response(mig.template_csv("questions"), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="question_bank_template.csv"'})
+
+
+@router.post("/question-bank/upload", include_in_schema=False)
+async def question_upload(request: Request, db: Session = Depends(get_db), user: User = Depends(require(f"{MODULE}.add"))):
+    """The ERP's Question Bank "CSV Upload": the columns are matched by name, every row is checked, and good rows
+    are imported while bad ones are reported. The run is kept as a Data Migration job for the record."""
+    from app.models.ops import MigrationJob
+    from app.services import migration as mig
+
+    form = await request.form()
+    upload = form.get("file")
+    if upload is None or not getattr(upload, "filename", ""):
+        return redirect(f"{BASE}/question-bank", "Attach a CSV or XLSX file.", "error")
+    content = await upload.read()
+    if not content:
+        return redirect(f"{BASE}/question-bank", "The uploaded file is empty.", "error")
+    path = mig.save_upload(upload.filename, content)
+    headers, rows = mig.parse_file(path)
+    mapping = mig.suggest_mapping("questions", headers)
+    if "question" not in mapping:
+        return redirect(f"{BASE}/question-bank", "No 'question' column found. Download the template to see the columns.", "error")
+    job = MigrationJob(name=f"Question Bank CSV upload {date.today():%d %b %Y}", entity="questions",
+                       source_system="question_bank_upload", file_path=str(path), status="uploaded",
+                       records_total=len(rows), field_mapping=mapping, created_by_id=user.id, errors=[])
+    db.add(job)
+    db.flush()
+    result = mig.import_job(db, job, user)
+    log_action(db, user, "create", MODULE, entity=job,
+               description=f"Question Bank CSV upload {upload.filename}: {result['imported']} imported, {result['skipped']} skipped",
+               request=request)
+    db.commit()
+    problems = [f"row {e['row']}: {e['message']}" for e in (job.errors or [])][:3]
+    msg = f"{result['imported']} question(s) imported, {result['skipped']} skipped."
+    if problems:
+        msg += " " + "; ".join(problems) + ("…" if len(job.errors or []) > 3 else "")
+    return redirect(f"{BASE}/question-bank", msg, "success" if result["imported"] and not result["skipped"] else "warning")
+
+
 @router.post("/question-bank/{qid}/edit", include_in_schema=False)
 async def question_edit(qid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require(f"{MODULE}.update"))):
     item = _get(db, QuestionBankItem, qid, "Question")

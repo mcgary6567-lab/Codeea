@@ -8,6 +8,7 @@
   {% if sch %}{{ ui.button('Schedule #' ~ sch.id, href='/schedules/' ~ sch.id, icon='calendar-range', variant='secondary') }}{% endif %}
   {{ ui.button('Classes', href='/classes?student_id=' ~ s.student_id ~ '&date_from=' ~ s.start_date ~ '&date_to=' ~ (today() + (60|string|int * 86400)|string|int) if false else '/classes?student_id=' ~ s.student_id, icon='video', variant='secondary') }}
   {% if s.client %}{{ ui.button('Client', href='/clients/' ~ s.client_id, icon='users', variant='secondary') }}{% endif %}
+  {{ ui.button('Day Wise Report', href='/subscriptions/' ~ s.id ~ '/day-wise', icon='calendar-days', variant='secondary') }}
 {% endcall %}
 
 <div class="mb-5 flex flex-wrap items-center gap-2">

@@ -34,6 +34,25 @@
       </form>
 
       <div class="ml-auto flex items-center gap-1">
+        {% if ir_staff %}
+        <form method="post" action="/favourites/toggle" class="inline">
+          <input type="hidden" name="path" value="{{ current_path }}">
+          <input type="hidden" name="next" value="{{ current_path }}{{ ('?' ~ request.url.query) if request.url.query }}">
+          <input type="hidden" name="label" value="{{ crumbs[-1].label if crumbs else self.title() }}">
+          <button class="rounded p-1.5 hover:bg-white/15" title="{{ 'Remove from favourites' if is_favourite else 'Add to favourites' }}" aria-label="{{ 'Remove from favourites' if is_favourite else 'Add to favourites' }}">
+            <i data-lucide="star" class="h-5 w-5 {{ 'fill-amber-300 text-amber-300' if is_favourite }}"></i>
+          </button>
+        </form>
+        <div class="relative" x-data="{ favOpen: false }" @click.outside="favOpen = false">
+          <button type="button" class="rounded p-1.5 hover:bg-white/15" @click="favOpen = !favOpen" title="Favourites" aria-label="Favourites"><i data-lucide="bookmark" class="h-5 w-5"></i></button>
+          <div x-show="favOpen" x-cloak x-transition class="absolute right-0 mt-1 max-h-96 w-64 overflow-y-auto rounded border border-slate-200 bg-white py-1 text-sm text-slate-700 shadow-lg">
+            <div class="border-b border-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Favourites</div>
+            {% for f in favourites %}<a href="{{ f.path }}" class="block truncate px-3 py-2 hover:bg-slate-50">{{ f.label }}</a>
+            {% else %}<div class="px-3 py-2 text-xs text-slate-500">Click the ☆ on any page to add it here.</div>{% endfor %}
+            <a href="/favourites" class="block border-t border-slate-100 px-3 py-2 text-xs text-brand-700 hover:bg-slate-50">Manage favourites</a>
+          </div>
+        </div>
+        {% endif %}
         <a href="/notifications" class="relative rounded p-1.5 hover:bg-white/15" title="Notifications">
           <i data-lucide="bell" class="h-5 w-5"></i>
           {% if unread_count %}<span class="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold">{{ unread_count if unread_count < 100 else '99+' }}</span>{% endif %}

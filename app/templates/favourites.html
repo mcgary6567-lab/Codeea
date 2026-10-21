@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My Favourites{% endblock %}
+{% block content %}
+{% call ui.page_header("My Favourites", "Pages you starred with the ☆ in the header. Only you see this list.") %}{% endcall %}
+
+{{ ui.table_start(['Page', 'Address', 'Added', ''], report=False) }}
+{% for f in rows %}
+<tr>
+  <td class="px-3 py-2"><a class="font-medium text-brand-700 hover:underline" href="{{ f.path }}">{{ f.label }}</a></td>
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ f.path }}</td>
+  <td class="px-3 py-2 text-xs">{{ f.created_at|date }}</td>
+  <td class="px-3 py-2 text-right"><form method="post" action="/favourites/{{ f.id }}/remove" class="inline">{{ ui.button('Remove', icon='star-off', variant='ghost', size='sm') }}</form></td>
+</tr>
+{% else %}{{ ui.empty('No favourites yet. Open a page and click the ☆ in the header to add it.', 4, 'star') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

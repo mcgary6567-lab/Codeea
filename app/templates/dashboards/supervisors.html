@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Supervisors Management Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header("Supervisors Management Dashboard", "Each supervisor's teachers, students, classes, QA and complaints between the chosen dates.") %}
+  {{ ui.button("Supervisor board", href="/supervisor", icon="monitor", variant="secondary") }}
+  {{ ui.button("Teachers", href="/teachers", icon="users", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/dashboards/supervisors') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('supervisor_id', 'Supervisor', opts.supervisors, supervisor_id, placeholder='All supervisors') }}</div>
+{% endcall %}
+
+{% set t = d.tiles %}
+<div class="mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat("Supervisors", t.supervisors, color=palette(0)) }}
+  {{ ui.stat("Teachers", t.teachers, color=palette(1), href="/teachers") }}
+  {{ ui.stat("Active Students", t.students, color=palette(2)) }}
+  {{ ui.stat("Completion %", t.completion, color=palette(3)) }}
+  {{ ui.stat("Missed Classes", t.missed, color=palette(4), href="/classes?date_from=" ~ date_from ~ "&date_to=" ~ date_to ~ "&status=missed") }}
+  {{ ui.stat("Complaints", t.complaints, color=palette(5)) }}
+</div>
+
+{% call ui.card("Supervisor Wise Summary") %}
+{{ ui.table_start(['Supervisor', 'Teachers', 'Verified', 'Active students', 'Classes', 'Done', 'Missed', 'Absent', 'Late', 'Completion %', 'QA reviews', 'QA avg /5', 'Complaints', 'Open']) }}
+{% for r in d.rows %}
+<tr>
+  <td class="px-3 py-1.5 font-medium">{% if r.supervisor_id %}<a class="text-brand-700 hover:underline" href="/dashboards/class-management?date_from={{ date_from }}&date_to={{ date_to }}&supervisor_id={{ r.supervisor_id }}">{{ r.supervisor }}</a>{% else %}<span class="text-slate-500">{{ r.supervisor }}</span>{% endif %}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.teachers }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.verified }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.students }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.total }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.done }}</td>
+  <td class="px-3 py-1.5 text-right {{ 'font-semibold text-rose-600' if r.missed }}">{{ r.missed }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.absent }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.late }}</td>
+  <td class="px-3 py-1.5 text-right font-semibold">{{ r.completion }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.qa_reviews }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.qa_avg if r.qa_avg is not none else '—' }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.complaints }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.open_complaints }}</td>
+</tr>
+{% else %}{{ ui.empty('No teachers yet.', 14) }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+  {% call ui.card("Classes Done") %}{{ ui.chart('svDone', 280) }}{% endcall %}
+  {% call ui.card("Classes Missed") %}{{ ui.chart('svMissed', 280) }}{% endcall %}
+  {% call ui.card("Completion %") %}{{ ui.chart('svCompletion', 280) }}{% endcall %}
+  {% call ui.card("Active Students") %}{{ ui.chart('svStudents', 280) }}{% endcall %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var c = {{ d.charts|tojson }};
+  OQC.bar('svDone', c.done.labels, [{label: 'Done', data: c.done.data, backgroundColor: '#33b479'}], {indexAxis: 'y'});
+  OQC.bar('svMissed', c.missed.labels, [{label: 'Missed', data: c.missed.data, backgroundColor: '#e35a4e'}], {indexAxis: 'y'});
+  OQC.bar('svCompletion', c.completion.labels, [{label: 'Completion %', data: c.completion.data}], {indexAxis: 'y', scales: {x: {beginAtZero: true, max: 100}}});
+  OQC.doughnut('svStudents', c.students.labels, c.students.data);
+})();
+</script>
+{% endblock %}

@@ -410,6 +410,45 @@ def subscription_detail(id: int, request: Request, db: Session = Depends(get_db)
         "days_label": sched.day_label(s.days_of_week), "day_names": DAY_NAMES})
 
 
+@router.get("/{id}/day-wise", include_in_schema=False)
+def subscription_day_wise(id: int, request: Request, month: str = "", db: Session = Depends(get_db),
+                          user: User = Depends(require("subscriptions.view"))):
+    """The ERP's Subscription Day Wise Report: every day of a month for one subscription, whether it is a class
+    day, and what happened to each class that day."""
+    import calendar
+
+    s = _get(db, id)
+    try:
+        y, m = (int(x) for x in month.split("-", 1))
+        first = date(y, m, 1)
+    except (ValueError, TypeError):
+        first = date.today().replace(day=1)
+    last = first.replace(day=calendar.monthrange(first.year, first.month)[1])
+    sch = sched.subscription_schedule(db, s)
+    sessions = (db.query(ClassSession)
+                .filter(or_(ClassSession.subscription_id == s.id, ClassSession.schedule_id == (sch.id if sch else -1)),
+                        ClassSession.date >= first, ClassSession.date <= last)
+                .order_by(ClassSession.date, ClassSession.start_time).all())
+    by_day: dict = {}
+    for c in sessions:
+        by_day.setdefault(c.date, []).append(c)
+    class_days = {int(d) for d in (s.days_of_week or (sch.days_of_week if sch else []) or [])}
+    days, totals = [], {"class_days": 0, "classes": len(sessions)}
+    cur = first
+    while cur <= last:
+        planned = cur.weekday() in class_days and cur >= (s.start_date or first) and (not s.end_date or cur <= s.end_date)
+        totals["class_days"] += 1 if planned else 0
+        days.append({"day": cur, "planned": planned, "classes": by_day.get(cur, [])})
+        cur += timedelta(days=1)
+    for c in sessions:
+        totals[c.status] = totals.get(c.status, 0) + 1
+    prev_m = (first - timedelta(days=1)).strftime("%Y-%m")
+    next_m = (last + timedelta(days=1)).strftime("%Y-%m")
+    return render(request, "subscriptions/day_wise.html", {
+        "user": user, "s": s, "days": days, "totals": totals, "first": first, "prev_month": prev_m,
+        "next_month": next_m, "days_label": sched.day_label(s.days_of_week)})
+
+
 def _reason(form) -> str:
     return (form.get("reason") or form.get("rationale") or form.get("remarks") or "").strip()
 

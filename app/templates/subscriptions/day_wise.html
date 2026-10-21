@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Subscription Day Wise Report{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+{% call ui.page_header("Subscription Day Wise Report",
+                       s.subscription_code ~ ' · ' ~ (s.student.full_name if s.student else '') ~ ' · ' ~ (s.teacher.full_name if s.teacher else 'no teacher') ~ ' · ' ~ days_label,
+                       back='/subscriptions/' ~ s.id) %}
+  {{ ui.button('◀ ' ~ prev_month, href='/subscriptions/' ~ s.id ~ '/day-wise?month=' ~ prev_month, variant='secondary') }}
+  {{ ui.button(next_month ~ ' ▶', href='/subscriptions/' ~ s.id ~ '/day-wise?month=' ~ next_month, variant='secondary') }}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='type="button" onclick="window.print()"') }}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
+  {{ ui.stat(first.strftime('%B %Y'), totals.class_days, color=palette(0), hint="class days") }}
+  {{ ui.stat("Classes", totals.classes, color=palette(1)) }}
+  {{ ui.stat("Done", totals.get('done', 0), color=palette(2)) }}
+  {{ ui.stat("Missed", totals.get('missed', 0), color=palette(3)) }}
+  {{ ui.stat("Student Absent", totals.get('absent', 0), color=palette(4)) }}
+  {{ ui.stat("On Leave", totals.get('leave', 0), color=palette(5)) }}
+  {{ ui.stat("Cancelled / moved", totals.get('cancelled', 0) + totals.get('rescheduled', 0), color=palette(6)) }}
+  {{ ui.stat("Pending", totals.get('pending', 0) + totals.get('available', 0) + totals.get('started', 0), color=palette(7)) }}
+</div>
+
+{{ ui.table_start(['Date', 'Day', 'Class day', 'Time', 'Teacher', 'Status', 'Minutes', 'Late (min)', 'Reason / notes']) }}
+{% for d in days %}
+  {% if d.classes %}
+    {% for c in d.classes %}
+    <tr>
+      <td class="px-3 py-1.5 whitespace-nowrap">{% if loop.first %}{{ d.day.strftime('%d %b %Y') }}{% endif %}</td>
+      <td class="px-3 py-1.5">{% if loop.first %}{{ d.day.strftime('%a') }}{% endif %}</td>
+      <td class="px-3 py-1.5">{% if loop.first %}{{ 'Yes' if d.planned else 'Extra' }}{% endif %}</td>
+      <td class="px-3 py-1.5"><a class="text-brand-700 hover:underline" href="/classes/{{ c.id }}">{{ c.start_time.strftime('%I:%M %p') }}</a></td>
+      <td class="px-3 py-1.5">{{ c.teacher.full_name if c.teacher else '—' }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge(c.status, c.status|label('class')) }}</td>
+      <td class="px-3 py-1.5 text-right">{{ c.actual_duration_minutes if c.actual_duration_minutes is not none else c.duration_minutes }}</td>
+      <td class="px-3 py-1.5 text-right">{{ c.teacher_late_minutes or 0 }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-600">{{ c.status_reason or c.teacher_notes or '' }}</td>
+    </tr>
+    {% endfor %}
+  {% else %}
+    <tr class="{{ 'text-slate-400' if not d.planned }}">
+      <td class="px-3 py-1.5 whitespace-nowrap">{{ d.day.strftime('%d %b %Y') }}</td>
+      <td class="px-3 py-1.5">{{ d.day.strftime('%a') }}</td>
+      <td class="px-3 py-1.5">{{ 'Yes' if d.planned else 'No' }}</td>
+      <td class="px-3 py-1.5" colspan="6">{% if d.planned %}<span class="text-amber-700">No class recorded</span>{% else %}—{% endif %}</td>
+    </tr>
+  {% endif %}
+{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

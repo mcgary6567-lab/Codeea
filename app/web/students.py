@@ -433,6 +433,29 @@ def student_detail(id: int, request: Request, tab: str = "overview", db: Session
 
 
 # --------------------------------------------------------------------------- Basic Detail (edit)
+@router.get("/{id}/print", include_in_schema=False)
+def student_print(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.view"))):
+    """The ERP's printable Student Detail: profile, family, teacher, subscriptions, schedule, the last 30 days of
+    classes and the latest evaluations on one page. Contact details print only for those allowed to see them."""
+    s = _get(db, id)
+    since = date.today() - timedelta(days=30)
+    recent = (db.query(ClassSession).filter(ClassSession.student_id == s.id, ClassSession.date >= since,
+                                            ClassSession.date <= date.today()).all())
+    counts: dict = {}
+    for c in recent:
+        counts[c.status] = counts.get(c.status, 0) + 1
+    subs = (db.query(Subscription).filter(Subscription.student_id == s.id)
+            .order_by(Subscription.status != "active", Subscription.start_date.desc()).limit(6).all())
+    return render(request, "students/print.html", {
+        "user": user, "s": s, "subs": subs, "counts": counts, "since": since,
+        "attendance_pct": student_attendance_pct(db, s.id, 30),
+        "schedules": db.query(Schedule).filter(Schedule.student_id == s.id, Schedule.status == "active").all(),
+        "evaluations": (db.query(Evaluation).filter(Evaluation.student_id == s.id)
+                        .order_by(Evaluation.date.desc()).limit(5).all()),
+        "show_contact": rbac.has_permission(user, "clients.update") or rbac.is_management(user),
+        "day_names": DAY_NAMES, "printed_at": datetime.now()})
+
+
 @router.get("/{id}/edit", include_in_schema=False)
 def edit_student(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.update"))):
     s = _get(db, id)

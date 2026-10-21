@@ -39,7 +39,10 @@ ACADEMIC_GROUPS = [
         _i("Client Management", "/dashboards/clients", "users", "dashboards.view"),
         _i("Subscriptions (Count)", "/dashboards/subscriptions", "repeat", "dashboards.view"),
         _i("Subscriptions (Multiple)", "/dashboards/subscriptions/amount", "coins", "dashboards.view"),
+        _i("Class Management", "/dashboards/class-management", "video", "dashboards.view"),
         _i("Billing Management", "/dashboards/billing", "landmark", "dashboards.view"),
+        _i("Supervisors Management", "/dashboards/supervisors", "user-check", "dashboards.view"),
+        _i("Daily Performance Dashboard", "/dashboards/daily-performance", "calendar-check", "dashboards.view"),
         _i("Monthly Performance Dashboard", "/dashboards/monthly-performance", "bar-chart-3", "dashboards.view"),
         _i("Financial Summary", "/dashboards/financial-summary", "pie-chart", "dashboards.view"),
         _i("Monthly Performance Insights", "/dashboards/monthly-insights", "trending-up", "dashboards.view"),
@@ -82,6 +85,7 @@ ACADEMIC_GROUPS = [
         _i("Class Status Summary", "/classes/status-summary", "layout-grid", "classes.view"),
         _i("Class Queries", "/classes/queries", "message-square-warning", "classes.view"),
         _i("Schedule Summary Report", "/classes/schedule-summary", "table", "classes.view"),
+        _i("Student Attendance Monitoring", "/classes/attendance-monitoring", "user-round-check", "classes.view"),
         _i("Recurring Schedules", "/schedules", "calendar-range", "schedules.view"),
     ]},
     {"slug": "billing", "label": "Billing Management", "icon": "receipt", "blurb": "Invoices, receipts, ledger", "items": [

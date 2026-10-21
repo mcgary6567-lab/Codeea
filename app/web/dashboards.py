@@ -1,6 +1,6 @@
 """ERP-parity dashboards (docs/AUDIT_ACADEMICS.md 3.14).
 
-Seven read-only pages under ``/dashboards`` — the URLs are the ones listed in ``app/core/nav.py`` under the
+Read-only pages under ``/dashboards`` — the URLs are the ones listed in ``app/core/nav.py`` under the
 "Dashboards" group. Every aggregation lives in ``app/services/dashboards.py``; this module only parses the
 filter bar and renders.
 """
@@ -125,3 +125,44 @@ def monthly_insights(request: Request, month: str = "",
                      db: Session = Depends(get_db), user: User = Depends(require("dashboards.view"))):
     data = svc.monthly_insights(db, month=month or None)
     return render(request, "dashboards/monthly_insights.html", {"user": user, "d": data, "month": data["month"]})
+
+
+# ============================================================================ 8-10. Class dashboards (Fusion gap report)
+@router.get("/class-management", include_in_schema=False)
+def class_management(request: Request, date_from: str = "", date_to: str = "", teacher_id: str = "",
+                     supervisor_id: str = "", course_id: str = "", shift: str = "",
+                     db: Session = Depends(get_db), user: User = Depends(require("dashboards.view"))):
+    from app.services import class_dashboards as cd
+
+    data = cd.class_management(db, date_from=parse_date(date_from), date_to=parse_date(date_to),
+                               teacher_id=parse_int(teacher_id), supervisor_id=parse_int(supervisor_id),
+                               course_id=parse_int(course_id), shift=shift)
+    f = data["filters"]
+    return render(request, "dashboards/class_management.html", {
+        "user": user, "d": data, "opts": cd.options(db), "date_from": f["date_from"].isoformat(),
+        "date_to": f["date_to"].isoformat(), "teacher_id": parse_int(teacher_id),
+        "supervisor_id": parse_int(supervisor_id), "course_id": parse_int(course_id), "shift": shift})
+
+
+@router.get("/supervisors", include_in_schema=False)
+def supervisors(request: Request, date_from: str = "", date_to: str = "", supervisor_id: str = "",
+                db: Session = Depends(get_db), user: User = Depends(require("dashboards.view"))):
+    from app.services import class_dashboards as cd
+
+    data = cd.supervisors_dashboard(db, date_from=parse_date(date_from), date_to=parse_date(date_to),
+                                    supervisor_id=parse_int(supervisor_id))
+    f = data["filters"]
+    return render(request, "dashboards/supervisors.html", {
+        "user": user, "d": data, "opts": cd.options(db), "date_from": f["date_from"].isoformat(),
+        "date_to": f["date_to"].isoformat(), "supervisor_id": parse_int(supervisor_id)})
+
+
+@router.get("/daily-performance", include_in_schema=False)
+def daily_performance(request: Request, day: str = "", department: str = "all",
+                      db: Session = Depends(get_db), user: User = Depends(require("dashboards.view"))):
+    from app.services import class_dashboards as cd
+
+    data = cd.daily_performance(db, day=parse_date(day), department=department)
+    return render(request, "dashboards/daily_performance.html", {
+        "user": user, "d": data, "opts": cd.options(db), "day": data["day"].isoformat(),
+        "department": data["department"]})

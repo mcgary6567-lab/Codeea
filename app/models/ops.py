@@ -2,7 +2,7 @@
 from datetime import datetime, date
 from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Date, Text, ForeignKey, JSON, Float
+from sqlalchemy import String, Integer, Boolean, DateTime, Date, Text, ForeignKey, JSON, Float, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, PKMixin, TimestampMixin
@@ -295,6 +295,15 @@ class ReportView(Base, PKMixin, TimestampMixin):
     is_shared: Mapped[bool] = mapped_column(Boolean, default=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     user = relationship("User")
+
+
+class FavouritePage(Base, PKMixin, TimestampMixin):
+    """A page a staff user starred from the header (the old ERP's "Add to Favorite"). One row per user and path."""
+    __tablename__ = "favourite_pages"
+    __table_args__ = (UniqueConstraint("user_id", "path", name="uq_favourite_pages_user_path"),)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE", name="fk_favourite_pages_user"), index=True)
+    path: Mapped[str] = mapped_column(String(300))
+    label: Mapped[str] = mapped_column(String(150))
 
 
 class ReportSubscription(Base, PKMixin, TimestampMixin):

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Student Detail · {{ s.student_code }}{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+<div class="no-print mb-4 flex flex-wrap items-center gap-2">
+  {{ ui.button('Back to student', href='/students/' ~ s.id, icon='arrow-left', variant='secondary') }}
+  {{ ui.button('Print', icon='printer', attrs='type="button" onclick="window.print()"') }}
+</div>
+
+<div class="mx-auto max-w-4xl rounded-md border border-slate-200 bg-white p-6 text-[13px] text-slate-800">
+  <div class="mb-4 flex items-start justify-between border-b border-slate-200 pb-3">
+    <div>
+      <div class="text-xs uppercase tracking-wide text-slate-500">Student Detail</div>
+      <h1 class="text-xl font-bold">{{ s.full_name }}</h1>
+      <div class="text-slate-600">{{ s.student_code }}{% if s.legacy_code %} · old code {{ s.legacy_code }}{% endif %}</div>
+    </div>
+    <div class="text-right text-xs text-slate-500">Printed {{ printed_at.strftime('%d %b %Y %H:%M') }}<br>by {{ user.full_name }}</div>
+  </div>
+
+  <div class="grid gap-6 sm:grid-cols-2">
+    <div>
+      <h2 class="mb-1 text-sm font-semibold">Student</h2>
+      {{ ui.dl([('Status', s.status|label('student')), ('Gender', s.gender|titleize),
+                ('Date of birth', s.date_of_birth|date if s.date_of_birth else '—'), ('Age', s.age or '—'),
+                ('Course', s.course.name if s.course else '—'), ('Level', s.level or '—'),
+                ('Joined', s.join_date|date if s.join_date else '—'), ('Time zone', s.timezone),
+                ('Language', s.preferred_language), ('Sabaq', s.sabaq_position or '—')]) }}
+    </div>
+    <div>
+      <h2 class="mb-1 text-sm font-semibold">Family &amp; teacher</h2>
+      {% set c = s.client %}
+      {{ ui.dl([('Family', (c.client_code ~ ' - ' ~ c.full_name) if c else '—'),
+                ('Country', (c.country if c else None) or '—'),
+                ('E-mail', (c.email if c and show_contact else None) or ('hidden' if c and c.email else '—')),
+                ('Phone', (c.phone if c and show_contact else None) or ('hidden' if c and c.phone else '—')),
+                ('Teacher', s.teacher.full_name if s.teacher else '—'),
+                ('Attendance (30 days)', attendance_pct ~ '%')]) }}
+    </div>
+  </div>
+
+  <h2 class="mb-1 mt-5 text-sm font-semibold">Subscriptions</h2>
+  <table class="w-full border-collapse text-[12px]">
+    <thead><tr class="bg-slate-50 text-left"><th class="border px-2 py-1">Code</th><th class="border px-2 py-1">Course</th><th class="border px-2 py-1">Days</th><th class="border px-2 py-1">Minutes</th><th class="border px-2 py-1">Fee</th><th class="border px-2 py-1">Start</th><th class="border px-2 py-1">Next bill</th><th class="border px-2 py-1">Status</th></tr></thead>
+    <tbody>
+    {% for x in subs %}
+      <tr><td class="border px-2 py-1">{{ x.subscription_code }}</td><td class="border px-2 py-1">{{ x.course.name if x.course else '—' }}</td>
+        <td class="border px-2 py-1">{% for d in (x.days_of_week or []) %}{{ day_names[d|int] }}{% if not loop.last %}, {% endif %}{% else %}{{ x.sessions_per_week }}/week{% endfor %}</td>
+        <td class="border px-2 py-1">{{ x.session_minutes }}</td><td class="border px-2 py-1">{{ x.price|money(x.currency) }}</td>
+        <td class="border px-2 py-1">{{ x.start_date|date }}</td><td class="border px-2 py-1">{{ x.next_billing_date|date if x.next_billing_date else '—' }}</td>
+        <td class="border px-2 py-1">{{ x.status|label('subscription') }}</td></tr>
+    {% else %}<tr><td colspan="8" class="border px-2 py-2 text-slate-500">No subscriptions.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+
+  <h2 class="mb-1 mt-5 text-sm font-semibold">Weekly schedule</h2>
+  {% for sc in schedules %}
+    <div>{% for d in (sc.days_of_week or []) %}{{ day_names[d|int] }}{% if not loop.last %}, {% endif %}{% endfor %} at {{ sc.start_time.strftime('%I:%M %p') }} for {{ sc.duration_minutes }} min{% if sc.teacher %} with {{ sc.teacher.full_name }}{% endif %}</div>
+  {% else %}<div class="text-slate-500">No active schedule.</div>{% endfor %}
+
+  <h2 class="mb-1 mt-5 text-sm font-semibold">Classes since {{ since|date }}</h2>
+  <div class="flex flex-wrap gap-3">
+    {% for key in ['done', 'missed', 'absent', 'leave', 'cancelled', 'rescheduled', 'pending'] %}
+      <span>{{ key|label('class') }}: <b>{{ counts.get(key, 0) }}</b></span>
+    {% endfor %}
+  </div>
+
+  <h2 class="mb-1 mt-5 text-sm font-semibold">Latest evaluations</h2>
+  <table class="w-full border-collapse text-[12px]">
+    <thead><tr class="bg-slate-50 text-left"><th class="border px-2 py-1">Date</th><th class="border px-2 py-1">Type</th><th class="border px-2 py-1">Score</th><th class="border px-2 py-1">Result</th><th class="border px-2 py-1">Teacher comment</th></tr></thead>
+    <tbody>
+    {% for e in evaluations %}
+      <tr><td class="border px-2 py-1">{{ e.date|date }}</td><td class="border px-2 py-1">{{ e.evaluation_type|titleize }}</td>
+        <td class="border px-2 py-1">{{ e.score if e.score is not none else '—' }} / {{ e.max_score }}</td><td class="border px-2 py-1">{{ e.result|titleize }}</td>
+        <td class="border px-2 py-1">{{ e.teacher_comment or '' }}</td></tr>
+    {% else %}<tr><td colspan="5" class="border px-2 py-2 text-slate-500">No evaluations yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

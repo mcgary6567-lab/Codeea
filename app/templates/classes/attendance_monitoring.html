@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Student Attendance Monitoring{% endblock %}
+{% block content %}
+{% call ui.page_header("Student Attendance Monitoring", "Attendance per student between the chosen dates. Students under the threshold, or absent three classes in a row, are flagged and listed first.") %}
+  {{ ui.button("Class Schedules", href="/classes", icon="calendar-days", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/classes/attendance-monitoring') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('teacher_id', 'Teacher', opts.teachers, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-48">{{ ui.select('supervisor_id', 'Supervisor', opts.supervisors, supervisor_id, placeholder='All supervisors') }}</div>
+  <div class="w-28">{{ ui.input('threshold', 'Threshold %', threshold, type='number', min=1, max=100) }}</div>
+  <div class="w-36">{{ ui.select('flagged', 'Show', [('1', 'Flagged only')], flagged, placeholder='All students') }}</div>
+  <div class="w-52">{{ ui.input('q', 'Search', q, placeholder='Student or family') }}</div>
+{% endcall %}
+
+{% set t = d.tiles %}
+<div class="mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat("Students", t.students, color=palette(0)) }}
+  {{ ui.stat("Flagged", t.flagged, color=palette(2), href=flagged_url) }}
+  {{ ui.stat("Attendance %", t.rate, color=palette(1)) }}
+  {{ ui.stat("Present", t.present, color=palette(3)) }}
+  {{ ui.stat("Absent", t.absent, color=palette(4)) }}
+  {{ ui.stat("On Leave", t.leave, color=palette(5)) }}
+</div>
+
+{{ ui.table_start(['Student', 'Family', 'Teacher', 'Classes', 'Present', 'Absent', 'Leave', 'Missed by teacher', 'Cancelled / moved', 'Attendance %', 'Absent in a row', 'Last attended', 'Flag']) }}
+{% for r in page.items %}
+<tr>
+  <td class="px-3 py-1.5"><a class="text-brand-700 hover:underline" href="/students/{{ r.student.id }}">{{ r.student.student_code }} - {{ r.student.full_name }}</a></td>
+  <td class="px-3 py-1.5">{{ r.client.full_name if r.client else '—' }}</td>
+  <td class="px-3 py-1.5">{{ r.teacher.full_name if r.teacher else '—' }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.scheduled }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.present }}</td>
+  <td class="px-3 py-1.5 text-right {{ 'font-semibold text-rose-600' if r.absent }}">{{ r.absent }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.leave }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.missed }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.cancelled }}</td>
+  <td class="px-3 py-1.5 text-right font-semibold {{ 'text-rose-600' if r.flagged }}">{{ r.rate }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.streak }}</td>
+  <td class="px-3 py-1.5">{{ r.last_attended.strftime('%d %b %Y') if r.last_attended else '—' }}</td>
+  <td class="px-3 py-1.5">{% if r.flagged %}{{ ui.badge('flagged', 'Needs follow-up') }}{% else %}{{ ui.badge('ok', 'OK') }}{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No classes between these dates.', 13) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

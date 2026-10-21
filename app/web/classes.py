@@ -530,6 +530,37 @@ def schedule_summary(request: Request, employee_id: int | None = None, session_c
         **_erp_filters(db, user)})
 
 
+@router.get("/classes/attendance-monitoring", include_in_schema=False)
+def attendance_monitoring(request: Request, page: int = 1, date_from: str = "", date_to: str = "",
+                          teacher_id: int | None = None, supervisor_id: int | None = None, threshold: str = "75",
+                          flagged: str = "", q: str = "",
+                          db: Session = Depends(get_db), user: User = Depends(require("classes.view"))):
+    """The ERP's Student Attendance Monitoring: attendance per student over a window, weakest first."""
+    from app.core.utils import ROWS_OVERRIDE, Page
+    from app.services import class_dashboards as cd
+
+    limit = max(1, min(100, parse_int(threshold) or 75))
+    data = cd.student_attendance(db, date_from=parse_date(date_from), date_to=parse_date(date_to),
+                                 teacher_id=teacher_id, supervisor_id=supervisor_id, threshold=limit,
+                                 flagged_only=flagged == "1", q=q, scope=svc.scoped_teacher_ids(db, user))
+    per, page = ROWS_OVERRIDE.get() or 50, max(1, page)
+    rows = data["rows"]
+    pg = Page(rows[(page - 1) * per:page * per], len(rows), page, per)
+    f = data["filters"]
+    base = (f"/classes/attendance-monitoring?date_from={f['date_from']}&date_to={f['date_to']}"
+            f"&teacher_id={teacher_id or ''}&supervisor_id={supervisor_id or ''}&threshold={limit}"
+            f"&flagged={flagged}&q={q}")
+    flagged_url = base.replace(f"&flagged={flagged}&", "&flagged=1&")
+    opts = cd.options(db)
+    scope = svc.scoped_teacher_ids(db, user)
+    if scope is not None:
+        opts["teachers"] = [o for o in opts["teachers"] if o[0] in scope]
+    return render(request, "classes/attendance_monitoring.html", {
+        "user": user, "d": data, "page": pg, "opts": opts, "date_from": f["date_from"].isoformat(),
+        "date_to": f["date_to"].isoformat(), "teacher_id": teacher_id, "supervisor_id": supervisor_id,
+        "threshold": limit, "flagged": flagged, "q": q, "base_url": base, "flagged_url": flagged_url})
+
+
 # ----------------------------------------------------------------------------- detail
 @router.get("/classes/{id}", include_in_schema=False)
 def class_detail(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("classes.view")),

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Class Management Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header("Class Management Dashboard", "Classes held, missed and absent between the chosen dates, by day, teacher, course and supervisor.") %}
+  {{ ui.button("Class Schedules", href="/classes?date_from=" ~ date_from ~ "&date_to=" ~ date_to, icon="calendar-days", variant="secondary") }}
+  {{ ui.button("Class Status Summary", href="/classes/status-summary", icon="layout-grid", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/dashboards/class-management') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('teacher_id', 'Teacher', opts.teachers, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-48">{{ ui.select('supervisor_id', 'Supervisor', opts.supervisors, supervisor_id, placeholder='All supervisors') }}</div>
+  <div class="w-44">{{ ui.select('course_id', 'Course', opts.courses, course_id, placeholder='All courses') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', opts.shifts, shift, placeholder='All') }}</div>
+{% endcall %}
+
+{% set t = d.tiles %}
+{% set link = "/classes?date_from=" ~ date_from ~ "&date_to=" ~ date_to ~ "&status=" %}
+<div class="mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
+  {{ ui.stat("All Classes", t.total, color=palette(0), href=link) }}
+  {{ ui.stat("Done", t.done, color=palette(1), href=link ~ "done") }}
+  {{ ui.stat("Missed", t.missed, color=palette(2), href=link ~ "missed") }}
+  {{ ui.stat("Student Absent", t.absent, color=palette(3), href=link ~ "absent") }}
+  {{ ui.stat("Student On Leave", t.leave, color=palette(4), href=link ~ "leave") }}
+  {{ ui.stat("Cancelled", t.cancelled, color=palette(5), href=link ~ "cancelled") }}
+  {{ ui.stat("Rescheduled", t.rescheduled, color=palette(6), href=link ~ "rescheduled") }}
+  {{ ui.stat("Pending", t.pending + t.available + t.started, color=palette(7), href=link ~ "pending") }}
+</div>
+
+<div class="mb-4 flex flex-wrap gap-2 text-xs text-slate-600">
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Completion <b>{{ t.completion }}%</b> <span class="text-slate-400">(done of classes held, missed, absent or on leave)</span></span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Student attendance <b>{{ t.attendance }}%</b></span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Late starts <b>{{ t.late }}</b> <span class="text-slate-400">(avg {{ t.avg_late }} min)</span></span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Short classes <b>{{ t.short }}</b> <span class="text-slate-400">(20 min or less)</span></span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Trial classes <b>{{ t.trial }}</b></span>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2">{% call ui.card("Day Wise", "Done, missed, absent and leave per day") %}{{ ui.chart('cmDays', 300) }}{% endcall %}</div>
+  {% call ui.card("Status Wise") %}{{ ui.chart('cmStatus', 300) }}{% endcall %}
+  {% call ui.card("Teacher Wise: Done") %}{{ ui.chart('cmTeacherDone', 300) }}{% endcall %}
+  {% call ui.card("Teacher Wise: Missed") %}{{ ui.chart('cmTeacherMissed', 300) }}{% endcall %}
+  {% call ui.card("Supervisor Wise") %}{{ ui.chart('cmSupervisor', 300) }}{% endcall %}
+  {% call ui.card("Course Wise") %}{{ ui.chart('cmCourse', 300) }}{% endcall %}
+  <div class="lg:col-span-2">{% call ui.card("Start Time Wise", "Classes by the hour they start") %}{{ ui.chart('cmHour', 300) }}{% endcall %}</div>
+</div>
+
+<div class="mt-4">
+{% call ui.card("Teacher Wise Summary", "Most missed classes first") %}
+{{ ui.table_start(['Teacher', 'Supervisor', 'Classes', 'Done', 'Missed', 'Absent', 'Leave', 'Cancelled', 'Late', 'Avg late (min)', 'Completion %']) }}
+{% for r in d.teachers %}
+<tr>
+  <td class="px-3 py-1.5"><a class="text-brand-700 hover:underline" href="/classes?date_from={{ date_from }}&date_to={{ date_to }}&teacher_id={{ r.teacher_id }}">{{ r.teacher }}</a></td>
+  <td class="px-3 py-1.5">{{ r.supervisor }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.total }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.done }}</td>
+  <td class="px-3 py-1.5 text-right {{ 'font-semibold text-rose-600' if r.missed }}">{{ r.missed }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.absent }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.leave }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.cancelled }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.late }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.avg_late }}</td>
+  <td class="px-3 py-1.5 text-right font-semibold">{{ r.completion }}</td>
+</tr>
+{% else %}{{ ui.empty('No classes between these dates.', 11) }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var c = {{ d.charts|tojson }};
+  OQC.bar('cmDays', c.days.labels, [
+    {label: 'Done', data: c.days.done, backgroundColor: '#33b479'},
+    {label: 'Missed', data: c.days.missed, backgroundColor: '#e35a4e'},
+    {label: 'Student Absent', data: c.days.absent, backgroundColor: '#f59e0b'},
+    {label: 'On Leave', data: c.days.leave, backgroundColor: '#8b5cf6'}
+  ], {scales: {x: {stacked: true, grid: {display: false}}, y: {stacked: true, beginAtZero: true}}});
+  OQC.doughnut('cmStatus', c.status.labels, c.status.data);
+  OQC.bar('cmTeacherDone', c.teacher_done.labels, [{label: 'Done', data: c.teacher_done.data}], {indexAxis: 'y'});
+  OQC.bar('cmTeacherMissed', c.teacher_missed.labels, [{label: 'Missed', data: c.teacher_missed.data, backgroundColor: '#e35a4e'}], {indexAxis: 'y'});
+  OQC.doughnut('cmSupervisor', c.supervisor.labels, c.supervisor.data);
+  OQC.doughnut('cmCourse', c.course.labels, c.course.data);
+  OQC.bar('cmHour', c.hour.labels, [{label: 'Classes', data: c.hour.data}]);
+})();
+</script>
+{% endblock %}

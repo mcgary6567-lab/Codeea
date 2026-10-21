@@ -4,8 +4,25 @@
 {% block content %}
 {% call ui.page_header("Questions Bank", "Questions per book and assessment, with type and marks. Assessments draw their papers from here.", back="/academics/config") %}
   {{ ui.button("Define Assessment", href="/academics/config/assessments", icon="file-check", variant="secondary") }}
+  {% if can_add %}{{ ui.button("CSV Upload", icon="upload", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'csvUpload\')"') }}{% endif %}
   {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newQuestion\')"') }}{% endif %}
 {% endcall %}
+
+{% if can_add %}
+{% call ui.modal('csvUpload', 'CSV Upload') %}
+<form method="post" action="/academics/config/question-bank/upload" enctype="multipart/form-data" class="space-y-4">
+  <p class="text-sm text-slate-600">Upload a CSV or Excel file with one question per row. Columns are matched by name:
+    <b>question</b> (required), answer, question_type (oral, written, recitation, mcq), marks, assessment, book, status.
+    Assessments and books are matched by title. Rows with errors are skipped and listed after the upload; a question
+    already in the bank for the same assessment is not added twice.</p>
+  <input type="file" name="file" accept=".csv,.xlsx" required class="block w-full text-sm">
+  <div class="flex items-center justify-between">
+    <a href="/academics/config/question-bank/template.csv" class="text-sm text-brand-700 hover:underline">Download template</a>
+    {{ ui.button('Upload', icon='upload') }}
+  </div>
+</form>
+{% endcall %}
+{% endif %}
 
 <div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-7 mb-6">
   {{ ui.stat("All Questions", stats.total, color=palette(0), href="/academics/config/question-bank") }}

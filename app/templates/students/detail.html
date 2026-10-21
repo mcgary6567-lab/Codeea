@@ -4,6 +4,7 @@
 {% block content %}
 {% call ui.page_header(s.full_name, 'Student Form · ' ~ s.student_code ~ ' · ' ~ (s.course.name if s.course else 'No course') ~ ' · ' ~ (s.level or 'level not set'), back='/students') %}
   {{ ui.button('Change Log', href=change_log_url, icon='history', variant='secondary') }}
+  {{ ui.button('Print', href='/students/' ~ s.id ~ '/print', icon='printer', variant='secondary') }}
   {% if has_perm(user, 'students.update') %}{{ ui.button('Basic Detail', href='/students/' ~ s.id ~ '/edit', icon='pencil', variant='secondary') }}{% endif %}
   {% if has_perm(user, 'students.update') or has_perm(user, 'students.assign') %}{{ ui.button('Change teacher', href='/students/' ~ s.id ~ '/change-teacher', icon='repeat', variant='secondary') }}{% endif %}
   {% if has_perm(user, 'students.update') %}{{ ui.button('Status', icon='shuffle', attrs='type="button" @click="$dispatch(\'open-modal\',\'statusModal\')"') }}{% endif %}

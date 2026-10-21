@@ -198,6 +198,14 @@ def render(request: Request, template: str, context: Optional[dict] = None, stat
         if entity and rbac.has_permission(user, "migration.add"):
             ctx["ir_import"] = {"entity": entity, "label": ENTITIES[entity]["label"]}
     ctx.update(_layout_globals())
+    ctx.setdefault("favourites", [])
+    ctx.setdefault("is_favourite", False)
+    if ctx["ir_staff"]:
+        db_fav: Optional[Session] = getattr(request.state, "db", None)
+        if db_fav is not None:
+            from app.web.favourites import for_user
+            ctx["favourites"] = for_user(db_fav, user)
+            ctx["is_favourite"] = any(f.path == request.url.path for f in ctx["favourites"])
     if user is not None and "unread_count" not in ctx:
         db: Optional[Session] = getattr(request.state, "db", None)
         if db is not None:

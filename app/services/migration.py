@@ -224,6 +224,20 @@ ENTITIES: dict[str, dict] = {
             ("description", "Description", "str", False),
         ],
     },
+    "questions": {
+        "label": "Question Bank",
+        "icon": "help-circle",
+        "match_on": "question + assessment",
+        "columns": [
+            ("question", "Question", "str", True),
+            ("answer", "Answer / marking guide", "str", False),
+            ("question_type", "Type (oral/written/recitation/mcq)", "str", False),
+            ("marks", "Marks", "decimal", False),
+            ("assessment", "Assessment (title)", "str", False),
+            ("book", "Book (title)", "str", False),
+            ("status", "Status (active/inactive)", "str", False),
+        ],
+    },
 }
 
 # The list page each sheet belongs to: that page shows an "Import CSV" button opening the import for its sheet.
@@ -233,6 +247,7 @@ PAGE_ENTITIES: dict[str, str] = {
     "/hr/employees": "employees", "/finance/subscriptions": "subscriptions", "/subscriptions": "subscriptions",
     "/academics/courses": "courses", "/academics/config/courses": "courses",
     "/academics/packages": "packages", "/academics/config/packages": "packages",
+    "/academics/config/question-bank": "questions",
 }
 
 
@@ -443,6 +458,11 @@ SYNONYMS: dict[str, dict[str, list[str]]] = {
         "code": ["course code", "short name"], "name": ["course", "course name"],
         "course_type": ["type"], "default_session_minutes": ["minutes", "duration"], "is_active": ["status", "active"],
     },
+    "questions": {
+        "question": ["question text", "questions", "question title"], "answer": ["answers", "correct answer", "marking guide"],
+        "question_type": ["type", "question type"], "marks": ["mark", "max marks", "score", "points"],
+        "assessment": ["assessment title", "assessment name", "test", "exam"], "book": ["book title", "book name"],
+    },
     "packages": {
         "name": ["description", "package", "package name"], "sessions_per_week": ["maximum days", "days", "classes per week"],
         "session_minutes": ["session", "minutes", "duration"], "is_trial": ["trial"],
@@ -577,6 +597,8 @@ def _dup_key(entity: str, data: dict) -> Optional[str]:
         return (data.get("code") or "").lower() or None
     if entity == "packages":
         return f"{data.get('name', '')}|{data.get('currency', '')}|{data.get('country', '')}".lower() if data.get("name") else None
+    if entity == "questions":
+        return f"{data.get('question', '')}|{data.get('assessment', '')}".strip().lower() if data.get("question") else None
     return None
 
 
@@ -645,7 +667,35 @@ def _exists_in_db(db: Session, entity: str, data: dict) -> bool:
             q = q.filter(Package.currency == str(data["currency"]).upper())
         q = q.filter(Package.country == data["country"]) if data.get("country") else q.filter(Package.country.is_(None))
         return bool(q.first())
+    if entity == "questions":
+        from app.models.erp import QuestionBankItem
+        text = data.get("question")
+        if not text:
+            return False
+        assessment = _assessment(db, data.get("assessment"))
+        q = db.query(QuestionBankItem.id).filter(func.lower(QuestionBankItem.question) == str(text).strip().lower())
+        q = q.filter(QuestionBankItem.assessment_id == assessment.id) if assessment else q
+        return bool(q.first())
     return False
+
+
+def _assessment(db: Session, raw):
+    from app.models.erp import AssessmentDefinition
+    title = str(raw or "").strip()
+    if not title:
+        return None
+    return db.query(AssessmentDefinition).filter(func.lower(AssessmentDefinition.title) == title.lower()).first()
+
+
+def _book(db: Session, raw):
+    from app.models.academic import Book
+    title = str(raw or "").strip()
+    if not title:
+        return None
+    return db.query(Book).filter(func.lower(Book.title) == title.lower()).first()
+
+
+QUESTION_TYPES = ("oral", "written", "recitation", "mcq")
 
 
 # ----------------------------------------------------------------------------- validation
@@ -919,6 +969,26 @@ def _import_row(db: Session, entity: str, clean: dict, actor: Optional[User]) ->
         db.add(obj)
         db.flush()
         return obj.name
+    if entity == "questions":
+        from app.models.erp import QuestionBankItem
+        assessment, book = _assessment(db, clean.get("assessment")), _book(db, clean.get("book"))
+        if clean.get("assessment") and assessment is None:
+            raise ValueError(f"no assessment '{clean['assessment']}'")
+        if clean.get("book") and book is None:
+            raise ValueError(f"no book '{clean['book']}'")
+        qtype = str(clean.get("question_type") or "oral").strip().lower()
+        if qtype == "multiple choice":
+            qtype = "mcq"
+        if qtype not in QUESTION_TYPES:
+            raise ValueError(f"type must be one of {', '.join(QUESTION_TYPES)}, not '{qtype}'")
+        status = str(clean.get("status") or "active").strip().lower()
+        obj = QuestionBankItem(question=str(clean["question"]).strip(), answer=clean.get("answer"), question_type=qtype,
+                               marks=float(clean.get("marks") or 1), assessment_id=assessment.id if assessment else None,
+                               book_id=book.id if book else None,
+                               status="inactive" if status in ("inactive", "in-active", "no", "0") else "active")
+        db.add(obj)
+        db.flush()
+        return f"Q{obj.id}"
     raise ValueError(f"unsupported entity {entity}")
 
 
@@ -1039,6 +1109,8 @@ def template_csv(entity: str) -> str:
                      "45.00", "0.00", "45.00", "45.00", "paid", "August tuition"],
         "payments": ["LEG-PAY-9001", "LEG-1001", "ahmed.khan@example.com", "LEG-INV-5001", "45.00", "GBP",
                      "bank", "TRX-88213", "2025-08-03", "Bank transfer"],
+        "questions": ["Recite Surah Al-Fatiha with tajweed", "Correct makharij, no lahn jali", "recitation", "5",
+                      "", "", "active"],
     }.get(entity)
     if sample:
         w.writerow(sample[:len(cols)])

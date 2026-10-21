@@ -10,7 +10,7 @@
   {% endif %}
   {{ ui.button("Day view", href="/classes/day?date=" ~ (day or date_from), icon="calendar-range", variant="secondary") }}
   {% if has_perm(user, 'classes.add') or has_perm(user, 'schedules.update') %}
-  {{ ui.button("Generate sessions", icon="calendar-plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'genSessions\')"') }}
+  {{ ui.button("Generate classes", icon="calendar-plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'genSessions\')"') }}
   {% endif %}
 {% endcall %}
 
@@ -57,6 +57,8 @@
   <td class="px-3 py-1.5 text-xs">{% if c.activity_updated_at %}<span class="text-emerald-700">{{ c.activity_updated_at|date }}</span>{% elif c.status == 'done' %}<span class="font-semibold text-rose-600">No Activity</span>{% else %}-{% endif %}</td>
   <td class="px-3 py-1.5 text-right whitespace-nowrap">
     {{ ui.button('Open', href='/classes/' ~ c.id, size='sm', variant='ghost') }}
+    {% if c.student_id and has_perm(user, 'students.view') %}<a href="/students/{{ c.student_id }}/print" title="Student detail (print)" class="inline-flex rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"><i data-lucide="printer" class="h-3.5 w-3.5"></i></a>{% endif %}
+    {% if c.subscription_id and has_perm(user, 'subscriptions.view') %}<a href="/subscriptions/{{ c.subscription_id }}/day-wise?month={{ c.date.strftime('%Y-%m') }}" title="Subscription day wise report" class="inline-flex rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"><i data-lucide="calendar-days" class="h-3.5 w-3.5"></i></a>{% endif %}
     {% if c.status in ('pending','available','started') %}{{ ui.button('Room', href='/classroom/' ~ c.id, size='sm', variant='secondary', icon='video') }}{% endif %}
   </td>
 </tr>
@@ -104,9 +106,9 @@
 {% endcall %}
 {% endif %}
 
-{% call ui.modal('genSessions', 'Generate class sessions') %}
+{% call ui.modal('genSessions', 'Generate classes') %}
 <form method="post" action="/classes/generate" class="space-y-4">
-  <p class="text-sm text-slate-500">Materialises sessions for every active schedule in the chosen range. Existing sessions are never duplicated.</p>
+  <p class="text-sm text-slate-500">Creates the classes of every active schedule in the chosen range. Classes are also generated automatically once a day, 14 days ahead; existing classes are never duplicated.</p>
   <div class="grid gap-4 sm:grid-cols-2">
     {{ ui.input('start_date', 'From', today(), type='date', required=True) }}
     {{ ui.input('end_date', 'To', '', type='date', required=True) }}
