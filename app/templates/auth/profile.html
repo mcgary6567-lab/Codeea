@@ -23,9 +23,26 @@
 {% if user.must_change_password %}{{ ui.alert('You must set a new password before continuing.', 'warning') }}<div class="h-3"></div>{% endif %}
 <form method="post" class="space-y-4"><input type="hidden" name="action" value="password">
   {{ ui.input('current_password', 'Current password', type='password', required=True) }}
-  {{ ui.input('new_password', 'New password', type='password', required=True) }}
-  {{ ui.input('confirm_password', 'Confirm new password', type='password', required=True) }}
-  <div>{{ ui.button('Update password', icon='key-round') }}</div>
+  <div x-data="{ pw: '', again: '' }" class="space-y-4">
+    <div>
+      <label for="f_new_password" class="mb-1 block text-xs font-semibold text-slate-600">New password <span class="text-rose-500">*</span></label>
+      <input id="f_new_password" name="new_password" type="password" required autocomplete="new-password" x-model="pw"
+             class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+      <ul class="mt-2 space-y-0.5 text-xs" aria-label="Password rules">
+        <li :class="pw.length >= 8 ? 'text-emerald-700' : 'text-slate-500'"><span x-text="pw.length >= 8 ? '✓' : '•'">•</span> At least 8 characters</li>
+        <li :class="/[0-9]/.test(pw) ? 'text-emerald-700' : 'text-slate-500'"><span x-text="/[0-9]/.test(pw) ? '✓' : '•'">•</span> At least one digit</li>
+        <li :class="/[A-Za-z]/.test(pw) ? 'text-emerald-700' : 'text-slate-500'"><span x-text="/[A-Za-z]/.test(pw) ? '✓' : '•'">•</span> At least one letter</li>
+      </ul>
+    </div>
+    <div>
+      <label for="f_confirm_password" class="mb-1 block text-xs font-semibold text-slate-600">Confirm new password <span class="text-rose-500">*</span></label>
+      <input id="f_confirm_password" name="confirm_password" type="password" required autocomplete="new-password" x-model="again"
+             class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+      <p class="mt-1 text-xs text-rose-600" x-show="again && again !== pw" x-cloak>The two passwords do not match.</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2">{{ ui.button('Update password', icon='key-round') }}
+    {% if not user.must_change_password %}<a href="/profile" class="rounded px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancel</a>{% endif %}</div>
 </form>
 {% endcall %}
 {% elif tab == '2fa' %}

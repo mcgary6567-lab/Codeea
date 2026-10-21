@@ -281,14 +281,40 @@ def teacher_performance(request: Request, date_from: str = "", date_to: str = ""
 
 
 # ============================================================================= I. Configurations
-@router.get("/config", include_in_schema=False)
-def config(request: Request, db: Session = Depends(get_db), user: User = Depends(require("qa.configure"))):
+# The ERP keeps three pages under Quality Management > Configurations; /qa/config is their landing card page.
+CONFIG_SECTIONS = [
+    ("review-parameters", "QA Review Parameters", "sliders-horizontal", "Rated on every call review; weighted into the overall stars"),
+    ("issue-types", "QA Issue Type", "alert-triangle", "The checklist of problems a reviewer can tick"),
+    ("action-types", "QA Action Type", "list-checks", "What a corrective action asks of the teacher"),
+]
+
+
+def _config_context(db: Session) -> dict:
+    from app.models.erp import QAActionType
     params = db.query(QAReviewParameter).order_by(QAReviewParameter.sort_no, QAReviewParameter.id).all()
     issues = db.query(QAIssueType).order_by(QAIssueType.severity.desc(), QAIssueType.name).all()
-    return render(request, "qa/config.html", {
-        "user": user, "params": params, "issues": issues,
-        "stats": {"params": len(params), "params_active": sum(1 for p in params if p.status == "active"),
-                  "issues": len(issues), "critical": sum(1 for i in issues if i.severity == "critical" and i.status == "active")}})
+    actions = db.query(QAActionType).order_by(QAActionType.name).all()
+    return {"params": params, "issues": issues, "actions": actions,
+            "stats": {"params": len(params), "params_active": sum(1 for p in params if p.status == "active"),
+                      "issues": len(issues), "critical": sum(1 for i in issues if i.severity == "critical" and i.status == "active"),
+                      "actions": len(actions), "actions_active": sum(1 for a in actions if a.status == "active")}}
+
+
+@router.get("/config", include_in_schema=False)
+def config(request: Request, db: Session = Depends(get_db), user: User = Depends(require("qa.configure"))):
+    ctx = _config_context(db)
+    counts = {"review-parameters": ctx["stats"]["params"], "issue-types": ctx["stats"]["issues"],
+              "action-types": ctx["stats"]["actions"]}
+    return render(request, "qa/config_home.html", {"user": user, "sections": CONFIG_SECTIONS, "counts": counts})
+
+
+@router.get("/config/{section}", include_in_schema=False)
+def config_section(section: str, request: Request, db: Session = Depends(get_db), user: User = Depends(require("qa.configure"))):
+    titles = {k: (title, blurb) for k, title, _, blurb in CONFIG_SECTIONS}
+    if section not in titles:
+        raise HTTPException(404, "Unknown configuration page")
+    return render(request, "qa/config.html", {"user": user, "section": section, "title": titles[section][0],
+                                              "blurb": titles[section][1], **_config_context(db)})
 
 
 def _param_from_form(form, p: QAReviewParameter) -> Optional[str]:
@@ -311,14 +337,14 @@ async def param_new(request: Request, db: Session = Depends(get_db), user: User 
     p = QAReviewParameter(status="active")
     err = _param_from_form(form, p)
     if err:
-        return redirect("/qa/config", err, "error")
+        return redirect("/qa/config/review-parameters", err, "error")
     if db.query(QAReviewParameter).filter(func.lower(QAReviewParameter.name) == p.name.lower()).first():
-        return redirect("/qa/config", f"A parameter named '{p.name}' already exists.", "error")
+        return redirect("/qa/config/review-parameters", f"A parameter named '{p.name}' already exists.", "error")
     db.add(p)
     db.flush()
     log_action(db, user, "create", "qa", entity=p, description=f"QA review parameter '{p.name}' created (weight {p.weight})", after=snapshot(p), request=request)
     db.commit()
-    return redirect("/qa/config", f"Parameter '{p.name}' added.")
+    return redirect("/qa/config/review-parameters", f"Parameter '{p.name}' added.")
 
 
 @router.post("/config/parameters/{pid}/edit", include_in_schema=False)
@@ -330,10 +356,10 @@ async def param_edit(pid: int, request: Request, db: Session = Depends(get_db), 
     before = snapshot(p)
     err = _param_from_form(form, p)
     if err:
-        return redirect("/qa/config", err, "error")
+        return redirect("/qa/config/review-parameters", err, "error")
     log_action(db, user, "update", "qa", entity=p, description=f"QA review parameter '{p.name}' updated", before=before, after=snapshot(p), request=request)
     db.commit()
-    return redirect("/qa/config", f"Parameter '{p.name}' updated.")
+    return redirect("/qa/config/review-parameters", f"Parameter '{p.name}' updated.")
 
 
 @router.post("/config/parameters/{pid}/toggle", include_in_schema=False)
@@ -345,7 +371,7 @@ async def param_toggle(pid: int, request: Request, db: Session = Depends(get_db)
     p.status = "inactive" if p.status == "active" else "active"
     log_action(db, user, "update", "qa", entity=p, description=f"QA review parameter '{p.name}' {p.status}", before={"status": before}, after={"status": p.status}, request=request)
     db.commit()
-    return redirect("/qa/config", f"Parameter '{p.name}' is now {p.status}.")
+    return redirect("/qa/config/review-parameters", f"Parameter '{p.name}' is now {p.status}.")
 
 
 def _issue_from_form(form, i: QAIssueType) -> Optional[str]:
@@ -366,14 +392,14 @@ async def issue_new(request: Request, db: Session = Depends(get_db), user: User 
     i = QAIssueType(status="active")
     err = _issue_from_form(form, i)
     if err:
-        return redirect("/qa/config", err, "error")
+        return redirect("/qa/config/issue-types", err, "error")
     if db.query(QAIssueType).filter(func.lower(QAIssueType.name) == i.name.lower()).first():
-        return redirect("/qa/config", f"An issue type named '{i.name}' already exists.", "error")
+        return redirect("/qa/config/issue-types", f"An issue type named '{i.name}' already exists.", "error")
     db.add(i)
     db.flush()
     log_action(db, user, "create", "qa", entity=i, description=f"QA issue type '{i.name}' created ({i.severity})", after=snapshot(i), request=request)
     db.commit()
-    return redirect("/qa/config", f"Issue type '{i.name}' added.")
+    return redirect("/qa/config/issue-types", f"Issue type '{i.name}' added.")
 
 
 @router.post("/config/issue-types/{iid}/edit", include_in_schema=False)
@@ -385,10 +411,10 @@ async def issue_edit(iid: int, request: Request, db: Session = Depends(get_db), 
     before = snapshot(i)
     err = _issue_from_form(form, i)
     if err:
-        return redirect("/qa/config", err, "error")
+        return redirect("/qa/config/issue-types", err, "error")
     log_action(db, user, "update", "qa", entity=i, description=f"QA issue type '{i.name}' updated", before=before, after=snapshot(i), request=request)
     db.commit()
-    return redirect("/qa/config", f"Issue type '{i.name}' updated.")
+    return redirect("/qa/config/issue-types", f"Issue type '{i.name}' updated.")
 
 
 @router.post("/config/issue-types/{iid}/toggle", include_in_schema=False)
@@ -400,10 +426,72 @@ async def issue_toggle(iid: int, request: Request, db: Session = Depends(get_db)
     i.status = "inactive" if i.status == "active" else "active"
     log_action(db, user, "update", "qa", entity=i, description=f"QA issue type '{i.name}' {i.status}", before={"status": before}, after={"status": i.status}, request=request)
     db.commit()
-    return redirect("/qa/config", f"Issue type '{i.name}' is now {i.status}.")
+    return redirect("/qa/config/issue-types", f"Issue type '{i.name}' is now {i.status}.")
 
 
 # ============================================================================= J. Legacy sampled-review list (Module 17)
+def _action_type_options(db: Session) -> list[tuple[int, str]]:
+    from app.models.erp import QAActionType
+    return [(a.id, f"{a.name} (due in {a.due_days} days)") for a in
+            db.query(QAActionType).filter(QAActionType.status == "active").order_by(QAActionType.name)]
+
+
+def _action_from_form(form, a) -> Optional[str]:
+    name = (form.get("name") or "").strip()
+    if not name:
+        return "An action type name is required."
+    a.name = name[:80]
+    a.description = (form.get("description") or "").strip()[:200] or None
+    a.due_days = max(0, min(90, parse_int(form.get("due_days"), 7) or 0))
+    if form.get("status") in ("active", "inactive"):
+        a.status = form.get("status")
+    return None
+
+
+@router.post("/config/action-types/new", include_in_schema=False)
+async def action_type_new(request: Request, db: Session = Depends(get_db), user: User = Depends(require("qa.configure"))):
+    from app.models.erp import QAActionType
+    form = await request.form()
+    a = QAActionType(name="", status="active", due_days=7)
+    err = _action_from_form(form, a)
+    if err:
+        return redirect("/qa/config/action-types", err, "error")
+    if db.query(QAActionType).filter(func.lower(QAActionType.name) == a.name.lower()).first():
+        return redirect("/qa/config/action-types", f"An action type named '{a.name}' already exists.", "error")
+    db.add(a)
+    db.flush()
+    log_action(db, user, "create", "qa", entity=a, description=f"QA action type '{a.name}' created", request=request)
+    db.commit()
+    return redirect("/qa/config/action-types", f"Action type '{a.name}' added.")
+
+
+@router.post("/config/action-types/{aid}/edit", include_in_schema=False)
+async def action_type_edit(aid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("qa.configure"))):
+    from app.models.erp import QAActionType
+    a = db.get(QAActionType, aid)
+    if not a:
+        raise HTTPException(404, "Action type not found")
+    form = await request.form()
+    err = _action_from_form(form, a)
+    if err:
+        return redirect("/qa/config/action-types", err, "error")
+    log_action(db, user, "update", "qa", entity=a, description=f"QA action type '{a.name}' updated", request=request)
+    db.commit()
+    return redirect("/qa/config/action-types", f"Action type '{a.name}' updated.")
+
+
+@router.post("/config/action-types/{aid}/toggle", include_in_schema=False)
+async def action_type_toggle(aid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("qa.configure"))):
+    from app.models.erp import QAActionType
+    a = db.get(QAActionType, aid)
+    if not a:
+        raise HTTPException(404, "Action type not found")
+    a.status = "inactive" if a.status == "active" else "active"
+    log_action(db, user, "update", "qa", entity=a, description=f"QA action type '{a.name}' set {a.status}", request=request)
+    db.commit()
+    return redirect("/qa/config/action-types", f"Action type '{a.name}' is now {a.status}.")
+
+
 @router.get("", include_in_schema=False)
 def queue(request: Request, page: int = 1, status: str = "", sample_type: str = "", teacher_id: int | None = None,
           date_from: str = "", date_to: str = "", q: str = "", db: Session = Depends(get_db),
@@ -552,6 +640,7 @@ def review_detail(id: int, request: Request, db: Session = Depends(get_db), user
         "params": params, "issue_types": issue_types, "selected_issues": selected_issues,
         "criteria": svc.QA_CRITERIA, "weights": svc.QA_WEIGHTS, "threshold": svc.APPROVAL_THRESHOLD,
         "actions": db.query(CorrectiveAction).filter(CorrectiveAction.qa_review_id == r.id).all(),
+        "action_type_options": _action_type_options(db),
         "re_evaluations": db.query(QAReview).filter(QAReview.re_evaluation_of_id == r.id).all(),
         "needs_approval": r.status == "completed" and not is_call and (r.overall_score or 0) < svc.APPROVAL_THRESHOLD})
 
@@ -650,7 +739,8 @@ async def add_action(id: int, request: Request, db: Session = Depends(get_db), u
     description = (form.get("description") or "").strip()
     if not description:
         return redirect(f"/qa/{r.id}", "Describe the corrective action.", "error")
-    svc.add_corrective_action(db, r, r.teacher_id, description, parse_date(form.get("due_date")), user, request=request)
+    svc.add_corrective_action(db, r, r.teacher_id, description, parse_date(form.get("due_date")), user, request=request,
+                              action_type_id=parse_int(form.get("action_type_id")))
     db.commit()
     return redirect(f"/qa/{r.id}", "Corrective action assigned and the teacher was notified.")
 

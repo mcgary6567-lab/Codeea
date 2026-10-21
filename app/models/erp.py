@@ -396,6 +396,16 @@ class QAIssueType(Base, PKMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="active")
 
 
+class QAActionType(Base, PKMixin, TimestampMixin):
+    """What a corrective action asks of the teacher (the ERP's "QA Action Type"): coaching, warning, re-evaluation.
+    ``due_days`` sets the due date when the reviewer leaves it empty."""
+    __tablename__ = "qa_action_types"
+    name: Mapped[str] = mapped_column(String(80))
+    description: Mapped[Optional[str]] = mapped_column(String(200))
+    due_days: Mapped[int] = mapped_column(Integer, default=7)
+    status: Mapped[str] = mapped_column(String(20), default="active")
+
+
 FEEDBACK_ANSWER_TYPES = ["rating", "yes_no", "text"]
 FEEDBACK_APPLIES_TO = ["client", "student", "staff"]
 

@@ -78,6 +78,14 @@ TEMPLATES = [
     ("win_back", "whatsapp", "We miss {{student}}", "Assalamu Alaikum {{name}}, we noticed {{student}} has missed some classes. Can we help with a schedule change or a short refresher course?"),
 ]
 
+QA_ACTION_TYPES = [
+    ("Coaching session", "A one-to-one session with the academic manager on the issues found", 7),
+    ("Verbal warning", "Recorded warning; repeated issues move to a written warning", 3),
+    ("Written warning", "Formal warning placed on the teacher's file", 3),
+    ("Re-evaluation", "Another class of the teacher is reviewed after the coaching", 14),
+    ("Training module", "Complete the assigned training before the due date", 14),
+]
+
 SETTINGS = [
     # Meta's GET handshake on /api/v1/webhooks/whatsapp compares hub.verify_token with this; empty falls back to the
     # built-in development token, so set it on /admin/settings (Configuration) before connecting the live number.
@@ -166,6 +174,11 @@ def run(db: Session) -> None:
     for key, value, group, desc in SETTINGS:
         if not db.query(Setting).filter(Setting.key == key).first():
             db.add(Setting(key=key, value=value, group=group, description=desc))
+
+    # QA action types (the old ERP's QA Action Type list), so a new installation does not start empty.
+    from app.models.erp import QAActionType
+    if not db.query(QAActionType).count():
+        db.add_all([QAActionType(name=name, description=desc, due_days=days, status="active") for name, desc, days in QA_ACTION_TYPES])
     db.commit()
 
     try:

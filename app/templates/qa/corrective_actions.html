@@ -15,10 +15,11 @@
   {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}
 {% endcall %}
 
-{{ ui.table_start(['Teacher','Action','Review','Due','Status','']) }}
+{{ ui.table_start(['Teacher','Type','Action','Review','Due','Status','']) }}
 {% for a in page.items %}
 <tr class="{{ 'bg-rose-50/40 dark:bg-rose-950/20' if a.status == 'overdue' }}">
   <td class="px-4 py-2 font-medium">{{ a.teacher.full_name if a.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.action_type.name if a.action_type else '—' }}</td>
   <td class="px-4 py-2 max-w-md text-sm">{{ a.description }}{% if a.closure_note %}<div class="text-xs text-slate-500">Closed: {{ a.closure_note }}</div>{% endif %}</td>
   <td class="px-4 py-2 text-xs">{% if a.qa_review_id %}<a href="/qa/{{ a.qa_review_id }}" class="text-brand-600 hover:underline">#{{ a.qa_review_id }}</a>{% else %}—{% endif %}</td>
   <td class="px-4 py-2 text-xs">{{ a.due_date|date }}</td>
@@ -37,7 +38,7 @@
     {% endif %}
   </td>
 </tr>
-{% else %}{{ ui.empty('No corrective actions match these filters.', 6, 'list-checks') }}{% endfor %}
+{% else %}{{ ui.empty('No corrective actions match these filters.', 7, 'list-checks') }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% endblock %}

@@ -48,15 +48,29 @@
     </td>
     <td class="px-3 py-3 text-xs text-slate-600">{{ s.description or '—' }}</td>
     <td class="px-3 py-3">
-      {% if s.is_secret and not it.revealed %}
+      {% if s.is_secret %}
         <div class="flex items-center gap-2">
+          {% if it.hashed %}
+          <code class="flex-1 rounded border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs text-slate-500">{{ '•••••• set, stored hashed' if it.is_set else 'Not set' }}</code>
+          {% elif it.revealed %}
+          <code class="flex-1 rounded border border-rose-200 bg-rose-50 px-3 py-1.5 font-mono text-xs text-rose-700">{{ it.text }}</code>
+          {% else %}
           <code class="flex-1 rounded border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs text-slate-500">{{ (it.value|string)|mask }}</code>
           <form method="post" action="/config/branch-properties/{{ s.id }}/reveal">
             <input type="hidden" name="tab" value="{{ tab }}">
             {{ ui.button('Reveal', icon='eye', variant='secondary', size='sm') }}
           </form>
+          {% endif %}
         </div>
-        <p class="mt-1 text-[11px] text-slate-500">Revealing a secret property is written to the audit log.</p>
+        {% if s.is_editable %}
+        <form method="post" action="/config/branch-properties/{{ s.id }}/save" class="mt-2 flex flex-wrap items-end gap-2" autocomplete="off">
+          <input type="hidden" name="tab" value="{{ tab }}">
+          <div class="w-40">{{ ui.input('value', 'New value', '', type='password', attrs='autocomplete="new-password"' ~ (' inputmode="numeric"' if it.hashed else '')) }}</div>
+          <div class="w-40">{{ ui.input('confirm', 'Confirm', '', type='password', attrs='autocomplete="new-password"' ~ (' inputmode="numeric"' if it.hashed else '')) }}</div>
+          {{ ui.button('Change', icon='key-round', size='sm') }}
+        </form>
+        {% endif %}
+        <p class="mt-1 text-[11px] text-slate-500">{% if it.hashed %}Only a hash is kept: the value cannot be read back, only replaced.{% elif it.revealed %}Shown in the clear — this reveal is in the audit log.{% else %}Revealing a secret property is written to the audit log.{% endif %}</p>
       {% else %}
         <form method="post" action="/config/branch-properties/{{ s.id }}/save" class="flex flex-wrap items-end gap-2">
           <input type="hidden" name="tab" value="{{ tab }}">

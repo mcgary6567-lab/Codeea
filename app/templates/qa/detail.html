@@ -163,7 +163,7 @@
       <ul class="mb-4 divide-y divide-slate-100 text-sm dark:divide-slate-800">
         {% for a in actions %}
         <li class="flex items-start justify-between gap-3 py-2">
-          <div><div>{{ a.description }}</div><div class="text-xs text-slate-500">Due {{ a.due_date|date }}{% if a.closure_note %} · closed: {{ a.closure_note }}{% endif %}</div></div>
+          <div><div>{% if a.action_type %}<span class="mr-1 rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-600">{{ a.action_type.name }}</span>{% endif %}{{ a.description }}</div><div class="text-xs text-slate-500">Due {{ a.due_date|date }}{% if a.closure_note %} · closed: {{ a.closure_note }}{% endif %}</div></div>
           {{ ui.badge(a.status) }}
         </li>
         {% else %}<li class="py-4 text-center text-slate-400">No corrective actions assigned from this review.</li>{% endfor %}
@@ -171,7 +171,8 @@
       {% if has_perm(user, 'qa.add') or has_perm(user, 'qa.update') %}
       <form method="post" action="/qa/{{ r.id }}/corrective-action" class="grid gap-3 sm:grid-cols-3">
         <div class="sm:col-span-2">{{ ui.input('description', 'New corrective action', '', required=True, placeholder='e.g. Complete the Ustaadh Lab module on pacing') }}</div>
-        {{ ui.input('due_date', 'Due date', '', type='date') }}
+        {{ ui.input('due_date', 'Due date', '', type='date', help='Empty: set from the action type') }}
+        {% if action_type_options %}<div class="sm:col-span-3">{{ ui.select('action_type_id', 'Action type', action_type_options, none, placeholder='— None —') }}</div>{% endif %}
         <div class="sm:col-span-3">{{ ui.button('Assign action', icon='list-plus', size='sm', variant='secondary') }}</div>
       </form>
       {% endif %}

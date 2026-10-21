@@ -226,9 +226,12 @@ class CorrectiveAction(Base, PKMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="open")  # open | in_progress | closed | overdue
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     closure_note: Mapped[Optional[str]] = mapped_column(Text)
+    action_type_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("qa_action_types.id", ondelete="SET NULL", name="fk_corrective_actions_action_type"))
 
     qa_review = relationship("QAReview", back_populates="corrective_actions")
     teacher = relationship("Teacher")
+    action_type = relationship("QAActionType")
 
 
 class Trial(Base, PKMixin, TimestampMixin):

@@ -316,9 +316,14 @@ def update_teacher_qa_avg(db: Session, teacher_id: int) -> float:
     return t.qa_score_avg
 
 
-def add_corrective_action(db: Session, review: Optional[QAReview], teacher_id: int, description: str, due: Optional[date], user: User, request=None) -> CorrectiveAction:
+def add_corrective_action(db: Session, review: Optional[QAReview], teacher_id: int, description: str, due: Optional[date], user: User, request=None,
+                          action_type_id: Optional[int] = None) -> CorrectiveAction:
+    from app.models.erp import QAActionType
+    action_type = db.get(QAActionType, action_type_id) if action_type_id else None
+    if action_type and due is None:
+        due = date.today() + timedelta(days=max(0, action_type.due_days or 0))
     ca = CorrectiveAction(qa_review_id=review.id if review else None, teacher_id=teacher_id, description=description, assigned_by_id=user.id,
-                          due_date=due, status="open")
+                          due_date=due, status="open", action_type_id=action_type.id if action_type else None)
     db.add(ca)
     db.flush()
     t = db.get(Teacher, teacher_id)

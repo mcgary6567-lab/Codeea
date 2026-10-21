@@ -275,6 +275,9 @@ def _seed_branch_properties(db: Session) -> int:
                 s.description = s.description or description
                 s.group = group
             continue
+        if key == "secret_pin_code":  # kept as a hash (FL-D-17); the demo pin is still 483920
+            from app.core.security import hash_password
+            value = hash_password(str(value))
         db.add(Setting(key=key, value={"value": value}, group=group, description=description, label=label,
                        value_type=value_type, unit=unit, is_secret=is_secret, is_editable=is_editable, sort_no=sort_no))
         created += 1

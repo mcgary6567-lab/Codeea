@@ -180,6 +180,27 @@ def coerce_setting(value_type: str, raw, current=None):
     return "" if raw is None else str(raw)
 
 
+# Secrets that are only ever checked, never read back (the old ERP kept its pin in a plain text field, FL-D-17):
+# entered in a password field, stored as a bcrypt hash, and compared with verify_secret().
+HASHED_SECRETS = {"secret_pin_code"}
+
+
+def is_hashed(value) -> bool:
+    return isinstance(value, str) and value.startswith("$2") and len(value) >= 50
+
+
+def verify_secret(db: Session, key: str, candidate: str) -> bool:
+    """True when ``candidate`` matches the hashed secret ``key`` (for example the pin that releases payroll)."""
+    from app.core.security import verify_password
+    s = db.query(Setting).filter(Setting.key == key).first()
+    value = setting_value(s) if s else None
+    if not candidate or not value:
+        return False
+    if is_hashed(value):
+        return verify_password(str(candidate), value)
+    return str(candidate) == str(value)  # a pin not yet re-saved since hashing was introduced
+
+
 def store_setting(s: Setting, new_value) -> None:
     """Write the value back in the shape the row already uses ({"value": x} or a bare JSON value)."""
     if isinstance(s.value, dict) and list(s.value.keys()) == ["value"]:
@@ -489,9 +510,11 @@ def branch_properties(request: Request, tab: str = "all", q: str = "", reveal: i
     for s in rows:
         value = setting_value(s)
         vt = effective_type(s)   # older multi-key settings edit as JSON whatever they declare
-        items.append({"s": s, "value": value, "vt": vt,
-                      "text": json.dumps(value, indent=2, default=str) if vt == "json" else ("" if value is None else str(value)),
-                      "revealed": bool(reveal and reveal == s.id)})
+        hashed = s.key in HASHED_SECRETS or is_hashed(value)
+        items.append({"s": s, "value": None if hashed else value, "vt": vt, "hashed": hashed,
+                      "is_set": value not in (None, ""),
+                      "text": "" if hashed else (json.dumps(value, indent=2, default=str) if vt == "json" else ("" if value is None else str(value))),
+                      "revealed": bool(reveal and reveal == s.id) and not hashed})
     return render(request, "company_config/branch_properties.html", {
         "user": user, "items": items, "tab": tab, "q": q, "tabs": tabs, "by_group": by_group,
         "reveal": reveal, "value_types": VALUE_TYPES,
@@ -512,12 +535,24 @@ async def branch_property_save(sid: int, request: Request, db: Session = Depends
     if not s.is_editable:
         return redirect(back, f"'{s.label or s.key}' is not editable from this screen.", "error")
     before = snapshot(s)
-    try:
-        new_value = coerce_setting(effective_type(s), form.get("value"), setting_value(s))
-    except ValueError as exc:
-        return redirect(back, f"{s.label or s.key}: {exc}", "error")
-    if new_value == setting_value(s):
-        return redirect(back, "No change detected.", "warning")
+    if s.is_secret:
+        new_value = str(form.get("value") or "")
+        if not new_value:
+            return redirect(back, f"Enter the new {s.label or s.key}.", "error")
+        if new_value != str(form.get("confirm") or ""):
+            return redirect(back, f"The two entries for {s.label or s.key} do not match.", "error")
+        if s.key in HASHED_SECRETS:
+            if not new_value.isdigit() or not 4 <= len(new_value) <= 12:
+                return redirect(back, f"{s.label or s.key} must be 4 to 12 digits.", "error")
+            from app.core.security import hash_password
+            new_value = hash_password(new_value)
+    else:
+        try:
+            new_value = coerce_setting(effective_type(s), form.get("value"), setting_value(s))
+        except ValueError as exc:
+            return redirect(back, f"{s.label or s.key}: {exc}", "error")
+        if new_value == setting_value(s):
+            return redirect(back, "No change detected.", "warning")
     store_setting(s, new_value)
     log_action(db, user, "update", MODULE, entity=s, severity="warning", consequential=True,
                rationale=_rationale(form) or f"Branch property '{s.label or s.key}' changed",
@@ -536,6 +571,9 @@ async def branch_property_reveal(sid: int, request: Request, db: Session = Depen
     tab = (form.get("tab") or "all").strip()
     if not s.is_secret:
         return redirect(f"{BASE}/branch-properties?tab={tab}", "That setting is not secret.", "warning")
+    if s.key in HASHED_SECRETS or is_hashed(setting_value(s)):
+        return redirect(f"{BASE}/branch-properties?tab={tab}",
+                        f"'{s.label or s.key}' is stored hashed and cannot be shown. Set a new one instead.", "warning")
     log_action(db, user, "view", MODULE, entity=s, severity="warning", consequential=True,
                rationale=_rationale(form) or "Secret branch property revealed on screen",
                description=f"Revealed the secret branch property {s.key}", request=request)

@@ -313,20 +313,21 @@ def test_a_non_editable_branch_property_is_refused(admin, db):
     assert setting_value(db.get(Setting, s.id)) == before, "a read-only property must not change"
 
 
-def test_a_secret_branch_property_is_masked_and_revealing_it_is_audited(admin, db):
+def test_the_secret_pin_is_never_shown_and_cannot_be_revealed(admin, db):
+    """FL-D-17 (21 Oct 2026): the pin is a hash at rest, so there is nothing to reveal; it is only replaced."""
     s = db.query(Setting).filter(Setting.key == "secret_pin_code").first()
     body = admin.get(f"{BASE}/branch-properties?tab=general").text
-    assert str(setting_value(s)) not in body, "a secret property must not render in the clear"
-    assert "Reveal" in body
+    assert str(setting_value(s)) not in body, "a secret property must not render, not even as its hash"
+    assert "stored hashed" in body and f"/branch-properties/{s.id}/reveal" not in body
     before = db.query(AuditEvent).filter(AuditEvent.module == "configuration",
                                          AuditEvent.action == "view").count()
-    _post(admin, f"{BASE}/branch-properties/{s.id}/reveal", {"tab": "general"})
+    r = admin.post(f"{BASE}/branch-properties/{s.id}/reveal", data={"tab": "general"})
+    assert "cannot be shown" in r.text
     db.expire_all()
     after = db.query(AuditEvent).filter(AuditEvent.module == "configuration",
                                         AuditEvent.action == "view").count()
-    assert after == before + 1, "revealing a secret must be written to the audit log"
-    revealed = admin.get(f"{BASE}/branch-properties?tab=general&reveal={s.id}").text
-    assert str(setting_value(s)) in revealed
+    assert after == before, "a refused reveal shows nothing and records no reveal"
+    assert str(setting_value(s)) not in admin.get(f"{BASE}/branch-properties?tab=general&reveal={s.id}").text
 
 
 def test_a_non_admin_cannot_reach_or_change_a_setting(billing, db):
