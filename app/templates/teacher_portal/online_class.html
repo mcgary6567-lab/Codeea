@@ -93,6 +93,14 @@
       ]) }}
       <div class="mt-3 flex flex-wrap gap-2">
         {{ ui.button('Open classroom', href='/classroom/' ~ current.id, icon='video', size='sm') }}
+        {% if zoom_connected and current.status in ('pending', 'available', 'started') %}
+        <form method="post" action="/teacher/online-class/{{ current.id }}/zoom-link" class="inline">
+          <input type="hidden" name="teacher_id" value="{{ t.id }}">
+          <input type="hidden" name="back" value="{{ base_url }}&session_id={{ current.id }}">
+          {{ ui.button('Get Meeting URL', icon='link', size='sm', variant='secondary') }}
+        </form>
+        {% endif %}
+        {% if current.join_url %}{{ ui.button('Join Zoom', href=current.join_url, icon='external-link', size='sm', variant='secondary') }}{% endif %}
         {{ ui.button('Class record', href='/classes/' ~ current.id, icon='file-text', variant='secondary', size='sm') }}
       </div>
     {% endcall %}

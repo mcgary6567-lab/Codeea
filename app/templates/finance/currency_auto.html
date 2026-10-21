@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Auto Currency Rate List{% endblock %}
+{% block content %}
+{% call ui.page_header("Auto Currency Rate List", "Rates the daily feed fetched against " ~ (base.code if base else 'the base currency') ~ ". A currency set by hand is left alone until a feed rate is applied to it again.", back="/finance/currency-rates") %}
+  {% if can_edit %}
+  <form method="post" action="/finance/currency-rates/refresh" class="inline">
+    {{ ui.button('Fetch rates now', icon='refresh-cw') }}
+  </form>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-5 grid gap-3 sm:grid-cols-3">
+  {{ ui.stat("Feed status", (integ.health or integ.status or 'not run yet')|titleize, color=palette(0)) }}
+  {{ ui.stat("Last run", integ.last_health_check_at|datetime if integ.last_health_check_at else 'Never', color=palette(1)) }}
+  {{ ui.stat("Rates fetched", rows|length, color=palette(2), hint="latest 200") }}
+</div>
+{% if integ.last_error %}<div class="mb-4">{{ ui.alert(integ.last_error, 'warning', 'Last error:') }}</div>{% endif %}
+<p class="mb-3 text-xs text-slate-500">Source: <span class="font-mono">{{ url }}</span> · runs once a day.</p>
+
+{% set bc = base.code if base else 'base' %}
+{{ ui.table_start(['Fetched at', 'Currency', bc ~ ' for 1 unit', 'Units for 1 ' ~ bc]) }}
+{% for r in rows %}
+<tr>
+  <td class="px-3 py-1.5 whitespace-nowrap">{{ r.effective_at|datetime }}</td>
+  <td class="px-3 py-1.5 font-medium"><a class="text-brand-700 hover:underline" href="/finance/currency-rates/{{ r.currency_code }}">{{ r.currency_code }}</a></td>
+  <td class="px-3 py-1.5 text-right font-mono">{{ '%.6f'|format(r.rate_to_base|float) }}</td>
+  <td class="px-3 py-1.5 text-right font-mono">{{ '%.6f'|format(1 / (r.rate_to_base|float)) if r.rate_to_base|float else '—' }}</td>
+</tr>
+{% else %}{{ ui.empty('The feed has not fetched any rate yet.', 4, 'coins') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

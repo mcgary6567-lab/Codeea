@@ -172,7 +172,14 @@ def unfreeze_due_subscriptions(db: Session) -> dict:
     return {"resumed": len(rows)}
 
 
+def currency_feed(db: Session) -> str:
+    """Once a day: today's currency rates from the rate feed (app/services/fx_feed.py)."""
+    from app.services import fx_feed
+    return fx_feed.job(db)
+
+
 JOBS = [
+    ("finance_currency_feed", currency_feed, 1440),
     ("finance_daily_invoicing", daily_invoice_generation, 720),
     ("finance_overdue_reminders", overdue_and_reminders, 240),
     ("finance_failed_payments", failed_payment_alerts, 60),

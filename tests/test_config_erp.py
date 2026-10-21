@@ -378,7 +378,13 @@ def test_a_bad_manual_rate_is_rejected(admin, db):
     assert abs(float(db.get(Currency, currency.id).rate_to_base) - before) < 1e-6
 
 
-def test_the_simulated_feed_updates_every_non_base_currency(admin, db):
+def test_the_simulated_feed_updates_every_non_base_currency(admin, db, monkeypatch):
+    """Outside production, when the rate provider cannot be reached, Refresh falls back to the simulated drift."""
+    from app.services import fx_feed
+
+    def offline(db_, base, timeout=15.0):
+        raise RuntimeError("offline")
+    monkeypatch.setattr(fx_feed, "fetch", offline)
     codes = [c.code for c in db.query(Currency).filter(Currency.is_base.is_(False),
                                                        Currency.manual_override.is_(False)).all()]
     before = {c: db.query(ExchangeRateHistory).filter(ExchangeRateHistory.currency_code == c).count() for c in codes}

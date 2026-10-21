@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Attendance Machine List{% endblock %}
+{% block content %}
+{% call ui.page_header("Attendance Machine List", "Biometric machines that send staff punches. The first punch of a day is the check-in, the last the check-out.", back="/hr/attendance") %}
+  {% if has_perm(user, 'hr_attendance.update') %}
+  {{ ui.button("Upload attendance log", icon="upload", variant="secondary", attrs='type="button" @click="$dispatch(&#39;open-modal&#39;,&#39;uploadLog&#39;)"') }}
+  {{ ui.button("Link employee", icon="link", variant="secondary", attrs='type="button" @click="$dispatch(&#39;open-modal&#39;,&#39;linkEmp&#39;)"') }}
+  {{ ui.button("Register machine", icon="plus", attrs='type="button" @click="$dispatch(&#39;open-modal&#39;,&#39;newMachine&#39;)"') }}
+  {% endif %}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+  {{ ui.stat("Machines", stats.machines, color=palette(0)) }}
+  {{ ui.stat("Active", stats.active, color=palette(1)) }}
+  {{ ui.stat("Punches", stats.punches, color=palette(2), href="/hr/attendance-machines") }}
+  {{ ui.stat("Without an employee", stats.unmatched, color=palette(3), href="/hr/attendance-machines?unmatched=1") }}
+  {{ ui.stat("Employees linked", stats.linked, color=palette(4)) }}
+</div>
+
+{% call ui.card("Machines", "Set each machine's Cloud / ADMS server to " ~ server_host ~ " (port 443 with HTTPS, or 80). Only machines registered here, by serial number, are accepted.") %}
+{{ ui.table_start(['Name', 'Serial No', 'Model', 'Location', 'IP', 'Last seen', 'Last punch', 'Punches', 'Status', '']) }}
+{% for m in machines %}
+<tr class="{{ 'opacity-60' if m.status != 'active' }}">
+  <td class="px-3 py-1.5 font-medium" colspan="9" x-show="editRow === {{ loop.index }}" x-cloak>
+    <form method="post" action="/hr/attendance-machines/{{ m.id }}/edit" class="grid gap-2 sm:grid-cols-6 items-end">
+      {{ ui.input('name', 'Name', m.name, required=True) }}
+      {{ ui.input('serial_no', 'Serial No', m.serial_no, required=True) }}
+      {{ ui.input('model', 'Model', m.model or '') }}
+      {{ ui.input('location', 'Location', m.location or '') }}
+      {{ ui.input('ip_address', 'IP', m.ip_address or '') }}
+      <div class="flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Cancel</button></div>
+    </form>
+  </td>
+  <td class="px-3 py-1.5 font-medium" x-show="editRow !== {{ loop.index }}">{{ m.name }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs" x-show="editRow !== {{ loop.index }}">{{ m.serial_no }}</td>
+  <td class="px-3 py-1.5" x-show="editRow !== {{ loop.index }}">{{ m.model or '—' }}</td>
+  <td class="px-3 py-1.5" x-show="editRow !== {{ loop.index }}">{{ m.location or '—' }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs" x-show="editRow !== {{ loop.index }}">{{ m.ip_address or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs" x-show="editRow !== {{ loop.index }}">{{ m.last_seen_at|datetime if m.last_seen_at else 'Never' }}</td>
+  <td class="px-3 py-1.5 text-xs" x-show="editRow !== {{ loop.index }}">{{ m.last_punch_at|datetime if m.last_punch_at else '—' }}</td>
+  <td class="px-3 py-1.5 text-right" x-show="editRow !== {{ loop.index }}">{{ m.punches_total }}</td>
+  <td class="px-3 py-1.5" x-show="editRow !== {{ loop.index }}">{{ ui.badge(m.status) }}</td>
+  <td class="px-3 py-1.5 text-right whitespace-nowrap">
+    {% if has_perm(user, 'hr_attendance.update') %}
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
+    <form method="post" action="/hr/attendance-machines/{{ m.id }}/toggle" class="inline">{{ ui.button('Deactivate' if m.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No machines registered yet.', 10, 'fingerprint') }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+
+<div class="mt-4">
+{% call ui.card("Punches" ~ (" without an employee" if unmatched == '1' else ""), "Latest 200. A punch without an employee becomes attendance once its machine user ID is linked.") %}
+{{ ui.table_start(['Time', 'Machine', 'Machine user', 'Employee', 'State', 'Source']) }}
+{% for p in punches %}
+<tr>
+  <td class="px-3 py-1.5 whitespace-nowrap">{{ p.punched_at.strftime('%d %b %Y %H:%M:%S') }}</td>
+  <td class="px-3 py-1.5">{{ p.machine.name if p.machine else 'File upload' }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ p.machine_user_id }}</td>
+  <td class="px-3 py-1.5">{% if p.employee %}{{ p.employee.employee_code }} - {{ p.employee.full_name }}{% else %}<span class="text-amber-700">Not linked</span>{% endif %}</td>
+  <td class="px-3 py-1.5">{{ p.punch_state or '—' }}</td>
+  <td class="px-3 py-1.5">{{ p.source|titleize }}</td>
+</tr>
+{% else %}{{ ui.empty('No punches yet.', 6, 'fingerprint') }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+</div>
+
+{% if has_perm(user, 'hr_attendance.update') %}
+{% call ui.modal('newMachine', 'Register machine') %}
+<form method="post" action="/hr/attendance-machines/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('name', 'Name', '', required=True, placeholder='e.g. Head office entrance') }}
+  {{ ui.input('serial_no', 'Serial No', '', required=True, help='Shown on the machine under System Info / Device Info') }}
+  {{ ui.input('model', 'Model', '', placeholder='e.g. ZKTeco K40') }}
+  {{ ui.input('location', 'Location', '') }}
+  {{ ui.input('ip_address', 'IP address', '') }}
+  {{ ui.input('notes', 'Notes', '') }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Register', icon='check') }}</div>
+</form>
+{% endcall %}
+
+{% call ui.modal('uploadLog', 'Upload attendance log') %}
+<form method="post" action="/hr/attendance-machines/upload" enctype="multipart/form-data" class="space-y-4">
+  <p class="text-sm text-slate-600">For a machine that cannot push: export the attendance log from its software and upload it here.
+    A CSV needs a user ID column (User ID, PIN, AC-No, Emp No) and a time column (or Date and Time columns); the
+    machine's own tab-separated log is read as it is. Punches already recorded are skipped.</p>
+  {{ ui.select('machine_id', 'Machine', machine_options, none, placeholder='— Not from a registered machine —') }}
+  <input type="file" name="file" accept=".csv,.txt,.dat" required class="block w-full text-sm">
+  <div class="flex justify-end">{{ ui.button('Upload', icon='upload') }}</div>
+</form>
+{% endcall %}
+
+{% call ui.modal('linkEmp', 'Link employee to machine user') %}
+<form method="post" action="/hr/attendance-machines/link" class="space-y-4">
+  <p class="text-sm text-slate-600">The user ID an employee is enrolled under on the machine. Their earlier punches are matched at once.</p>
+  {{ ui.select('employee_id', 'Employee', employee_options, none, required=True) }}
+  {{ ui.input('machine_user_id', 'Machine user ID', '', required=True) }}
+  <div class="flex justify-end">{{ ui.button('Link', icon='link') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

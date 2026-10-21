@@ -19,7 +19,7 @@
   <script src="/static/vendor/lucide.min.js"></script>
   {% block head %}{% endblock %}
 </head>
-<body class="h-full bg-[#f4f6f9] text-slate-800 antialiased font-sans"{% if ir_staff %} data-ir-staff{% endif %}{% if ir_import %} data-ir-import="{{ ir_import.entity }}" data-ir-import-label="{{ ir_import.label }}"{% endif %}>
+<body class="h-full bg-[#f4f6f9] text-slate-800 antialiased font-sans"{% if ir_staff %} data-ir-staff{% endif %}{% if ir_no_export %} data-ir-no-export{% endif %}{% if ir_import %} data-ir-import="{{ ir_import.entity }}" data-ir-import-label="{{ ir_import.label }}"{% endif %}>
 {% if user %}
 <div class="min-h-full flex flex-col">
 

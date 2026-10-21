@@ -5,10 +5,11 @@
 {% call ui.page_header("Currency Rates", "Families pay in their own currency; every report consolidates into " ~ (base.code if base else 'the base currency') ~ ". Each currency's rate to base, and when that rate was last set.", back="/home/accounts/setup") %}
   {% if can_edit %}
     {{ ui.button("Add Manual Currency Rate", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'manualRate\')"') }}
-    <form method="post" action="/finance/currency-rates/refresh" class="inline" onsubmit="return confirm('Run the simulated ERP rate feed? Rates set manually are left alone.')">
+    <form method="post" action="/finance/currency-rates/refresh" class="inline" onsubmit="return confirm('Fetch today\'s rates from the rate feed? Rates set manually are left alone.')">
       {{ ui.button('Refresh Rates', icon='refresh-cw', variant='secondary') }}
     </form>
   {% endif %}
+  {{ ui.button('Auto Currency Rate List', href='/finance/currency-rates/auto', icon='list', variant='secondary') }}
 {% endcall %}
 
 <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -20,7 +21,7 @@
 
 <div class="mb-4 space-y-3">
   {{ ui.alert('The base currency is ' ~ (base.code if base else 'the base currency') ~ ' and always has a rate of 1. A rate reads "1 unit of this currency = X ' ~ (base.code if base else 'base') ~ '". Every change is recorded in the rate history below.', 'info', 'Base currency') }}
-  {{ ui.alert("The ERP Currency Rates feed on this screen is SIMULATED: rates are generated locally from the current value, never fetched from a rate provider. Use Add Manual Currency Rate or Set Rate for a figure you want to rely on.", "info", "Simulated feed") }}
+  {{ ui.alert("Rates are fetched once a day from a public rate provider (see Auto Currency Rate List); Refresh Rates fetches them now. A rate set by hand (Manual override) is left alone by the feed until you switch it back to Rate feed.", "info", "Rate feed") }}
 </div>
 
 {{ ui.table_start(['Currency', 'Name', 'Symbol', 'Rate To Base', 'Active Subs', 'Last Set', 'Source', 'Set By', 'Mode', 'Status', 'Set Rate', '']) }}

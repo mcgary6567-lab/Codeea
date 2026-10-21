@@ -22,7 +22,7 @@
                        placeholder='— choose the triggering event —',
                        help='Must match the event_type the calling module passes to notify().') }}
         </div>
-        {{ ui.select('channel', 'Channel', [('in_app','In-app'),('email','Email'),('whatsapp','WhatsApp'),('push','Push')],
+        {{ ui.select('channel', 'Channel', [('in_app','In-app'),('email','Email'),('whatsapp','WhatsApp'),('sms','SMS'),('push','Push')],
                      obj.channel if obj else 'in_app', placeholder=None) }}
         {{ ui.select('language', 'Language', [('en','English'),('ur','Urdu')], obj.language if obj else 'en', placeholder=None) }}
         {% set ph_subject = 'Class starting in ' ~ '{{ minutes }}' ~ ' minutes' %}
@@ -41,7 +41,7 @@
     {% call ui.card("Preview", "Rendered with sample values") %}
       <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
         <div class="mb-2 flex items-center gap-2 text-xs text-slate-500">
-          <i data-lucide="{{ {'in_app':'bell','email':'mail','whatsapp':'message-circle','push':'smartphone'}.get(obj.channel, 'bell') }}" class="h-4 w-4"></i>
+          <i data-lucide="{{ {'in_app':'bell','email':'mail','whatsapp':'message-circle','sms':'message-square','push':'smartphone'}.get(obj.channel, 'bell') }}" class="h-4 w-4"></i>
           {{ obj.channel|titleize }} · {{ obj.language|upper }}
         </div>
         <div class="font-semibold text-slate-900 dark:text-white">{{ preview.subject }}</div>

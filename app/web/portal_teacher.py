@@ -777,6 +777,7 @@ def online_class(request: Request, day: str = "", teacher_id: int | None = None,
         "user": user, "t": t, "day": the_day, "rows": rows, "tiles": tiles, "current": current,
         "activities": activities, "queries": queries, "books": books, "time_status": time_status,
         "is_self": bool(ctx.teacher), "query_type_options": CLASS_QUERY_TYPES, "actions": ONLINE_ACTIONS,
+        "zoom_connected": __import__("app.services.zoom", fromlist=["configured"]).configured(db),
         "now": sched.org_now(), "prev_day": the_day - timedelta(days=1), "next_day": the_day + timedelta(days=1),
         "base_url": "/teacher/online-class?day=" + str(the_day) + "&teacher_id=" + str(t.id),
         "teacher_options": ([] if ctx.teacher else
@@ -811,6 +812,27 @@ async def online_class_status(sid: int, request: Request, db: Session = Depends(
     set_status(db, cs, action, user, reason=reason or None, request=request)
     db.commit()
     return redirect(back, f"Class marked {ONLINE_ACTIONS[action]}.")
+
+
+@router.post("/online-class/{sid}/zoom-link", include_in_schema=False)
+async def online_class_zoom_link(sid: int, request: Request, db: Session = Depends(get_db),
+                                 user: User = Depends(require("classes.update")),
+                                 ctx: UserContext = Depends(get_user_context)):
+    """The ERP's "Get Meeting URL": a Zoom meeting for this class, hosted by its teacher, with cloud recording."""
+    from app.core.audit import log_action
+    from app.services import zoom
+    form = await request.form()
+    t = _online_teacher(db, user, ctx, parse_int(form.get("teacher_id")))
+    cs = _online_session(db, t, sid)
+    back = form.get("back") or f"/teacher/online-class?session_id={cs.id}"
+    try:
+        url = zoom.create_meeting(db, cs)
+    except RuntimeError as exc:
+        db.commit()
+        return redirect(back, str(exc), "error")
+    log_action(db, user, "update", "classes", entity=cs, description=f"Zoom meeting created for class #{cs.id}", request=request)
+    db.commit()
+    return redirect(back, f"Zoom meeting ready: {url}")
 
 
 @router.post("/online-class/{sid}/activity", include_in_schema=False)

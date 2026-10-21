@@ -117,7 +117,27 @@ async def currency_rate_manual(request: Request, db: Session = Depends(get_db),
 @router.post("/currency-rates/refresh", include_in_schema=False)
 async def currency_rates_refresh(request: Request, db: Session = Depends(get_db),
                                  user: User = Depends(require("currencies.update"))):
-    """Refresh Rates — a SIMULATED feed. No external provider is called anywhere in this build."""
+    """Refresh Rates: the live rate feed (app/services/fx_feed.py). Outside production, when the provider cannot
+    be reached, the old simulated drift runs instead so a laptop without internet still has moving rates."""
+    from app.config import settings
+    from app.services import fx_feed
+    result = fx_feed.run(db, user)
+    if result["ok"]:
+        log_action(db, user, "execute", CURRENCY_MODULE, entity_type="Currency", severity="warning", consequential=True,
+                   rationale="Currency rate feed run from the Currency Rates screen",
+                   description=f"Rate feed updated {len(result['updated'])} currencies ({', '.join(result['updated']) or 'none'})"
+                               + (f"; left alone (manual override): {', '.join(result['skipped'])}" if result["skipped"] else ""),
+                   after=result, request=request)
+        db.commit()
+        msg = f"Rate feed: {len(result['updated'])} currency rate(s) updated and recorded in history."
+        if result["skipped"]:
+            msg += f" Left alone because they are set manually: {', '.join(result['skipped'])}."
+        if result["missing"]:
+            msg += f" The provider has no rate for: {', '.join(result['missing'])}."
+        return redirect(RATES, msg)
+    if settings.APP_ENV == "production":
+        db.commit()  # keeps the failure on the integration's health
+        return redirect(RATES, f"The rate feed could not be reached ({result['error']}). No rate was changed.", "error")
     base = db.query(Currency).filter(Currency.is_base.is_(True)).first()
     now = datetime.utcnow()
     updated, skipped = [], []
@@ -194,6 +214,17 @@ async def currency_toggle(code: str, request: Request, db: Session = Depends(get
     if not currency.is_active and in_use:
         msg += f" {in_use} active subscription(s) still bill in {currency.code}; they are not changed."
     return redirect(back, msg, "warning" if (not currency.is_active and in_use) else "success")
+
+
+@router.get("/currency-rates/auto", include_in_schema=False)
+def currency_rates_auto(request: Request, db: Session = Depends(get_db), user: User = Depends(require("currencies.view"))):
+    """The old ERP's "ERP Auto Currency Rate List": every rate the feed applied, newest first."""
+    from app.services import fx_feed
+    from app.services import integrations
+    base = db.query(Currency).filter(Currency.is_base.is_(True)).first()
+    return render(request, "finance/currency_auto.html", {
+        "user": user, "rows": fx_feed.recent(db), "base": base, "integ": integrations.get_integration(db, "fx"),
+        "url": fx_feed.feed_url(db, base.code if base else "PKR"), "can_edit": rbac.has_permission(user, "currencies.update")})
 
 
 @router.get("/currency-rates/{code}", include_in_schema=False)

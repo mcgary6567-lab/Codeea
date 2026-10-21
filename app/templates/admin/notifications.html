@@ -62,7 +62,7 @@ platform falls back to the literal title and body supplied by the calling module
 {% elif tab == 'log' %}
 {% call ui.filter_bar('/admin/notifications') %}
   <input type="hidden" name="tab" value="log">
-  {{ ui.select('channel', 'Channel', [('in_app','In-app'),('email','Email'),('whatsapp','WhatsApp'),('push','Push')], channel, placeholder='All channels') }}
+  {{ ui.select('channel', 'Channel', [('in_app','In-app'),('email','Email'),('whatsapp','WhatsApp'),('sms','SMS'),('push','Push')], channel, placeholder='All channels') }}
   {{ ui.select('status', 'Status', [('queued','Queued'),('sent','Sent'),('delivered','Delivered'),('failed','Failed'),('read','Read')], status, placeholder='Any status') }}
   {{ ui.select('event', 'Event type', events, event, placeholder='All events') }}
   {{ ui.input('start', 'From', start, type='date') }}
@@ -138,6 +138,7 @@ platform falls back to the literal title and body supplied by the calling module
             {{ ui.checkbox('ch_in_app', 'In-app', True) }}
             {{ ui.checkbox('ch_email', 'Email') }}
             {{ ui.checkbox('ch_whatsapp', 'WhatsApp') }}
+            {{ ui.checkbox('ch_sms', 'SMS') }}
           </div>
         </div>
         {{ ui.input('rationale', 'Rationale', '', placeholder='Why is this broadcast being sent?') }}

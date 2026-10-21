@@ -98,6 +98,9 @@ nano /opt/oqc/.env
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID` | from Meta WhatsApp Cloud API |
 | `GHL_API_KEY` | from GoHighLevel (then turn sync on in Configuration › GoHighLevel Sync) |
 | `AI_PROVIDER`, `AI_API_KEY` | only if you use an AI provider |
+| `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` | a Zoom Server-to-Server OAuth app (scopes `meeting:write:admin`, `recording:read:admin`): Get Meeting URL and SYNC Calls |
+| `SMS_GATEWAY_URL` | a local SMS gateway's send URL with `{to}`, `{text}` and `{sender}` in it (then Integrations › SMS: provider `http`) |
+| `SMS_TWILIO_AUTH_TOKEN` | Twilio instead (then Integrations › SMS: provider `twilio`, Account SID and sender number) |
 
 Save (Ctrl+O, Enter, Ctrl+X) and apply:
 

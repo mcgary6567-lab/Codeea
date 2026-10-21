@@ -91,6 +91,8 @@ def delete_view(view_id: int, request: Request, db: Session = Depends(get_db), u
 @router.post("/export", include_in_schema=False)
 async def export(request: Request, db: Session = Depends(get_db), user: User = Depends(require_staff)):
     """Turn the rows the toolbar collected (already limited to what this user can see) into an Excel or CSV file."""
+    if not ir.can_export(db, user):
+        raise HTTPException(403, "Exports are limited to admins")
     data = await _json(request)
     headers = [str(h)[:200] for h in (data.get("headers") or [])][:200]
     rows = [[str(c)[:5000] for c in (r or [])][:200] for r in (data.get("rows") or [])[:MAX_EXPORT_ROWS]]

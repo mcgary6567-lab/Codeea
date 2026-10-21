@@ -833,7 +833,7 @@ async def notifications_broadcast(request: Request, db: Session = Depends(get_db
     target = form.get("target") or ""
     title = (form.get("title") or "").strip()
     body = (form.get("body") or "").strip()
-    channels = [c for c in ("in_app", "email", "whatsapp") if parse_bool(form.get("ch_" + c))] or ["in_app"]
+    channels = [c for c in ("in_app", "email", "whatsapp", "sms") if parse_bool(form.get("ch_" + c))] or ["in_app"]
     if not target or not title:
         return redirect("/admin/notifications?tab=broadcast", "Choose an audience and enter a title.", "error")
     n = sys_svc.send_broadcast(db, user, target, title, body, channels, link=(form.get("link") or "").strip() or None)

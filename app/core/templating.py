@@ -197,6 +197,10 @@ def render(request: Request, template: str, context: Optional[dict] = None, stat
         entity = entity_for_path(request.url.path)
         if entity and rbac.has_permission(user, "migration.add"):
             ctx["ir_import"] = {"entity": entity, "label": ENTITIES[entity]["label"]}
+        db_ir: Optional[Session] = getattr(request.state, "db", None)
+        if db_ir is not None:
+            from app.services.ir import can_export
+            ctx["ir_no_export"] = not can_export(db_ir, user)
     ctx.update(_layout_globals())
     ctx.setdefault("favourites", [])
     ctx.setdefault("is_favourite", False)

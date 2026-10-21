@@ -168,6 +168,7 @@ HR_GROUPS = [
         _i("Employees Progress Sheet", "/hr/progress-sheet", "notebook-pen", "employees.view"),
         _i("Leave Assignment", "/hr/leave-entitlements", "calendar-check", "employees.view"),
         _i("Attendance Change Requests", "/hr/attendance/change-requests", "file-clock", "hr_attendance.view"),
+        _i("Attendance Machine List", "/hr/attendance-machines", "fingerprint", "hr_attendance.view"),
         _i("Leave Management", "/hr/leaves", "plane", "leaves.view"),
         _i("Attendance Report", "/hr/attendance/report", "table", "employees.view"),
     ]},

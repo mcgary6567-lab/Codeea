@@ -621,8 +621,18 @@ PROVIDER_META: dict[str, dict] = {
             "fields": [("base_url", "n8n base URL"), ("workflow_ids", "Workflow IDs (comma separated)"), ("inbound_secret", "Inbound shared secret (X-OQC-Secret)")],
             "test_label": "Emit test event to n8n", "test_placeholder": "", "rate_limit": "Outbound deliveries retried with exponential backoff (2,4,8,16,32,64 min) then marked dead after 6 attempts."},
     "zoom": {"icon": "video", "color": "sky", "secrets": ["ZOOM_ACCOUNT_ID", "ZOOM_CLIENT_ID", "ZOOM_CLIENT_SECRET"],
-             "fields": [("account_email", "Zoom account email"), ("recordings_folder", "Recordings download folder"), ("auto_record", "Auto record (cloud/local/off)")],
+             "fields": [("account_id", "Server-to-Server app: Account ID"), ("client_id", "Server-to-Server app: Client ID"),
+                        ("account_email", "Zoom account email"), ("recordings_folder", "Recordings download folder"), ("auto_record", "Auto record (cloud/local/off)")],
              "test_label": "Ping (simulated)", "test_placeholder": "", "rate_limit": "Zoom API: light 30/s, medium 20/s, heavy 10/s per account."},
+    "sms": {"icon": "message-square", "color": "emerald", "secrets": ["SMS_TWILIO_AUTH_TOKEN", "SMS_GATEWAY_URL"],
+            "fields": [("provider", "Gateway (twilio or http)"), ("account_sid", "Twilio Account SID"), ("from", "Twilio sender number"),
+                       ("sender", "Sender name / mask (http gateways)"), ("method", "HTTP method (GET or POST)")],
+            "test_label": "Send test SMS", "test_placeholder": "+923001234567",
+            "rate_limit": "Set by the gateway; one request per message."},
+    "fx": {"icon": "coins", "color": "amber", "secrets": [],
+           "fields": [("url", "Rate provider URL ({base} = base currency code)")],
+           "test_label": "Fetch rates", "test_placeholder": "",
+           "rate_limit": "ExchangeRate-API open endpoint: rates refresh once a day; the feed runs daily."},
     "google": {"icon": "mail", "color": "rose", "secrets": ["GOOGLE_SERVICE_ACCOUNT_JSON"],
                "fields": [("workspace_domain", "Workspace domain"), ("calendar_id", "Shared calendar ID"), ("drive_folder_id", "Drive folder for exports")],
                "test_label": "Ping (simulated)", "test_placeholder": "", "rate_limit": "Calendar 1,000,000 queries/day; Drive 12,000 queries/60s."},
@@ -789,6 +799,13 @@ def send_broadcast(db: Session, actor: User, target: str, title: str, body: str,
                 addr = (c.whatsapp or c.phone) if c else None
             if addr:
                 notify(db, u, title, body, event_type="broadcast", link=link, channels=("whatsapp",), recipient_address=addr)
+        if "sms" in channels:
+            addr = u.phone
+            if not addr:
+                c = db.query(Client).filter(Client.user_id == u.id).first()
+                addr = c.phone if c else None
+            if addr:
+                notify(db, u, title, body, event_type="broadcast", link=link, channels=("sms",), recipient_address=addr)
         if chans:
             notify(db, u, title, body, event_type="broadcast", link=link, channels=("in_app",))
     return len(users)

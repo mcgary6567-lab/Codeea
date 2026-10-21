@@ -301,3 +301,35 @@ class StaffNotice(Base, PKMixin, TimestampMixin):
     def is_live(self, on: Optional[date] = None) -> bool:
         on = on or date.today()
         return self.status == "active" and self.start_date <= on and (self.end_date is None or on <= self.end_date)
+
+
+class AttendanceMachine(Base, PKMixin, TimestampMixin):
+    """A biometric attendance machine (the ERP's Attendance Machine List). Only an active machine whose serial
+    number is registered here may push punches (app/web/attendance_machines.py)."""
+    __tablename__ = "attendance_machines"
+    name: Mapped[str] = mapped_column(String(120))
+    serial_no: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    model: Mapped[Optional[str]] = mapped_column(String(80))
+    location: Mapped[Optional[str]] = mapped_column(String(120))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)  # active | inactive
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_punch_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    punches_total: Mapped[int] = mapped_column(Integer, default=0)
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class AttendancePunch(Base, PKMixin, TimestampMixin):
+    """One finger / card / face punch read from a machine or its exported log."""
+    __tablename__ = "attendance_punches"
+    machine_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("attendance_machines.id", ondelete="SET NULL", name="fk_attendance_punches_machine"), index=True)
+    machine_user_id: Mapped[str] = mapped_column(String(20), index=True)
+    employee_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("employees.id", ondelete="SET NULL", name="fk_attendance_punches_employee"), index=True)
+    punched_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    punch_state: Mapped[Optional[str]] = mapped_column(String(10))
+    source: Mapped[str] = mapped_column(String(10), default="push")  # push | file
+
+    machine = relationship("AttendanceMachine")
+    employee = relationship("Employee")

@@ -87,6 +87,10 @@ def dispatch(db: Session, n: Notification) -> None:
             from app.services.integrations import send_whatsapp
             send_whatsapp(db, n.recipient_address or "", f"*{n.title}*\n{n.body or ''}")
             n.status = "sent"
+        elif n.channel == "sms":
+            from app.services.integrations import send_sms
+            send_sms(db, n.recipient_address or "", f"{n.title}: {n.body or ''}")
+            n.status = "sent"
         elif n.channel == "push":
             n.status = "sent"  # PWA push placeholder
         n.sent_at = datetime.utcnow()

@@ -235,13 +235,16 @@
     html += '<div class="relative" data-ir-menu-wrap><button type="button" data-ir-actions class="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1.5 font-medium text-slate-700 hover:bg-slate-50" aria-haspopup="true">' +
             (this.main ? 'Actions' : '<i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>Report') + '<i data-lucide="chevron-down" class="h-3.5 w-3.5"></i></button>' +
             '<div data-ir-menu class="absolute left-0 z-40 mt-1 hidden w-56 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-xl"></div></div>';
-    if (this.main) {
+    var mayExport = !document.body.hasAttribute('data-ir-no-export');
+    if (this.main && mayExport) {
       html += '<div class="relative" data-ir-menu-wrap><button type="button" data-ir-export class="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1.5 font-medium text-slate-700 hover:bg-slate-50">' +
               '<i data-lucide="file-down" class="h-3.5 w-3.5"></i>Export CSV<i data-lucide="chevron-down" class="h-3.5 w-3.5"></i></button>' +
               '<div data-ir-menu class="absolute left-0 z-40 mt-1 hidden w-64 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-xl">' +
               this.item('export:all', 'database', 'All records', (this.pager ? this.total + ' rows, every page' : this.trs.length + ' rows')) +
               this.item('export:filtered', 'filter', 'Filtered records', 'with your search and filters') +
               this.item('export:selected', 'check-square', 'Selected records', 'the rows you ticked') + '</div></div>';
+    }
+    if (this.main) {
       var imp = document.body.getAttribute('data-ir-import');
       if (imp) {
         html += '<a data-ir-import href="/admin/migration?entity=' + encodeURIComponent(imp) + '&back=' + encodeURIComponent(location.pathname + location.search) +
@@ -293,9 +296,11 @@
     h += this.item('chart', 'bar-chart-3', 'Chart') + this.item('groupby', 'group', 'Group By') + this.item('pivot', 'grid-3x3', 'Pivot');
     h += '<div class="my-1 border-t border-slate-100"></div>';
     h += this.group('report', 'bookmark', 'Report', this.item('save', 'save', 'Save report') + this.item('saved', 'folder-open', 'Saved reports') + this.item('reset', 'rotate-ccw', 'Reset'));
-    h += this.group('download', 'download', 'Download', this.item('dl:csv', 'file-text', 'CSV', 'current view') + this.item('dl:xlsx', 'file-spreadsheet', 'Excel (.xlsx)', 'current view') +
-                    this.item('dl:print', 'printer', 'Print / PDF', 'current view'));
-    h += this.item('subscription', 'mail', 'Subscription', 'e-mail this report on a schedule');
+    if (!document.body.hasAttribute('data-ir-no-export')) {
+      h += this.group('download', 'download', 'Download', this.item('dl:csv', 'file-text', 'CSV', 'current view') + this.item('dl:xlsx', 'file-spreadsheet', 'Excel (.xlsx)', 'current view') +
+                      this.item('dl:print', 'printer', 'Print / PDF', 'current view'));
+      h += this.item('subscription', 'mail', 'Subscription', 'e-mail this report on a schedule');
+    }
     h += '<div class="my-1 border-t border-slate-100"></div>' + this.item('help', 'circle-help', 'Help');
     m.innerHTML = h;
   };

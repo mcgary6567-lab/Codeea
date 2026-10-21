@@ -78,6 +78,15 @@ TEMPLATES = [
     ("win_back", "whatsapp", "We miss {{student}}", "Assalamu Alaikum {{name}}, we noticed {{student}} has missed some classes. Can we help with a schedule change or a short refresher course?"),
 ]
 
+OWNER_SWITCHES = [
+    ("exports_admin_only", "general", "Exports for admins only",
+     "Yes: Download, Export CSV and report subscriptions are only for admins and the CEO (old-ERP finding FL-D-08). "
+     "No: every member of staff can export what they can see.", 60),
+    ("post_invoices_on_issue", "accounts", "Post invoices to the general ledger when issued",
+     "Yes: an issued invoice is Dr Accounts Receivable / Cr Tuition Revenue and its receipt clears the receivable. "
+     "No: revenue is booked when the money arrives.", 10),
+]
+
 QA_ACTION_TYPES = [
     ("Coaching session", "A one-to-one session with the academic manager on the issues found", 7),
     ("Verbal warning", "Recorded warning; repeated issues move to a written warning", 3),
@@ -174,6 +183,12 @@ def run(db: Session) -> None:
     for key, value, group, desc in SETTINGS:
         if not db.query(Setting).filter(Setting.key == key).first():
             db.add(Setting(key=key, value=value, group=group, description=desc))
+
+    # The owner's decisions (docs/FUSION_PARITY.md): Branch Properties, No by default.
+    for key, group, label, desc, sort_no in OWNER_SWITCHES:
+        if not db.query(Setting).filter(Setting.key == key).first():
+            db.add(Setting(key=key, value={"value": False}, group=group, label=label, description=desc,
+                           value_type="boolean", is_editable=True, is_secret=False, sort_no=sort_no))
 
     # QA action types (the old ERP's QA Action Type list), so a new installation does not start empty.
     from app.models.erp import QAActionType

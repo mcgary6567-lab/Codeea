@@ -36,6 +36,8 @@ PROVIDERS = {
     "openproject": "OpenProject",
     "ai": "AI Provider Gateway",
     "video": "Video Classroom (WebRTC)",
+    "sms": "SMS Gateway",
+    "fx": "Currency Rate Feed",
 }
 
 
@@ -149,6 +151,45 @@ def send_whatsapp(db: Session, to: str, body: str, template: Optional[str] = Non
         return out
     except Exception as exc:
         _record(db, "whatsapp", False, str(exc))
+        raise
+
+
+# ----------------------------------------------------------------------------- SMS
+def send_sms(db: Session, to: str, body: str) -> dict:
+    """Send one SMS through the gateway chosen on Configuration › Integrations › SMS (provider "sms").
+
+    ``config["provider"]`` is ``twilio`` (``account_sid`` and ``from`` on that page, SMS_TWILIO_AUTH_TOKEN in .env)
+    or ``http`` for the local gateways that take a URL with the number and text in it (SMS_GATEWAY_URL in .env, as
+    it carries the gateway's key, with ``{to}``, ``{text}`` and ``{sender}`` placeholders; ``method`` GET or POST and
+    ``sender`` on the page). Without a gateway the message is simulated.
+    """
+    integ = get_integration(db, "sms")
+    cfg = dict(integ.config or {})
+    cfg["auth_token"] = os.environ.get("SMS_TWILIO_AUTH_TOKEN", "")
+    cfg["url"] = os.environ.get("SMS_GATEWAY_URL", "")
+    to = (to or "").strip()
+    provider = str(cfg.get("provider") or "").lower()
+    ready = (provider == "twilio" and cfg.get("account_sid") and cfg.get("auth_token") and cfg.get("from")) or \
+            (provider == "http" and cfg.get("url"))
+    if not ready:
+        log.info("[SIMULATED SMS] to=%s body=%s", to, body[:80])
+        _record(db, "sms", True, simulated=True)
+        return {"simulated": True, "id": f"sms.sim.{int(time.time()*1000)}"}
+    try:
+        if provider == "twilio":
+            r = httpx.post(f"https://api.twilio.com/2010-04-01/Accounts/{cfg['account_sid']}/Messages.json",
+                           data={"To": to, "From": cfg["from"], "Body": body[:1500]},
+                           auth=(str(cfg["account_sid"]), str(cfg["auth_token"])), timeout=15)
+        else:
+            from urllib.parse import quote
+            url = (str(cfg["url"]).replace("{to}", quote(to.lstrip("+"))).replace("{text}", quote(body[:1000]))
+                   .replace("{sender}", quote(str(cfg.get("sender") or ""))))
+            r = httpx.post(url, timeout=15) if str(cfg.get("method") or "GET").upper() == "POST" else httpx.get(url, timeout=15)
+        r.raise_for_status()
+        _record(db, "sms", True)
+        return {"simulated": False, "status": r.status_code, "response": r.text[:200]}
+    except Exception as exc:
+        _record(db, "sms", False, str(exc))
         raise
 
 

@@ -551,6 +551,39 @@ def client_statement(db: Session, client: Client) -> list[LedgerEntry]:
             .order_by(LedgerEntry.entry_date, LedgerEntry.id).all())
 
 
+def invoices_post_on_issue(db: Session) -> bool:
+    """Branch Properties › "Post invoices to the general ledger when issued". No (default): revenue is booked when
+    the money arrives. Yes: an issued invoice is Dr Accounts Receivable / Cr Tuition Revenue, and its receipt clears
+    the receivable."""
+    from app.services.scheduling import setting_value
+    return bool(setting_value(db, "post_invoices_on_issue", False))
+
+
+def invoice_accrual(db: Session, invoice_id: int):
+    """The journal that put this invoice in Accounts Receivable (only when it was posted on issue)."""
+    from app.models.finance import JournalEntry
+    return (db.query(JournalEntry).filter(JournalEntry.reference_type == "invoice_accrual",
+                                          JournalEntry.reference_id == invoice_id).first())
+
+
+def _gl_invoice(db: Session, entry_type: str, invoice_id: int, user: Optional[User], entry_date: Optional[date]) -> None:
+    """Mirror an invoice's ledger charge, or its cancellation, in the general ledger when invoices post on issue."""
+    from app.services import accounting
+    accrual = invoice_accrual(db, invoice_id)
+    if entry_type == "charge":
+        if accrual is not None or not invoices_post_on_issue(db):
+            return
+        inv = db.get(Invoice, invoice_id)
+        base = float(inv.total_in_base or 0) or convert_to_base(db, float(inv.total or 0), inv.currency)
+        if base <= 0:
+            return
+        accounting.post_journal(db, f"Invoice {inv.invoice_number} to {inv.client.client_code}",
+                                [("1100", base, 0), ("4000", 0, base)], reference_type="invoice_accrual",
+                                reference_id=inv.id, entry_date=entry_date or inv.issue_date, user=user)
+    elif entry_type == "adjustment" and accrual is not None and accrual.status != "reversed":
+        accounting.reverse_journal(db, accrual, user, "Invoice cancelled")
+
+
 def _post_ledger(db: Session, client: Client, entry_type: str, description: str, debit: float = 0, credit: float = 0,
                  currency: Optional[str] = None, reference_type: Optional[str] = None, reference_id: Optional[int] = None,
                  user: Optional[User] = None, entry_date: Optional[date] = None) -> LedgerEntry:
@@ -561,6 +594,8 @@ def _post_ledger(db: Session, client: Client, entry_type: str, description: str,
                     reference_type=reference_type, reference_id=reference_id, created_by_id=user.id if user else None)
     db.add(e)
     db.flush()
+    if reference_type == "invoice" and reference_id and entry_type in ("charge", "adjustment"):
+        _gl_invoice(db, entry_type, reference_id, user, entry_date)
     return e
 
 
@@ -1353,8 +1388,11 @@ def _settle_payment(db: Session, pay: Payment, user: Optional[User], invoice: Op
     invoice = invoice if invoice is not None else pay.invoice
     remainder = amount
     touched: list[Invoice] = []
+    applied: dict[int, float] = {}  # invoice id -> amount of this receipt applied to it (for the receivable)
     if invoice is not None:
+        before_apply = remainder
         remainder = _apply_to_invoice(db, invoice, remainder, user)
+        applied[invoice.id] = round(before_apply - remainder, 2)
         touched.append(invoice)
     if remainder > 0:
         open_invoices = (db.query(Invoice)
@@ -1369,6 +1407,7 @@ def _settle_payment(db: Session, pay: Payment, user: Optional[User], invoice: Op
             before = remainder
             remainder = _apply_to_invoice(db, inv, remainder, user)
             if remainder != before:
+                applied[inv.id] = round(before - remainder, 2)
                 touched.append(inv)
                 if pay.invoice_id is None:
                     pay.invoice_id = inv.id
@@ -1385,8 +1424,15 @@ def _settle_payment(db: Session, pay: Payment, user: Optional[User], invoice: Op
     from app.services import accounting
     cash_code = "1000" if method == "cash" else "1010"
     base_amount = float(pay.amount_in_base)
-    accounting.post_journal(db, f"Payment {pay.payment_number} from {client.client_code}",
-                            [(cash_code, base_amount, 0), ("4000", 0, base_amount)],
+    # The part applied to invoices already in Accounts Receivable clears the receivable; the rest is revenue now.
+    accrued = sum(part for inv_id, part in applied.items() if part > 0 and invoice_accrual(db, inv_id) is not None)
+    to_receivable = round(min(base_amount, base_amount * accrued / amount), 2) if accrued and amount else 0.0
+    lines = [(cash_code, base_amount, 0)]
+    if to_receivable:
+        lines.append(("1100", 0, to_receivable))
+    if round(base_amount - to_receivable, 2) > 0:
+        lines.append(("4000", 0, round(base_amount - to_receivable, 2)))
+    accounting.post_journal(db, f"Payment {pay.payment_number} from {client.client_code}", lines,
                             reference_type="payment", reference_id=pay.id, entry_date=received_at.date(), user=user)
 
     if pay.receipt is None:

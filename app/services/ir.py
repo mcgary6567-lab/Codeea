@@ -26,6 +26,18 @@ _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 # ----------------------------------------------------------------------------- reading a rendered table
+def can_export(db, user) -> bool:
+    """Download, Export CSV and Subscriptions. Everyone on staff, unless Branch Properties › "Exports for admins
+    only" is Yes: then admins (settings.configure) and the CEO only."""
+    from app.core import rbac
+    from app.services.scheduling import setting_value
+    if user is None:
+        return False
+    if not setting_value(db, "exports_admin_only", False):
+        return True
+    return bool(user.is_superuser or rbac.is_ceo(user) or rbac.has_permission(user, "settings.configure"))
+
+
 def _text(fragment: str) -> str:
     fragment = re.sub(r"<(script|style)\b.*?</\1>", " ", fragment, flags=re.S | re.I)
     fragment = re.sub(r"<[^>]+>", " ", fragment)

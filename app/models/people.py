@@ -157,6 +157,7 @@ class Employee(Base, PKMixin, TimestampMixin):
     background_check_date: Mapped[Optional[date]] = mapped_column(Date)
     mfa_enforced: Mapped[bool] = mapped_column(Boolean, default=True)
     device_name: Mapped[Optional[str]] = mapped_column(String(80))  # OQC-DEPT-NNN convention
+    attendance_machine_id: Mapped[Optional[str]] = mapped_column(String(20), index=True)  # user ID on the biometric machine
     documents: Mapped[dict] = mapped_column(JSON, default=dict)
     exit_date: Mapped[Optional[date]] = mapped_column(Date)
     exit_reason: Mapped[Optional[str]] = mapped_column(String(200))

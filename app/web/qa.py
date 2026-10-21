@@ -130,6 +130,18 @@ def calls(request: Request, page: int = 1, date_from: str = "", date_to: str = "
 async def calls_sync(request: Request, db: Session = Depends(get_db), user: User = Depends(require("qa.execute", "qa.add", any_of=True))):
     form = await request.form()
     days = max(1, min(60, parse_int(form.get("days"), 14) or 14))
+    from app.services import zoom
+    if zoom.configured(db):  # the real pull: every teacher's Zoom cloud recordings
+        try:
+            result = zoom.pull_recordings(db, user, days=days, request=request)
+        except Exception as exc:
+            db.commit()
+            return redirect("/qa/calls", f"Zoom could not be reached: {str(exc)[:160]}", "error")
+        db.commit()
+        msg = f"Zoom: {result['created']} new recording(s), {result['seen'] - result['created']} already here."
+        if result["errors"]:
+            msg += f" {len(result['errors'])} teacher(s) skipped: " + "; ".join(result["errors"][:2])
+        return redirect("/qa/calls", msg, "success" if not result["errors"] else "warning")
     if not calls_svc.simulated_sync_allowed(db):
         return redirect("/qa/calls", calls_svc.SIMULATED_SYNC_DISABLED, "warning")
     try:
