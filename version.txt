@@ -1,3 +1,3 @@
-latest=4.49
-note=Session switches back in the inputs (first 2 h of Sydney and last 2 h of New York cut); break-even lock 300
+latest=4.50
+note=News trades within minutes on every story, no 4-hour close; news signal shows 15 min; Day P&L fix
 url=https://goldscalpers.com/thank-you
