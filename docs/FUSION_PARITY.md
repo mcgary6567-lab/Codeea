@@ -34,10 +34,12 @@ absent). Pending, cancelled, rescheduled and free classes are left out of both.
 |---|---|---|
 | Biometric attendance machine | ZKTeco-style machines in ADMS push mode post to `/iclock/cdata`; only registered, active serial numbers are accepted. Or upload the machine's exported log. First punch of the day = check-in, last = check-out; late minutes by the payroll rule; days HR corrected, leave and holidays are left alone | HR › Time and Attendance › Attendance Machine List: register the machine, link each employee to their machine user ID |
 | Currency rates | Daily feed from the ExchangeRate-API open endpoint (no key); manual rates are left alone; failures change nothing | Accounts › Setup › Currency Rates › Auto Currency Rate List. Another provider: Integrations › fx › `url` |
-| Zoom | "Get Meeting URL" on the teacher's Online class page creates a meeting hosted by the teacher with cloud recording; "SYNC Calls" on Call Recordings pulls every teacher's cloud recordings into the QA pipeline (stored once, mapped to the class) | Integrations › Zoom: `account_id`, `client_id`, `client_secret` of a Server-to-Server OAuth app (scopes meeting:write:admin, recording:read:admin) |
-| SMS | `sms` notification channel. Twilio, or any HTTP gateway whose URL takes the number and text | Integrations › SMS: `provider` = `twilio` (`account_sid`, `auth_token`, `from`) or `http` (`url` with `{to}`, `{text}`, `{sender}`; `method`; `sender`) |
+| Zoom | "Get Meeting URL" on the teacher's Online class page creates a meeting hosted by the teacher with cloud recording; "SYNC Calls" on Call Recordings pulls every teacher's cloud recordings into the QA pipeline (stored once, mapped to the class) | Configuration › Integration Hub › Zoom: Account ID and Client ID under Configuration, Client secret under Credentials (Server-to-Server OAuth app; scopes meeting:write:admin, recording:read:admin, user:read:admin). The page lists the steps; Test connection checks them |
+| SMS | `sms` notification channel. Twilio, or any HTTP gateway whose URL takes the number and text | Configuration › Integration Hub › SMS Gateway: Gateway = local gateway (send URL under Credentials, with `{to}`, `{text}`, `{sender}`) or Twilio (Account SID, sender number; auth token under Credentials). Test connection sends a real SMS |
 
-Without credentials Zoom and SMS run in simulation, as WhatsApp and e-mail already did.
+Credentials typed on the screen are sealed with Fernet under a key derived from SECRET_KEY (`app/core/secret_box.py`), never
+shown again, and used ahead of `.env`; the same names in `.env` still work. Without credentials Zoom and SMS run in
+simulation, as WhatsApp and e-mail already did.
 
 ## The owner's decisions (step 4)
 

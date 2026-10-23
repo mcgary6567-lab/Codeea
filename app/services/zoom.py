@@ -1,8 +1,8 @@
 """Zoom: meeting links for classes and pulling cloud recordings (the old ERP's "Get Meeting URL" and "SYNC Calls").
 
-Credentials are a Zoom Server-to-Server OAuth app: ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET in the
-server's .env (the account and client IDs may instead be saved on Configuration › Integrations › Zoom; the secret
-only ever lives in .env).
+Credentials are a Zoom Server-to-Server OAuth app, typed on Configuration › Integrations › Zoom (Account ID and
+Client ID as configuration, the Client secret as an encrypted credential) or set in .env (ZOOM_ACCOUNT_ID,
+ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET).
 The app needs the scopes meeting:write:admin and recording:read:admin.
 
 - :func:`create_meeting` makes a scheduled meeting hosted by the teacher's Zoom user (their login e-mail), with
@@ -43,8 +43,19 @@ def credentials(db: Session) -> dict:
     out = {}
     for key, env in (("account_id", "ZOOM_ACCOUNT_ID"), ("client_id", "ZOOM_CLIENT_ID")):
         out[key] = str(cfg.get(key) or os.environ.get(env, "") or "").strip()
-    out["client_secret"] = str(os.environ.get("ZOOM_CLIENT_SECRET", "") or "").strip()
+    out["client_secret"] = integrations.secret(db, "zoom", "ZOOM_CLIENT_SECRET")
     return out
+
+
+def check(db: Session) -> dict:
+    """Test connection: get a token and read the account's owner user. Raises with Zoom's message on failure."""
+    if not configured(db):
+        missing = [k for k, v in credentials(db).items() if not v]
+        raise RuntimeError("Zoom is not set up yet; missing: " + ", ".join(missing))
+    _token_cache.clear()
+    me = _call(db, "GET", "/users/me")
+    integrations._record(db, "zoom", True)
+    return {"connected": True, "account_user": me.get("email"), "account_id": me.get("account_id")}
 
 
 def configured(db: Session) -> bool:

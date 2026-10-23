@@ -65,6 +65,59 @@ def _record(db: Session, provider: str, ok: bool, error: Optional[str] = None, s
         integ.last_error = (error or "")[:500]
 
 
+# ----------------------------------------------------------------------------- credentials typed on the screen
+# Providers whose credentials can be typed on Configuration › Integrations › <provider> instead of .env. Each is
+# sealed with app/core/secret_box.py; a value in .env is used when nothing was typed.
+SCREEN_SECRETS: dict[str, list[tuple[str, str, str]]] = {
+    "zoom": [("ZOOM_CLIENT_SECRET", "Client secret", "Zoom Marketplace › your Server-to-Server app › App credentials"),
+             ("ZOOM_WEBHOOK_SECRET", "Webhook secret token", "Same app › Feature › Event subscriptions (only for the recording webhook)")],
+    "sms": [("SMS_GATEWAY_URL", "Gateway send URL", "The gateway's send link with {to}, {text} and {sender} where the number, message and sender go"),
+            ("SMS_TWILIO_AUTH_TOKEN", "Twilio auth token", "Only when the gateway is Twilio")],
+}
+
+
+def secret(db: Session, provider: str, name: str) -> str:
+    """A credential: the value typed on the Integrations screen, else the environment (.env), else ""."""
+    from app.core.secret_box import unseal
+    integ = db.query(Integration).filter(Integration.provider == provider).first()
+    sealed = (integ.secrets or {}).get(name) if integ is not None else None
+    value = unseal(sealed) if sealed else None
+    if value:
+        return value
+    return str(getattr(settings, name, "") or os.environ.get(name, "") or "").strip()
+
+
+def set_secret(db: Session, provider: str, name: str, value: Optional[str]) -> None:
+    """Store (or with an empty value, remove) a credential typed on the screen."""
+    from app.core.secret_box import seal
+    integ = get_integration(db, provider)
+    stored = dict(integ.secrets or {})
+    if value:
+        stored[name] = seal(value)
+    else:
+        stored.pop(name, None)
+    integ.secrets = stored
+
+
+def secret_status(db: Session, provider: str) -> list[dict]:
+    """Where each screen credential comes from, for the Integrations page: screen | env | unreadable | missing."""
+    from app.core.secret_box import unseal
+    integ = get_integration(db, provider)
+    out = []
+    for name, label, help_text in SCREEN_SECRETS.get(provider, []):
+        sealed = (integ.secrets or {}).get(name)
+        if sealed and unseal(sealed):
+            source = "screen"
+        elif sealed:
+            source = "unreadable"   # sealed under an older SECRET_KEY: type it again
+        elif str(getattr(settings, name, "") or os.environ.get(name, "") or "").strip():
+            source = "env"
+        else:
+            source = "missing"
+        out.append({"name": name, "label": label, "help": help_text, "source": source})
+    return out
+
+
 # ----------------------------------------------------------------------------- inbound webhook secrets
 # Where each provider's inbound webhook secret / shared token is looked for, in order: the Integration row's
 # configuration (saved on /admin/integrations/<provider>), then the environment (.env) under these names.
@@ -93,7 +146,7 @@ def inbound_secret(db: Session, provider: str) -> str:
         if val:
             return val
     for name in spec["env"]:
-        val = str(getattr(settings, name, "") or os.environ.get(name, "") or "").strip()
+        val = secret(db, provider, name)
         if val:
             return val
     return ""
@@ -158,15 +211,16 @@ def send_whatsapp(db: Session, to: str, body: str, template: Optional[str] = Non
 def send_sms(db: Session, to: str, body: str) -> dict:
     """Send one SMS through the gateway chosen on Configuration › Integrations › SMS (provider "sms").
 
-    ``config["provider"]`` is ``twilio`` (``account_sid`` and ``from`` on that page, SMS_TWILIO_AUTH_TOKEN in .env)
-    or ``http`` for the local gateways that take a URL with the number and text in it (SMS_GATEWAY_URL in .env, as
-    it carries the gateway's key, with ``{to}``, ``{text}`` and ``{sender}`` placeholders; ``method`` GET or POST and
-    ``sender`` on the page). Without a gateway the message is simulated.
+    ``config["provider"]`` is ``twilio`` (``account_sid`` and ``from`` on that page, the auth token as a credential)
+    or ``http`` for the local gateways that take a URL with the number and text in it (the send URL is a credential,
+    as it carries the gateway's key, with ``{to}``, ``{text}`` and ``{sender}`` placeholders; ``method`` GET or POST
+    and ``sender`` on the page). Credentials are typed on the Integrations screen or set in .env. Without a gateway
+    the message is simulated.
     """
     integ = get_integration(db, "sms")
     cfg = dict(integ.config or {})
-    cfg["auth_token"] = os.environ.get("SMS_TWILIO_AUTH_TOKEN", "")
-    cfg["url"] = os.environ.get("SMS_GATEWAY_URL", "")
+    cfg["auth_token"] = secret(db, "sms", "SMS_TWILIO_AUTH_TOKEN")
+    cfg["url"] = secret(db, "sms", "SMS_GATEWAY_URL")
     to = (to or "").strip()
     provider = str(cfg.get("provider") or "").lower()
     ready = (provider == "twilio" and cfg.get("account_sid") and cfg.get("auth_token") and cfg.get("from")) or \

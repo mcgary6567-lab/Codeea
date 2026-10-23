@@ -621,15 +621,27 @@ PROVIDER_META: dict[str, dict] = {
             "fields": [("base_url", "n8n base URL"), ("workflow_ids", "Workflow IDs (comma separated)"), ("inbound_secret", "Inbound shared secret (X-OQC-Secret)")],
             "test_label": "Emit test event to n8n", "test_placeholder": "", "rate_limit": "Outbound deliveries retried with exponential backoff (2,4,8,16,32,64 min) then marked dead after 6 attempts."},
     "zoom": {"icon": "video", "color": "sky", "secrets": ["ZOOM_ACCOUNT_ID", "ZOOM_CLIENT_ID", "ZOOM_CLIENT_SECRET"],
+             "test_real": True,
+             "setup": ["Sign in at marketplace.zoom.us with the college's Zoom admin account.",
+                       "Develop › Build App › Server-to-Server OAuth app; give it a name.",
+                       "Scopes: meeting:write:admin and recording:read:admin (add user:read:admin for Test connection).",
+                       "Activate the app, then copy Account ID and Client ID into Configuration and the Client secret into Credentials.",
+                       "Press Test connection. Teachers' Zoom users must use the same e-mail as their OQC login."],
              "fields": [("account_id", "Server-to-Server app: Account ID"), ("client_id", "Server-to-Server app: Client ID"),
                         ("account_email", "Zoom account email"), ("recordings_folder", "Recordings download folder"), ("auto_record", "Auto record (cloud/local/off)")],
-             "test_label": "Ping (simulated)", "test_placeholder": "", "rate_limit": "Zoom API: light 30/s, medium 20/s, heavy 10/s per account."},
+             "test_label": "Test connection", "test_placeholder": "", "rate_limit": "Zoom API: light 30/s, medium 20/s, heavy 10/s per account."},
     "sms": {"icon": "message-square", "color": "emerald", "secrets": ["SMS_TWILIO_AUTH_TOKEN", "SMS_GATEWAY_URL"],
-            "fields": [("provider", "Gateway (twilio or http)"), ("account_sid", "Twilio Account SID"), ("from", "Twilio sender number"),
-                       ("sender", "Sender name / mask (http gateways)"), ("method", "HTTP method (GET or POST)")],
+            "test_real": True,
+            "setup": ["Local gateway: put http in Gateway, and paste its send link as the Gateway send URL, writing {to} where the number goes, {text} for the message and {sender} for the mask.",
+                      "Example: https://gateway.example/api/send?key=YOURKEY&to={to}&msg={text}&mask={sender}",
+                      "Twilio: put twilio in Gateway, fill Account SID and sender number, and paste the auth token in Credentials.",
+                      "Send a test SMS to your own number with Test connection."],
+            "fields": [("provider", "Gateway"), ("account_sid", "Twilio Account SID"), ("from", "Twilio sender number"),
+                       ("sender", "Sender name / mask (http gateways)"), ("method", "HTTP method (local gateway)")],
+            "choices": {"provider": [("http", "Local gateway (send URL)"), ("twilio", "Twilio")], "method": [("GET", "GET"), ("POST", "POST")]},
             "test_label": "Send test SMS", "test_placeholder": "+923001234567",
             "rate_limit": "Set by the gateway; one request per message."},
-    "fx": {"icon": "coins", "color": "amber", "secrets": [],
+    "fx": {"icon": "coins", "color": "amber", "secrets": [], "test_real": True,
            "fields": [("url", "Rate provider URL ({base} = base currency code)")],
            "test_label": "Fetch rates", "test_placeholder": "",
            "rate_limit": "ExchangeRate-API open endpoint: rates refresh once a day; the feed runs daily."},
@@ -677,6 +689,24 @@ def test_integration(db: Session, provider: str, target: str = "") -> dict:
         db.flush()
         n = integ.deliver_pending_webhooks(db)
         return {"queued_for_active_webhooks": True, "processed": n}
+    if provider == "zoom":
+        from app.services import zoom
+        try:
+            return zoom.check(db)
+        except Exception as exc:
+            integ._record(db, "zoom", False, error=str(exc))
+            raise
+    if provider == "sms":
+        if not target:
+            raise ValueError("Enter the mobile number to send the test SMS to.")
+        return integ.send_sms(db, target, "Online Quran College: SMS gateway test. Please ignore.")
+    if provider == "fx":
+        from app.models.finance import Currency
+        from app.services import fx_feed
+        base = db.query(Currency).filter(Currency.is_base.is_(True)).first()
+        rates = fx_feed.fetch(db, base.code if base else "PKR")
+        integ._record(db, "fx", True)
+        return {"rates_received": len(rates), "sample": {k: rates[k] for k in list(rates)[:4]}}
     if provider == "video":
         url = integ.build_join_url("oqc-test-room", "Integration Test")
         integ._record(db, "video", True, simulated=True)

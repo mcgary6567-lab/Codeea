@@ -9,6 +9,7 @@ pydantic>=2.7
 pydantic-settings>=2.3
 passlib>=1.7
 bcrypt>=4.1
+cryptography>=42           # credentials typed on Configuration › Integrations are kept encrypted (app/core/secret_box.py)
 pyjwt>=2.8
 itsdangerous>=2.2
 reportlab>=4.2

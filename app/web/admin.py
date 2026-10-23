@@ -879,8 +879,11 @@ def integration_detail(provider: str, request: Request, db: Session = Depends(ge
         raise PermissionDenied("integrations.view")
     integ = get_integration(db, provider)
     db.commit()
+    from app.services.integrations import secret_status
+    secret_rows = secret_status(db, provider)
     return render(request, "admin/integration_detail.html", {
         "user": user, "integ": integ, "provider": provider, "meta": sys_svc.PROVIDER_META.get(provider, {}),
+        "secret_rows": secret_rows,
         "inbound": sys_svc.INBOUND_WEBHOOKS.get(provider), "base_url": cfg.BASE_URL,
         "recent": db.query(WebhookDelivery).order_by(WebhookDelivery.created_at.desc()).limit(15).all()})
 
@@ -901,7 +904,35 @@ async def integration_config(provider: str, request: Request, db: Session = Depe
                rationale=_need_rationale(form) or "Integration configuration updated (non-secret fields)",
                description=f"Updated configuration for {integ.name}", before=before, after=snapshot(integ), request=request)
     db.commit()
-    return redirect(f"/admin/integrations/{provider}", "Configuration saved. Secrets remain in the .env file.")
+    return redirect(f"/admin/integrations/{provider}", "Configuration saved.")
+
+
+@router.post("/integrations/{provider}/secrets", include_in_schema=False)
+async def integration_secrets(provider: str, request: Request, db: Session = Depends(get_db),
+                              user: User = Depends(require("integrations.configure"))):
+    """Credentials typed on the screen: stored encrypted, never shown again, replaced or removed only."""
+    from app.services.integrations import SCREEN_SECRETS, set_secret
+    if provider not in SCREEN_SECRETS:
+        return redirect(f"/admin/integrations/{provider}", "This provider's credentials are set in .env.", "error")
+    form = await request.form()
+    changed, removed = [], []
+    for name, label, _help in SCREEN_SECRETS[provider]:
+        value = (form.get(name) or "").strip()
+        if value:
+            set_secret(db, provider, name, value)
+            changed.append(label)
+        elif form.get("clear_" + name):
+            set_secret(db, provider, name, None)
+            removed.append(label)
+    if not changed and not removed:
+        return redirect(f"/admin/integrations/{provider}", "Nothing entered: the stored credentials are unchanged.", "warning")
+    log_action(db, user, "update", "integrations", entity_type="Integration", severity="warning", consequential=True,
+               rationale=_need_rationale(form) or "Integration credentials changed on the screen",
+               description=f"{provider} credentials: set {', '.join(changed) or 'none'}; removed {', '.join(removed) or 'none'}",
+               request=request)
+    db.commit()
+    parts = ([f"saved: {', '.join(changed)}"] if changed else []) + ([f"removed: {', '.join(removed)}"] if removed else [])
+    return redirect(f"/admin/integrations/{provider}", "Credentials " + "; ".join(parts) + ". Use Test connection to check them.")
 
 
 @router.post("/integrations/{provider}/test", include_in_schema=False)

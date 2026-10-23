@@ -7,6 +7,7 @@ from __future__ import annotations
 import collections
 import re
 import uuid
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -73,7 +74,7 @@ def test_an_action_type_sets_the_due_date_of_a_corrective_action(admin):
     try:
         ca = s.query(CorrectiveAction).filter(CorrectiveAction.description == f"{TAG} pacing").one()
         assert ca.action_type_id == atid
-        assert ca.due_date is not None and (ca.due_date - ca.created_at.date()).days == 5
+        assert ca.due_date is not None and (ca.due_date - date.today()).days == 5
     finally:
         s.close()
     assert f"{TAG} Coaching" in admin.get("/qa/corrective-actions").text

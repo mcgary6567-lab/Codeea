@@ -208,7 +208,9 @@ class Integration(Base, PKMixin, TimestampMixin):
     provider: Mapped[str] = mapped_column(String(50), unique=True)  # whatsapp, ghl, n8n, zoom, google, meta_ads, google_ads, payment, smtp, slack, openproject, ai
     name: Mapped[str] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(20), default="not_configured")  # not_configured | simulated | connected | error
-    config: Mapped[dict] = mapped_column(JSON, default=dict)  # non-secret config; secrets live in env
+    config: Mapped[dict] = mapped_column(JSON, default=dict)  # non-secret config
+    # credentials typed on the Integrations screen, each sealed by app/core/secret_box.py ({"ZOOM_CLIENT_SECRET": "fernet:..."})
+    secrets: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
     health: Mapped[str] = mapped_column(String(20), default="unknown")  # healthy | degraded | down | unknown
     last_health_check_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     last_error: Mapped[Optional[str]] = mapped_column(Text)

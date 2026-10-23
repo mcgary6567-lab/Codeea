@@ -102,6 +102,9 @@ nano /opt/oqc/.env
 | `SMS_GATEWAY_URL` | a local SMS gateway's send URL with `{to}`, `{text}` and `{sender}` in it (then Integrations › SMS: provider `http`) |
 | `SMS_TWILIO_AUTH_TOKEN` | Twilio instead (then Integrations › SMS: provider `twilio`, Account SID and sender number) |
 
+Zoom and SMS can instead be typed on Configuration › Integration Hub › Zoom / SMS Gateway (stored encrypted);
+the `.env` lines are only needed if you prefer them there.
+
 Save (Ctrl+O, Enter, Ctrl+X) and apply:
 
 ```bash
