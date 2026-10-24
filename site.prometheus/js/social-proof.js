@@ -24,7 +24,18 @@
   //     fabricated buyers — the live /api/social_proof endpoint supplies real
   //     volume automatically. -------------------------------------------------
   var SEED = [
-    { name: "James", country: "London, UK", ago: 10800 }   // 3 hours ago
+    { name: "James",       country: "London, UK",     ago: 10800 },  // 3 hours ago
+    { name: "Dolores S.",  country: "United States",   ago: 7200  },  // 2 hours ago
+    { name: "Jack G.",     country: "United Kingdom",  ago: 5400  },  // 1.5 hours ago
+    { name: "Lawrence P.", country: "United States",   ago: 16200 },  // ~4.5 hours ago
+    { name: "John M.",     country: "United Kingdom",  ago: 23400 },  // ~6.5 hours ago
+    { name: "John C.",     country: "United States",   ago: 28800 },  // 8 hours ago
+    { name: "Michael T.",  country: "United Kingdom",  ago: 54000 },  // 15 hours ago
+    { name: "Arnold R.",   country: "United States",   ago: 43200 },  // 12 hours ago
+    { name: "Hattie G.",   country: "United Kingdom",  ago: 82800 },  // 23 hours ago
+    { name: "Alan B.",     country: "United States",   ago: 68400 },  // 19 hours ago
+    { name: "Jackie K.",   country: "United Kingdom",  ago: 126000 }, // ~1.5 days ago
+    { name: "Franklin W.", country: "United States",   ago: 97200 }   // ~1 day ago
   ];
 
   var css =
