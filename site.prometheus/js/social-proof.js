@@ -99,7 +99,12 @@
     if (ENDPOINT) {
       try {
         fetch(ENDPOINT, { mode: "cors" }).then(function (r) { return r.json(); }).then(function (d) {
-          if (d && d.enabled && d.sales && d.sales.length) { data = d.sales; idx = 0; }
+          // Only show RECENT sales (last 7 days) so stale records like
+          // "just purchased · 92 days ago" never appear.
+          if (d && d.enabled && d.sales && d.sales.length) {
+            var recent = d.sales.filter(function (x) { return (x.ago | 0) <= 604800; });
+            if (recent.length) { data = recent; idx = 0; }
+          }
         }).catch(function () {});
       } catch (e) { /* ignore */ }
     }
