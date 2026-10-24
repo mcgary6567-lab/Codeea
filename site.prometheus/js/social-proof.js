@@ -94,14 +94,15 @@
 
   function boot() {
     document.body.appendChild(box);
+    start();  // show the seed list immediately — never block on the network
+    // Upgrade to live sales in the background if the endpoint responds.
     if (ENDPOINT) {
       try {
         fetch(ENDPOINT, { mode: "cors" }).then(function (r) { return r.json(); }).then(function (d) {
           if (d && d.enabled && d.sales && d.sales.length) { data = d.sales; idx = 0; }
-          start();
-        }).catch(start);
-      } catch (e) { start(); }
-    } else { start(); }
+        }).catch(function () {});
+      } catch (e) { /* ignore */ }
+    }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
