@@ -780,7 +780,7 @@ def set_country(user_id: int, country: str) -> None:
                   (country, user_id))
 
 
-def social_proof_sales(limit: int = 12, max_age_days: float = 120.0) -> list:
+def social_proof_sales(limit: int = 12, max_age_days: float = 14.0) -> list:
     """Recent real purchases for the social-proof popup — first name + country only,
     never email/amount. Newest first."""
     cutoff = time.time() - max_age_days * 86400
