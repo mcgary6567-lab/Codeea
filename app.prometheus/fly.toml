@@ -1,0 +1,40 @@
+# Fly.io config for Prometheus Web.
+# Rename `app` to something unique, then:  fly launch --no-deploy   (or `fly deploy`)
+app = "prometheus-bot"
+
+# Put the app NEAR YOUR EXCHANGE for the lowest order latency:
+#   Binance/Bybit/OKX run on AWS Tokyo  -> "nrt"
+#   Kraken / US venues                  -> "iad" (Ashburn) or "sjc"
+#   EU                                  -> "ams" / "fra"
+primary_region = "nrt"
+
+[build]
+
+[env]
+  PROMETHEUS_DATA_DIR = "/data"
+  PROMETHEUS_PUBLIC_URL = "https://prometheus-bot.fly.dev"
+  PROMETHEUS_TRIAL_DAYS = "10"
+  # PROMETHEUS_ADMIN_EMAIL is set via `fly secrets set` (see DEPLOY.md)
+
+# Persistent disk for the SQLite DB + master.key (survives redeploys/restarts).
+[[mounts]]
+  source = "prometheus_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # A trading bot must run 24/7 — DO NOT let Fly stop the machine, or background
+  # trading + strategy loops die. Keep exactly one machine always on.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 150
+    hard_limit = 200
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1024mb"
