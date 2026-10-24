@@ -24,7 +24,7 @@
 window.COMMENT_DATA = [
   {
     name: 'Marcus Bell', g: 'm', img: 'assets/people/01.jpg', badge: 'top', ts: 214, likes: 148,
-    text: '💰 Prometheus AI delivered real profits on my trades.\n⚡ Setup was seamless — live in under 5 minutes.',
+    text: '⚡ Setup was seamless — I was live in under 5 minutes.\n🤖 Love that it runs my whole strategy for me, hands-free.',
     reply: 'Thanks Marcus! For anyone just starting: the done-for-you setup call is booked from the link in your welcome email — one of our experts sets your bot up with you, live on the call.'
   },
   {
@@ -33,16 +33,16 @@ window.COMMENT_DATA = [
   },
   {
     name: 'Devin Parker', g: 'm', img: 'assets/people/03.jpg', badge: null, ts: 188, likes: 71,
-    text: '🚀 Finally, a crypto bot that feels professional.\n🛡️ Risk controls keep my account safe while growing.',
+    text: '🚀 Finally, a crypto bot that feels professional.\n🛡️ Risk controls and a stop on every trade keep my account protected.',
     reply: 'Your funds never leave your own exchange account — the bots connect by API and cannot withdraw. You stay in control of every deposit and withdrawal.'
   },
   {
     name: 'Natalie Brooks', g: 'f', img: 'assets/people/04.jpg', badge: 'top', ts: 176, likes: 112,
-    text: '💡 The automation is flawless — zero manual effort.\n📲 I just monitor results from my phone.'
+    text: '💡 The automation is hands-off — zero manual effort.\n📲 I just check in from my phone now and then.'
   },
   {
     name: 'Andre Whitman', g: 'm', img: 'assets/people/05.jpg', badge: null, ts: 164, likes: 54,
-    text: '🔥 Prometheus AI trades smarter than anything I’ve tried.\n⚙️ Clean interface, powerful logic, consistent outcomes.'
+    text: '🔥 Prometheus AI trades smarter than anything I’ve tried.\n⚙️ Clean interface, clear logic, runs around the clock.'
   },
   {
     name: 'Courtney Hale', g: 'f', img: 'assets/people/06.jpg', badge: 'member', ts: 151, likes: 63,
@@ -51,23 +51,23 @@ window.COMMENT_DATA = [
   },
   {
     name: 'Jared Mullins', g: 'm', img: 'assets/people/07.jpg', badge: null, ts: 139, likes: 38,
-    text: '💰 Even during volatility, profits kept rolling in.\n🔄 The bot adjusts beautifully to market swings.'
+    text: '🔄 Even during volatility, the bot adjusts beautifully to the swings.\n🛡️ It sticks to the plan when I would have panicked.'
   },
   {
     name: 'Vanessa Cole', g: 'f', img: 'assets/people/08.jpg', badge: 'member', ts: 127, likes: 87,
-    text: '🛡️ Risk management is tight — no reckless moves.\n📈 Steady gains without stress.'
+    text: '🛡️ Risk management is tight — no reckless moves.\n😌 No more emotional trading or staring at charts all day.'
   },
   {
     name: 'Trevor Lindquist', g: 'm', img: 'assets/people/09.jpg', badge: null, ts: 114, likes: 42,
-    text: '💎 Transparency matters — every trade is visible.\n📲 I love tracking performance in real time.'
+    text: '💎 Transparency matters — every trade is visible.\n📲 I love seeing exactly what it does in real time.'
   },
   {
     name: 'Alicia Moreno', g: 'f', img: 'assets/people/10.jpg', badge: null, ts: 102, likes: 35,
-    text: '💸 Results came faster than expected.\n⚙️ Prometheus AI is worth every penny.'
+    text: '⚙️ Setup was painless and it just runs.\n👍 Prometheus AI is worth every penny for the time it saves.'
   },
   {
     name: 'Scott Ferraro', g: 'm', img: 'assets/people/11.jpg', badge: 'member', ts: 91, likes: 58,
-    text: '🤖 Smooth automation, no constant tweaking required.\n💰 It feels like passive income done right.'
+    text: '🤖 Smooth automation, no constant tweaking required.\n😌 Set it up once and it runs itself in the background.'
   },
   {
     name: 'Bianca Chen', g: 'f', img: 'assets/people/12.jpg', badge: null, ts: 78, likes: 29,
@@ -83,7 +83,7 @@ window.COMMENT_DATA = [
   },
   {
     name: 'Grant Sullivan', g: 'm', img: 'assets/people/15.jpg', badge: 'member', ts: 38, likes: 51,
-    text: '📈 Profits in both bullish and bearish markets.\n💰 That’s the versatility I was looking for.',
+    text: '🔄 It trades both bullish and bearish markets.\n💡 That’s the versatility I was looking for.',
     reply: 'That’s the point of running the bots through a full cycle — they trade both directions. All trading carries risk, so only fund what you’re comfortable losing.'
   },
   {
@@ -92,6 +92,6 @@ window.COMMENT_DATA = [
   },
   {
     name: 'Damian Foster', g: 'm', img: 'assets/people/17.jpg', badge: 'member', ts: 9, likes: 21, drip: true,
-    text: '💸 Crypto futures feel effortless with this bot.\n🤖 It’s been a consistent performer for me.'
+    text: '⚙️ Crypto futures feel effortless with this bot.\n🤖 It just follows its rules without the stress.'
   }
 ];
