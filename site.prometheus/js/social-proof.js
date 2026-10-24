@@ -18,22 +18,13 @@
   var ENDPOINT = (cur && cur.getAttribute("data-endpoint")) || "";
   var LOGO = (cur && cur.getAttribute("data-logo")) || "assets/favicon.png";
 
-  // --- starter list (used until real sales load / if endpoint is unreachable) ---
+  // --- REAL orders only (fallback shown until the live endpoint returns sales).
+  //     ago = seconds since the purchase. Add new genuine orders here as they
+  //     come in; the widget shows the most-recent-looking ones. Do NOT add
+  //     fabricated buyers — the live /api/social_proof endpoint supplies real
+  //     volume automatically. -------------------------------------------------
   var SEED = [
-    { name: "Richard", country: "United States", ago: 442800 },
-    { name: "Sophie", country: "United Kingdom", ago: 8400 },
-    { name: "Daniel", country: "Canada", ago: 133200 },
-    { name: "Mateo", country: "Spain", ago: 2700 },
-    { name: "Aisha", country: "United Arab Emirates", ago: 61200 },
-    { name: "Lukas", country: "Germany", ago: 349200 },
-    { name: "Olivia", country: "Australia", ago: 19800 },
-    { name: "James", country: "United States", ago: 705600 },
-    { name: "Priya", country: "India", ago: 5400 },
-    { name: "Noah", country: "Netherlands", ago: 226800 },
-    { name: "Emma", country: "France", ago: 46800 },
-    { name: "Carlos", country: "Mexico", ago: 111600 },
-    { name: "Liam", country: "Ireland", ago: 900 },
-    { name: "Chloe", country: "New Zealand", ago: 518400 }
+    { name: "James", country: "London, UK", ago: 10800 }   // 3 hours ago
   ];
 
   var css =
