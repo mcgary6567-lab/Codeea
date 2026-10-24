@@ -1,0 +1,25 @@
+# Trevolto — clean (extensionless) URLs + basics
+Options -MultiViews
+RewriteEngine On
+
+# Serve extensionless URLs from their .html file:
+#   /checkout                     -> checkout.html
+#   /blog                         -> blog.html
+#   /blog/what-is-an-ai-trading-bot -> blog/what-is-an-ai-trading-bot.html
+# Skips real files (images, css, js) and only rewrites when the .html exists.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME}\.html -f
+RewriteRule ^(.+?)/?$ $1.html [L]
+
+# Friendly 404
+ErrorDocument 404 /404.html
+
+# Cache static assets (images/css/js) for speed
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+</IfModule>
