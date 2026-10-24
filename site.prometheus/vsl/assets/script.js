@@ -110,14 +110,17 @@
     var clocks = $$('[data-clock]');
     if (!clocks.length) return;
 
+    var span = ((CONFIG.countdownDays * 24 + CONFIG.countdownHours) * 60 + CONFIG.countdownMinutes) * 60000;
+    if (span <= 0) span = 7 * 24 * 60 * 60000;
     var deadline;
 
     if (CONFIG.fixedDeadline) {
       deadline = new Date(CONFIG.fixedDeadline).getTime();
     } else {
       deadline = parseInt(store(LS.deadline), 10);
-      var span = ((CONFIG.countdownDays * 24 + CONFIG.countdownHours) * 60 + CONFIG.countdownMinutes) * 60000;
-      if (!deadline || isNaN(deadline) || deadline - Date.now() > span) {
+      /* Evergreen offer: (re)start the window when it is missing, invalid,
+         already past, or further out than one full span — so it never closes. */
+      if (!deadline || isNaN(deadline) || deadline <= Date.now() || deadline - Date.now() > span) {
         deadline = Date.now() + span;
         store(LS.deadline, String(deadline));
       }
@@ -141,13 +144,9 @@
       });
 
       if (left <= 0) {
-        var bar = $('#topbar');
-        if (bar) {
-          bar.classList.add('is-expired');
-          var label = $('.topbar-label', bar);
-          if (label) label.textContent = 'Offer window closed';
-        }
-        return;
+        if (CONFIG.fixedDeadline) return;      /* stop at zero, but never show a "closed" state */
+        deadline = Date.now() + span;          /* evergreen: roll the window forward and keep counting */
+        store(LS.deadline, String(deadline));
       }
       setTimeout(paint, 1000);
     }
