@@ -855,12 +855,9 @@
      BOOT
      ========================================================= */
   function boot() {
-    initCountdown();
     initVideo();
-    initCounters();
-    initComments();
-    initActions();
-    initExitModal();
+    var yr = document.getElementById('year');
+    if (yr) yr.textContent = new Date().getFullYear();
   }
 
   if (document.readyState === 'loading') {
