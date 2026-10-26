@@ -10,12 +10,12 @@
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#F59E0B">
 
-<title>Gold Scalpers EA Backtest Results (MT5, XAUUSD)</title>
-<meta name="description" content="MT5 Strategy Tester backtest of Gold Scalpers EA on XAUUSD with real-tick history: equity curve, drawdown, full report and how to reproduce it yourself.">
+<title>Gold Scalpers Pro Backtest Results (MT5, XAUUSD M5)</title>
+<meta name="description" content="MT5 Strategy Tester backtest of Gold Scalpers Pro v4.50 on XAUUSD M5 with real ticks: balance curve, drawdown, the losing stretches, and how to reproduce it yourself.">
 <link rel="canonical" href="https://goldscalpers.com/results">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Backtest Results – Gold Scalpers EA (MT5 Strategy Tester)">
-<meta property="og:description" content="XAUUSD M15 backtest on real-tick history — equity curve, drawdown and full report. Reproduce it yourself, risk-free for 30 days.">
+<meta property="og:description" content="XAUUSD M5 backtest of the current build on real ticks — balance curve, drawdown and the losing stretches. Reproduce it yourself.">
 <meta property="og:url" content="https://goldscalpers.com/results">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -95,7 +95,7 @@
   <div class="page-hero-inner">
     <span class="page-eyebrow">📊 MT5 Strategy Tester</span>
     <h1 class="page-title">Backtest <span class="accent">Results</span></h1>
-    <p class="page-subtitle">How the Gold Scalpers EA performed in MetaTrader 5's Strategy Tester on XAUUSD — two months of real-tick history on an earlier configuration (the M15 Slope × 50 EMA build). The EA now ships as the M5 colour-turn build; a backtest of that build will be published here. Backtested, fully reproducible, nothing hidden.</p>
+    <p class="page-subtitle">How Gold Scalpers Pro v4.50 performs in MetaTrader 5&rsquo;s Strategy Tester on XAUUSD M5 with real ticks and the shipped default settings &mdash; the good month and the bad stretch. These are backtests, not live trading results.</p>
   </div>
 </section>
 
@@ -103,67 +103,67 @@
 
   <div class="res-trust">
     <span class="res-badge">◷ Backtest · Hypothetical</span>
-    <span>XAUUSD · M15 · 2-month backtest · Every tick (real ticks) 99% · $1,000 start</span>
+    <span>XAUUSD · M5 · 14 Sep &ndash; 14 Oct 2026 · Every tick based on real ticks (100%) · $1,000 start · 0.01 lot · v4.50 defaults</span>
   </div>
 
   <div class="res-stats">
-    <div class="res-stat"><div class="v pos">+67.0%</div><div class="l">Net Profit</div><div class="s">+$670 on $1k</div></div>
-    <div class="res-stat"><div class="v">2.40</div><div class="l">Profit Factor</div><div class="s">win ÷ loss</div></div>
-    <div class="res-stat"><div class="v neg">9.0%</div><div class="l">Max Drawdown</div><div class="s">peak-to-trough</div></div>
-    <div class="res-stat"><div class="v">67.7%</div><div class="l">Win Rate</div><div class="s">124 trades</div></div>
+    <div class="res-stat"><div class="v pos">+$77.81</div><div class="l">Net Profit</div><div class="s">+7.8% on $1,000</div></div>
+    <div class="res-stat"><div class="v">1.33</div><div class="l">Profit Factor</div><div class="s">gross win ÷ gross loss</div></div>
+    <div class="res-stat"><div class="v neg">5.37%</div><div class="l">Max Drawdown</div><div class="s">equity, this month</div></div>
+    <div class="res-stat"><div class="v">83.5%</div><div class="l">Win Rate</div><div class="s">106 of 127 trades</div></div>
   </div>
 
   <div class="bt-img">
-    <img src="/assets/backtest-equity.webp?v=bt4" alt="Gold Scalpers EA backtest equity curve — XAUUSD M15, 2025, MT5 Strategy Tester, +67.0% net with a 9.0% max drawdown on a $1,000 account over 124 trades" loading="lazy" width="1200" height="600">
+    <img src="/assets/backtest-m5-1m.webp?v=450" alt="Gold Scalpers Pro v4.50 backtest balance curve, XAUUSD M5, 14 September to 14 October 2026, MT5 Strategy Tester with real ticks: the balance climbs in small steps with several sharp drops, ending at about 1,078 from 1,000" loading="lazy" width="820" height="200">
   </div>
-  <p class="bt-cap">Equity &amp; balance curve — MT5 Strategy Tester, XAUUSD M15, Oct–Dec 2025 (2-month backtest, real-tick modelling).</p>
+  <p class="bt-cap">Balance curve straight from the MT5 Strategy Tester report (trade number along the bottom). Read the shape: many small wins, and fewer losses that are bigger.</p>
 
-  <div class="bt-img">
-    <img src="/assets/backtest-stats.webp?v=bt4" alt="Gold Scalpers EA backtest report — net profit, profit factor, max drawdown, win rate, total trades, recovery factor, Sharpe ratio and expected payoff" loading="lazy" width="1200" height="340">
+  <div class="callout">
+    <h4>What the numbers mean</h4>
+    <p style="margin:0 0 .6rem">The average winning trade made <b>$2.99</b> and the average losing trade lost <b>$11.40</b> (largest loss $25.35). The EA wins often and small, and loses less often but bigger &mdash; that is why the curve climbs in steps and then drops. A high win rate on its own tells you little; the profit factor of 1.33 is the honest summary of this month.</p>
+    <p style="margin:0">One month is a short test. Over a longer window the result is very different:</p>
   </div>
-  <p class="bt-cap">Full Strategy Tester report — the same figures MT5 outputs for any backtest.</p>
 
-  <style>
-      .mql5-shot{max-width:1040px;margin:1.6rem auto 0;border-radius:14px;overflow:hidden;box-shadow:0 12px 30px rgba(16,24,40,.12)}
-      .mql5-shot img{width:100%;height:auto;display:block}
-      .mql5-hint{display:none}
-      @media(max-width:640px){
-        .mql5-shot{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;box-shadow:0 6px 18px rgba(16,24,40,.12)}
-        .mql5-shot img{width:auto;height:200px;max-width:none}
-        .mql5-hint{display:block;text-align:center;font-size:.75rem;color:#98A2B3;margin:.55rem 0 1.2rem;font-weight:600}
-      }
-    </style>
+  <div class="res-how" style="margin-top:1rem">
+    <h3 style="margin:.1rem 0 .9rem;font-size:1.05rem;color:#0F172A">The longer view &mdash; including the losing stretch</h3>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:.88rem;min-width:460px">
+      <thead><tr style="text-align:left;border-bottom:2px solid #E5E7EB"><th style="padding:.45rem .3rem">XAUUSD M5, 12 Jan &ndash; 14 Sep 2026, $1,000, 0.01 lot</th><th style="padding:.45rem .3rem">Net</th><th style="padding:.45rem .3rem">Profit factor</th><th style="padding:.45rem .3rem">Max drawdown</th></tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #F1F5F9"><td style="padding:.45rem .3rem">Default sessions (closest measured setup)</td><td style="padding:.45rem .3rem">+$99.33</td><td style="padding:.45rem .3rem">1.06</td><td style="padding:.45rem .3rem">25.6%</td></tr>
+        <tr style="border-bottom:1px solid #F1F5F9"><td style="padding:.45rem .3rem">&nbsp;&nbsp;of which 12 Jan &ndash; 14 May</td><td style="padding:.45rem .3rem;color:#DC2626">&minus;$181.94</td><td style="padding:.45rem .3rem">&mdash;</td><td style="padding:.45rem .3rem">&mdash;</td></tr>
+        <tr><td style="padding:.45rem .3rem">&ldquo;Low drawdown&rdquo; preset (New York 13:00&ndash;19:00 only)</td><td style="padding:.45rem .3rem">+$265.33</td><td style="padding:.45rem .3rem">&mdash;</td><td style="padding:.45rem .3rem">10.3%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p style="margin:.8rem 0 0;font-size:.84rem;color:#6B7280">The eight-month run of the exact v4.50 defaults was not finished before release; the default-sessions row is the closest setup that was measured end to end. Size your lot for a drawdown like 25%, not for the best month. News trades (the AI hot-story feature) are not in any of these figures &mdash; the tester has no news feed.</p>
+  </div>
 
   <div class="check60">
     <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
     <div>
       <h3>You have 30 days to check everything yourself</h3>
-      <p>Don't take a backtest on faith — <b>run it yourself</b>. Load the exact same EA into MetaTrader 5's Strategy Tester, reproduce this backtest on your own broker's data, and demo-trade it live. If the Gold Scalpers EA isn't for you within <b>30 days</b>, email us for a <b>full refund</b> — no questions asked. That's your window to verify every number on this page before you risk a cent.</p>
+      <p>Don't take a backtest on faith &mdash; <b>run it yourself</b>. Load the same EA into MetaTrader 5's Strategy Tester, reproduce this test on your own broker's data, and demo-trade it. If Gold Scalpers Pro isn't for you within <b>30 days</b>, email us for a <b>full refund</b>.</p>
     </div>
   </div>
 
   <div class="repro">
-    <h3><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Reproduce this backtest in 5 minutes</h3>
+    <h3>Reproduce this backtest in 5 minutes</h3>
     <ol>
-      <li>Install the Gold Scalpers EA in MetaTrader 5 (drag it onto any chart once so it appears in the tester).</li>
-      <li>Open <code>View → Strategy Tester</code>, choose <b>Gold Scalpers EA</b>, symbol <code>XAUUSD</code>, timeframe <code>M15</code>.</li>
-      <li>Set modelling to <b>Every tick based on real ticks</b> and a date range (e.g. the last 2 months).</li>
-      <li>Load the shipped <code>.set</code> defaults on the <b>Inputs</b> tab, then click <b>Start</b>.</li>
-      <li>Compare your equity curve, drawdown and report to the ones above.</li>
+      <li>Install Gold Scalpers Pro in MetaTrader 5 (copy the .ex5 into MQL5\Experts and restart MT5).</li>
+      <li>Open <code>View → Strategy Tester</code>, choose <b>Gold Scalpers Pro</b>, symbol <code>XAUUSD</code>, timeframe <code>M5</code>.</li>
+      <li>Set modelling to <b>Every tick based on real ticks</b>, deposit $1,000, and the dates 2026.09.14 &ndash; 2026.10.14.</li>
+      <li>Leave every input at its default and click <b>Start</b>.</li>
+      <li>Compare your balance curve and report with the ones above. Your broker's spreads and tick data will move the figures a little.</li>
     </ol>
   </div>
 
-  <div class="callout green">
-    <h4>✅ What you're looking at</h4>
-    <p style="margin:0">A MetaTrader 5 Strategy Tester backtest of Gold Scalpers EA on XAUUSD, run on an <b>earlier M15 configuration</b> — the EA now ships tuned for M5, so treat this as a record of the strategy, not of the current defaults. Drawdown is shown, not hidden — every honest track record has losing stretches.</p>
-  </div>
-
   <div class="res-how">
-    <h3 style="margin:.1rem 0 .9rem;font-size:1.05rem;color:#0F172A"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Frequently asked questions</h3>
-    <p style="margin:0 0 .9rem"><b>Are these results live or backtested?</b><br>Backtested. They come from MetaTrader 5's Strategy Tester on XAUUSD historical tick data — not a live account. That's why you can reproduce them yourself with the same EA.</p>
-    <p style="margin:0 0 .9rem"><b>Can I trust a backtest?</b><br>Only as far as you verify it. That's the point of this page: the EA is the same one you receive, so you can run the identical backtest and demo-trade it during your 30-day window instead of taking our word.</p>
-    <p style="margin:0 0 .9rem"><b>Do these results guarantee future profit?</b><br>No. Backtested results are hypothetical and have inherent limitations — they don't include every real-world cost or condition and do not guarantee future performance. Trading is high-risk; test on demo first.</p>
-    <p style="margin:0"><b>What settings produced these results?</b><br>An earlier M15 configuration of Gold Scalpers EA (the Slope × 50 EMA build), XAUUSD (gold), real-tick modelling. The EA now ships as the M5 colour-turn build (the Slope line turns green = buy, red = sell); a backtest of that build will be published here.</p>
+    <h3 style="margin:.1rem 0 .9rem;font-size:1.05rem;color:#0F172A">Frequently asked questions</h3>
+    <p style="margin:0 0 .9rem"><b>Are these results live or backtested?</b><br>Backtested, in MetaTrader 5's Strategy Tester on real XAUUSD tick data. There is no public live account yet, which is why this page gives you everything you need to reproduce the test yourself.</p>
+    <p style="margin:0 0 .9rem"><b>Why show the losing stretch?</b><br>Because you may live through one. January to May 2026 lost money on the default sessions; a buyer who sizes for the good month gets hurt in a period like that.</p>
+    <p style="margin:0 0 .9rem"><b>Do these results guarantee future profit?</b><br>No. Backtested results are hypothetical, are made with hindsight, leave out some real-world costs, and do not guarantee future performance. Trading is high-risk; test on demo first.</p>
+    <p style="margin:0"><b>What settings produced the month at the top?</b><br>Gold Scalpers Pro v4.50 with every input at its default, XAUUSD M5, $1,000, 0.01 lot, real-tick modelling.</p>
   </div>
 
   <div class="cta-banner">
@@ -297,7 +297,6 @@ s0.parentNode.insertBefore(s1,s0);
 })();
 </script>
 <!--End of Tawk.to Script-->
-<script src="/assets/cookie-consent.js" defer></script>
-<script src="/assets/social-proof.js?v=2" data-logo="/apple-touch-icon.png"></script>
+<script src="/assets/cookie-consent.js" defer></script><script src="/assets/t.js" defer></script>
 </body>
 </html>

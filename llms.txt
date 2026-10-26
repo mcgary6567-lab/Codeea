@@ -14,9 +14,9 @@ Gold Scalpers EA is a rules-based gold-trading robot for MetaTrader 5. It enters
 - Prop-Firm Mode: percentage daily-loss and max-drawdown limits from balance baselines, hard lock on breach
 - Pre-flight self-check on attach (permissions, history, spread, indicators, licence)
 - Risk controls: daily loss/profit limits, max-drawdown guard, max daily orders, spread/session/news filters
-- Price: $140 one-time, lifetime license (regular $220)
+- Price: $140 one-time, lifetime license
 - Guarantee: 30-day money-back
-- License: bound to the buyer's MT5 account number (allow-list at https://goldscalpers.com/licenses.txt)
+- License: bound to the buyer's MT5 account number (add https://goldscalpers.com to MT5's WebRequest list)
 - Not martingale; optional Momentum Pyramiding that can be turned off for prop-firm single-entry mode
 
 ## Key pages

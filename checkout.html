@@ -340,13 +340,6 @@ a:hover{color:#B45309}
   </div>
 </nav>
 
-<!-- URGENCY BAR -->
-<div class="urgency-bar">
-  <span>⚡ <strong>$80 off</strong> — Pay once, own it forever</span>
-  <span class="ub-timer"><b id="ubD">02</b>d <b id="ubH">00</b>h <b id="ubM">00</b>m <b id="ubS">00</b>s</span>
-  <span class="ub-price">$140 <s>$220</s></span>
-</div>
-
 <!-- MAIN CHECKOUT LAYOUT -->
 <div class="checkout-wrap">
 
@@ -357,7 +350,7 @@ a:hover{color:#B45309}
       🤖 MetaTrader 5 Expert Advisor
     </div>
     <h1 class="order-title">Gold Scalpers EA<br><span class="accent">Prop-Firm-Ready Gold Robot</span></h1>
-    <p class="order-tagline">A <strong>fully automated MetaTrader 5 Expert Advisor</strong> for XAUUSD (Gold) — a pure M5 gold scalper with two entry triggers you can see on the chart: the Slope line crossing a 50 EMA, or the Slope line changing direction, each confirmed by ZeroLag MACD. A swing-structure stop, a fixed take-profit, break-even and step stop, and prop-firm-grade risk controls (drawdown guard, session and news filters with a late-New-York cutoff and a Tokyo-open skip). Runs hands-free on your PC or VPS.</p>
+    <p class="order-tagline">A <strong>fully automated MetaTrader 5 Expert Advisor</strong> for XAUUSD (Gold) — a pure M5 gold scalper with two entry triggers you can see on the chart: the Slope line crossing a 50 EMA, or the Slope line changing direction, each confirmed by ZeroLag MACD. A swing-structure stop, a fixed take-profit, break-even and step stop, and prop-firm-grade risk controls (drawdown guard, session and news filters with a late-New-York cutoff and a Sydney-open skip). Runs hands-free on your PC or VPS.</p>
 
     <!-- WHAT'S INCLUDED -->
     <div class="includes-card">
@@ -376,7 +369,7 @@ a:hover{color:#B45309}
         </li>
         <li>
           <span class="check"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></span>
-          <span><strong>One entry rule you can see</strong> — the Slope line turns green = BUY, red = SELL, read on closed candles</span>
+          <span><strong>Two entry triggers you can see on the chart</strong> — the Slope line crossing the 50 EMA, or the Slope line turning (green = BUY, red = SELL), read on closed candles</span>
         </li>
         <li>
           <span class="check"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -466,7 +459,7 @@ a:hover{color:#B45309}
       <div class="testimonial" style="display:flex;gap:.9rem;align-items:flex-start">
         <div style="flex:0 0 auto;width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#0b5fa5,#1583c9);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.72rem">MQL5</div>
         <div>
-          <p class="testimonial-text" style="font-style:normal;margin-bottom:.35rem">Our free lite edition is published on MetaQuotes&rsquo; official <b>MQL5 Market</b> &mdash; it passed <b>MetaQuotes&rsquo; own code validation</b> and has been downloaded 376 times. What you get here is the newer, fuller build.</p>
+          <p class="testimonial-text" style="font-style:normal;margin-bottom:.35rem">Our free lite edition is published on MetaQuotes&rsquo; official <b>MQL5 Market</b> &mdash; it passed <b>MetaQuotes&rsquo; own code validation</b> and has been <a href="https://www.mql5.com/en/market/product/184515" target="_blank" rel="noopener">downloaded more than 850 times</a>. What you get here is the newer, fuller build.</p>
           <div class="testimonial-author"><div><em>Independently listed and counted by MetaQuotes</em></div></div>
         </div>
       </div>
@@ -502,8 +495,6 @@ a:hover{color:#B45309}
       <div style="margin-bottom:1.5rem">
         <div class="price-header">
           <div class="price-amount">$140</div>
-          <div class="price-orig">$220</div>
-          <div class="price-badge">Save $80</div>
         </div>
         <div class="price-desc">MetaTrader 5 Expert Advisor · One-time payment · Lifetime access · No recurring fees</div>
       </div>
@@ -544,8 +535,8 @@ a:hover{color:#B45309}
         <svg viewBox="0 0 64 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><text x="0" y="13" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="800" font-style="italic"><tspan fill="#003087">Pay</tspan><tspan fill="#009cde">Pal</tspan></text></svg>
         Pay $140 with PayPal
       </a>
-      <div class="pp-note">Opens PayPal with the $140 amount pre-filled. After paying, head to the
-        activation page to download the EA and submit your MT5 account number.</div>
+      <div class="pp-note">Opens PayPal with the $140 amount pre-filled. After paying, open the
+        <a href="/thank-you">activation page</a> to download the EA and enter your MT5 account number.</div>
 
       <!-- DIVIDER -->
       <div class="pay-divider">or pay with crypto</div>
@@ -559,6 +550,16 @@ a:hover{color:#B45309}
           Pay with Crypto
         </span>
       </a>
+
+      <!-- AFTER YOU PAY -->
+      <div style="margin-top:1.1rem;border:1.5px solid var(--border);border-radius:10px;padding:.8rem 1rem;font-size:.82rem;color:var(--text-muted);text-align:left">
+        <strong style="color:var(--text)">What happens after you pay (about 5 minutes)</strong>
+        <ol style="margin:.45rem 0 0 1.1rem;padding:0;line-height:1.55">
+          <li>Download the EA &mdash; the link is in your Gumroad receipt (PayPal: the activation page above).</li>
+          <li>Enter your MT5 account number on the activation page. It is approved automatically, usually within two minutes.</li>
+          <li>In MT5, add <code>https://goldscalpers.com</code> under Tools &rarr; Options &rarr; Expert Advisors &rarr; Allow WebRequest, then attach the EA to an XAUUSD M5 chart.</li>
+        </ol>
+      </div>
 
       <!-- PANEL FOOTER -->
       <div class="panel-footer">
@@ -592,7 +593,7 @@ a:hover{color:#B45309}
 
       <div class="faq-item">
         <div class="faq-q">How quickly do I get the EA after payment?</div>
-        <div class="faq-a"><div class="faq-a-inner">Card / PayPal: your EA file, account licence and setup guide are emailed within minutes of payment. Crypto: sent manually after we verify your transaction screenshot — usually within a few hours.</div></div>
+        <div class="faq-a"><div class="faq-a-inner">Card (Gumroad): the download link is in your Gumroad receipt the moment you pay. PayPal: open the activation page at goldscalpers.com/thank-you right after paying. Crypto: once NOWPayments confirms the payment, email support@goldscalpers.com with the payment ID and we send the link, usually within a few hours. Activating your MT5 account on the activation page is automatic.</div></div>
       </div>
 
       <div class="faq-item">
@@ -780,7 +781,7 @@ a:hover{color:#B45309}
     </div>
     <h3>Wait — <span class="green">You're Fully Covered</span></h3>
     <p class="promo-gsub">30-Day Money-Back Guarantee</p>
-    <p class="promo-gbody">Your $140 is protected. Run Gold Scalpers EA on demo or live for two full weeks — if it isn't the right fit, email us for a <b>full refund</b>, no questions asked. <b>You've got nothing to lose.</b></p>
+    <p class="promo-gbody">Your $140 is protected. Run Gold Scalpers EA on demo or live for up to 30 days — if it isn't the right fit, email us for a <b>full refund</b>, no questions asked. <b>You've got nothing to lose.</b></p>
     <div class="promo-pills">
       <span class="promo-pill">✓ Full refund</span>
       <span class="promo-pill">✓ No questions asked</span>
@@ -793,24 +794,6 @@ a:hover{color:#B45309}
 
 <!-- SCRIPTS -->
 <script>
-/* Launch-price countdown to a REAL fixed deadline - keep PROMO_END in sync with index.html */
-(function(){
-  var PROMO_END = Date.UTC(2026, 8, 15, 23, 59, 0);   // 15 Sep 2026 23:59 UTC
-  var d=document.getElementById('ubD'),h=document.getElementById('ubH'),m=document.getElementById('ubM'),s=document.getElementById('ubS');
-  if(!d) return;
-  var bar=d.closest('.urgency-bar');
-  function p(n){return (n<10?'0':'')+n;}
-  function tick(){
-    var r=PROMO_END-Date.now();
-    if(r<=0){ if(bar) bar.style.display='none'; return; }
-    d.textContent=p(Math.floor(r/86400000));
-    h.textContent=p(Math.floor((r%86400000)/3600000));
-    m.textContent=p(Math.floor((r%3600000)/60000));
-    s.textContent=p(Math.floor((r%60000)/1000));
-  }
-  tick(); setInterval(tick,1000);
-})();
-
 /* Copy wallet address to clipboard */
 function copyAddr(id, btn) {
   const el = document.getElementById(id);
@@ -887,7 +870,6 @@ s0.parentNode.insertBefore(s1,s0);
 })();
 </script>
 <!--End of Tawk.to Script-->
-<script src="/assets/cookie-consent.js" defer></script>
-<script src="/assets/social-proof.js?v=2" data-logo="/apple-touch-icon.png"></script>
+<script src="/assets/cookie-consent.js" defer></script><script src="/assets/t.js" defer></script>
 </body>
 </html>

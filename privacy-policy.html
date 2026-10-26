@@ -25,7 +25,7 @@
 <!-- FAQPage schema for AI citation -->
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"What data does Gold Scalpers collect?","acceptedAnswer":{"@type":"Answer","text":"Gold Scalpers collects information you provide directly (email address, payment data processed by Gumroad) and information collected automatically (usage data via Plausible.io which is privacy-friendly and cookie-free, anonymized IP address, browser type, and device type). We do not collect your trading history, MetaTrader 5 login credentials, or broker account data."}},
+{"@type":"Question","name":"What data does Gold Scalpers collect?","acceptedAnswer":{"@type":"Answer","text":"Gold Scalpers collects information you provide directly (email address, payment data processed by Gumroad) and information collected automatically (usage data counted by our own server without cookies, a daily-changing hash instead of your IP address, and the device type). We do not collect your trading history, MetaTrader 5 login credentials, or broker account data."}},
 {"@type":"Question","name":"Does Gold Scalpers sell my personal data?","acceptedAnswer":{"@type":"Answer","text":"No. Gold Scalpers does not sell, rent, or trade your personal data. We share data only with essential service providers such as Gumroad for payment processing and Plausible.io for cookie-free analytics."}},
 {"@type":"Question","name":"How long does Gold Scalpers retain my data?","acceptedAnswer":{"@type":"Answer","text":"Account data is retained while your account is active plus 90 days after closure. Payment records are retained for 7 years for tax compliance. Email subscriber data is retained until you unsubscribe. Support tickets are retained for 2 years for quality assurance."}},
 {"@type":"Question","name":"What are my GDPR and CCPA rights?","acceptedAnswer":{"@type":"Answer","text":"You have the right to access a copy of your personal data, correct inaccurate data, request deletion ('right to be forgotten'), and receive your data in a machine-readable format (portability). Email support@goldscalpers.com to exercise any of these rights."}},
@@ -88,7 +88,7 @@
   </ul>
   <h3>Information collected automatically:</h3>
   <ul>
-    <li><strong>Usage data:</strong> pages visited, time on site (via Plausible.io – privacy-friendly, no cookies)</li>
+    <li><strong>Usage data:</strong> pages visited, the site that sent you, time on the page and clicks on buy buttons, counted by our own server (no cookies, no third parties). We do not store your IP address: a visitor is counted as a one-way hash that changes every day.</li>
     <li><strong>Technical data:</strong> IP address (anonymized), browser type, device type</li>
   </ul>
   <h3>What we do NOT collect:</h3>
@@ -116,7 +116,7 @@
   </ul>
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>5. Cookies</h2>
-  <p>We use minimal cookies for essential site functionality. We do <strong>not</strong> use third-party advertising or tracking cookies. Our analytics provider (Plausible.io) is cookie-free by design.</p>
+  <p>We use minimal cookies for essential site functionality. We do <strong>not</strong> use third-party advertising or tracking cookies. Our visit counter runs on our own server and uses no cookies.</p>
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>6. Data Retention</h2>
   <ul>
@@ -262,6 +262,6 @@ s0.parentNode.insertBefore(s1,s0);
 })();
 </script>
 <!--End of Tawk.to Script-->
-<script src="/assets/cookie-consent.js" defer></script>
+<script src="/assets/cookie-consent.js" defer></script><script src="/assets/t.js" defer></script>
 </body>
 </html>

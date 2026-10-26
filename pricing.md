@@ -5,7 +5,7 @@
 Gold Scalpers EA is sold as a single one-time purchase. There is no subscription and no recurring fee.
 
 ## Pro Lifetime
-- Price: $140 USD, one-time (regular price $220 - save $80)
+- Price: $140 USD, one-time
 - Billing: one-time payment, no subscription
 - License: lifetime; bound to your MetaTrader 5 account number(s). Contact support to add or change accounts.
 - Platform: MetaTrader 5 (MT5), any broker

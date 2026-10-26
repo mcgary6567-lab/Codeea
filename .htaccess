@@ -33,6 +33,9 @@ RewriteRule ^google[0-9a-f]+\.html$ - [L]
 RewriteCond %{DOCUMENT_ROOT}/licdata/licenses.txt -f
 RewriteRule ^licenses\.txt$ licdata/licenses.txt [L]
 
+# --- /contact is the support page (chat + email) ---
+RewriteRule ^contact/?$ /support [R=301,L]
+
 # --- Block internal strategy docs (was /.agents/* -> 404 in _redirects) ---
 RewriteRule ^\.agents(/.*)?$ - [R=404,L]
 
