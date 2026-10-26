@@ -2,7 +2,7 @@
  * Sends one page view, the clicks that matter for sales (buy buttons, checkout,
  * MQL5, download) and the time spent on the page to /t.php. The id below lives
  * in sessionStorage only, so it is gone when the tab closes. Read the numbers
- * at /stats.php (admin login). */
+ * in the panel: /panel/stats.php. */
 (function () {
   "use strict";
   if (navigator.webdriver) return;                      // headless / automated browsers

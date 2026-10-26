@@ -33,6 +33,10 @@ RewriteRule ^google[0-9a-f]+\.html$ - [L]
 RewriteCond %{DOCUMENT_ROOT}/licdata/licenses.txt -f
 RewriteRule ^licenses\.txt$ licdata/licenses.txt [L]
 
+# --- Owner pages now live in the panel (one login) ---
+RewriteRule ^ai-settings\.php$ /panel/ai.php [R=301,L]
+RewriteRule ^stats\.php$ /panel/stats.php [R=301,L]
+
 # --- /contact is the support page (chat + email) ---
 RewriteRule ^contact/?$ /support [R=301,L]
 

@@ -6,7 +6,7 @@
 //  (survives deploys, never served). No cookies and no IP addresses are
 //  stored: a visitor is a daily-salted hash of IP + browser, so the same
 //  person counts once per day and cannot be traced back.
-//  Read it at /stats.php.
+//  Read it in the panel: /panel/stats.php.
 // =====================================================================
 header('Content-Type: text/plain');
 header('Cache-Control: no-store');

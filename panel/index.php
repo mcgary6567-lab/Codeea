@@ -7,15 +7,7 @@
 //  public licenses.txt. Protect this folder with a password (config.php)
 //  + Hostinger "Password Protect Directories".
 // =====================================================================
-ini_set('session.cookie_httponly', '1');
-ini_set('session.use_strict_mode', '1');
-if (!empty($_SERVER['HTTPS'])) ini_set('session.cookie_secure', '1');
-session_start();
-require __DIR__ . '/config.php';
-
-if (empty($_SESSION['csrf'])) { $_SESSION['csrf'] = bin2hex(random_bytes(16)); }
-function csrf_ok() { return isset($_POST['csrf']) && hash_equals($_SESSION['csrf'], (string)$_POST['csrf']); }
-function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+require __DIR__ . '/_common.php';   // session, login, tabs, stylesheet
 function fmt_dt($iso) { if (!$iso) return '—'; $t = strtotime($iso); return $t ? date('Y-m-d H:i', $t) : h($iso); }
 function flag_emoji($cc) {
   $cc = strtoupper(trim($cc));
@@ -145,35 +137,7 @@ if ($authed) {
   $slice = array_slice($rows, ($page - 1) * $perPage, $perPage);
 }
 $csrf = $_SESSION['csrf'] ?? '';
-?><!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
-<title>Licence Panel - Gold Scalpers</title>
-<style>
-  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0f1216;color:#e8eaed;margin:0;padding:1.5rem}
-  .wrap{max-width:960px;margin:0 auto}
-  .card{background:#171b21;border:1px solid #262c35;border-radius:12px;padding:1.3rem 1.4rem;margin-bottom:1.2rem}
-  h1{color:#F59E0B;font-size:1.25rem;margin:0 0 1rem}h2{font-size:1rem;margin:0 0 .8rem;color:#e8eaed}
-  label{display:block;font-size:.78rem;color:#9aa3ad;margin:.6rem 0 .25rem}
-  input[type=text],input[type=password],input[type=email],input[type=search]{width:100%;box-sizing:border-box;background:#0f1216;border:1px solid #2b323c;color:#fff;border-radius:8px;padding:.6rem .7rem;font-size:.95rem}
-  .btn{background:#F59E0B;color:#111;border:0;border-radius:8px;padding:.6rem 1.1rem;font-weight:700;cursor:pointer;font-size:.9rem}
-  .btn.sm{padding:.32rem .6rem;font-size:.78rem}.btn.gray{background:#2b323c;color:#e8eaed}.btn.red{background:#7f1d1d;color:#fff}.btn.ghost{background:transparent;border:1px solid #2b323c;color:#e8eaed}
-  table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:.4rem}
-  th,td{text-align:left;padding:.5rem .5rem;border-bottom:1px solid #262c35;vertical-align:middle}
-  th{color:#9aa3ad;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
-  code{background:#0f1216;border:1px solid #2b323c;border-radius:5px;padding:.1rem .35rem;font-size:.85rem}
-  .on{color:#34d399;font-weight:700}.off{color:#f87171;font-weight:700}
-  .msg{background:#064e3b;color:#a7f3d0;padding:.6rem .8rem;border-radius:8px;margin-bottom:1rem;font-size:.9rem}
-  .err{background:#7f1d1d;color:#fecaca;padding:.6rem .8rem;border-radius:8px;margin-bottom:1rem;font-size:.9rem}
-  .row{display:flex;gap:.7rem;align-items:flex-end;flex-wrap:wrap}.row>div{flex:1;min-width:150px}
-  .top{display:flex;justify-content:space-between;align-items:center}
-  .toolbar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.3rem}
-  .toolbar form{display:flex;gap:.5rem;flex:1;min-width:220px}
-  .pager{display:flex;gap:.5rem;align-items:center;justify-content:center;margin-top:1rem;font-size:.85rem;color:#9aa3ad}
-  .muted{color:#9aa3ad;font-size:.8rem}a{color:#F59E0B}.src{font-size:.66rem;color:#9aa3ad;text-transform:uppercase}
-  @media(max-width:620px){body{padding:.8rem}.card{padding:1rem .9rem;overflow-x:auto}h1{font-size:1.1rem}th,td{padding:.45rem .35rem}.btn.sm{padding:.3rem .45rem;font-size:.72rem}.row>div{min-width:120px}}
-</style></head><body><div class="wrap">
+?><?php panel_head('Licences'); ?>
 
 <?php if (!$authed): ?>
   <div class="card" style="max-width:380px;margin:3rem auto">
@@ -187,7 +151,8 @@ $csrf = $_SESSION['csrf'] ?? '';
   </div>
 
 <?php else: ?>
-  <div class="card"><div class="top"><h1 style="margin:0">Licence Panel</h1><a class="muted" href="?logout">Log out</a></div>
+  <?php panel_tabs('licences'); ?>
+  <div class="card"><div class="top"><h1 style="margin:0">Licence Panel</h1></div>
     <p class="muted"><?= $active ?> active &middot; <?= $total ?> total. Changes reach the EA within ~2 min.</p>
     <p class="muted" style="font-size:.78rem">Name, email, country &amp; date are captured for accounts added here or via the thank-you form. Accounts added earlier show &mdash; (no data was stored for them).</p>
     <?php $metaWritable = is_file($META_FILE) ? is_writable($META_FILE) : @is_writable(dirname($META_FILE)); if (!$metaWritable): ?><p class="err">Metadata file <code>.accounts.json</code> isn&rsquo;t writable &mdash; name/email/date can&rsquo;t be saved. In Hostinger File Manager, set the site root (or an empty <code>.accounts.json</code>) to permission <strong>664</strong>.</p><?php endif; ?>
@@ -260,4 +225,4 @@ $csrf = $_SESSION['csrf'] ?? '';
   </div>
 
 <?php endif; ?>
-</div></body></html>
+<?php panel_foot(); ?>

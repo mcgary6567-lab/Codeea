@@ -67,9 +67,7 @@ Allow: /
 User-agent: *
 Disallow: /admin/
 Disallow: /panel/
-Disallow: /stats.php
 Disallow: /t.php
-Disallow: /ai-settings.php
 Disallow: /api/
 Disallow: /account/
 

@@ -1,31 +1,19 @@
 <?php
 // =====================================================================
-//  Gold Scalpers - visitor stats (owner only)
+//  Gold Scalpers panel - visitor stats
 //  -------------------------------------------------------------------
-//  Reads the monthly files written by t.php and answers one question:
-//  where do visitors come from, and how many of them get to a buy button?
-//  Login is the same admin session as /ai-settings.php: sign in there
-//  first, then open this page.
-//  Only browsers that run JavaScript are counted, so most crawlers never
-//  appear; the "bots" line counts the ones that ran the script anyway.
+//  Reads the monthly files written by /t.php (from /assets/t.js) and
+//  answers one question: where do visitors come from, and how many of
+//  them get to a buy button? Only browsers that run JavaScript are
+//  counted, so most crawlers never appear.
 // =====================================================================
-header('X-Robots-Tag: noindex, nofollow');
-header('X-Frame-Options: DENY');
-header('Cache-Control: no-store');
-session_start();
-function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
-
-if (empty($_SESSION['auth'])) {
-  echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Stats</title>'
-     . '<body style="font-family:system-ui;max-width:520px;margin:4rem auto;padding:0 1rem">'
-     . '<h1>Visitor stats</h1><p>Sign in on the <a href="/ai-settings.php">admin page</a> with the admin password, then come back here.</p></body>';
-  exit;
-}
+require __DIR__ . '/_common.php';
+panel_require_login();
 
 $days = isset($_GET['d']) ? max(1, min(90, (int)$_GET['d'])) : 7;
 $since = time() - $days * 86400;
 
-$dirs = array(dirname(__DIR__) . '/.gs-stats', __DIR__ . '/licdata');
+$dirs = array($PRIVATE . '/.gs-stats', $SITE_ROOT . '/licdata');
 $rows = array();
 for ($m = 0; $m <= (int)ceil($days / 28) + 1; $m++) {
   $ym = date('Y-m', strtotime(date('Y-m-01') . " -$m month"));
@@ -115,23 +103,12 @@ function table($o, $label, $limit = 25) {
   }
   echo '</table>';
 }
-?><!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Visitor stats - Gold Scalpers</title>
-<style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#F6F7F9;color:#0F172A}
-  main{max-width:1100px;margin:0 auto;padding:1.2rem 1rem 3rem}
-  h1{font-size:1.4rem;margin:.4rem 0 1rem} h2{font-size:1.05rem;margin:1.8rem 0 .6rem}
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.7rem}
-  .k{background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:.8rem}
-  .k b{display:block;font-size:1.5rem;font-variant-numeric:tabular-nums} .k span{font-size:.78rem;color:#64748B}
-  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;font-size:.86rem}
-  th,td{padding:.45rem .6rem;border-bottom:1px solid #F1F5F9;text-align:left;font-variant-numeric:tabular-nums} th{background:#F8FAFC;font-weight:600}
-  .wrap{overflow-x:auto} .note{font-size:.82rem;color:#64748B;max-width:780px}
-  nav a{margin-right:.6rem}
-</style></head><body><main>
+panel_head('Visitor stats');
+panel_tabs('stats');
+?>
+<div class="card">
 <h1>Visitor stats &mdash; last <?= $days ?> day<?= $days > 1 ? 's' : '' ?></h1>
-<nav><a href="?d=1">1 day</a><a href="?d=7">7 days</a><a href="?d=30">30 days</a><a href="?d=90">90 days</a></nav>
+<div class="toolbar"><a class="btn ghost sm" href="?d=1">1 day</a><a class="btn ghost sm" href="?d=7">7 days</a><a class="btn ghost sm" href="?d=30">30 days</a><a class="btn ghost sm" href="?d=90">90 days</a></div>
 <p class="note">Counted from <?= h(date('j M Y', $since)) ?>. Only browsers that run JavaScript are counted, so crawlers and AI scrapers that inflate the hosting panel's numbers are not in these figures. Counting started when this page was installed.</p>
 
 <div class="kpis">
@@ -148,14 +125,15 @@ function table($o, $label, $limit = 25) {
 </div>
 
 <h2>Where sessions come from</h2>
-<div class="wrap"><?php table($bySrc, 'Source'); ?></div>
+<div class="scroll"><?php table($bySrc, 'Source'); ?></div>
 
 <h2>Landing pages</h2>
-<div class="wrap"><?php table($byLand, 'First page of the session', 40); ?></div>
+<div class="scroll"><?php table($byLand, 'First page of the session', 40); ?></div>
 
 <h2>Clicks</h2>
-<div class="wrap"><table><tr><th>Event</th><th>Count</th></tr>
+<div class="scroll"><table><tr><th>Event</th><th>Count</th></tr>
 <?php foreach ($events as $k => $v) echo '<tr><td>' . h($k) . '</td><td>' . $v . '</td></tr>'; ?>
 </table></div>
 <p class="note">buy_gumroad / buy_paypal / buy_crypto = clicks on a payment button. go_checkout = clicks to /checkout. mql5_free / mql5_pro = clicks to the MQL5 listings. A click is not a sale: compare with Gumroad's own sales count.</p>
-</main></body></html>
+</div>
+<?php panel_foot();
