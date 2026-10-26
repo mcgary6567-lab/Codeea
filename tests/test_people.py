@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import func
 
 from app.models.crm import Lead
 from app.models.people import Client, Student, Teacher
@@ -92,30 +93,37 @@ def test_change_teacher_requires_reason(admin, db):
 
 
 def test_change_teacher_logs_match_and_notifies(admin, db):
+    from app.models.academic import TeacherAssignment
     s = db.query(Student).filter(Student.teacher_id.isnot(None), Student.status == "active").first()
     before = s.teacher_id
     other = db.query(Teacher).filter(Teacher.is_verified.is_(True), Teacher.id != before).first()
-    r = admin.post(f"/students/{s.id}/change-teacher",
-                   data={"teacher_id": other.id, "reason": "Parent requested an evening slot."},
-                   follow_redirects=False)
-    assert r.status_code == 303
-    db.expire_all()
-    s2 = db.query(Student).get(s.id)
-    assert s2.teacher_id == other.id
-    match = db.query(TeacherMatch).filter(TeacherMatch.student_id == s.id).order_by(TeacherMatch.id.desc()).first()
-    assert match is not None and match.chosen_teacher_id == other.id
-    assert match.ranked_candidates, "the ranked shortlist must be preserved for audit"
-    # the change is kept in the student's teacher history, with the reason and the previous teacher
-    from app.models.academic import TeacherAssignment
-    row = (db.query(TeacherAssignment).filter(TeacherAssignment.student_id == s.id, TeacherAssignment.end_date.is_(None))
-           .order_by(TeacherAssignment.id.desc()).first())
-    assert row is not None and row.teacher_id == other.id and row.previous_teacher_id == before
-    # put the seeded student back: teacher, schedules and classes, and drop the rows this test wrote
-    s2.teacher_id = before
-    svc.propagate_teacher_change(db, s2, db.get(Teacher, other.id), db.get(Teacher, before), None, "test cleanup")
-    db.query(TeacherMatch).filter(TeacherMatch.id == match.id).delete(synchronize_session=False)
-    db.query(TeacherAssignment).filter(TeacherAssignment.student_id == s.id).delete(synchronize_session=False)
-    db.commit()
+    last_match = db.query(func.max(TeacherMatch.id)).scalar() or 0
+    try:
+        r = admin.post(f"/students/{s.id}/change-teacher",
+                       data={"teacher_id": other.id, "reason": "Parent requested an evening slot."},
+                       follow_redirects=False)
+        assert r.status_code == 303
+        db.expire_all()
+        s2 = db.query(Student).get(s.id)
+        assert s2.teacher_id == other.id
+        match = db.query(TeacherMatch).filter(TeacherMatch.student_id == s.id).order_by(TeacherMatch.id.desc()).first()
+        assert match is not None and match.chosen_teacher_id == other.id
+        assert match.ranked_candidates, "the ranked shortlist must be preserved for audit"
+        # the change is kept in the student's teacher history, with the reason and the previous teacher
+        row = (db.query(TeacherAssignment).filter(TeacherAssignment.student_id == s.id, TeacherAssignment.end_date.is_(None))
+               .order_by(TeacherAssignment.id.desc()).first())
+        assert row is not None and row.teacher_id == other.id and row.previous_teacher_id == before
+    finally:
+        # put the seeded student back (teacher, schedules, classes) and drop the rows this test wrote, even when an
+        # assertion failed: a student left on the other teacher made the next run's history start from it
+        db.rollback()
+        s2 = db.query(Student).get(s.id)
+        if s2.teacher_id != before:
+            s2.teacher_id = before
+            svc.propagate_teacher_change(db, s2, db.get(Teacher, other.id), db.get(Teacher, before), None, "test cleanup")
+        db.query(TeacherMatch).filter(TeacherMatch.student_id == s.id, TeacherMatch.id > last_match).delete(synchronize_session=False)
+        db.query(TeacherAssignment).filter(TeacherAssignment.student_id == s.id).delete(synchronize_session=False)
+        db.commit()
 
 
 def test_student_status_change_requires_reason(admin, db):

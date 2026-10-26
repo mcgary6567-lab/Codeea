@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action, snapshot
+from app.core import scope
 from app.core.deps import require, csrf_protect
 from app.core.templating import render, label as status_label
 from app.core.utils import redirect, paginate, parse_bool, parse_date, parse_int, parse_float
@@ -52,10 +53,14 @@ def norm_status(value: str) -> str:
     return STATUS_ALIASES.get(v, v)
 
 
-def _get(db: Session, id: int) -> Client:
+def _get(db: Session, id: int, user: User | None = None) -> Client:
     c = db.query(Client).get(id)
     if not c:
         raise HTTPException(404, "Client not found")
+    if user is not None:  # supervisors and teachers: only their own teachers' records (app/core/scope.py)
+        from app.core import scope
+        sc = scope.teachers(db, user)
+        scope.check_client(db, sc, c.id, 'clients.view')
     return c
 
 
@@ -154,6 +159,7 @@ def list_clients(request: Request, page: int = 1, q: str = "", status: str = "",
                  academic_manager: str = "", date_from: str = "", date_to: str = "", db: Session = Depends(get_db),
                  user: User = Depends(require("clients.view"))):
     query = _apply_filters(db, db.query(Client), q, status, shift, country, billing_rep, academic_manager, date_from, date_to)
+    query = query.filter(scope.client_filter(Client.id, scope.teachers(db, user)))
     pg = paginate(query.order_by(Client.created_at.desc()), page, 25)
     base = (f"/clients?q={q}&status={status}&shift={shift}&country={country}&billing_rep={billing_rep}"
             f"&academic_manager={academic_manager}&date_from={date_from}&date_to={date_to}")
@@ -169,6 +175,7 @@ def trial_clients(request: Request, page: int = 1, q: str = "", shift: str = "",
                   academic_manager: str = "", date_from: str = "", date_to: str = "", db: Session = Depends(get_db),
                   user: User = Depends(require("clients.view"))):
     query = _apply_filters(db, db.query(Client), q, "trial", shift, country, billing_rep, academic_manager, date_from, date_to)
+    query = query.filter(scope.client_filter(Client.id, scope.teachers(db, user)))
     pg = paginate(query.order_by(Client.joined_at.desc(), Client.id.desc()), page, 25)
     lead_ids = [c.lead_id for c in pg.items if c.lead_id] or [-1]
     leads = {l.id: l for l in db.query(Lead).filter(Lead.id.in_(lead_ids))}
@@ -192,7 +199,7 @@ def trial_clients(request: Request, page: int = 1, q: str = "", shift: str = "",
 @router.get("/users", include_in_schema=False)
 def client_users(request: Request, page: int = 1, q: str = "", active: str = "", db: Session = Depends(get_db),
                  user: User = Depends(require("clients.view"))):
-    query = db.query(Client).join(User, Client.user_id == User.id)
+    query = db.query(Client).join(User, Client.user_id == User.id).filter(scope.client_filter(Client.id, scope.teachers(db, user)))
     if q:
         like = f"%{q}%"
         query = query.filter(or_(Client.full_name.ilike(like), Client.client_code.ilike(like), User.email.ilike(like), User.username.ilike(like)))
@@ -315,7 +322,7 @@ async def create_client(request: Request, db: Session = Depends(get_db), user: U
 # --------------------------------------------------------------------------- Client Form (detail)
 @router.get("/{id}", include_in_schema=False)
 def client_detail(id: int, request: Request, tab: str = "overview", db: Session = Depends(get_db), user: User = Depends(require("clients.view"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     if tab == "basic":
         return redirect(f"/clients/{c.id}/edit")
     tabs = [(k, l, f"/clients/{c.id}/edit" if k == "basic" else f"/clients/{c.id}?tab={k}") for k, l in TABS]
@@ -380,7 +387,7 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
 # --------------------------------------------------------------------------- masked value reveal (audited, like the ERP "View" link)
 @router.get("/{id}/reveal/{field}", include_in_schema=False)
 def reveal_field(id: int, field: str, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.view"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     if field not in ("whatsapp", "phone", "email"):
         raise HTTPException(404)
     value = getattr(c, field) or "-"
@@ -392,7 +399,7 @@ def reveal_field(id: int, field: str, request: Request, db: Session = Depends(ge
 
 @router.get("/{id}/credentials/{cid}/reveal", include_in_schema=False)
 def reveal_credential(id: int, cid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     cred = db.query(ClientCredential).filter(ClientCredential.id == cid, ClientCredential.client_id == c.id).first()
     if not cred:
         raise HTTPException(404)
@@ -405,7 +412,7 @@ def reveal_credential(id: int, cid: int, request: Request, db: Session = Depends
 # --------------------------------------------------------------------------- edit (Basic Detail)
 @router.get("/{id}/edit", include_in_schema=False)
 def edit_client(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     prefs = {p.channel: p.opted_in for p in db.query(CommunicationPreference).filter(CommunicationPreference.client_id == c.id)}
     return render(request, "clients/form.html", {"user": user, **_form_context(db, c), "mode": "edit", "comm_prefs": prefs,
                                                  "change_log_url": f"/admin/audit/entity/Client/{c.id}" if rbac.has_permission(user, "audit.view") else f"/clients/{c.id}?tab=audit"})
@@ -413,7 +420,7 @@ def edit_client(id: int, request: Request, db: Session = Depends(get_db), user: 
 
 @router.post("/{id}/edit", include_in_schema=False)
 async def update_client(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     form = await request.form()
     data = _read_form(form)
     before = snapshot(c)
@@ -470,7 +477,7 @@ async def update_client(id: int, request: Request, db: Session = Depends(get_db)
 # --------------------------------------------------------------------------- Contacts grid
 @router.post("/{id}/contacts", include_in_schema=False)
 async def add_contact(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     form = await request.form()
     detail = (form.get("detail") or "").strip()
     if not detail:
@@ -486,7 +493,7 @@ async def add_contact(id: int, request: Request, db: Session = Depends(get_db), 
 
 @router.post("/{id}/contacts/{cid}", include_in_schema=False)
 async def edit_contact(id: int, cid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     row = db.query(ClientContact).filter(ClientContact.id == cid, ClientContact.client_id == c.id).first()
     if not row:
         raise HTTPException(404)
@@ -509,7 +516,7 @@ async def edit_contact(id: int, cid: int, request: Request, db: Session = Depend
 # --------------------------------------------------------------------------- Credentials grid
 @router.post("/{id}/credentials", include_in_schema=False)
 async def add_credential(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     form = await request.form()
     login = (form.get("login") or "").strip()
     if not login:
@@ -526,7 +533,7 @@ async def add_credential(id: int, request: Request, db: Session = Depends(get_db
 
 @router.post("/{id}/credentials/{cid}", include_in_schema=False)
 async def edit_credential(id: int, cid: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     row = db.query(ClientCredential).filter(ClientCredential.id == cid, ClientCredential.client_id == c.id).first()
     if not row:
         raise HTTPException(404)
@@ -555,7 +562,7 @@ async def edit_credential(id: int, cid: int, request: Request, db: Session = Dep
 # --------------------------------------------------------------------------- Students grid quick-add
 @router.post("/{id}/students/quick-add", include_in_schema=False)
 async def quick_add_student(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.add"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     form = await request.form()
     name = (form.get("full_name") or "").strip()
     if not name:
@@ -574,7 +581,7 @@ async def quick_add_student(id: int, request: Request, db: Session = Depends(get
 # --------------------------------------------------------------------------- portal login / status
 @router.post("/{id}/portal-login", include_in_schema=False)
 async def create_portal_login(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     try:
         u, pwd = svc.create_portal_user(db, c, user, request=request)
     except ValueError as exc:
@@ -585,7 +592,7 @@ async def create_portal_login(id: int, request: Request, db: Session = Depends(g
 
 @router.post("/{id}/reset-portal-password", include_in_schema=False)
 async def reset_portal_password(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     if not c.user:
         return redirect(f"/clients/{c.id}", "This client has no portal login yet.", "error")
     from app.core.security import hash_password
@@ -599,7 +606,7 @@ async def reset_portal_password(id: int, request: Request, db: Session = Depends
 
 @router.post("/{id}/deactivate", include_in_schema=False)
 async def deactivate(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     form = await request.form()
     reason = (form.get("reason") or form.get("rationale") or "").strip()
     if not reason:
@@ -617,7 +624,7 @@ async def deactivate(id: int, request: Request, db: Session = Depends(get_db), u
 
 @router.post("/{id}/reactivate", include_in_schema=False)
 async def reactivate(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
-    c = _get(db, id)
+    c = _get(db, id, user)
     form = await request.form()
     before = {"status": c.status}
     c.status = "active"

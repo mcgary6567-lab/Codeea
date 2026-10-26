@@ -26,10 +26,14 @@ SOURCES = ["platform", "zoom", "upload"]
 REC_STATUSES = ["processing", "available", "analysed", "expired", "deleted"]
 
 
-def _get(db: Session, id: int) -> Recording:
+def _get(db: Session, id: int, user: User | None = None) -> Recording:
     r = db.get(Recording, id)
     if not r:
         raise HTTPException(404, "Recording not found")
+    if user is not None:  # supervisors and teachers: only their own teachers' records (app/core/scope.py)
+        from app.core import scope
+        sc = scope.teachers(db, user)
+        scope.check_teacher(sc, r.session.teacher_id if r.session else None, 'recordings.view')
     return r
 
 
@@ -125,7 +129,7 @@ async def ingest(request: Request, db: Session = Depends(get_db), user: User = D
 def detail(id: int, request: Request, purpose: str = "", db: Session = Depends(get_db),
            user: User = Depends(require("recordings.view", "portal_teacher.view", any_of=True)),
            ctx: UserContext = Depends(get_user_context)):
-    rec = _get(db, id)
+    rec = _get(db, id, user)
     if not _may_access(db, rec, user, ctx):
         log_action(db, user, "access_denied", "recordings", entity=rec, severity="warning", consequential=True,
                    description=f"Blocked recording access (session #{rec.session_id})", request=request)
@@ -147,7 +151,7 @@ def detail(id: int, request: Request, purpose: str = "", db: Session = Depends(g
 async def request_access(id: int, request: Request, db: Session = Depends(get_db),
                          user: User = Depends(require("recordings.view", "portal_teacher.view", any_of=True)),
                          ctx: UserContext = Depends(get_user_context)):
-    rec = _get(db, id)
+    rec = _get(db, id, user)
     form = await request.form()
     purpose = (form.get("purpose") or form.get("reason") or "").strip()
     if len(purpose) < MIN_PURPOSE:
@@ -159,7 +163,7 @@ async def request_access(id: int, request: Request, db: Session = Depends(get_db
 @router.post("/{id}/analyse", include_in_schema=False)
 async def analyse(id: int, request: Request, db: Session = Depends(get_db),
                   user: User = Depends(require("ai_monitoring.update", "recordings.update", any_of=True))):
-    rec = _get(db, id)
+    rec = _get(db, id, user)
     if not rec.session:
         return redirect(f"/recordings/{rec.id}", "This recording is not linked to a class session.", "error")
     an = qa_svc.run_ai_analysis(db, rec.session, force=True)

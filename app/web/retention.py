@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
+from app.core import scope
 from app.core.deps import require, csrf_protect
 from app.core.notify import notify
 from app.core.templating import render
@@ -31,6 +32,9 @@ def _owners(db: Session) -> list[User]:
 def board(request: Request, level: str = "", teacher: str = "", q: str = "", db: Session = Depends(get_db),
           user: User = Depends(require("retention.view"))):
     rows = svc.risk_board(db, level=level, teacher_id=int(teacher) if teacher else None, q=q)
+    sc = scope.teachers(db, user)
+    if sc is not None:  # supervisors: their own teachers' students
+        rows = [r for r in rows if r["student"].teacher_id in sc]
     return render(request, "retention/board.html", {"user": user, "rows": rows, "level": level, "teacher": teacher, "q": q,
                                                     "stats": svc.retention_stats(db), "levels": svc.RISK_LEVELS,
                                                     "teachers": db.query(Teacher).order_by(Teacher.full_name).all(),
@@ -41,7 +45,8 @@ def board(request: Request, level: str = "", teacher: str = "", q: str = "", db:
 @router.get("/actions", include_in_schema=False)
 def actions(request: Request, status: str = "", action_type: str = "", owner: str = "", db: Session = Depends(get_db),
             user: User = Depends(require("retention.view"))):
-    query = db.query(RetentionAction)
+    sc = scope.teachers(db, user)
+    query = db.query(RetentionAction).filter(scope.student_filter(RetentionAction.student_id, sc))
     if action_type:
         query = query.filter(RetentionAction.action_type == action_type)
     if owner == "mine":
@@ -53,13 +58,16 @@ def actions(request: Request, status: str = "", action_type: str = "", owner: st
     return render(request, "retention/actions.html", {"user": user, "columns": columns, "status": status, "action_type": action_type,
                                                       "owner": owner, "action_types": svc.ACTION_TYPES, "statuses": svc.ACTION_STATUSES,
                                                       "owners": _owners(db), "stats": svc.retention_stats(db),
-                                                      "students": db.query(Student).filter(Student.status.in_(["active", "trial", "frozen"]))
+                                                      "students": db.query(Student).filter(Student.status.in_(["active", "trial", "frozen"]),
+                                                                                           scope.teacher_filter(Student.teacher_id, sc))
                                                       .order_by(Student.full_name).limit(500).all()})
 
 
 @router.get("/freezes", include_in_schema=False)
 def freezes(request: Request, db: Session = Depends(get_db), user: User = Depends(require("retention.view"))):
-    return render(request, "retention/freezes.html", {"user": user, "rows": svc.frozen_students(db), "stats": svc.retention_stats(db)})
+    sc = scope.teachers(db, user)
+    rows = [r for r in svc.frozen_students(db) if sc is None or r["student"].teacher_id in sc]
+    return render(request, "retention/freezes.html", {"user": user, "rows": rows, "stats": svc.retention_stats(db)})
 
 
 @router.get("/analytics", include_in_schema=False)

@@ -61,10 +61,14 @@ def _err(url: str, exc: Exception):
     return redirect(url, str(exc), "error")
 
 
-def _sub(db: Session, id: int) -> Subscription:
+def _sub(db: Session, id: int, user: User | None = None) -> Subscription:
     s = db.query(Subscription).get(id)
     if not s:
         raise HTTPException(404, "Subscription not found")
+    if user is not None:  # supervisors and teachers: only their own teachers' records (app/core/scope.py)
+        from app.core import scope
+        sc = scope.teachers(db, user)
+        scope.check_teacher(sc, s.teacher_id, 'subscriptions.view')
     return s
 
 
@@ -163,7 +167,8 @@ def finance_home(user: User = Depends(require("subscriptions.view", "billing.vie
 def subscriptions_list(request: Request, page: int = 1, q: str = "", status: str = "", course_id: str = "",
                        package_id: str = "", teacher_id: str = "", currency: str = "",
                        db: Session = Depends(get_db), user: User = Depends(require("subscriptions.view"))):
-    query = db.query(Subscription)
+    from app.core import scope
+    query = db.query(Subscription).filter(scope.teacher_filter(Subscription.teacher_id, scope.teachers(db, user)))
     if q:
         like = f"%{q}%"
         query = (query.join(Client, Subscription.client_id == Client.id)
@@ -280,7 +285,7 @@ async def subscription_create(request: Request, db: Session = Depends(get_db),
 @router.get("/subscriptions/{id}", include_in_schema=False)
 def subscription_detail(id: int, request: Request, tab: str = "overview", db: Session = Depends(get_db),
                         user: User = Depends(require("subscriptions.view"))):
-    s = _sub(db, id)
+    s = _sub(db, id, user)
     cost = float(s.teacher_cost_base or 0)
     floor = billing.teacher_cost_floor(db, s.teacher, s.sessions_per_week)
     ctx = {"user": user, "s": s, "tab": tab, "tabs": [(k, l, f"/finance/subscriptions/{s.id}?tab={k}") for k, l in SUB_TABS],
@@ -302,7 +307,7 @@ def subscription_detail(id: int, request: Request, tab: str = "overview", db: Se
 @router.post("/subscriptions/{id}/activate", include_in_schema=False)
 async def subscription_activate(id: int, request: Request, db: Session = Depends(get_db),
                                 user: User = Depends(require("subscriptions.update"))):
-    s = _sub(db, id)
+    s = _sub(db, id, user)
     try:
         billing.activate_subscription(db, s, user)
     except ValueError as exc:
@@ -314,7 +319,7 @@ async def subscription_activate(id: int, request: Request, db: Session = Depends
 @router.post("/subscriptions/{id}/freeze", include_in_schema=False)
 async def subscription_freeze(id: int, request: Request, db: Session = Depends(get_db),
                               user: User = Depends(require("subscriptions.update"))):
-    s = _sub(db, id)
+    s = _sub(db, id, user)
     form = await request.form()
     try:
         billing.freeze_subscription(db, s, parse_date(form.get("freeze_start"), date.today()),
@@ -329,7 +334,7 @@ async def subscription_freeze(id: int, request: Request, db: Session = Depends(g
 @router.post("/subscriptions/{id}/unfreeze", include_in_schema=False)
 async def subscription_unfreeze(id: int, request: Request, db: Session = Depends(get_db),
                                 user: User = Depends(require("subscriptions.update"))):
-    s = _sub(db, id)
+    s = _sub(db, id, user)
     form = await request.form()
     try:
         billing.unfreeze_subscription(db, s, user, form.get("reason"))
@@ -342,7 +347,7 @@ async def subscription_unfreeze(id: int, request: Request, db: Session = Depends
 @router.post("/subscriptions/{id}/cancel", include_in_schema=False)
 async def subscription_cancel(id: int, request: Request, db: Session = Depends(get_db),
                               user: User = Depends(require("subscriptions.update"))):
-    s = _sub(db, id)
+    s = _sub(db, id, user)
     form = await request.form()
     try:
         billing.cancel_subscription(db, s, user, (form.get("reason") or form.get("rationale") or "").strip())
@@ -355,7 +360,7 @@ async def subscription_cancel(id: int, request: Request, db: Session = Depends(g
 @router.post("/subscriptions/{id}/renew", include_in_schema=False)
 async def subscription_renew(id: int, request: Request, db: Session = Depends(get_db),
                              user: User = Depends(require("subscriptions.update"))):
-    s = _sub(db, id)
+    s = _sub(db, id, user)
     try:
         billing.renew_subscription(db, s, user)
     except ValueError as exc:
@@ -367,7 +372,7 @@ async def subscription_renew(id: int, request: Request, db: Session = Depends(ge
 @router.post("/subscriptions/{id}/change-package", include_in_schema=False)
 async def subscription_change_package(id: int, request: Request, db: Session = Depends(get_db),
                                       user: User = Depends(require("subscriptions.update"))):
-    s = _sub(db, id)
+    s = _sub(db, id, user)
     form = await request.form()
     package = db.query(Package).get(parse_int(form.get("package_id"), 0) or 0)
     if not package:
@@ -385,7 +390,7 @@ async def subscription_change_package(id: int, request: Request, db: Session = D
 @router.post("/subscriptions/{id}/invoice", include_in_schema=False)
 async def subscription_invoice_now(id: int, request: Request, db: Session = Depends(get_db),
                                    user: User = Depends(require("billing.add"))):
-    s = _sub(db, id)
+    s = _sub(db, id, user)
     form = await request.form()
     start = parse_date(form.get("period_start"), s.next_billing_date or date.today())
     end = parse_date(form.get("period_end"), billing.add_months(start, 1) - timedelta(days=1))

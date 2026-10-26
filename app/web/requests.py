@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action
+from app.core import scope
 from app.core.deps import csrf_protect, require
 from app.core.notify import notify
 from app.core.templating import label as status_label, render
@@ -90,18 +91,19 @@ def _slot_label(slot: SessionSlot | None) -> str:
     return slot.label if slot else ""
 
 
-def _client_options(db: Session) -> list[tuple[int, str]]:
+def _client_options(db: Session, sc: set[int] | None = None) -> list[tuple[int, str]]:
     return [(c.id, f"{c.client_code} - {c.full_name}") for c in
-            db.query(Client).order_by(Client.full_name).limit(500)]
+            db.query(Client).filter(scope.client_filter(Client.id, sc)).order_by(Client.full_name).limit(500)]
 
 
-def _student_options(db: Session) -> list[tuple[int, str]]:
+def _student_options(db: Session, sc: set[int] | None = None) -> list[tuple[int, str]]:
     return [(s.id, f"{s.student_code} - {s.full_name}") for s in
-            db.query(Student).order_by(Student.full_name).limit(800)]
+            db.query(Student).filter(scope.teacher_filter(Student.teacher_id, sc)).order_by(Student.full_name).limit(800)]
 
 
-def _subscription_options(db: Session) -> list[tuple[int, str]]:
-    rows = (db.query(Subscription).filter(Subscription.status.notin_(["cancelled", "expired"]))
+def _subscription_options(db: Session, sc: set[int] | None = None) -> list[tuple[int, str]]:
+    rows = (db.query(Subscription).filter(Subscription.status.notin_(["cancelled", "expired"]),
+                                          scope.teacher_filter(Subscription.teacher_id, sc))
             .order_by(Subscription.id.desc()).limit(400).all())
     return [(s.id, f"{s.subscription_code} - {s.student.full_name if s.student else ''}") for s in rows]
 
@@ -117,9 +119,9 @@ def _teacher_options(db: Session) -> list[tuple[int, str]]:
             db.query(Teacher).filter(Teacher.status == "active").order_by(Teacher.full_name).all()]
 
 
-def _options(db: Session) -> dict:
-    return {"client_options": _client_options(db), "student_options": _student_options(db),
-            "subscription_options": _subscription_options(db), "slot_options": _slot_options(db),
+def _options(db: Session, sc: set[int] | None = None) -> dict:
+    return {"client_options": _client_options(db, sc), "student_options": _student_options(db, sc),
+            "subscription_options": _subscription_options(db, sc), "slot_options": _slot_options(db),
             "teacher_options": _teacher_options(db), "leave_types": lookups.options(db, "leave_type", LEAVE_TYPES),
             "reference_types": lookups.options(db, "reference_type", REFERENCE_TYPES),
             "complaint_types": lookups.options(db, "family_complaint_type", COMPLAINT_TYPES),
@@ -151,7 +153,7 @@ def _render(request: Request, user: User, db: Session, kind: str, pg, counts: di
            "can_change": rbac.has_permission(user, "requests.update") or rbac.has_permission(user, "requests.approve"),
            "kind_tabs": [(k, v["title"], f"/requests/{k}") for k, v in KINDS.items()],
            "status_options": [(s, status_label(s, "request")) for s in STATUSES]}
-    ctx.update(_options(db))
+    ctx.update(_options(db, scope.teachers(db, user)))
     ctx.update(extra or {})
     return render(request, "requests/list.html", ctx)
 
@@ -171,7 +173,7 @@ def leaves(request: Request, page: int = 1, status: str = "", client: str = "", 
            date_from: str = "", date_to: str = "", q: str = "", db: Session = Depends(get_db),
            user: User = Depends(require("requests.view"))):
     f = _filters(q, status, client, student, date_from, date_to)
-    query = db.query(Leave).filter(Leave.person_type == "student")
+    query = db.query(Leave).filter(Leave.person_type == "student", scope.student_filter(Leave.student_id, scope.teachers(db, user)))
     if status:
         query = query.filter(Leave.status == status)
     if parse_int(student):
@@ -223,7 +225,7 @@ def time_change(request: Request, page: int = 1, status: str = "", client: str =
                 date_from: str = "", date_to: str = "", q: str = "", db: Session = Depends(get_db),
                 user: User = Depends(require("requests.view"))):
     f = _filters(q, status, client, student, date_from, date_to)
-    query = db.query(TimeChangeRequest)
+    query = db.query(TimeChangeRequest).filter(scope.client_filter(TimeChangeRequest.client_id, scope.teachers(db, user)))
     if status:
         query = query.filter(TimeChangeRequest.status == status)
     if parse_int(client):
@@ -274,7 +276,7 @@ def teacher_change(request: Request, page: int = 1, status: str = "", client: st
                    date_from: str = "", date_to: str = "", q: str = "", db: Session = Depends(get_db),
                    user: User = Depends(require("requests.view"))):
     f = _filters(q, status, client, student, date_from, date_to)
-    query = db.query(TeacherChangeRequest)
+    query = db.query(TeacherChangeRequest).filter(scope.client_filter(TeacherChangeRequest.client_id, scope.teachers(db, user)))
     if status:
         query = query.filter(TeacherChangeRequest.status == status)
     if parse_int(client):
@@ -323,7 +325,7 @@ def references(request: Request, page: int = 1, status: str = "", client: str = 
                date_from: str = "", date_to: str = "", q: str = "", db: Session = Depends(get_db),
                user: User = Depends(require("requests.view"))):
     f = _filters(q, status, client, student, date_from, date_to)
-    query = db.query(ReferredContact)
+    query = db.query(ReferredContact).filter(scope.client_filter(ReferredContact.client_id, scope.teachers(db, user)))
     if status:
         query = query.filter(ReferredContact.status == status)
     if parse_int(client):
@@ -553,6 +555,10 @@ async def change_status(kind: str, request: Request, db: Session = Depends(get_d
     elif kind == "complaints":
         from app.services import complaints as complaints_svc
         query = complaints_svc.visible(db, user, query.filter(Case.case_type == "complaint"))
+    sc = scope.teachers(db, user)
+    if sc is not None:  # supervisors: only their own teachers' families
+        query = query.filter(scope.student_filter(Leave.student_id, sc) if kind == "leaves"
+                             else scope.client_filter(model.client_id, sc))
     rows = query.all()
     apply = _APPLIERS[kind]
     label = KINDS[kind]["title"]

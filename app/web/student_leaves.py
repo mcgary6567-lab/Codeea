@@ -9,6 +9,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
+from app.core import scope
 from app.core.deps import csrf_protect, require
 from app.core.notify import notify
 from app.core.templating import render
@@ -25,10 +26,14 @@ LEAVE_TYPES = ["casual", "sick", "vacation", "emergency", "exam"]   # fallback f
 STATUSES = ["pending", "approved", "rejected", "cancelled"]
 
 
-def _get(db: Session, id: int) -> Leave:
+def _get(db: Session, id: int, user: User | None = None) -> Leave:
     lv = db.get(Leave, id)
     if not lv or lv.person_type != "student":
         raise HTTPException(404, "Student leave not found")
+    if user is not None:  # supervisors and teachers: only their own teachers' records (app/core/scope.py)
+        from app.core import scope
+        sc = scope.teachers(db, user)
+        scope.check_student(db, sc, lv.student_id, 'leaves.view')
     return lv
 
 
@@ -48,7 +53,7 @@ def _notify_parties(db: Session, lv: Leave, title: str, body: str) -> None:
 def list_leaves(request: Request, page: int = 1, status: str = "", leave_type: str = "", q: str = "",
                 date_from: str = "", date_to: str = "", db: Session = Depends(get_db),
                 user: User = Depends(require("leaves.view"))):
-    query = db.query(Leave).filter(Leave.person_type == "student")
+    query = db.query(Leave).filter(Leave.person_type == "student", scope.student_filter(Leave.student_id, scope.teachers(db, user)))
     if status:
         query = query.filter(Leave.status == status)
     if leave_type:
@@ -126,7 +131,7 @@ async def _approve(db: Session, user: User, lv: Leave, note: str, request: Reque
 
 @router.post("/{id}/approve", include_in_schema=False)
 async def approve_leave(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leaves.approve"))):
-    lv = _get(db, id)
+    lv = _get(db, id, user)
     if lv.status == "approved":
         return redirect("/leaves/students", "This leave is already approved.", "info")
     form = await request.form()
@@ -135,7 +140,7 @@ async def approve_leave(id: int, request: Request, db: Session = Depends(get_db)
 
 @router.post("/{id}/reject", include_in_schema=False)
 async def reject_leave(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leaves.approve"))):
-    lv = _get(db, id)
+    lv = _get(db, id, user)
     form = await request.form()
     note = (form.get("note") or form.get("reason") or "").strip()
     if not note:
@@ -156,7 +161,7 @@ async def reject_leave(id: int, request: Request, db: Session = Depends(get_db),
 
 @router.post("/{id}/cancel", include_in_schema=False)
 async def cancel_leave(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leaves.update", "leaves.approve", any_of=True))):
-    lv = _get(db, id)
+    lv = _get(db, id, user)
     form = await request.form()
     note = (form.get("note") or form.get("reason") or "").strip() or "Cancelled by the college."
     lv.status = "cancelled"

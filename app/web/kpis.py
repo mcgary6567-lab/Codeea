@@ -175,7 +175,10 @@ def role_scorecards(request: Request, period: str = "", role: str = "teacher", d
     kpis = db.query(KPI).filter(KPI.is_active.is_(True), KPI.role_slug == role).order_by(KPI.name).all()
     rows = []
     if role == "teacher":
-        for t in db.query(Teacher).filter(Teacher.status == "active").order_by(Teacher.teacher_code):
+        from app.core import scope
+        sc = scope.teachers(db, user)  # supervisors: their own teachers' scorecards
+        for t in (db.query(Teacher).filter(Teacher.status == "active", scope.teacher_filter(Teacher.id, sc))
+                  .order_by(Teacher.teacher_code)):
             cells = [svc.kpi_row(db, k, p, t, live=True) for k in kpis]
             scores = [svc.rag_score(c["rag"]) for c in cells]
             scores = [s for s in scores if s is not None]

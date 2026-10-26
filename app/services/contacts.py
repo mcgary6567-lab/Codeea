@@ -69,7 +69,11 @@ def referral_owner(db: Session) -> Optional[User]:
 def visible(db: Session, user: User, query):
     """Contacts about a complaint follow the complaint's visibility (docs/COMPLAINTS.md); the rest are visible to
     holders of parent_contacts.view."""
+    from app.core import scope
     from app.services import complaints as cx
+    teachers = scope.teachers(db, user)
+    if teachers is not None:  # supervisors and teachers: their own students' families only
+        query = query.filter(scope.client_filter(ParentContact.client_id, teachers))
     clause = cx.visibility_clause(db, user)
     if clause is None:
         return query

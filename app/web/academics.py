@@ -45,6 +45,13 @@ def _scope_ids(user: User, ctx: UserContext) -> Optional[list[int]]:
         return None
     if ctx.teacher or ctx.client or ctx.student:
         return list(ctx.student_ids)
+    from sqlalchemy.orm import object_session
+
+    from app.core import scope
+    db = object_session(user)
+    teachers = scope.teachers(db, user) if db is not None else None
+    if teachers is not None:  # a supervisor: the students of the teachers they supervise
+        return [sid for (sid,) in db.query(Student.id).filter(Student.teacher_id.in_(teachers or {-1}))]
     return None
 
 

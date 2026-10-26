@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action, snapshot
+from app.core import scope
 from app.core.deps import require, csrf_protect, PermissionDenied
 from app.core.notify import notify
 from app.core.templating import render, label as status_label
@@ -182,7 +183,9 @@ def list_students(request: Request, page: int = 1, q: str = "", status: str = ""
 def referred_students(request: Request, page: int = 1, date_from: str = "", date_to: str = "", q: str = "",
                       db: Session = Depends(get_db), user: User = Depends(require("students.view"))):
     df, dt = parse_date(date_from), parse_date(date_to)
-    query = db.query(Student).join(Client, Student.client_id == Client.id).filter(Student.referred_by.isnot(None), Student.referred_by != "")
+    query = (db.query(Student).join(Client, Student.client_id == Client.id)
+             .filter(Student.referred_by.isnot(None), Student.referred_by != "",
+                     scope.teacher_filter(Student.teacher_id, sched_svc.scoped_teacher_ids(db, user))))
     if df:
         query = query.filter(Student.join_date >= df)
     if dt:
@@ -224,7 +227,9 @@ def referred_students(request: Request, page: int = 1, date_from: str = "", date
 def on_leave_students(request: Request, page: int = 1, shift: str = "", q: str = "", db: Session = Depends(get_db),
                       user: User = Depends(require("students.view"))):
     today = date.today()
-    leaves = (db.query(Leave).filter(Leave.person_type == "student", Leave.status == "approved", Leave.start_date <= today, Leave.end_date >= today)
+    sc = sched_svc.scoped_teacher_ids(db, user)
+    leaves = (db.query(Leave).filter(Leave.person_type == "student", Leave.status == "approved", Leave.start_date <= today, Leave.end_date >= today,
+                                     scope.student_filter(Leave.student_id, None if sc is None else set(sc)))
               .order_by(Leave.end_date).all())
     by_student: dict[int, Leave] = {}
     for lv in leaves:

@@ -175,12 +175,16 @@ def visibility_clause(db: Session, user: User):
     scope = [Case.assigned_to_id == user.id, Case.escalated_to_id == user.id, Case.raised_by_user_id == user.id,
              Case.findings_by_id == user.id]
     open_to_team = Case.against_employee_id.is_(None)
-    if user.department_id:
-        scope.append(and_(open_to_team, Case.department_id == user.department_id))
     if user.role_slug == "supervisor":
-        supervised = [i for (i,) in db.query(Teacher.id).filter(Teacher.supervisor_id == user.id)]
+        # only their own teachers' cases and their students' families (decided 27 Oct 2026), not the department's
+        from app.core import scope as record_scope
+        supervised = record_scope.teachers(db, user) or set()
         if supervised:
-            scope.append(and_(open_to_team, Case.teacher_id.in_(supervised)))
+            scope.append(and_(open_to_team, or_(Case.teacher_id.in_(supervised),
+                                                record_scope.student_filter(Case.student_id, supervised),
+                                                record_scope.client_filter(Case.client_id, supervised))))
+    elif user.department_id:
+        scope.append(and_(open_to_team, Case.department_id == user.department_id))
     return and_(not_subject, or_(*scope))
 
 

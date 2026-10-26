@@ -134,6 +134,8 @@ def class_management(request: Request, date_from: str = "", date_to: str = "", t
                      db: Session = Depends(get_db), user: User = Depends(require("dashboards.view"))):
     from app.services import class_dashboards as cd
 
+    if user.role_slug == "supervisor":  # a supervisor sees their own teachers only
+        supervisor_id = str(user.id)
     data = cd.class_management(db, date_from=parse_date(date_from), date_to=parse_date(date_to),
                                teacher_id=parse_int(teacher_id), supervisor_id=parse_int(supervisor_id),
                                course_id=parse_int(course_id), shift=shift)
@@ -149,6 +151,8 @@ def supervisors(request: Request, date_from: str = "", date_to: str = "", superv
                 db: Session = Depends(get_db), user: User = Depends(require("dashboards.view"))):
     from app.services import class_dashboards as cd
 
+    if user.role_slug == "supervisor":
+        supervisor_id = str(user.id)
     data = cd.supervisors_dashboard(db, date_from=parse_date(date_from), date_to=parse_date(date_to),
                                     supervisor_id=parse_int(supervisor_id))
     f = data["filters"]
@@ -163,6 +167,10 @@ def daily_performance(request: Request, day: str = "", department: str = "all",
     from app.services import class_dashboards as cd
 
     data = cd.daily_performance(db, day=parse_date(day), department=department)
+    from app.core import scope
+    sc = scope.teachers(db, user)
+    if sc is not None:
+        data["teachers"] = [r for r in data["teachers"] if r["teacher_id"] in sc]
     return render(request, "dashboards/daily_performance.html", {
         "user": user, "d": data, "opts": cd.options(db), "day": data["day"].isoformat(),
         "department": data["department"]})

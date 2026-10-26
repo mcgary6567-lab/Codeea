@@ -27,10 +27,14 @@ SCHEDULE_STATUSES = ["active", "paused", "ended"]
 DAY_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
-def _get(db: Session, id: int) -> Schedule:
+def _get(db: Session, id: int, user: User | None = None) -> Schedule:
     s = db.get(Schedule, id)
     if not s:
         raise HTTPException(404, "Schedule not found")
+    if user is not None:  # supervisors and teachers: only their own teachers' records (app/core/scope.py)
+        from app.core import scope
+        sc = scope.teachers(db, user)
+        scope.check_teacher(sc, s.teacher_id, 'schedules.view')
     return s
 
 
@@ -245,7 +249,7 @@ async def create_schedule(request: Request, db: Session = Depends(get_db), user:
 # ----------------------------------------------------------------------------- detail / edit
 @router.get("/{id}", include_in_schema=False)
 def schedule_detail(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("schedules.view"))):
-    sch = _get(db, id)
+    sch = _get(db, id, user)
     upcoming = (db.query(ClassSession).filter(ClassSession.schedule_id == sch.id, ClassSession.date >= date.today())
                 .order_by(ClassSession.scheduled_start).limit(20).all())
     history = (db.query(ClassSession).filter(ClassSession.schedule_id == sch.id, ClassSession.date < date.today())
@@ -263,7 +267,7 @@ def schedule_detail(id: int, request: Request, db: Session = Depends(get_db), us
 
 @router.get("/{id}/edit", include_in_schema=False)
 def edit_schedule_form(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("schedules.update"))):
-    sch = _get(db, id)
+    sch = _get(db, id, user)
     ctx = _base_context(db, user)
     subs = db.query(Subscription).filter(Subscription.student_id == sch.student_id).order_by(Subscription.id.desc()).all()
     ctx.update({"user": user, "mode": "edit", "schedule": sch,
@@ -276,7 +280,7 @@ def edit_schedule_form(id: int, request: Request, db: Session = Depends(get_db),
 
 @router.post("/{id}/edit", include_in_schema=False)
 async def edit_schedule(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("schedules.update"))):
-    sch = _get(db, id)
+    sch = _get(db, id, user)
     form = await request.form()
     try:
         svc.update_schedule(db, user, sch, teacher_id=parse_int(form.get("teacher_id")) or sch.teacher_id,
@@ -294,7 +298,7 @@ async def edit_schedule(id: int, request: Request, db: Session = Depends(get_db)
 
 @router.post("/{id}/status", include_in_schema=False)
 async def change_status(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("schedules.update"))):
-    sch = _get(db, id)
+    sch = _get(db, id, user)
     form = await request.form()
     status = form.get("status") or ""
     reason = (form.get("reason") or form.get("rationale") or "").strip()
@@ -313,7 +317,7 @@ async def change_status(id: int, request: Request, db: Session = Depends(get_db)
 
 @router.post("/{id}/generate", include_in_schema=False)
 async def generate_now(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("schedules.update"))):
-    sch = _get(db, id)
+    sch = _get(db, id, user)
     form = await request.form()
     days = parse_int(form.get("days"), 14) or 14
     created = class_svc.generate_sessions(db, sch, date.today(), date.today() + timedelta(days=days))

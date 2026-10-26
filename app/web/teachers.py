@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action, snapshot
+from app.core import scope
 from app.core.deps import require, csrf_protect, PermissionDenied
 from app.core.notify import notify
 from app.core.templating import render
@@ -31,10 +32,14 @@ GRADES = ["A", "B", "C"]
 STATUSES = ["active", "on_leave", "inactive"]
 
 
-def _get(db: Session, id: int) -> Teacher:
+def _get(db: Session, id: int, user: User | None = None) -> Teacher:
     t = db.query(Teacher).get(id)
     if not t:
         raise HTTPException(404, "Teacher not found")
+    if user is not None:  # supervisors and teachers: only their own teachers' records (app/core/scope.py)
+        from app.core import scope
+        sc = scope.teachers(db, user)
+        scope.check_teacher(sc, t.id, 'teachers.view')
     return t
 
 
@@ -51,7 +56,7 @@ def _form_context(db: Session, t: Teacher | None = None) -> dict:
 def list_teachers(request: Request, page: int = 1, q: str = "", shift: str = "", gender: str = "", grade: str = "",
                   course: str = "", verified: str = "", db: Session = Depends(get_db),
                   user: User = Depends(require("teachers.view"))):
-    query = db.query(Teacher)
+    query = db.query(Teacher).filter(scope.teacher_filter(Teacher.id, scope.teachers(db, user)))
     if q:
         like = f"%{q}%"
         query = query.filter(or_(Teacher.full_name.ilike(like), Teacher.teacher_code.ilike(like)))
@@ -129,7 +134,7 @@ async def create_teacher(request: Request, db: Session = Depends(get_db), user: 
 @router.get("/{id}", include_in_schema=False)
 def teacher_detail(id: int, request: Request, tab: str = "overview", db: Session = Depends(get_db),
                    user: User = Depends(require("teachers.view"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     today = date.today()
     from app.services import complaints as complaints_svc
     show_complaints = complaints_svc.can_read_history(user) and t.user_id != user.id
@@ -197,13 +202,13 @@ def teacher_detail(id: int, request: Request, tab: str = "overview", db: Session
 
 @router.get("/{id}/edit", include_in_schema=False)
 def edit_teacher(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("teachers.update"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     return render(request, "teachers/form.html", {"user": user, **_form_context(db, t), "mode": "edit"})
 
 
 @router.post("/{id}/edit", include_in_schema=False)
 async def update_teacher(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("teachers.update"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     form = await request.form()
     data = _read_form(form)
     before = snapshot(t)
@@ -238,7 +243,7 @@ async def update_teacher(id: int, request: Request, db: Session = Depends(get_db
 
 @router.post("/{id}/verify", include_in_schema=False)
 async def verify_teacher(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("teachers.approve"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     form = await request.form()
     rationale = (form.get("rationale") or form.get("reason") or "").strip()
     if not rationale:
@@ -254,7 +259,7 @@ async def verify_teacher(id: int, request: Request, db: Session = Depends(get_db
 
 @router.post("/{id}/status", include_in_schema=False)
 async def change_status(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("teachers.update"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     form = await request.form()
     new_status = form.get("status")
     reason = (form.get("reason") or "").strip()
@@ -272,7 +277,7 @@ async def change_status(id: int, request: Request, db: Session = Depends(get_db)
 
 @router.post("/{id}/training", include_in_schema=False)
 async def assign_training(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("teacher_dev.add"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     form = await request.form()
     title = (form.get("title") or "").strip()
     if not title:

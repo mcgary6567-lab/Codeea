@@ -17,6 +17,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
+from app.core import scope
 from app.core.deps import csrf_protect, require
 from app.core.notify import notify
 from app.core.templating import render
@@ -38,10 +39,14 @@ GRADES = ["", "Pre-school", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5
 
 
 # ----------------------------------------------------------------------------- helpers
-def _get(db: Session, id: int) -> Subscription:
+def _get(db: Session, id: int, user: User | None = None) -> Subscription:
     s = db.get(Subscription, id)
     if not s:
         raise HTTPException(404, "Subscription not found")
+    if user is not None:  # supervisors and teachers: only their own teachers' records (app/core/scope.py)
+        from app.core import scope
+        sc = scope.teachers(db, user)
+        scope.check_teacher(sc, s.teacher_id, 'subscriptions.view')
     return s
 
 
@@ -82,8 +87,11 @@ def _read_days(form) -> list[int]:
 
 def _query(db: Session, *, sub_id: str = "", slot_id: int | None = None, course_id: int | None = None, language: str = "",
            client_id: int | None = None, student_id: int | None = None, teacher_id: int | None = None, status: str = "",
-           supervisor_id: int | None = None, country: str = "", currency: str = "", date_from=None, date_to=None):
+           supervisor_id: int | None = None, country: str = "", currency: str = "", date_from=None, date_to=None,
+           user: User | None = None):
     q = db.query(Subscription)
+    if user is not None:  # supervisors and teachers: their own teachers' subscriptions (app/core/scope.py)
+        q = q.filter(scope.teacher_filter(Subscription.teacher_id, scope.teachers(db, user)))
     if sub_id:
         like = f"%{sub_id.strip()}%"
         q = q.filter(or_(Subscription.subscription_code.ilike(like), Subscription.id == parse_int(sub_id.strip().replace("SUB-", ""), -1)))
@@ -232,7 +240,7 @@ def allocation(request: Request, teacher_id: int | None = None, course_id: int |
                db: Session = Depends(get_db), user: User = Depends(require("subscriptions.view"))):
     days = [d for d in range(7) if request.query_params.get(f"day_{d}")]
     q = _query(db, slot_id=slot_id, course_id=course_id, language=language, client_id=client_id, student_id=student_id,
-               teacher_id=teacher_id).filter(Subscription.status.in_(sched.RUNNING_SUBSCRIPTION_STATUSES))
+               teacher_id=teacher_id, user=user).filter(Subscription.status.in_(sched.RUNNING_SUBSCRIPTION_STATUSES))
     rows = q.order_by(Subscription.teacher_id, Subscription.slot_id, Subscription.id).all()
     if days:
         rows = [s for s in rows if set(days) & set(int(d) for d in (s.days_of_week or []))]
@@ -243,10 +251,13 @@ def allocation(request: Request, teacher_id: int | None = None, course_id: int |
     grouped = sorted(groups.values(), key=lambda g: g["teacher"].full_name if g["teacher"] else "zz")
     # occupancy grid: teacher x slot for the selected weekday (default today)
     grid_day = day if day is not None else date.today().weekday()
-    teachers = db.query(Teacher).filter(Teacher.status != "inactive").order_by(Teacher.full_name).all()
+    sc = scope.teachers(db, user)
+    teachers = (db.query(Teacher).filter(Teacher.status != "inactive", scope.teacher_filter(Teacher.id, sc))
+                .order_by(Teacher.full_name).all())
     if teacher_id:
         teachers = [t for t in teachers if t.id == teacher_id]
-    live = db.query(Subscription).filter(Subscription.status.in_(sched.RUNNING_SUBSCRIPTION_STATUSES), Subscription.slot_id.isnot(None)).all()
+    live = db.query(Subscription).filter(Subscription.status.in_(sched.RUNNING_SUBSCRIPTION_STATUSES), Subscription.slot_id.isnot(None),
+                                         scope.teacher_filter(Subscription.teacher_id, sc)).all()
     occ: dict[tuple[int, int], Subscription] = {}
     used_slot_ids: set[int] = set()
     for s in live:
@@ -263,7 +274,8 @@ def allocation(request: Request, teacher_id: int | None = None, course_id: int |
 # ----------------------------------------------------------------------------- Value report
 @router.get("/value-report", include_in_schema=False)
 def value_report(request: Request, report: str = "primary", db: Session = Depends(get_db), user: User = Depends(require("subscriptions.view"))):
-    rows = (db.query(Subscription).filter(Subscription.status.in_(sched.RUNNING_SUBSCRIPTION_STATUSES))
+    rows = (db.query(Subscription).filter(Subscription.status.in_(sched.RUNNING_SUBSCRIPTION_STATUSES),
+                                          scope.teacher_filter(Subscription.teacher_id, scope.teachers(db, user)))
             .order_by(Subscription.teacher_id, Subscription.id).all())
     base = _base(db)
     total_value = round(sum(float(s.price_in_base or 0) for s in rows), 2)
@@ -309,7 +321,7 @@ def detail_report(request: Request, supervisor_id: int | None = None, date_from:
                   db: Session = Depends(get_db), user: User = Depends(require("subscriptions.view"))):
     df, dt = parse_date(date_from), parse_date(date_to)
     rows = (_query(db, supervisor_id=supervisor_id, country=country, currency=currency, teacher_id=teacher_id, status=status,
-                   date_from=df, date_to=dt).order_by(Subscription.start_date.desc(), Subscription.id.desc()).all())
+                   date_from=df, date_to=dt, user=user).order_by(Subscription.start_date.desc(), Subscription.id.desc()).all())
     base = _base(db)
     by_currency: dict[str, dict] = {}
     for s in rows:
@@ -348,7 +360,7 @@ def detail_report(request: Request, supervisor_id: int | None = None, date_from:
 def cancelled(request: Request, page: int = 1, date_from: str = "", date_to: str = "", teacher_id: int | None = None,
               supervisor_id: int | None = None, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.view"))):
     df, dt = parse_date(date_from), parse_date(date_to)
-    q = _query(db, teacher_id=teacher_id, supervisor_id=supervisor_id, status="cancelled")
+    q = _query(db, teacher_id=teacher_id, supervisor_id=supervisor_id, status="cancelled", user=user)
     if df:
         q = q.filter(Subscription.cancelled_at >= df)
     if dt:
@@ -369,7 +381,7 @@ def list_subscriptions(request: Request, page: int = 1, sub_id: str = "", slot_i
                        status: str = "", report: str = "primary", db: Session = Depends(get_db),
                        user: User = Depends(require("subscriptions.view"))):
     q = _query(db, sub_id=sub_id, slot_id=slot_id, course_id=course_id, language=language, client_id=client_id, student_id=student_id,
-               teacher_id=teacher_id, status=status)
+               teacher_id=teacher_id, status=status, user=user)
     report = report if report in ("primary", "employee", "followups") else "primary"
     today = date.today()
     if report == "followups":
@@ -389,7 +401,7 @@ def list_subscriptions(request: Request, page: int = 1, sub_id: str = "", slot_i
 # ----------------------------------------------------------------------------- detail + actions
 @router.get("/{id}", include_in_schema=False)
 def subscription_detail(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.view"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     sch = sched.subscription_schedule(db, s)
     sessions_q = db.query(ClassSession).filter(or_(ClassSession.subscription_id == s.id,
                                                    ClassSession.schedule_id == (sch.id if sch else -1)))
@@ -417,7 +429,7 @@ def subscription_day_wise(id: int, request: Request, month: str = "", db: Sessio
     day, and what happened to each class that day."""
     import calendar
 
-    s = _get(db, id)
+    s = _get(db, id, user)
     try:
         y, m = (int(x) for x in month.split("-", 1))
         first = date(y, m, 1)
@@ -455,7 +467,7 @@ def _reason(form) -> str:
 
 @router.post("/{id}/freeze", include_in_schema=False)
 async def freeze(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     reason = _reason(form)
     if s.status not in sched.RUNNING_SUBSCRIPTION_STATUSES:
@@ -480,7 +492,7 @@ async def freeze(id: int, request: Request, db: Session = Depends(get_db), user:
 
 @router.post("/{id}/unfreeze", include_in_schema=False)
 async def unfreeze(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     if s.status not in ("freeze", "frozen"):
         return redirect(f"/subscriptions/{s.id}", "This subscription is not frozen.", "error")
@@ -501,7 +513,7 @@ async def unfreeze(id: int, request: Request, db: Session = Depends(get_db), use
 @router.post("/{id}/cancel", include_in_schema=False)
 async def cancel(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
     from app.services import billing
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     reason = _reason(form)
     if not reason:
@@ -520,7 +532,7 @@ async def cancel(id: int, request: Request, db: Session = Depends(get_db), user:
 
 @router.post("/{id}/complete", include_in_schema=False)
 async def complete(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     reason = _reason(form) or "Course completed"
     if s.status in ("cancelled", "completed", "expired"):
@@ -542,7 +554,7 @@ async def complete(id: int, request: Request, db: Session = Depends(get_db), use
 
 @router.post("/{id}/follow-up", include_in_schema=False)
 async def set_follow_up(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     before = {"follow_up_date": s.follow_up_date.isoformat() if s.follow_up_date else None}
     s.follow_up_date = parse_date(form.get("follow_up_date"))
@@ -557,7 +569,7 @@ async def set_follow_up(id: int, request: Request, db: Session = Depends(get_db)
 
 @router.post("/{id}/change-teacher", include_in_schema=False)
 async def change_teacher(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     reason = _reason(form)
     teacher = db.get(Teacher, parse_int(form.get("teacher_id"))) if form.get("teacher_id") else None
@@ -601,7 +613,7 @@ async def change_teacher(id: int, request: Request, db: Session = Depends(get_db
 
 @router.post("/{id}/change-slot", include_in_schema=False)
 async def change_slot(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     reason = _reason(form)
     slot = db.get(SessionSlot, parse_int(form.get("slot_id"))) if form.get("slot_id") else None
