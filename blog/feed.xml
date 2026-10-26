@@ -9,13 +9,40 @@
     <managingEditor>support@goldscalpers.com (Gold Scalpers Research Team)</managingEditor>
     <webMaster>support@goldscalpers.com (Gold Scalpers Research Team)</webMaster>
     <pubDate>Fri, 04 Sep 2026 09:00:00 GMT</pubDate>
-    <lastBuildDate>Fri, 04 Sep 2026 09:00:00 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 26 Oct 2026 09:00:00 GMT</lastBuildDate>
     <atom:link href="https://goldscalpers.com/blog/feed.xml" rel="self" type="application/rss+xml"/>
     <image>
       <url>https://goldscalpers.com/og-image.png</url>
       <title>Gold Scalpers</title>
       <link>https://goldscalpers.com</link>
     </image>
+
+    <item>
+      <title>Gold Scalpers Pro Review: Honest Pros, Cons &amp; Test Data</title>
+      <link>https://goldscalpers.com/blog/gold-scalpers-pro-review</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/gold-scalpers-pro-review</guid>
+      <pubDate>Mon, 26 Oct 2026 09:00:00 GMT</pubDate>
+      <category>MT5 EAs</category>
+      <description>Honest Gold Scalpers Pro review from its developer: how the XAUUSD EA trades, real backtest numbers including the losing stretch, and who should not buy it.</description>
+    </item>
+
+    <item>
+      <title>Gold Scalpers Pro Settings Guide: Lots, Prop Firms, Sessions</title>
+      <link>https://goldscalpers.com/blog/gold-scalpers-pro-settings-guide</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/gold-scalpers-pro-settings-guide</guid>
+      <pubDate>Mon, 26 Oct 2026 09:00:00 GMT</pubDate>
+      <category>MT5 EAs</category>
+      <description>Best Gold Scalpers Pro settings: lot size by account, a prop-firm setup inside FTMO-style limits, sessions, news trading and what to leave alone.</description>
+    </item>
+
+    <item>
+      <title>Gold Scalpers Pro vs Grid &amp; Martingale Gold EAs</title>
+      <link>https://goldscalpers.com/blog/gold-scalpers-pro-vs-grid-martingale-eas</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/gold-scalpers-pro-vs-grid-martingale-eas</guid>
+      <pubDate>Mon, 26 Oct 2026 09:00:00 GMT</pubDate>
+      <category>MT5 EAs</category>
+      <description>Why grid and martingale gold EAs look smooth until they blow up, the maths of one gold spike, and how a stop-loss EA like Gold Scalpers Pro compares.</description>
+    </item>
 
     <item>
       <title>Best Time to Trade Gold (XAUUSD): Sessions by Hour</title>
