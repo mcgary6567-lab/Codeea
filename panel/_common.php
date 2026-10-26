@@ -21,7 +21,7 @@ function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 // Pages other than the login page call this first.
 function panel_require_login() {
-  if (empty($_SESSION['auth'])) { header('Location: /panel/'); exit; }
+  if (empty($_SESSION['auth'])) { header('Location: /panel/index.php'); exit; }
   header('Cache-Control: no-store');
 }
 
@@ -33,13 +33,13 @@ function panel_head($title) {
 function panel_foot() { echo '</div></body></html>'; }
 
 function panel_tabs($active) {
-  $tabs = array('licences' => array('Licences', '/panel/'),
+  $tabs = array('licences' => array('Licences', '/panel/index.php'),
                 'stats'    => array('Visitor stats', '/panel/stats.php'),
                 'ai'       => array('AI settings', '/panel/ai.php'));
   echo '<div class="tabs">';
   foreach ($tabs as $k => $t)
     echo '<a href="' . $t[1] . '"' . ($k === $active ? ' class="cur"' : '') . '>' . h($t[0]) . '</a>';
-  echo '<a class="out" href="/panel/?logout">Log out</a></div>';
+  echo '<a class="out" href="/panel/index.php?logout">Log out</a></div>';
 }
 
 function panel_css() {

@@ -6,7 +6,7 @@
 
 Options -Indexes +FollowSymLinks
 ServerSignature Off
-DirectoryIndex index.html
+DirectoryIndex index.html index.php
 AddDefaultCharset UTF-8
 
 <IfModule mod_rewrite.c>
