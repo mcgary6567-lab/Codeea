@@ -15,6 +15,29 @@ require __DIR__ . '/config.php';
 $SITE_ROOT = dirname(__DIR__);           // public_html
 $PRIVATE   = dirname($SITE_ROOT);        // above public_html: survives deploys, never served
 
+// The password in config.php is in the public git repo, so it is only the
+// fallback: once a password is set from the panel, its hash lives above
+// public_html and the committed one no longer opens anything.
+$PASS_FILE = $PRIVATE . '/.panel-pass.json';
+function panel_pass_sha() {
+  global $PASS_FILE;
+  $j = is_readable($PASS_FILE) ? json_decode((string)@file_get_contents($PASS_FILE), true) : null;
+  return (is_array($j) && isset($j['sha']) && strlen($j['sha']) === 64) ? $j['sha'] : '';
+}
+function panel_password_ok($pw) {
+  global $PANEL_PASSWORD;
+  if ($pw === '') return false;
+  $sha = panel_pass_sha();
+  if ($sha !== '') return hash_equals($sha, hash('sha256', $pw));
+  return $PANEL_PASSWORD !== 'CHANGE-ME-NOW' && hash_equals((string)$PANEL_PASSWORD, $pw);
+}
+function panel_set_password($pw) {
+  global $PASS_FILE;
+  $ok = @file_put_contents($PASS_FILE, json_encode(array('sha' => hash('sha256', $pw), 'set' => date('c'))), LOCK_EX);
+  if ($ok !== false) @chmod($PASS_FILE, 0600);
+  return $ok !== false;
+}
+
 if (empty($_SESSION['csrf'])) { $_SESSION['csrf'] = bin2hex(random_bytes(16)); }
 function csrf_ok() { return isset($_POST['csrf']) && hash_equals($_SESSION['csrf'], (string)$_POST['csrf']); }
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }

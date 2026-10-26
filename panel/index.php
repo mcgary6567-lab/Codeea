@@ -51,8 +51,9 @@ if (isset($_GET['logout'])) { $_SESSION = array(); session_destroy(); header('Lo
 $loginError = '';
 if (empty($_SESSION['auth'])) {
   if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password'])) {
-    if ($PANEL_PASSWORD === 'CHANGE-ME-NOW') { $loginError = 'Set a password in panel/config.php first.'; }
-    elseif (hash_equals((string)$PANEL_PASSWORD, (string)$_POST['password'])) {
+    usleep(300000);
+    if ($PANEL_PASSWORD === 'CHANGE-ME-NOW' && panel_pass_sha() === '') { $loginError = 'Set a password in panel/config.php first.'; }
+    elseif (panel_password_ok((string)$_POST['password'])) {
       session_regenerate_id(true); $_SESSION['auth'] = true; $_SESSION['csrf'] = bin2hex(random_bytes(16));
       header('Location: index.php'); exit;
     } else { $loginError = 'Wrong password.'; }
@@ -91,11 +92,17 @@ if ($authed) {
         $entries = array_values(array_filter($entries, function($e) use ($num) { return $e['n'] !== $num; }));
         unset($meta[$num]);
         $msg = "Account $num removed.";
+      } elseif ($action === 'setpass') {
+        $a = (string)($_POST['pass1'] ?? ''); $b = (string)($_POST['pass2'] ?? '');
+        if (strlen($a) < 12) $err = 'Use at least 12 characters.';
+        elseif ($a !== $b) $err = 'The two passwords differ.';
+        elseif (!panel_set_password($a)) $err = 'Could not save the password file above public_html.';
+        else $msg = 'Panel password changed. The password in config.php no longer works.';
       } elseif ($action === 'reset') {
         $entries = array(); $meta = array();
         $msg = "All accounts cleared. The licence list is now empty.";
       }
-      if ($err === '') {
+      if ($err === '' && $action !== 'setpass') {
         $ok1 = save_entries($LICENSE_FILE, $entries);
         $ok2 = save_meta($META_FILE, $meta);
         if (!$ok1) $err = 'Could not write licenses.txt - check it is writable (chmod 644/664).';
@@ -158,7 +165,7 @@ $csrf = $_SESSION['csrf'] ?? '';
     <?php $metaWritable = is_file($META_FILE) ? is_writable($META_FILE) : @is_writable(dirname($META_FILE)); if (!$metaWritable): ?><p class="err">Metadata file <code>.accounts.json</code> isn&rsquo;t writable &mdash; name/email/date can&rsquo;t be saved. In Hostinger File Manager, set the site root (or an empty <code>.accounts.json</code>) to permission <strong>664</strong>.</p><?php endif; ?>
     <?php if ($msg): ?><p class="msg"><?= h($msg) ?></p><?php endif; ?>
     <?php if ($err): ?><p class="err"><?= h($err) ?></p><?php endif; ?>
-    <?php if ($PANEL_PASSWORD === 'CHANGE-ME-NOW'): ?><p class="err">Default password still set in config.php - change it.</p><?php endif; ?>
+    <?php if (panel_pass_sha() === ''): ?><p class="err">The panel password is the one in panel/config.php, which is public on GitHub. Set a new one under &ldquo;Panel password&rdquo; below.</p><?php endif; ?>
   </div>
 
   <div class="card"><h2>Add / activate an account</h2>
@@ -213,6 +220,17 @@ $csrf = $_SESSION['csrf'] ?? '';
       <?php endif; ?>
     <?php endif; ?>
     <p class="muted" style="margin-top:1rem">Live file: <a href="/licenses.txt" target="_blank" rel="noopener">/licenses.txt</a></p>
+  </div>
+
+  <div class="card"><h2>Panel password</h2>
+    <p class="muted"><?= panel_pass_sha() !== '' ? 'A private password is set (stored above public_html, not in git).' : 'Still using the password from panel/config.php, which is visible in the public GitHub repo. Set a new one here.' ?></p>
+    <form method="post"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="setpass">
+      <div class="row">
+        <div><label>New password (12+ characters)</label><input type="password" name="pass1" autocomplete="new-password" required></div>
+        <div><label>Again</label><input type="password" name="pass2" autocomplete="new-password" required></div>
+        <div style="flex:0"><button class="btn" type="submit">Change</button></div>
+      </div>
+    </form>
   </div>
 
   <div class="card" style="border-color:#7f1d1d">
