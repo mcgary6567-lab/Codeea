@@ -41,16 +41,45 @@ class UserOut(BaseModel):
     two_factor_enabled: bool
 
 
+_DUMMY: list[str] = []
+
+
+def _dummy_hash() -> str:
+    """A hash to check unknown names against, so they take as long as a wrong password."""
+    if not _DUMMY:
+        from app.core.security import hash_password
+        _DUMMY.append(hash_password("timing-equaliser-not-a-real-password"))
+    return _DUMMY[0]
+
+
 @router.post("/login", response_model=TokenOut)
 def api_login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+    # The same protection as the sign-in page: a per-address limit, the per-account lockout checked before the
+    # password, and every failure counted. Without it the API was an unlimited password-guessing channel.
+    from app.core.ratelimit import LOGIN_FAILURES
+    ip = client_ip(request)
+    if LOGIN_FAILURES.blocked(ip):
+        raise HTTPException(status_code=429, detail="Too many failed sign-ins from this address; try again later")
     uname = body.username.strip().lower()
     user = db.query(User).filter(or_(User.email == uname, User.username == uname)).first()
-    if not user or not user.is_active or not verify_password(body.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    if user.locked_until and user.locked_until > datetime.utcnow():
+    if user and user.locked_until and user.locked_until > datetime.utcnow():
         raise HTTPException(status_code=423, detail="Account locked")
+    if not user or not verify_password(body.password, user.hashed_password):
+        if user is None:
+            verify_password(body.password, _dummy_hash())
+        LOGIN_FAILURES.hit(ip)
+        if user is not None:
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            if user.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
+                user.locked_until = datetime.utcnow() + timedelta(minutes=settings.LOCKOUT_MINUTES)
+            db.commit()
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     if user.two_factor_enabled and not verify_totp(user.two_factor_secret or "", body.totp_code or ""):
+        LOGIN_FAILURES.hit(ip)
         raise HTTPException(status_code=401, detail="Two-factor code required or invalid")
+    user.failed_login_attempts = 0
     jti = secrets.token_hex(16)
     minutes = settings.ACCESS_TOKEN_MINUTES
     db.add(UserSession(user_id=user.id, token_jti=jti, ip=client_ip(request), user_agent="api",

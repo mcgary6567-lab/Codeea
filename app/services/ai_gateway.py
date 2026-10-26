@@ -29,7 +29,7 @@ PROMPT_VERSIONS = {
 
 
 def _seed(payload: dict) -> int:
-    return int(hashlib.md5(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()[:8], 16)
+    return int(hashlib.md5(json.dumps(payload, sort_keys=True, default=str).encode(), usedforsecurity=False).hexdigest()[:8], 16)
 
 
 def _rng(payload: dict, lo: float, hi: float, salt: str = "") -> float:

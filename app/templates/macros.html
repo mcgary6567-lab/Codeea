@@ -63,22 +63,25 @@
 {% macro button(label, href=None, icon=None, variant='primary', type='submit', size='md', attrs='') %}
 {% set base = 'inline-flex items-center gap-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:opacity-50 ' ~ ('px-2.5 py-1 text-xs' if size=='sm' else 'px-3.5 py-1.5 text-sm') %}
 {% set styles = {'primary':'bg-brand-600 text-white hover:bg-brand-700 shadow-sm','secondary':'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50','danger':'bg-rose-600 text-white hover:bg-rose-700','ghost':'text-brand-700 hover:bg-brand-50','success':'bg-emerald-600 text-white hover:bg-emerald-700','warning':'bg-amber-500 text-white hover:bg-amber-600'} %}
+{% set attrs = attrs ~ ((' aria-label="' ~ (icon|replace('-', ' ')|capitalize) ~ '"') if (not label and icon and 'aria-label' not in attrs and 'title=' not in attrs) else '') %}
 {% if href %}<a href="{{ href }}" class="{{ base }} {{ styles[variant] }}" {{ attrs|safe }}>{% if icon %}<i data-lucide="{{ icon }}" class="h-4 w-4"></i>{% endif %}{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ base }} {{ styles[variant] }}" {{ attrs|safe }}>{% if icon %}<i data-lucide="{{ icon }}" class="h-4 w-4"></i>{% endif %}{{ label }}</button>{% endif %}
 {% endmacro %}
 
 {% macro input(name, label=None, value='', type='text', placeholder='', required=False, help=None, attrs='', step=None, min=None, max=None) %}
+{% set fid = field_id(name) %}
 <div>
-  {% if label %}<label for="f_{{ name }}" class="mb-1 block text-xs font-semibold text-slate-600">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
-  <input id="f_{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else '' }}" placeholder="{{ placeholder }}" {% if required %}required{% endif %} {% if step %}step="{{ step }}"{% endif %} {% if min is not none %}min="{{ min }}"{% endif %} {% if max is not none %}max="{{ max }}"{% endif %} {{ attrs|safe }}
+  {% if label %}<label for="{{ fid }}" class="mb-1 block text-xs font-semibold text-slate-600">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
+  <input id="{{ fid }}" name="{{ name }}"{% if not label %} aria-label="{{ placeholder or name|replace('_', ' ')|capitalize }}"{% endif %} type="{{ type }}" value="{{ value if value is not none else '' }}" placeholder="{{ placeholder }}" {% if required %}required{% endif %} {% if step %}step="{{ step }}"{% endif %} {% if min is not none %}min="{{ min }}"{% endif %} {% if max is not none %}max="{{ max }}"{% endif %} {{ attrs|safe }}
          class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
   {% if help %}<p class="mt-1 text-xs text-slate-500">{{ help }}</p>{% endif %}
 </div>
 {% endmacro %}
 
 {% macro textarea(name, label=None, value='', rows=3, placeholder='', required=False, help=None, attrs='') %}
+{% set fid = field_id(name) %}
 <div>
-  {% if label %}<label for="f_{{ name }}" class="mb-1 block text-xs font-semibold text-slate-600">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
-  <textarea id="f_{{ name }}" name="{{ name }}" rows="{{ rows }}" placeholder="{{ placeholder }}" {% if required %}required{% endif %} {{ attrs|safe }}
+  {% if label %}<label for="{{ fid }}" class="mb-1 block text-xs font-semibold text-slate-600">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
+  <textarea id="{{ fid }}" name="{{ name }}"{% if not label %} aria-label="{{ placeholder or name|replace('_', ' ')|capitalize }}"{% endif %} rows="{{ rows }}" placeholder="{{ placeholder }}" {% if required %}required{% endif %} {{ attrs|safe }}
             class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">{{ value if value is not none else '' }}</textarea>
   {% if help %}<p class="mt-1 text-xs text-slate-500">{{ help }}</p>{% endif %}
 </div>
@@ -86,9 +89,10 @@
 
 {% macro select(name, label=None, options=[], value=None, required=False, placeholder='— Select —', help=None, attrs='') %}
 {# options: list of (value, label) tuples OR list of scalars #}
+{% set fid = field_id(name) %}
 <div>
-  {% if label %}<label for="f_{{ name }}" class="mb-1 block text-xs font-semibold text-slate-600">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
-  <select id="f_{{ name }}" name="{{ name }}" {% if required %}required{% endif %} {{ attrs|safe }}
+  {% if label %}<label for="{{ fid }}" class="mb-1 block text-xs font-semibold text-slate-600">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
+  <select id="{{ fid }}" name="{{ name }}"{% if not label %} aria-label="{{ name|replace('_', ' ')|capitalize }}"{% endif %} {% if required %}required{% endif %} {{ attrs|safe }}
           class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
     {% if placeholder is not none %}<option value="">{{ placeholder }}</option>{% endif %}
     {% for opt in options %}

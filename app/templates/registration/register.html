@@ -4,7 +4,7 @@
 
 {% macro reg_form(v, error, course_options, countries, timezones, country_map, how_heard, preferred_times, ref, ambassador) %}
 <form method="post" action="/register" class="space-y-6"
-      x-data="{ country: '{{ v.get('country') or 'United Kingdom' }}', map: {{ country_map|tojson }}, tz: '{{ v.get('timezone') or 'Europe/London' }}', extra: {{ 2 if v.get('s2_name') else 1 }} }">
+      x-data="{ country: '{{ v.get('country') or 'United Kingdom' }}', map: {{ country_map|tojson_safe }}, tz: '{{ v.get('timezone') or 'Europe/London' }}', extra: {{ 2 if v.get('s2_name') else 1 }} }">
   <input type="hidden" name="ref" value="{{ ref }}">
   <div class="hidden" aria-hidden="true"><label>Do not fill this in<input type="text" name="website" tabindex="-1" autocomplete="off" value=""></label></div>
 

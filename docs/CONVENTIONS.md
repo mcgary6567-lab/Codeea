@@ -173,3 +173,19 @@ Production runs PostgreSQL 16; the tests mostly run on SQLite, which accepts thi
   route (own students only) stay invisible to it, so lists must show only rows the user can open.
 - To check a change against PostgreSQL locally: initdb a PostgreSQL 16 data directory, set
   `DATABASE_URL=postgresql+psycopg://...`, run `alembic upgrade head`, `seed.py`, then pytest.
+
+## Security and markup rules from the 27 Oct 2026 audit
+
+- **Redirects stay on the site.** `utils.redirect()` passes every address through `safe_local_url()`; a `next` or
+  `back` value pointing at another site falls back to `/home`. Use `redirect()` (or `safe_local_url()` before a raw
+  `RedirectResponse`) for anything a form or query string supplies.
+- **JSON in an HTML attribute uses `|tojson_safe`.** `|tojson` leaves double quotes unescaped, which cuts an
+  `x-data="..."` value short and silently breaks the form's Alpine code. Inside `<script>` keep `|tojson`.
+- **Form fields from the macros get page-unique ids** (`field_id()`): the second `status` field on a page is
+  `f_status_2`. Don't hard-code `#f_<name>` in JavaScript; give the element its own id.
+- **Teachers and supervisors are scoped** to their own teachers' records (`scheduling.scoped_teacher_ids`) on class,
+  student and trial pages, lists and records alike.
+- **Sign-in is limited per address** (`app/core/ratelimit.py`) on the page and the API; the API counts failures
+  and honours the account lockout like the page does.
+- **Headers:** every page carries a Content-Security-Policy (`app/main.py`); files under `/storage/` open in a
+  sandbox. A new external script, font or frame host must be added there.

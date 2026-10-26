@@ -5,7 +5,7 @@
 {% call ui.page_header("New subscription", "Pricing is governed: discounts follow the approval ladder and no price may fall below the teacher-cost floor.", back='/finance/subscriptions') %}{% endcall %}
 
 <form method="post" action="/finance/subscriptions/new"
-      x-data="subForm({{ students_by_client|tojson }}, {{ client_meta|tojson }}, {{ packages|tojson }}, {{ teacher_rates|tojson }}, {{ rates|tojson }}, {{ thresholds|tojson }}, '{{ client_id }}', '{{ student_id }}')"
+      x-data="subForm({{ students_by_client|tojson_safe }}, {{ client_meta|tojson_safe }}, {{ packages|tojson_safe }}, {{ teacher_rates|tojson_safe }}, {{ rates|tojson_safe }}, {{ thresholds|tojson_safe }}, '{{ client_id }}', '{{ student_id }}')"
       class="grid gap-5 lg:grid-cols-3">
   <div class="lg:col-span-2 space-y-5">
     {% call ui.card("Family & student") %}

@@ -13,11 +13,12 @@ from app.config import settings
 from app.core import rbac
 from app.core.audit import log_action
 from app.core.deps import get_current_user, get_optional_user, csrf_protect, client_ip
+from app.core.ratelimit import LOGIN_FAILURES
 from app.core.nav import home_for, nav_for
 from app.core.security import (SESSION_COOKIE, create_access_token, verify_password, hash_password,
                                password_strength_errors, generate_totp_secret, verify_totp, totp_uri, sign_value, verify_signed)
 from app.core.templating import render
-from app.core.utils import redirect, paginate
+from app.core.utils import paginate, redirect, safe_local_url
 from app.database import get_db
 from app.models.core import User, UserSession, Notification, SecurityIncident
 from app.models.people import Client, Student, Teacher, Employee
@@ -66,17 +67,27 @@ def login_page(request: Request, next: str = "", db: Session = Depends(get_db), 
     return render(request, "auth/login.html", {"next": next, "stage": "login", "demo_accounts": DEMO_ACCOUNTS})
 
 
+_DUMMY_HASH = hash_password("timing-equaliser-not-a-real-password")
+
+
 @router.post("/login", include_in_schema=False)
 async def login_submit(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
-    next_url = form.get("next") or ""
+    next_url = safe_local_url(form.get("next"), "")  # never another site after signing in
     ctx = {"next": next_url, "demo_accounts": DEMO_ACCOUNTS}
+
+    ip = client_ip(request)
+    wait = LOGIN_FAILURES.blocked(ip)
+    if wait:
+        return render(request, "auth/login.html", {**ctx, "stage": "login", "username": (form.get("username") or "").strip(),
+                                                   "error": f"Too many failed sign-ins from this network. Try again in {wait // 60 + 1} minute(s)."})
 
     # ---- stage 2: TOTP
     if form.get("pending"):
         user_id = verify_signed(form.get("pending", ""), "totp-pending")
         user = db.query(User).get(int(user_id)) if user_id else None
         if not user or not verify_totp(user.two_factor_secret or "", form.get("code", "")):
+            LOGIN_FAILURES.hit(ip)
             db.add(SecurityIncident(incident_type="2fa_failed", severity="medium", ip=client_ip(request), user_id=user.id if user else None,
                                     description="Invalid 2FA code"))
             db.commit()
@@ -92,6 +103,8 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(or_(User.email == username, User.username == username)).first()
     generic_error = "Invalid credentials."
     if not user:
+        verify_password(password, _DUMMY_HASH)  # same time as a wrong password, so names cannot be probed
+        LOGIN_FAILURES.hit(ip)
         db.add(SecurityIncident(incident_type="login_failed", severity="low", ip=client_ip(request), description=f"Unknown user {username}"))
         db.commit()
         return render(request, "auth/login.html", {**ctx, "stage": "login", "username": username, "error": generic_error})
@@ -101,6 +114,7 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
     if not user.is_active:
         return render(request, "auth/login.html", {**ctx, "stage": "login", "username": username, "error": "This account is disabled. Contact the administrator."})
     if not verify_password(password, user.hashed_password):
+        LOGIN_FAILURES.hit(ip)
         user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
         if user.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
             user.locked_until = datetime.utcnow() + timedelta(minutes=settings.LOCKOUT_MINUTES)

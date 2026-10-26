@@ -11,7 +11,7 @@
 {{ ui.tabs(tabs, tab) }}
 
 <form method="post" action="/finance/accounts/vouchers/new" class="space-y-5"
-      x-data="{ lines: [0,1], party: '{{ 'client' if type == 'receipt' else ('vendor' if type == 'payment' else '') }}', apply: false, rate: 1, currency: '{{ base_currency }}', rates: {{ rates|tojson }} }">
+      x-data="{ lines: [0,1], party: '{{ 'client' if type == 'receipt' else ('vendor' if type == 'payment' else '') }}', apply: false, rate: 1, currency: '{{ base_currency }}', rates: {{ rates|tojson_safe }} }">
 <input type="hidden" name="type" value="{{ type }}">
 
 {% call ui.card(voucher_labels[type] ~ ' header') %}

@@ -230,7 +230,7 @@ def sample_random(db: Session, n: int, reviewer: Optional[User] = None, days: in
         return []
     # deterministic-but-spread ordering: hash of id + today
     key = date.today().isoformat()
-    candidates.sort(key=lambda s: (0 if s.recording else 1, hashlib.md5(f"{s.id}-{key}".encode()).hexdigest()))
+    candidates.sort(key=lambda s: (0 if s.recording else 1, hashlib.md5(f"{s.id}-{key}".encode(), usedforsecurity=False).hexdigest()))
     out = []
     seen_teachers: dict[int, int] = {}
     for s in candidates:

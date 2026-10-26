@@ -77,7 +77,7 @@ def compute_overall_rating(params: list[QAReviewParameter], scores: dict) -> Opt
 def _source_for(session: ClassSession) -> str:
     """Deterministic platform pick: night-shift teachers mostly use the Agent softphone, others Teams/Zoom."""
     shift = (session.teacher.shift if session.teacher else "evening") or "evening"
-    h = int(hashlib.md5(f"call-{session.id}".encode()).hexdigest(), 16) % 10
+    h = int(hashlib.md5(f"call-{session.id}".encode(), usedforsecurity=False).hexdigest(), 16) % 10
     if shift == "night":
         return "AGENT" if h < 6 else ("TEAMS" if h < 8 else "ZOOM")
     if shift == "morning":

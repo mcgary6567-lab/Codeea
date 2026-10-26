@@ -136,6 +136,12 @@ async def register_submit(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     if (form.get("website") or "").strip():          # honeypot
         return render(request, "registration/thanks.html", {"user": None, "lead": None, "students": []})
+    from app.core.deps import client_ip
+    from app.core.ratelimit import REGISTRATIONS
+    ip = client_ip(request)
+    if REGISTRATIONS.blocked(ip):
+        return render(request, "registration/thanks.html", {"user": None, "lead": None, "students": []})
+    REGISTRATIONS.hit(ip)
 
     def rerender(msg: str):
         courses = db.query(Course).filter(Course.is_active.is_(True)).order_by(Course.order).all()

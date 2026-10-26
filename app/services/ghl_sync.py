@@ -196,7 +196,7 @@ class GhlError(Exception):
 def _request(method: str, path: str, body: Optional[dict] = None) -> dict:
     """One call to the GHL API v2. Simulated (no network) without GHL_API_KEY."""
     if not is_live():
-        digest = hashlib.sha1(json.dumps([method, path, body], sort_keys=True, default=str).encode()).hexdigest()[:10]
+        digest = hashlib.sha1(json.dumps([method, path, body], sort_keys=True, default=str).encode(), usedforsecurity=False).hexdigest()[:10]
         return {"simulated": True, "id": f"ghl_sim_{digest}", "contact": {"id": f"ghl_sim_{digest}"}}
     import httpx
     try:
@@ -248,7 +248,7 @@ def api_opportunity(db: Session, contact_id: str, name: str, stage_id: Optional[
 
 # ============================================================================ queueing
 def _key(entity_type: str, entity_id: int, operation: str, data: dict) -> str:
-    return hashlib.sha1(json.dumps([entity_type, entity_id, operation, data], sort_keys=True, default=str).encode()).hexdigest()
+    return hashlib.sha1(json.dumps([entity_type, entity_id, operation, data], sort_keys=True, default=str).encode(), usedforsecurity=False).hexdigest()
 
 
 def enqueue(db: Session, entity_type: str, entity_id: int, operation: str, data: Optional[dict] = None, event: Optional[str] = None) -> Optional[GhlSyncJob]:

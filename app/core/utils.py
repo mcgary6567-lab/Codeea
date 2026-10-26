@@ -107,8 +107,21 @@ def _decode_flash(raw: Optional[str]) -> list[dict]:
         return []
 
 
+def safe_local_url(url: Optional[str], fallback: str = "/home") -> str:
+    """``url`` when it is an address on this site ("/clients?page=2"), otherwise ``fallback``.
+
+    Many forms carry a ``next`` / ``back`` field that ends up in a redirect; without this check a crafted link could
+    send someone who just signed in or saved a form to another site (an open redirect, used for phishing).
+    """
+    url = (url or "").strip()
+    if not url.startswith("/") or url.startswith("//") or any(ch in url for ch in ("\\", "\r", "\n", "\t")):
+        return fallback
+    return url
+
+
 def redirect(url: str, flash: Optional[str] = None, level: str = "success", status_code: int = 303) -> RedirectResponse:
-    resp = RedirectResponse(url=url, status_code=status_code)
+    """Redirect within the site; an address on another site falls back to /home (see safe_local_url)."""
+    resp = RedirectResponse(url=safe_local_url(url), status_code=status_code)
     if flash:
         resp.set_cookie(FLASH_COOKIE, _encode_flash([{"level": level, "message": flash}]), max_age=30, httponly=True, samesite="lax")
     return resp

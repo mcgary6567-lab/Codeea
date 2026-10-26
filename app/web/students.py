@@ -23,6 +23,7 @@ from app.models.finance import Subscription, Invoice
 from app.models.people import Client, Student, Teacher, Leave
 from app.models.scheduling import Schedule, ClassSession, Attendance, TeacherMatch
 from app.services import people as svc
+from app.services import scheduling as sched_svc
 from app.services.classes import student_attendance_pct
 from app.services.crm import OPEN_CASE_STATUSES
 
@@ -44,10 +45,16 @@ TABS = [("overview", "Student Form"), ("journey", "Academic Journey"), ("basic",
         ("retention", "Retention"), ("audit", "Audit")]
 
 
-def _get(db: Session, id: int) -> Student:
+def _get(db: Session, id: int, user: User | None = None) -> Student:
+    """The student, if this user may see them: supervisors and teachers only their own teachers' students
+    (scheduling.scoped_teacher_ids), like the class pages; a family's details are not every teacher's business."""
     s = db.query(Student).get(id)
     if not s:
         raise HTTPException(404, "Student not found")
+    if user is not None:
+        scope = sched_svc.scoped_teacher_ids(db, user)
+        if scope is not None and s.teacher_id not in scope:
+            raise PermissionDenied("students.view")
     return s
 
 
@@ -148,6 +155,9 @@ def list_students(request: Request, page: int = 1, q: str = "", status: str = ""
                   db: Session = Depends(get_db), user: User = Depends(require("students.view"))):
     report = report if report in ("primary", "free") else "primary"
     query = _apply_student_filters(db, db.query(Student), q, status, family_status, shift, teacher, course, gender, client, report)
+    scope = sched_svc.scoped_teacher_ids(db, user)
+    if scope is not None:
+        query = query.filter(Student.teacher_id.in_(scope or [-1]))
     if risk in ("low", "medium", "high"):
         query = query.filter(Student.risk_level == risk)
     pg = paginate(query.order_by(Student.created_at.desc()), page, 25)
@@ -340,7 +350,7 @@ async def create_student(request: Request, db: Session = Depends(get_db), user: 
 # --------------------------------------------------------------------------- Student Form (detail)
 @router.get("/{id}", include_in_schema=False)
 def student_detail(id: int, request: Request, tab: str = "overview", db: Session = Depends(get_db), user: User = Depends(require("students.view"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     if tab == "basic":
         return redirect(f"/students/{s.id}/edit")
     if tab == "journey":
@@ -437,7 +447,7 @@ def student_detail(id: int, request: Request, tab: str = "overview", db: Session
 def student_print(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.view"))):
     """The ERP's printable Student Detail: profile, family, teacher, subscriptions, schedule, the last 30 days of
     classes and the latest evaluations on one page. Contact details print only for those allowed to see them."""
-    s = _get(db, id)
+    s = _get(db, id, user)
     since = date.today() - timedelta(days=30)
     recent = (db.query(ClassSession).filter(ClassSession.student_id == s.id, ClassSession.date >= since,
                                             ClassSession.date <= date.today()).all())
@@ -458,7 +468,7 @@ def student_print(id: int, request: Request, db: Session = Depends(get_db), user
 
 @router.get("/{id}/edit", include_in_schema=False)
 def edit_student(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     values = {"client_id": s.client_id, "full_name": s.full_name, "gender": s.gender, "date_of_birth": s.date_of_birth.isoformat() if s.date_of_birth else "",
               "age": s.age or "", "course_id": s.course_id or "", "division_id": s.division_id or "", "level": s.level or "", "timezone": s.timezone,
               "preferred_language": s.preferred_language, "status": s.status, "notes": s.notes or "", "teacher_id": s.teacher_id or "",
@@ -472,7 +482,7 @@ def edit_student(id: int, request: Request, db: Session = Depends(get_db), user:
 
 @router.post("/{id}/edit", include_in_schema=False)
 async def update_student(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     data = _read_student_form(form)
     before = snapshot(s)
@@ -519,7 +529,7 @@ async def update_student(id: int, request: Request, db: Session = Depends(get_db
 
 @router.post("/{id}/status", include_in_schema=False)
 async def change_status(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.update"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     new_status = norm_status(form.get("status"))
     reason = (form.get("reason") or form.get("rationale") or "").strip()
@@ -546,7 +556,7 @@ async def change_status(id: int, request: Request, db: Session = Depends(get_db)
 
 @router.get("/{id}/change-teacher", include_in_schema=False)
 def change_teacher_page(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.assign", "students.update", any_of=True))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     ranked = svc.recommend_teachers(db, s.course.code if s.course else None, s.gender, s.age, s.timezone, exclude_ids=[s.teacher_id] if s.teacher_id else ())
     from app.models.academic import TEACHER_CHANGE_REASONS
     # the teachers who cannot be chosen yet, so the reason is visible and the way to fix it is one click away
@@ -558,7 +568,7 @@ def change_teacher_page(id: int, request: Request, db: Session = Depends(get_db)
 
 @router.post("/{id}/change-teacher", include_in_schema=False)
 async def change_teacher(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.assign", "students.update", any_of=True))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     teacher = db.query(Teacher).get(parse_int(form.get("teacher_id")) or 0)
     reason = (form.get("reason") or "").strip()
@@ -584,7 +594,7 @@ async def change_teacher(id: int, request: Request, db: Session = Depends(get_db
 
 @router.post("/{id}/leaves/{leave_id}/{action}", include_in_schema=False)
 async def leave_action(id: int, leave_id: int, action: str, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leaves.approve"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     lv = db.query(Leave).filter(Leave.id == leave_id, Leave.student_id == s.id).first()
     if not lv or action not in ("approve", "reject"):
         raise HTTPException(404)
@@ -607,7 +617,7 @@ async def leave_action(id: int, leave_id: int, action: str, request: Request, db
 
 @router.post("/{id}/leaves", include_in_schema=False)
 async def add_leave(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leaves.add"))):
-    s = _get(db, id)
+    s = _get(db, id, user)
     form = await request.form()
     start, end = parse_date(form.get("start_date")), parse_date(form.get("end_date"))
     if not start or not end or end < start:

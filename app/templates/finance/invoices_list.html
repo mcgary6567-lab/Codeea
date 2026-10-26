@@ -79,7 +79,7 @@
 
 {% call ui.modal('singleinv', 'Create Single Invoice', size='lg') %}
 <form method="post" action="/finance/invoices/new" class="space-y-4"
-      x-data="{ subs: {{ subs_by_client|tojson }}, clientId: '', lines: [{t:'', a:''}], get options(){ return this.subs[this.clientId] || [] } }">
+      x-data="{ subs: {{ subs_by_client|tojson_safe }}, clientId: '', lines: [{t:'', a:''}], get options(){ return this.subs[this.clientId] || [] } }">
   <div class="grid gap-3 sm:grid-cols-2">
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">Client <span class="text-rose-500">*</span></label>

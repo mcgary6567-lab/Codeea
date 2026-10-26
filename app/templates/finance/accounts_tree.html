@@ -32,7 +32,7 @@
 <div x-data="{ collapsed: {} }">
 <div class="no-print mb-2 flex items-center gap-2 text-xs">
   <button type="button" @click="collapsed = {}" class="rounded border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Expand all</button>
-  <button type="button" @click="collapsed = {{ data.flat|selectattr('children')|map(attribute='account.id')|list|tojson }}.reduce(function (a, i) { a[i] = true; return a; }, {})" class="rounded border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Collapse all</button>
+  <button type="button" @click="collapsed = {{ data.flat|selectattr('children')|map(attribute='account.id')|list|tojson_safe }}.reduce(function (a, i) { a[i] = true; return a; }, {})" class="rounded border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Collapse all</button>
   <span class="text-slate-500">Click a caret to fold a head away.</span>
 </div>
 

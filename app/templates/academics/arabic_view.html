@@ -19,7 +19,7 @@
 {% if not les %}
   {{ ui.empty_state('This student has no current lesson with Arabic text yet.', 'book-open') }}
 {% else %}
-<div class="grid gap-5 lg:grid-cols-3" x-data="arabicView({{ s.id }}, {{ les.id }}, {{ can_annotate|tojson }})" x-init="start()">
+<div class="grid gap-5 lg:grid-cols-3" x-data="arabicView({{ s.id }}, {{ les.id }}, {{ can_annotate|tojson_safe }})" x-init="start()">
   <div class="lg:col-span-2 space-y-5">
     {% call ui.card(les.title, (les.surah_number|string ~ ':' ~ les.ayah_from|string ~ ('-' ~ les.ayah_to|string if les.ayah_to and les.ayah_to != les.ayah_from else '')) if les.surah_number else path) %}
     <div dir="rtl" lang="ar" class="space-y-4">

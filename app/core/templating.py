@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from contextvars import ContextVar
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -145,7 +146,7 @@ def _asset_version() -> str:
     browser on the old one until its cache expires (the first sight of the Schedule Summary Report in
     production had white text on white because the new colour class had not reached the browser)."""
     import hashlib
-    h = hashlib.md5()
+    h = hashlib.md5(usedforsecurity=False)  # cache-busting fingerprint, not security
     static = Path(__file__).resolve().parents[1] / "static"
     for rel in ("css/tailwind.css", "css/app.css", "js/app.js"):
         f = static / rel
@@ -156,12 +157,27 @@ def _asset_version() -> str:
 
 ASSET_VERSION = _asset_version()
 
+# Form fields drawn by the macros get ids unique within the page: the first "status" field is f_status, the next
+# f_status_2, so every <label for> points at its own field even when a form appears twice (edit row and modal).
+_FIELD_IDS: ContextVar[Optional[dict]] = ContextVar("oqc_field_ids", default=None)
+
+
+def field_id(name: str) -> str:
+    seen = _FIELD_IDS.get()
+    if seen is None:
+        seen = {}
+        _FIELD_IDS.set(seen)
+    n = seen.get(name, 0) + 1
+    seen[name] = n
+    return f"f_{name}" if n == 1 else f"f_{name}_{n}"
+
+
 templates.env.globals.update({
     "asset_version": ASSET_VERSION,
     "app_name": settings.APP_NAME, "app_env": settings.APP_ENV, "base_url": settings.BASE_URL,
     "has_perm": rbac.has_permission, "is_ceo": rbac.is_ceo, "is_management": rbac.is_management,
     "today": date.today, "utcnow": datetime.utcnow, "MODULES": rbac.MODULES, "ACTIONS": rbac.ACTIONS,
-    "TILE": TILE, "palette": palette, "STATUS_LABELS": STATUS_LABELS,
+    "TILE": TILE, "palette": palette, "STATUS_LABELS": STATUS_LABELS, "field_id": field_id,
 })
 
 
@@ -176,6 +192,7 @@ def _layout_globals() -> dict:
 
 def render(request: Request, template: str, context: Optional[dict] = None, status_code: int = 200, **kw) -> HTMLResponse:
     """Render a template with the shared layout context. Pass ``user`` in context for authenticated pages."""
+    _FIELD_IDS.set({})
     ctx: dict[str, Any] = {"request": request}
     ctx.update(context or {})
     ctx.update(kw)

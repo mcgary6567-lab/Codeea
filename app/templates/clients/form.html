@@ -9,7 +9,7 @@
    back=('/clients/' ~ c.id) if c else '/clients') %}
   {% if mode == 'edit' and change_log_url %}{{ ui.button('Change Log', href=change_log_url, icon='history', variant='secondary') }}{% endif %}
 {% endcall %}
-<form method="post" class="space-y-6 max-w-6xl" x-data="{ country: '{{ c.country if c else 'United Kingdom' }}', map: {{ country_map|tojson }}, tz: '{{ c.timezone if c else 'Europe/London' }}', cur: '{{ c.currency if c else 'GBP' }}', status: '{{ c.status if c else (preset_status or 'trial') }}', initial: '{{ c.status if c else '' }}' }">
+<form method="post" class="space-y-6 max-w-6xl" x-data="{ country: '{{ c.country if c else 'United Kingdom' }}', map: {{ country_map|tojson_safe }}, tz: '{{ c.timezone if c else 'Europe/London' }}', cur: '{{ c.currency if c else 'GBP' }}', status: '{{ c.status if c else (preset_status or 'trial') }}', initial: '{{ c.status if c else '' }}' }">
   {% call ui.card("Basic Detail", "Fields marked * are required.") %}
   <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
     {{ ui.input('full_name', 'Client Name', c.full_name if c else '', required=True) }}

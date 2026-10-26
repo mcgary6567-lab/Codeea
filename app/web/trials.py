@@ -8,7 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action, snapshot
-from app.core.deps import require, csrf_protect
+from app.core.deps import PermissionDenied, csrf_protect, require
 from app.core.notify import notify
 from app.core.templating import render
 from app.core.utils import redirect, paginate, parse_date, parse_datetime, parse_int
@@ -35,10 +35,16 @@ def _form_ctx(db: Session) -> dict:
             "lead_options": [(l.id, f"{l.full_name} ({l.lead_code})") for l in leads]}
 
 
-def _get(db: Session, id: int) -> Trial:
+def _get(db: Session, id: int, user: User | None = None) -> Trial:
+    """The trial, if this user may see it: supervisors and teachers only their own teachers' trials."""
     t = db.get(Trial, id)
     if not t:
         raise HTTPException(404, "Trial not found")
+    if user is not None:
+        from app.services import scheduling as sched
+        scope = sched.scoped_teacher_ids(db, user)
+        if scope is not None and t.teacher_id not in scope:
+            raise PermissionDenied("trials.view")
     return t
 
 
@@ -46,6 +52,10 @@ def _get(db: Session, id: int) -> Trial:
 def list_trials(request: Request, page: int = 1, q: str = "", status: str = "", teacher: str = "", start: str = "", end: str = "",
                 db: Session = Depends(get_db), user: User = Depends(require("trials.view"))):
     query = db.query(Trial)
+    from app.services import scheduling as sched
+    scope = sched.scoped_teacher_ids(db, user)
+    if scope is not None:
+        query = query.filter(Trial.teacher_id.in_(scope or [-1]))
     if q:
         query = query.filter(Trial.student_name.ilike(f"%{q}%"))
     if status:
@@ -85,6 +95,9 @@ def running_trials(request: Request, page: int = 1, q: str = "", client_id: int 
     from app.models.finance import Subscription
     from app.services import scheduling as sched
     query = db.query(Subscription).filter(Subscription.status == "trial")
+    scope = sched.scoped_teacher_ids(db, user)
+    if scope is not None:
+        query = query.filter(Subscription.teacher_id.in_(scope or [-1]))
     if q:
         like = f"%{q.strip()}%"
         query = (query.join(Student, Student.id == Subscription.student_id)
@@ -221,14 +234,14 @@ async def create_trial(request: Request, db: Session = Depends(get_db), user: Us
 
 @router.get("/{id}", include_in_schema=False)
 def trial_detail(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("trials.view"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     session = db.get(ClassSession, t.session_id) if t.session_id else None
     return render(request, "trials/detail.html", {"user": user, "t": t, "session": session, **_form_ctx(db)})
 
 
 @router.post("/{id}/schedule", include_in_schema=False)
 async def schedule(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("trials.update"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     form = await request.form()
     when = parse_datetime(form.get("scheduled_at"))
     if not when:
@@ -258,7 +271,7 @@ async def schedule(id: int, request: Request, db: Session = Depends(get_db), use
 
 @router.post("/{id}/outcome", include_in_schema=False)
 async def outcome(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("trials.update"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     form = await request.form()
     status = form.get("status") or ""
     if status not in ("attended", "no_show", "lost"):
@@ -287,7 +300,7 @@ async def outcome(id: int, request: Request, db: Session = Depends(get_db), user
 
 @router.post("/{id}/follow-up", include_in_schema=False)
 async def follow_up(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("trials.update"))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     form = await request.form()
     t.follow_up_date = parse_date(form.get("follow_up_date"))
     t.follow_up_count = (t.follow_up_count or 0) + 1
@@ -300,7 +313,7 @@ async def follow_up(id: int, request: Request, db: Session = Depends(get_db), us
 
 @router.post("/{id}/convert", include_in_schema=False)
 async def convert(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("trials.update", "clients.add", any_of=True))):
-    t = _get(db, id)
+    t = _get(db, id, user)
     form = await request.form()
     if not t.lead:
         t.status = "converted"

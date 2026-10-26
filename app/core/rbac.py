@@ -6,6 +6,7 @@ Wildcards: ``*`` (everything), ``module.*`` (all actions on a module), ``*.view`
 """
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Iterable, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -241,15 +242,43 @@ def _matches(pattern: str, perm: str) -> bool:
     return (p_module in ("*", module)) and (p_action in ("*", action))
 
 
+@lru_cache(maxsize=512)
+def compile_patterns(patterns: tuple) -> tuple[frozenset, frozenset, frozenset, bool]:
+    """Permission patterns split the way _matches reads them: exact names, ``module.*``, ``*.action``, everything.
+    A page checks the same user's grants hundreds of times (menus, links, buttons); this makes each check a set
+    lookup instead of a scan of every pattern."""
+    exact, modules, actions, everything = set(), set(), set(), False
+    for p in patterns:
+        module, _, action = p.partition(".")
+        if p == "*" or (module == "*" and action == "*"):
+            everything = True
+        elif action == "*":
+            modules.add(module)
+        elif module == "*":
+            actions.add(action)
+        else:
+            exact.add(p)
+    return frozenset(exact), frozenset(modules), frozenset(actions), everything
+
+
+def matches_any(patterns: Iterable[str], perm: str) -> bool:
+    """``any(_matches(p, perm) for p in patterns)``, answered from the compiled patterns."""
+    exact, modules, actions, everything = compile_patterns(tuple(patterns or ()))
+    if everything or perm in exact:
+        return True
+    module, _, action = perm.partition(".")
+    return module in modules or action in actions
+
+
 def has_permission(user: "User", perm: str) -> bool:
     if user is None or not user.is_active:
         return False
     if user.is_superuser:
         return True
-    if any(_matches(p, perm) for p in (user.denied_permissions or [])):
+    if user.denied_permissions and matches_any(user.denied_permissions, perm):
         return False
-    grants: Iterable[str] = list(user.role.permissions if user.role else []) + list(user.extra_permissions or [])
-    return any(_matches(p, perm) for p in grants)
+    grants = tuple(user.role.permissions if user.role else ()) + tuple(user.extra_permissions or ())
+    return matches_any(grants, perm)
 
 
 def can_read_grievances(user) -> bool:

@@ -51,7 +51,7 @@
 
 {% if mode == 'edit' %}
 <form method="post" action="/students/{{ student.id }}/edit" class="space-y-6 max-w-5xl"
-      x-data="{ course: '{{ v.course_id }}', division: '{{ v.division_id }}', divisions: {{ divisions|tojson }} }">
+      x-data="{ course: '{{ v.course_id }}', division: '{{ v.division_id }}', divisions: {{ divisions|tojson_safe }} }">
   {% call ui.card("Student details") %}{{ detail_fields(values) }}{% endcall %}
   {% call ui.card("Family & consent") %}
     <div class="grid gap-4 sm:grid-cols-2">
@@ -73,7 +73,7 @@
 <div class="grid gap-6 xl:grid-cols-5">
   <div class="xl:col-span-3 space-y-6">
     <form method="get" action="/students/new" class="space-y-6"
-          x-data="{ course: '{{ v.course_id }}', division: '{{ v.division_id }}', divisions: {{ divisions|tojson }} }">
+          x-data="{ course: '{{ v.course_id }}', division: '{{ v.division_id }}', divisions: {{ divisions|tojson_safe }} }">
       {% call ui.card("1 · Student details", "Fill these in, then ask the matcher for a ranked teacher shortlist.") %}
         {{ detail_fields(values) }}
       {% endcall %}

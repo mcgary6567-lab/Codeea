@@ -100,8 +100,42 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
+        # The classroom embeds the video provider; camera and microphone must be delegable to its frame.
+        video = f'"https://{settings.JITSI_DOMAIN}"' if settings.JITSI_DOMAIN else ""
+        response.headers.setdefault(
+            "Permissions-Policy",
+            f"camera=(self {video}), microphone=(self {video}), display-capture=(self {video}), "
+            f"fullscreen=(self {video}), geolocation=()".replace(" )", ")"))
+        path = request.url.path
+        if path.startswith("/storage/"):
+            # Uploaded files (an SVG can carry script) open in a sandbox with nothing allowed to run.
+            response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'"
+        elif not path.startswith(("/api/docs", "/api/redoc", "/docs", "/redoc")):
+            response.headers.setdefault("Content-Security-Policy", _CSP)
+        if settings.cookie_secure:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response
+
+
+# Scripts, styles and fonts are vendored (static/) apart from Google Fonts and the classroom's video provider.
+# 'unsafe-inline' / 'unsafe-eval' stay because templates use inline handlers and Alpine evaluates expressions; the
+# policy still stops script, frames and form posts from any other site, and the page being framed elsewhere.
+_VIDEO_HOST = f"https://{settings.JITSI_DOMAIN}" if settings.JITSI_DOMAIN else ""
+_CSP = "; ".join([
+    "default-src 'self'",
+    f"script-src 'self' 'unsafe-inline' 'unsafe-eval' {_VIDEO_HOST}".strip(),
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' blob: https:",
+    f"connect-src 'self' {_VIDEO_HOST} {_VIDEO_HOST.replace('https://', 'wss://')}".strip(),
+    f"frame-src 'self' {_VIDEO_HOST}".strip(),
+    "worker-src 'self' blob:",
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+])
 
 
 def _discover_routers(app: FastAPI, package: str, prefix: str = "") -> None:

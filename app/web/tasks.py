@@ -258,7 +258,9 @@ def sprint_board(project_id: int, request: Request, sprint_id: int | None = None
     if active is None:
         active = next((s for s in sprints if s.status == "active"), None) or (sprints[0] if sprints else None)
     tasks = db.query(Task).filter(Task.sprint_id == active.id).all() if active else []
-    board = {c[0]: [t for t in tasks if t.status == c[0]] for c in BOARD_COLUMNS}
+    # like the project board: cards this user can open; the sprint's figures still count every task
+    team = set(_team_user_ids(db, user))
+    board = {c[0]: [t for t in tasks if t.status == c[0] and _can_open(user, t, team)] for c in BOARD_COLUMNS}
     done = len([t for t in tasks if t.status == "done"])
     return render(request, "tasks/sprints.html", {
         "user": user, "p": p, "sprints": sprints, "active": active, "board": board, "columns": BOARD_COLUMNS,

@@ -422,7 +422,7 @@ def restore_test(db: Session, rec: BackupRecord) -> dict:
                 try:
                     tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
                     for t in tables:
-                        n = conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
+                        n = conn.execute('SELECT COUNT(*) FROM "' + t.replace('"', '""') + '"').fetchone()[0]  # nosec B608: quoted identifier from the backup's own schema
                         result["rows"] += n
                         result["detail"].append((t, n))
                     result["tables"] = len(tables)

@@ -17,6 +17,7 @@ from the user page, the role page and the bulk assign panel:
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
@@ -245,17 +246,27 @@ ACTION_WORDS = {"view": "open", "export": "export", "add": "create", "update": "
 OTHER_AREA = "Other"
 
 
+@lru_cache(maxsize=256)
+def _compiled(perms: frozenset) -> tuple[frozenset, frozenset, frozenset, bool]:
+    """``perms`` split into exact names, ``module.*``, ``*.action`` and everything (rbac.compile_patterns)."""
+    return rbac.compile_patterns(tuple(perms))
+
+
 def _holds(perms: Iterable[str], perm: str) -> bool:
     """True when ``perm`` is in ``perms`` (an expanded set or a list of patterns with wildcards)."""
-    if perm in perms:
+    exact, modules, actions, everything = _compiled(perms if isinstance(perms, frozenset) else frozenset(perms or ()))
+    if everything or perm in exact:
         return True
-    return any(rbac._matches(p, perm) for p in perms if "*" in p)
+    module, _, action = perm.partition(".")
+    return module in modules or action in actions
 
 
 def module_actions(perms: Iterable[str], module: str) -> set[str]:
     """The actions on ``module`` that ``perms`` covers."""
-    perms = perms if isinstance(perms, (set, frozenset)) else list(perms or [])
-    return {a for a in rbac.ACTIONS if _holds(perms, f"{module}.{a}")}
+    exact, modules, actions, everything = _compiled(perms if isinstance(perms, frozenset) else frozenset(perms or ()))
+    if everything or module in modules:
+        return set(rbac.ACTIONS)
+    return {a for a in rbac.ACTIONS if a in actions or f"{module}.{a}" in exact}
 
 
 def level_of_actions(actions: Iterable[str]) -> str:
