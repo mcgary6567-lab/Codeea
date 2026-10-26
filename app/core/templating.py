@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core import rbac
-from app.core.nav import nav_for, home_for, breadcrumbs_for, section_for_path, TILE, palette  # noqa: F401
+from app.core.nav import nav_for, home_for, breadcrumbs_for, section_for_path, sidebar_active_url, TILE, palette  # noqa: F401
 from app.core.security import mask
 from app.core.utils import pop_flash, money, humanize_delta, pct
 
@@ -188,6 +188,7 @@ def render(request: Request, template: str, context: Optional[dict] = None, stat
     ctx["current_path"] = request.url.path
     # The ERP keeps a sidebar of the current area's pages beside every page; this is what it lists.
     ctx["current_section"] = section_for_path(user, request.url.path) if user else None
+    ctx["sidebar_active"] = sidebar_active_url(ctx["current_section"], request.url.path)
     # interactive reports (static/js/report.js): staff get the toolbar; a list page that has an import sheet gets
     # an "Import CSV" button when the user may run imports
     ctx["ir_staff"] = bool(user and getattr(user, "portal", "admin") not in ("client", "student"))

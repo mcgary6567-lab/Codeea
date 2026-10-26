@@ -513,6 +513,22 @@ def breadcrumbs_for(user, path: str) -> list[dict]:
     return crumbs
 
 
+def sidebar_active_url(section: dict | None, path: str) -> str:
+    """The sidebar item the current page belongs to: an exact match, else the longest item URL the path sits under
+    (/classes/123 belongs to Class Schedules at /classes). "" when none does."""
+    if not section:
+        return ""
+    best, best_len = "", -1
+    items = [i for g in section.get("groups", []) for i in g["items"]] or section.get("items", [])
+    for item in items:
+        u = item["url"].split("?")[0]
+        if path == u:
+            return item["url"]
+        if path.startswith(u.rstrip("/") + "/") and len(u) > best_len:
+            best, best_len = item["url"], len(u)
+    return best
+
+
 def section_for_path(user, path: str) -> dict | None:
     """The area the current page belongs to, for the sidebar the ERP keeps beside every page.
 

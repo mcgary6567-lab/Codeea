@@ -13,6 +13,7 @@
   <link rel="stylesheet" media="print" onload="this.media='all'"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri+Quran&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
   <link rel="stylesheet" href="/static/css/app.css?v={{ asset_version }}">
+  <script>try { if (localStorage.getItem('oqc-sb-rail') === '1') document.documentElement.classList.add('sb-rail'); } catch (e) {}</script>
   <script defer src="/static/vendor/alpine.js"></script>
   <script src="/static/vendor/chart.umd.min.js"></script>
   <script src="/static/vendor/htmx.min.js"></script>
@@ -127,33 +128,7 @@
   {# The ERP keeps the current area's pages in a sidebar beside every page, so staff move between them
      without going back to the card screen. Wide screens only; the hamburger drawer serves narrow ones. #}
   <div class="flex flex-1 min-h-0">
-  {% if current_section %}
-  <aside id="area-sidebar" class="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">
-    <nav class="sticky top-0 max-h-screen overflow-y-auto py-2 text-sm">
-      <a href="/home/{{ current_section.slug }}"
-         class="flex items-center gap-2.5 px-4 py-2 font-semibold text-slate-800 hover:bg-slate-50 {{ 'bg-brand-50 text-brand-700' if current_path == '/home/' ~ current_section.slug }}">
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded" style="background: {{ current_section.color }}"><i data-lucide="{{ current_section.icon }}" class="h-3.5 w-3.5 text-white"></i></span>
-        <span class="flex-1 truncate">{{ current_section.label }}</span>
-      </a>
-      {% if current_section["groups"] %}
-        {% for g in current_section["groups"] %}
-        <div class="mt-1 px-4 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ g.label }}</div>
-        {% for item in g["items"] %}
-        <a href="{{ item.url }}" class="flex items-center gap-2 py-1.5 pl-6 pr-3 text-slate-600 hover:bg-slate-50 hover:text-brand-700 {{ 'border-l-2 border-brand-600 bg-brand-50 font-semibold text-brand-700' if current_path == item.url.split('?')[0] }}">
-          <i data-lucide="{{ item.icon }}" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i><span class="truncate">{{ item.label }}</span>
-        </a>
-        {% endfor %}
-        {% endfor %}
-      {% else %}
-        {% for item in current_section["items"] %}
-        <a href="{{ item.url }}" class="flex items-center gap-2 py-1.5 pl-6 pr-3 text-slate-600 hover:bg-slate-50 hover:text-brand-700 {{ 'border-l-2 border-brand-600 bg-brand-50 font-semibold text-brand-700' if current_path == item.url.split('?')[0] }}">
-          <i data-lucide="{{ item.icon }}" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i><span class="truncate">{{ item.label }}</span>
-        </a>
-        {% endfor %}
-      {% endif %}
-    </nav>
-  </aside>
-  {% endif %}
+  {% if current_section %}{% include "_sidebar.html" %}{% endif %}
 
   <main class="min-w-0 flex-1 px-4 py-5 sm:px-6">
     {% for f in flash_messages %}
@@ -177,6 +152,7 @@
 {% block public %}{% endblock %}
 {% endif %}
 <script src="/static/js/app.js?v={{ asset_version }}"></script>
+<script src="/static/js/sidebar.js?v={{ asset_version }}"></script>
 {% if ir_staff %}<script src="/static/js/report.js?v={{ asset_version }}"></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body>

@@ -1,0 +1,66 @@
+{# The current area's pages beside every page (wide screens; the hamburger drawer serves narrow ones).
+   Favourites and Recent on top, then the area's groups as an accordion; a search over every page in the area;
+   « shrinks it to group icons. Behaviour: static/js/sidebar.js. Styles: static/css/app.css (.oqc-sb). #}
+{% set sec = current_section %}
+{% set groups = sec["groups"] if sec["groups"] else [{"label": sec.label, "icon": sec.icon, "items": sec["items"], "flat": True}] %}
+{% set ns = namespace(total=0, active_group="") %}
+{% for g in groups %}{% set ns.total = ns.total + g["items"]|length %}{% for item in g["items"] %}{% if item.url == sidebar_active %}{% set ns.active_group = g.label %}{% endif %}{% endfor %}{% endfor %}
+<aside id="area-sidebar" class="oqc-sb" data-area="{{ sec.slug }}" data-active="{{ sidebar_active }}" aria-label="{{ sec.label }} pages">
+  <div class="sb-head">
+    <a href="/home/{{ sec.slug }}" class="sb-area {{ 'is-here' if current_path == '/home/' ~ sec.slug }}" title="{{ sec.label }} home">
+      <span class="sb-area-ico" style="background: {{ sec.color }}"><i data-lucide="{{ sec.icon }}"></i></span>
+      <span class="sb-area-name">{{ sec.label }}</span>
+    </a>
+    <button type="button" class="sb-icon-btn" data-sb-rail title="Collapse to icons" aria-label="Collapse the menu to icons"><i data-lucide="chevrons-left"></i></button>
+  </div>
+
+  <label class="sb-search">
+    <i data-lucide="search"></i>
+    <input id="sb-q" type="search" placeholder="Search {{ ns.total }} pages" autocomplete="off" aria-label="Search the {{ sec.label }} menu">
+    <span class="sb-kbd" aria-hidden="true">/</span>
+  </label>
+
+  <nav class="sb-scroll" data-sb-list>
+    <div class="sb-fixed" data-sb-fixed>
+      <div class="sb-sec">Favourites</div>
+      <div data-sb-favs>
+        {% for f in favourites[:10] %}
+        <div class="sb-row"><a href="{{ f.path }}" class="sb-item sb-flat {{ 'is-active' if f.path == current_path }}"><i data-lucide="star" class="sb-fav-ico"></i><span class="sb-t">{{ f.label }}</span></a>
+          <button type="button" class="sb-star is-on" data-sb-star data-path="{{ f.path }}" data-label="{{ f.label }}" title="Remove from favourites" aria-label="Remove {{ f.label }} from favourites"><i data-lucide="star"></i></button></div>
+        {% endfor %}
+      </div>
+      <div class="sb-hint" data-sb-favs-empty {% if favourites %}hidden{% endif %}>Click ☆ next to a page to keep it here.</div>
+      <div data-sb-recent-wrap hidden>
+        <div class="sb-sec">Recent</div>
+        <div data-sb-recent></div>
+      </div>
+      <div class="sb-sec sb-sec-all">All pages</div>
+    </div>
+
+    {% for g in groups %}
+    {% set is_active_group = g.label == ns.active_group %}
+    <div class="sb-grp {{ 'is-open' if is_active_group or g.flat }} {{ 'is-current' if is_active_group }} {{ 'sb-grp-flat' if g.flat }}" data-sb-grp="{{ g.label }}">
+      {% if not g.flat %}
+      <button type="button" class="sb-grp-btn" aria-expanded="{{ 'true' if is_active_group else 'false' }}" title="{{ g.label }}">
+        <i data-lucide="{{ g.icon or 'folder' }}" class="sb-grp-ico"></i>
+        <span class="sb-lbl">{{ g.label }}</span>
+        <span class="sb-count">{{ g["items"]|length }}</span>
+        <i data-lucide="chevron-right" class="sb-chev"></i>
+      </button>
+      {% endif %}
+      <div class="sb-items">
+        {% for item in g["items"] %}
+        <div class="sb-row"><a href="{{ item.url }}" class="sb-item {{ 'is-active' if item.url == sidebar_active }}" data-sb-label="{{ item.label }}" {% if item.url == sidebar_active %}aria-current="page"{% endif %}><i data-lucide="{{ item.icon }}"></i><span class="sb-t">{{ item.label }}</span></a>
+          <button type="button" class="sb-star" data-sb-star data-path="{{ item.url.split('?')[0] }}" data-label="{{ item.label }}" title="Add to favourites" aria-label="Add {{ item.label }} to favourites"><i data-lucide="star"></i></button></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    <div class="sb-empty" data-sb-empty hidden>No page matches “<span data-sb-q></span>”.</div>
+  </nav>
+
+  <div class="sb-foot">
+    <span>{{ groups|length if not groups[0].flat else 1 }} {{ 'groups' if (groups|length) > 1 else 'group' }} · {{ ns.total }} pages</span>
+    {% if not groups[0].flat %}<button type="button" class="sb-link" data-sb-all>Collapse all</button>{% endif %}
+  </div>
+</aside>
