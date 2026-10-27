@@ -228,6 +228,7 @@ $key      = $chk['key'];
 // fallback block (same three keys), tried when the primary call fails.
 $fallback = null;
 {
+  if (function_exists('opcache_invalidate')) @opcache_invalidate($CFG_FILE, true);   // never a cached copy of the settings
   $cc = @include $CFG_FILE;
   if (is_array($cc) && isset($cc['fallback']) && is_array($cc['fallback']) && !empty($cc['fallback']['key'])) {
     $fp = isset($cc['fallback']['provider']) ? strtolower(trim($cc['fallback']['provider'])) : 'anthropic';

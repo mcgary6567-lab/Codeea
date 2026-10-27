@@ -99,6 +99,9 @@ function cfg_one($c, $defaultProvider) {
 }
 function cfg_load($file) {
   if (!is_readable($file)) return null;
+  // Settings saved in the panel must apply on the next run, not when OPcache
+  // decides the file is stale (2026-10-27: a new fallback was ignored).
+  if (function_exists('opcache_invalidate')) @opcache_invalidate($file, true);
   $c = @include $file;
   if (!is_array($c) || empty($c['key'])) return null;
   $cfg = cfg_one($c, 'anthropic');

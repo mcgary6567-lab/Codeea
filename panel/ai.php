@@ -39,13 +39,14 @@ function mask($k) { $k = (string)$k; if ($k === '') return '(none)'; if (strlen(
 
 function cfg_read($file) {
   if (!is_readable($file)) return array();
+  if (function_exists('opcache_invalidate')) @opcache_invalidate($file, true);   // never a cached copy of the settings
   $c = @include $file;
   return is_array($c) ? $c : array();
 }
 function cfg_write($file, $arr) {
   $php = "<?php\n// Written by /panel/ai.php on " . gmdate('c') . " - do not commit this file.\nreturn " . var_export($arr, true) . ";\n";
   $ok = @file_put_contents($file, $php, LOCK_EX);
-  if ($ok !== false) @chmod($file, 0600);
+  if ($ok !== false) { @chmod($file, 0600); if (function_exists('opcache_invalidate')) @opcache_invalidate($file, true); }
   return $ok !== false;
 }
 
