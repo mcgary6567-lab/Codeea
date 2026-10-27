@@ -11,7 +11,7 @@ Support: support@prometheusai.tech (24/7 live chat also available on the site)
 - [Home](https://www.prometheusai.tech/): Product overview, demo video, and purchase options
 - [Pricing](https://www.prometheusai.tech/pricing): $267 one-time, lifetime access, no subscription; one-time vs subscription comparison, payment methods, 90-day guarantee
 - [Review](https://www.prometheusai.tech/review): Honest first-party overview — what Prometheus AI does, pros and cons, who it's for, safety, verdict
-- [Checkout](https://www.prometheusai.tech/checkout): One-time payment of $267 (regular price $497) via card, PayPal, Klarna, Venmo (secure checkout by Hotmart), or cryptocurrency (BTC, ETH, USDT). Backed by a 90-day money-back guarantee.
+- [Checkout](https://www.prometheusai.tech/checkout): One-time payment of $267 via card, PayPal, Klarna, Venmo (secure checkout by Hotmart), or cryptocurrency (BTC, ETH, USDT). Backed by a 90-day money-back guarantee.
 - [Blog](https://www.prometheusai.tech/blog/): Plain-English guides on AI crypto trading bots — how they work, safety, strategy, and realistic expectations
 - [Support / Contact](https://www.prometheusai.tech/support): Contact the team
 - [Risk Disclaimer](https://www.prometheusai.tech/disclaimer): Crypto trading involves risk; read before use
@@ -44,6 +44,6 @@ Honest, hype-free guides. No guaranteed-profit or "risk-free" claims — all not
 
 ## Pricing
 
-- Prometheus AI Trading Bot: $267 one-time payment, lifetime access (regular price $497), 90-day money-back guarantee
+- Prometheus AI Trading Bot: $267 one-time payment, lifetime access, 90-day money-back guarantee
 - Free trial: available at https://prometheus-bot.fly.dev/ — try the bot before buying
 - Payment methods: Card, PayPal, Klarna, Venmo, PayPal Credit (via Hotmart), plus Bitcoin, Ethereum, USDT
