@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v16';
+$BUILD = 'v17';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -63,6 +63,7 @@ $OUT_JSON   = __DIR__ . '/hotstory.json';
 $OUT_TXT    = __DIR__ . '/hotstory.txt';
 
 $MAX_CLASSIFY_TRIES = 2;   // give up on one story after this many model failures
+$QUOTA_COOL_SEC     = 1800;  // after a 'quota exceeded' 429, wait this long before asking the model again
 $MAX_POST   = 3 * 1024 * 1024;   // a FF page is ~250 KB; this is generous
 $TOKEN_SHA  = '624c8bcd45276ba8b25916b2caf78f6f04e9b6cd14cfec5c8ae4e8d8b9a97501';
 $INSTRUMENTS = array('XAUUSD','EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD');
@@ -286,12 +287,15 @@ function classify_once($cfg, $SYSTEM, $USER, $timeout) {
     curl_close($ch);
     if ($raw !== false && $code >= 200 && $code <= 299) break;
     if ($raw !== false && $code !== 429 && $code < 500) break;    // a real error: no point retrying
+    // A used-up DAILY quota is not "busy": retrying in seconds only adds failed calls.
+    if ($code === 429 && preg_match('~quota|free_tier|exhausted~i', (string)$raw)) break;
     if ($try < 3) sleep(3 * $try);
   }
 
   if ($raw === false || $code < 200 || $code > 299)
     return array('err' => 'model HTTP ' . $code . ' ' . $err, 'raw' => (string)$raw,
-                 'transient' => ($raw === false || $code === 429 || $code >= 500));
+                 'transient' => ($raw === false || $code === 429 || $code >= 500),
+                 'quota' => ($code === 429 && preg_match('~quota|free_tier|exhausted~i', (string)$raw) === 1));
 
   $j = json_decode($raw, true);
   $text = '';
@@ -370,8 +374,26 @@ function restore_last($lastFile, $id, $outJson, $outTxt) {
   return is_readable($outTxt);
 }
 
+// The id of the story the output files currently show ('' if none).
+function out_id($outJson) {
+  $d = is_readable($outJson) ? json_decode((string)@file_get_contents($outJson), true) : null;
+  return (is_array($d) && isset($d['id'])) ? (string)$d['id'] : '';
+}
+
+// Headline-only output: the panel shows the NEW story at once with no side,
+// instead of yesterday's story, while the model is unavailable. 'updated' is
+// when the story was first seen, so a read that only succeeds hours later is
+// still old to the EA and its HotStoryMaxAgeMin keeps it from being traded.
+function write_headline_only($meta, $id, $url, $seenAt, $why, $outJson, $outTxt) {
+  $fb = array('ok' => 1, 'id' => $id, 'updated' => gmdate('c', $seenAt), 'headline' => $meta['headline'],
+              'source' => $meta['source'], 'url' => $url, 'instrument' => 'NONE', 'direction' => 'none',
+              'confidence' => 0, 'reason' => $why);
+  @file_put_contents($outJson, json_encode($fb));
+  @file_put_contents($outTxt,  to_txt($fb));
+}
+
 function state_read($f) {
-  $d = array('id' => '', 'updated' => 0, 'fail_id' => '', 'fail_n' => 0);
+  $d = array('id' => '', 'updated' => 0, 'fail_id' => '', 'fail_n' => 0, 'cool_until' => 0, 'seen_id' => '', 'seen_at' => 0);
   $s = is_readable($f) ? json_decode((string)@file_get_contents($f), true) : null;
   return is_array($s) ? array_merge($d, $s) : $d;
 }
@@ -396,6 +418,8 @@ if (isset($_GET['selftest'])) {
     'fallback'      => ($cfg && !empty($cfg['fallback'])) ? $cfg['fallback']['provider'] . ' / ' . $cfg['fallback']['model'] : '(none)',
     'token_sha'     => substr($TOKEN_SHA, 0, 12) . '...',
     'known_id'      => $state['id'],
+    'quota_cooling' => ((int)$state['cool_until'] > time()) ? gmdate('c', (int)$state['cool_until']) : 'no',
+    'shown_id'      => out_id($OUT_JSON),
     'log_tail'      => (function($f) { if (!is_readable($f)) return array();
                           $l = @file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
                           return is_array($l) ? array_slice($l, -4) : array(); })($LOG_FILE),
@@ -451,6 +475,10 @@ if (isset($_POST['home'])) {
     out(true, 'unchanged', array('id' => $link['id'],
         'note' => 'gave up on this story after ' . (int)$state['fail_n'] . ' model failures'));
 
+  if ((int)$state['cool_until'] > time() && out_id($OUT_JSON) === $link['id'])
+    out(true, 'unchanged', array('id' => $link['id'],
+        'note' => 'model quota used up - headline shown, next model try after ' . gmdate('H:i', (int)$state['cool_until']) . ' UTC'));
+
   out(true, 'need_story', array('id' => $link['id'], 'need_story' => $link['url']));
 }
 
@@ -468,6 +496,20 @@ $id = $um[1];
 $meta = story_meta($story);
 if ($meta['headline'] === '') out(false, 'could not read a headline from the posted story page');
 
+if ($state['seen_id'] !== $id) {                 // first time this story reaches us
+  $state['seen_id'] = $id; $state['seen_at'] = time();
+  state_write($STATE_FILE, $state);
+}
+$seenAt = (int)$state['seen_at'];
+
+if ((int)$state['cool_until'] > time()) {
+  if (out_id($OUT_JSON) !== $id) {
+    write_headline_only($meta, $id, $url, $seenAt, 'AI read pending (model quota used up) - headline only', $OUT_JSON, $OUT_TXT);
+    logline($LOG_FILE, 'quota cooling - headline only written for id=' . $id);
+  }
+  out(false, 'model quota cooling down until ' . gmdate('H:i', (int)$state['cool_until']) . ' UTC');
+}
+
 $article = fetch_full_story($meta['source_url']);
 $textUsed = ($article !== '') ? 'full article (' . strlen($article) . ' chars from ' . parse_url($meta['source_url'], PHP_URL_HOST) . ')'
           : (($meta['excerpt_long'] !== '') ? 'ForexFactory excerpt (' . strlen($meta['excerpt_long']) . ' chars)' : 'og:description only');
@@ -480,8 +522,9 @@ if (isset($res['err'])) {
   // the story: the next 5-minute run simply tries again.
   $transient = !empty($res['transient']);
   $n = $transient ? 0 : (($state['fail_id'] === $id) ? ((int)$state['fail_n'] + 1) : 1);
-  state_write($STATE_FILE, array('id' => $state['id'], 'updated' => (int)$state['updated'],
-                                 'fail_id' => ($transient ? '' : $id), 'fail_n' => $n));
+  $state['fail_id'] = ($transient ? '' : $id); $state['fail_n'] = $n;
+  if (!empty($res['quota'])) $state['cool_until'] = time() + $QUOTA_COOL_SEC;
+  state_write($STATE_FILE, $state);
   $rawNote = '';
   if (isset($res['raw']) && $res['raw'] !== '')
     $rawNote = ' | raw: ' . substr(preg_replace('~\s+~', ' ', (string)$res['raw']), 0, 400);
@@ -490,22 +533,12 @@ if (isset($res['err'])) {
   // Fallback output: the headline with no side, so the panel shows the story
   // and the file never goes missing. Written when giving up on the story and
   // whenever there is no output file at all (after a deploy).
-  if (($n >= $MAX_CLASSIFY_TRIES || !is_readable($OUT_TXT))
+  // Also written at once for a NEW story on any failure (2026-10-27: the free
+  // Gemini quota ran out and the panel showed the previous day's story all day).
+  if (($n >= $MAX_CLASSIFY_TRIES || !is_readable($OUT_TXT) || out_id($OUT_JSON) !== $id)
       && !restore_last($PERSIST_DIR . '/.hotstory_last.json', $id, $OUT_JSON, $OUT_TXT)) {
-    $fb = array(
-      'ok'         => 1,
-      'id'         => $id,
-      'updated'    => gmdate('c'),
-      'headline'   => $meta['headline'],
-      'source'     => $meta['source'],
-      'url'        => $url,
-      'instrument' => 'NONE',
-      'direction'  => 'none',
-      'confidence' => 0,
-      'reason'     => 'AI read unavailable (' . substr(preg_replace('~\s+~', ' ', (string)$res['err']), 0, 60) . ') - headline only',
-    );
-    @file_put_contents($OUT_JSON, json_encode($fb));
-    @file_put_contents($OUT_TXT,  to_txt($fb));
+    write_headline_only($meta, $id, $url, $seenAt,
+      'AI read unavailable (' . substr(preg_replace('~\s+~', ' ', (string)$res['err']), 0, 60) . ') - headline only', $OUT_JSON, $OUT_TXT);
     logline($LOG_FILE, 'fallback written for id=' . $id . ' (headline only)');
   }
   out(false, 'classify failed: ' . $res['err']
@@ -518,7 +551,7 @@ if ($via !== null) $res['via'] = $via;
 $data = array(
   'ok'         => 1,
   'id'         => $id,
-  'updated'    => gmdate('c'),
+  'updated'    => gmdate('c', $seenAt),         // first sight, so a late read is not "fresh" to the EA
   'headline'   => $meta['headline'],
   'source'     => $meta['source'],
   'url'        => $url,
@@ -532,8 +565,8 @@ $data = array(
 @file_put_contents($OUT_JSON, json_encode($data));
 @file_put_contents($OUT_TXT,  to_txt($data));
 @file_put_contents($PERSIST_DIR . '/.hotstory_last.json', json_encode($data));   // survives a deploy
-state_write($STATE_FILE, array('id' => $id, 'updated' => time(),
-                               'fail_id' => '', 'fail_n' => 0));
+$state['id'] = $id; $state['updated'] = time(); $state['fail_id'] = ''; $state['fail_n'] = 0; $state['cool_until'] = 0;
+state_write($STATE_FILE, $state);
 logline($LOG_FILE, 'id=' . $id . ' ' . $res['instrument'] . ' ' . $res['direction'] . ' conf ' . $res['confidence']
                  . ' | ' . $textUsed . (isset($res['via']) ? ' (via fallback ' . $res['via'] . ')' : '')
                  . ' | ' . substr($res['analysis'], 0, 160));
