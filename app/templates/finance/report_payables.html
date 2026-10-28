@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Payables Summary{% endblock %}
+{% block title %}Vendor Payables Aging{% endblock %}
 {% block content %}
 {% include "finance/_print.html" %}
 
 <div class="no-print">
-{% call ui.page_header("Payables Summary", "What the college owes, by vendor and by account, aged from the date the liability arose.") %}
+{% call ui.page_header("Vendor Payables Aging", "What the college owes, by vendor and by account, aged from the date the liability arose.") %}
   {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
-  {{ ui.button('Export CSV', href='/finance/accounts/reports/payables?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+  {{ ui.button('Export CSV', href='/finance/accounts/reports/vendor-payables?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
 {{ ui.tabs(report_tabs, report) }}
 
-{% call ui.filter_bar('/finance/accounts/reports/payables') %}
+{% call ui.filter_bar('/finance/accounts/reports/vendor-payables') %}
   <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date', help='Used by the other reports') }}</div>
   <div class="w-36">{{ ui.input('date_to', 'As At Date', date_to, type='date') }}</div>
 {% endcall %}

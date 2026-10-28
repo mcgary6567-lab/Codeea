@@ -1710,6 +1710,11 @@ def accounts_tree(request: Request, as_of: str = "", print_view: int = 0, db: Se
 
 
 # ---------------------------------------------------------------------------- Transactions: vouchers
+# What their three voucher cards open: one list per voucher type, each with Create on it.
+VOUCHER_PAGE_TITLES = {"journal": "Journal Voucher", "payment": "Payment Voucher List",
+                       "receipt": "Receipt Voucher List"}
+
+
 @router.get("/accounts/vouchers", include_in_schema=False)
 def vouchers_list(request: Request, page: int = 1, q: str = "", type: str = "", status: str = "",
                   date_from: str = "", date_to: str = "", account_id: str = "", party: str = "", currency: str = "",
@@ -1740,6 +1745,14 @@ def vouchers_list(request: Request, page: int = 1, q: str = "", type: str = "", 
     poster_ids = {v.posted_by_id for v in pg.items if v.posted_by_id}
     posters = ({u.id: u.full_name for u in db.query(User).filter(User.id.in_(poster_ids)).all()}
                if poster_ids else {})
+    # Payment and Receipt lists name the cash or bank account the money left or reached, as theirs do
+    account_names: dict[int, str] = {}
+    if type in ("payment", "receipt") and pg.items:
+        side = JournalLine.credit if type == "payment" else JournalLine.debit
+        for entry_id, name in (db.query(JournalLine.entry_id, Account.name).join(Account, JournalLine.account_id == Account.id)
+                               .filter(JournalLine.entry_id.in_([v.id for v in pg.items]), side > 0)
+                               .order_by(JournalLine.id)):
+            account_names.setdefault(entry_id, name)
     tabs = [("", f"All ({counts['total']})", f"/finance/accounts/vouchers?status={status}")]
     tabs += [(t, f"{accounting.VOUCHER_LABELS[t]} ({type_counts.get(t, 0)})",
               f"/finance/accounts/vouchers?type={t}&status={status}") for t in accounting.VOUCHER_TYPES]
@@ -1747,7 +1760,8 @@ def vouchers_list(request: Request, page: int = 1, q: str = "", type: str = "", 
         "tab": "vouchers", "page": pg, "q": q, "type": type, "status": status, "date_from": date_from,
         "date_to": date_to, "account_id": account_id, "party": party, "currency": currency, "counts": counts,
         "type_counts": type_counts, "type_tabs": tabs, "base_url": f"/finance/accounts/vouchers?{qs}", "qs": qs,
-        "posters": posters,
+        "posters": posters, "account_names": account_names,
+        "page_title": VOUCHER_PAGE_TITLES.get(type, "Vouchers"),
         "accounts": _account_options(db, postable_only=False), "currencies": _currency_codes(db),
         "can_add": rbac.has_permission(user, "accounts.add")}))
 
@@ -2062,6 +2076,24 @@ def report_balance_sheet(request: Request, date_from: str = "", date_to: str = "
 
 
 @router.get("/accounts/reports/payables", include_in_schema=False)
+def report_staff_payables(request: Request, shift: str = "", department_id: str = "", designation: str = "",
+                          print_view: int = 0, db: Session = Depends(get_db),
+                          user: User = Depends(require("accounts.view"))):
+    """Their Payables Summary: what is owed to each member of staff, laid out as the sheet they pay from
+    (Shift / Department / Designation filters; Payment and Signature left blank for the paper copy)."""
+    data = accounting.staff_payables(db, shift=shift, department_id=parse_int(department_id) or None,
+                                     designation=designation)
+    designations = sorted({d for (d,) in db.query(Employee.designation).filter(Employee.designation.isnot(None)) if d})
+    shifts = sorted({s for (s,) in db.query(Employee.shift).filter(Employee.shift.isnot(None)) if s})
+    return render(request, "finance/report_staff_payables.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "payables",
+        "data": data, "shift": shift, "department_id": department_id, "designation": designation,
+        "shifts": [(s, s.title()) for s in shifts], "designations": [(d, d) for d in designations],
+        "departments": [(d.id, d.name) for d in db.query(Department).order_by(Department.name).all()],
+        "print_view": bool(print_view)})
+
+
+@router.get("/accounts/reports/vendor-payables", include_in_schema=False)
 def report_payables(request: Request, date_from: str = "", date_to: str = "", format: str = "",
                     print_view: int = 0, db: Session = Depends(get_db),
                     user: User = Depends(require("accounts.view"))):
@@ -2080,7 +2112,7 @@ def report_payables(request: Request, date_from: str = "", date_to: str = "", fo
                  for a in data["accounts"]]
         return _csv(rows, f"payables-summary-{end}.csv")
     return render(request, "finance/report_payables.html", {
-        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "payables",
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "vendor-payables",
         "data": data, "bucket_keys": bucket_keys, "bucket_labels": [lbl for _, lbl in data["buckets"]],
         "date_from": start.isoformat(), "date_to": end.isoformat(),
         "base": data["currency"], "print_view": bool(print_view), "qs": f"date_from={start}&date_to={end}"})
@@ -2088,11 +2120,19 @@ def report_payables(request: Request, date_from: str = "", date_to: str = "", fo
 
 @router.get("/accounts/reports/account-wise", include_in_schema=False)
 def report_account_wise(request: Request, date_from: str = "", date_to: str = "", account_type: str = "",
-                        head_id: str = "", format: str = "", print_view: int = 0, db: Session = Depends(get_db),
+                        head_id: str = "", account_id: str = "", show_zero: str = "N", format: str = "",
+                        print_view: int = 0, db: Session = Depends(get_db),
                         user: User = Depends(require("accounts.view"))):
     start, end = _report_range(date_from, date_to)
     data = accounting.account_wise_summary(db, start, end, account_type=account_type,
                                            head_id=parse_int(head_id) or None)
+    # their Account and Show Zero Values? filters narrow the rows; the totals follow what is shown
+    show_zero = "Y" if show_zero == "Y" else "N"
+    acct = parse_int(account_id)
+    rows = [r for r in data["rows"] if (not acct or r["account"].id == acct)
+            and (show_zero == "Y" or any(r[k] for k in ("opening", "debit", "credit", "closing")))]
+    data = dict(data, rows=rows, **{f"total_{k}": round(sum(r[k] for r in rows), 2)
+                                    for k in ("opening", "debit", "credit", "closing")})
     if format == "csv":
         rows = [["Account Wise Summary", f"{start} to {end}"],
                 ["Account Code", "Account Name", "Type", "Head", "Opening", "Debit", "Credit", "Closing"]]
@@ -2105,8 +2145,10 @@ def report_account_wise(request: Request, date_from: str = "", date_to: str = ""
         "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "account-wise",
         "data": data, "date_from": start.isoformat(), "date_to": end.isoformat(), "account_type": account_type,
         "head_id": head_id, "types": accounting.ACCOUNT_TYPES, "heads": _head_options(db),
+        "account_id": account_id, "show_zero": show_zero, "accounts": _account_options(db, postable_only=False),
         "base": data["currency"], "print_view": bool(print_view),
-        "qs": f"date_from={start}&date_to={end}&account_type={account_type}&head_id={head_id}"})
+        "qs": (f"date_from={start}&date_to={end}&account_type={account_type}&head_id={head_id}"
+               f"&account_id={account_id}&show_zero={show_zero}")})
 
 
 @router.get("/accounts/reports/approved-advances", include_in_schema=False)

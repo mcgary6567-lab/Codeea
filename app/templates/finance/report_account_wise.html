@@ -13,10 +13,18 @@
 {{ ui.tabs(report_tabs, report) }}
 
 {% call ui.filter_bar('/finance/accounts/reports/account-wise') %}
+  <div class="w-44">{{ ui.select('account_type', 'Account Master', types, account_type, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.select('head_id', 'Accounts Head', heads, head_id, placeholder='All heads') }}</div>
+  <div class="w-64">{{ ui.select('account_id', 'Account', accounts, account_id, placeholder='All accounts') }}</div>
   <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
   <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
-  <div class="w-44">{{ ui.select('account_type', 'Account Type', types, account_type, placeholder='All types') }}</div>
-  <div class="w-56">{{ ui.select('head_id', 'Accounts Head', heads, head_id, placeholder='All heads') }}</div>
+  <fieldset>
+    <legend class="mb-1 block text-xs font-semibold text-slate-600">Show Zero Values?</legend>
+    <div class="flex h-[34px] items-center gap-3 text-sm">
+      <label class="inline-flex items-center gap-1"><input type="radio" name="show_zero" value="Y" {{ 'checked' if show_zero == 'Y' }}> Yes</label>
+      <label class="inline-flex items-center gap-1"><input type="radio" name="show_zero" value="N" {{ 'checked' if show_zero != 'Y' }}> No</label>
+    </div>
+  </fieldset>
 {% endcall %}
 </div>
 
@@ -32,17 +40,17 @@
   {{ ui.stat("Credits", data.total_credit|round(0)|int, color=palette(7), hint=base) }}
 </div>
 
-{{ ui.table_start(['Account Code', 'Account Name', 'Account Type', 'Head', 'Opening', 'Debit', 'Credit', 'Closing', '']) }}
+{{ ui.table_start(['Master A/C', 'Head A/C Name', 'A/C Name', 'Opening Balance', 'Debit Amount', 'Credit Amount', 'Closing Balance (Debit)', 'Closing Balance (Credit)', '']) }}
 {% for r in data.rows %}
 <tr>
-  <td class="px-3 py-1.5 font-mono text-xs font-semibold text-brand-700">{{ r.code }}</td>
-  <td class="px-3 py-1.5">{{ r.name }}</td>
   <td class="px-3 py-1.5 text-xs">{{ r.type|titleize }}</td>
   <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.head or '—' }}</td>
+  <td class="px-3 py-1.5"><span class="font-mono text-xs font-semibold text-brand-700">{{ r.code }}</span> {{ r.name }}</td>
   <td class="px-3 py-1.5 text-right text-slate-600">{{ r.opening|money }}</td>
   <td class="px-3 py-1.5 text-right">{{ r.debit|money if r.debit else '' }}</td>
   <td class="px-3 py-1.5 text-right">{{ r.credit|money if r.credit else '' }}</td>
-  <td class="px-3 py-1.5 text-right font-medium">{{ r.closing|money }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ r.closing|money if r.closing > 0 else '' }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ (-r.closing)|money if r.closing < 0 else '' }}</td>
   <td class="px-3 py-1.5 text-right no-print">{{ ui.button('Ledger', href='/finance/accounts/reports/ledger?account_id=' ~ r.account.id ~ '&date_from=' ~ date_from ~ '&date_to=' ~ date_to, variant='ghost', size='sm') }}</td>
 </tr>
 {% else %}{{ ui.empty('No accounts match these filters.', 9, 'list') }}{% endfor %}
@@ -51,7 +59,8 @@
   <td class="px-3 py-2 text-right">{{ data.total_opening|money }}</td>
   <td class="px-3 py-2 text-right">{{ data.total_debit|money }}</td>
   <td class="px-3 py-2 text-right">{{ data.total_credit|money }}</td>
-  <td class="px-3 py-2 text-right">{{ data.total_closing|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.rows|selectattr('closing', 'gt', 0)|sum(attribute='closing')|money }}</td>
+  <td class="px-3 py-2 text-right">{{ (-(data.rows|selectattr('closing', 'lt', 0)|sum(attribute='closing')))|money }}</td>
   <td class="px-3 py-2"></td>
 </tr>
 {{ ui.table_end() }}

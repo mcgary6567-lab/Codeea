@@ -1,14 +1,20 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Vouchers{% endblock %}
+{# With a type this is the list one of their voucher cards opens (Journal Voucher, Payment Voucher List,
+   Receipt Voucher List) with their columns and a Create button; without one it is OQC's all-voucher view. #}
+{% set typed = type in voucher_types %}
+{% block title %}{{ page_title }}{% endblock %}
 {% block content %}
-{% call ui.page_header("Vouchers", "Journal, Payment and Receipt Vouchers. Every voucher writes the same journal lines, so the ledger and the statements read one set of books.") %}
-  {% if can_add %}
+{% call ui.page_header(page_title, None if typed else "Journal, Payment and Receipt Vouchers. Every voucher writes the same journal lines, so the ledger and the statements read one set of books.") %}
+  {% if typed %}
+  {% if can_add %}{{ ui.button("Create", href="/finance/accounts/vouchers/new?type=" ~ type, icon="plus") }}{% endif %}
+  {% elif can_add %}
   {{ ui.button("Journal Voucher", href="/finance/accounts/vouchers/new?type=journal", icon="book") }}
   {{ ui.button("Payment Voucher", href="/finance/accounts/vouchers/new?type=payment", icon="arrow-up-right", variant="secondary") }}
   {{ ui.button("Receipt Voucher", href="/finance/accounts/vouchers/new?type=receipt", icon="arrow-down-left", variant="secondary") }}
   {% endif %}
 {% endcall %}
+{% if not typed %}
 {{ ui.tabs(tabs, tab) }}
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
@@ -19,6 +25,7 @@
 </div>
 
 {{ ui.tabs(type_tabs, type) }}
+{% endif %}
 
 {% call ui.filter_bar('/finance/accounts/vouchers') %}
   <input type="hidden" name="type" value="{{ type }}">
@@ -31,6 +38,26 @@
   <div class="w-32">{{ ui.select('currency', 'Currency', currencies, currency, placeholder='All') }}</div>
 {% endcall %}
 
+{% if typed %}
+{% set cols = ['ID', 'Voucher No', 'Voucher Date', 'Total Amount', 'Description', 'Posted', 'Print'] if type == 'journal'
+   else ['ID', 'Voucher No', 'Voucher Date', 'Account Name', 'Description', 'Total Amount', 'Posted', 'Print'] %}
+{{ ui.table_start(cols) }}
+{% for v in page.items %}
+{% set rate = v.exchange_rate|float if v.exchange_rate else 1 %}
+{% set amount %}<td class="px-3 py-1.5 text-right font-medium whitespace-nowrap">{{ (v.total|float / (rate or 1))|round(2)|money(v.currency) }}</td>{% endset %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ v.id }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs font-semibold"><a class="text-brand-700 hover:underline" href="/finance/accounts/vouchers/{{ v.id }}">{{ v.voucher_number }}</a></td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ v.entry_date|date }}</td>
+  {% if type == 'journal' %}{{ amount }}{% else %}<td class="px-3 py-1.5 text-xs">{{ account_names.get(v.id, '—') }}</td>{% endif %}
+  <td class="px-3 py-1.5">{{ v.description }}</td>
+  {% if type != 'journal' %}{{ amount }}{% endif %}
+  <td class="px-3 py-1.5 text-center">{% if v.status == 'posted' %}<i data-lucide="check" class="mx-auto h-4 w-4 text-emerald-600" aria-label="Posted"></i>{% else %}{{ ui.badge(v.status) }}{% endif %}</td>
+  <td class="px-3 py-1.5 text-center"><a href="/finance/accounts/vouchers/{{ v.id }}?print_view=1" class="inline-flex text-slate-500 hover:text-brand-700" aria-label="Print {{ v.voucher_number }}"><i data-lucide="printer" class="h-4 w-4"></i></a></td>
+</tr>
+{% else %}{{ ui.empty('No vouchers match these filters.', cols|length, 'receipt') }}{% endfor %}
+{{ ui.table_end() }}
+{% else %}
 {{ ui.table_start(['Voucher No', 'Type', 'Date', 'Party', 'Description', 'Reference', 'Currency', 'Amount', 'Status', 'Posted By', '']) }}
 {% for v in page.items %}
 {% set rate = v.exchange_rate|float if v.exchange_rate else 1 %}
@@ -49,6 +76,7 @@
 </tr>
 {% else %}{{ ui.empty('No vouchers match these filters.', 11, 'receipt') }}{% endfor %}
 {{ ui.table_end() }}
+{% endif %}
 {{ ui.pagination(page, base_url) }}
 <p class="mt-2 text-xs text-slate-500">Amounts are shown in the voucher currency; the ledger stores every line in {{ base }}.</p>
 {% endblock %}

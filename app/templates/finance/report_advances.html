@@ -31,29 +31,29 @@
   {{ ui.stat("Outstanding", totals.balance|round(0)|int, color=palette(7), hint=base) }}
 </div>
 
-{{ ui.table_start(['Employee Code', 'Employee', 'Designation', 'Request Date', 'Amount', 'Instalments', 'Per Instalment', 'Recovered', 'Balance', 'Recovery', 'Status']) }}
+{{ ui.table_start(['ID', 'Employee', 'Shift', 'Request Date', 'Amount', 'No Of Installments', 'Remarks', 'Hr Remarks', 'Recovered', 'Balance', 'Status']) }}
 {% for r in rows %}
 <tr>
-  <td class="px-3 py-1.5 font-mono text-xs">{{ r.employee_code or '—' }}</td>
-  <td class="px-3 py-1.5 font-medium">{{ r.employee_name }}</td>
-  <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.designation or '—' }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ r.advance.id }}</td>
+  <td class="px-3 py-1.5 text-xs font-medium">{{ r.employee_code ~ ' - ' if r.employee_code }}{{ r.employee_name }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ (r.shift or '')|titleize or '—' }}</td>
   <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.request_date|date }}</td>
-  <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money(r.currency) }}</td>
+  <td class="px-3 py-1.5 text-right font-medium whitespace-nowrap">{{ r.amount|money(r.currency) }}</td>
   <td class="px-3 py-1.5 text-center text-xs">{{ r.installments }}</td>
-  <td class="px-3 py-1.5 text-right text-xs">{{ r.per_installment|money }}</td>
+  <td class="px-3 py-1.5 max-w-[14rem] truncate text-xs text-slate-600" title="{{ r.reason or '' }}">{{ r.reason or '—' }}</td>
+  <td class="px-3 py-1.5 max-w-[14rem] truncate text-xs text-slate-600" title="{{ r.hr_remarks or '' }}">{{ r.hr_remarks or '—' }}</td>
   <td class="px-3 py-1.5 text-right">{{ r.recovered|money }}</td>
   <td class="px-3 py-1.5 text-right font-semibold">{{ r.balance|money }}</td>
-  <td class="px-3 py-1.5 w-32">{{ ui.progress(r.recovered_pct, 'emerald' if r.recovered_pct >= 100 else 'amber') }}</td>
   <td class="px-3 py-1.5">{{ ui.badge(r.status) }}</td>
 </tr>
 {% else %}{{ ui.empty('No approved advances in this range.', 11, 'hand-coins') }}{% endfor %}
 <tr class="bg-[#e8f1fb] font-bold">
   <td class="px-3 py-2" colspan="4">TOTAL</td>
   <td class="px-3 py-2 text-right">{{ totals.amount|money }}</td>
-  <td class="px-3 py-2"></td><td class="px-3 py-2"></td>
+  <td class="px-3 py-2" colspan="3"></td>
   <td class="px-3 py-2 text-right">{{ totals.recovered|money }}</td>
   <td class="px-3 py-2 text-right">{{ totals.balance|money }}</td>
-  <td class="px-3 py-2"></td><td class="px-3 py-2"></td>
+  <td class="px-3 py-2"></td>
 </tr>
 {{ ui.table_end() }}
 <p class="mt-2 text-xs text-slate-500">Advances are raised and approved in Human Resource; this report is the accounting view of what is still to be recovered from payroll.</p>

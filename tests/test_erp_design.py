@@ -177,3 +177,56 @@ def test_team_card_pages_show_their_own_list(supervisor, url, title, present, ab
     html = supervisor.get(url).text
     assert title in html and present in html
     assert absent not in html
+
+
+# --------------------------------------------------------------------------- Accounts
+@pytest.mark.parametrize("url,title,cards", [
+    ("/home/accounts", "Accounts Home", ["Setup", "Transactions", "Reports"]),
+    ("/home/accounts/setup", "Setup", ["Accounts Heads", "Chart of Accounts", "Accounts Tree View"]),
+    ("/home/accounts/transactions", "Accounts Transactions", ["Journal Voucher", "Payment Voucher", "Receipt Voucher"]),
+    ("/home/accounts/reports", "Accounts Reports", ["Ledger Report", "Trial Balance Report", "Income Statement",
+                                                    "Balance Sheet", "Payables Summary", "Account Wise Summary",
+                                                    "Approved Advances"]),
+])
+def test_accounts_card_pages_hold_the_erps_cards_first(admin, url, title, cards):
+    html = admin.get(url).text
+    assert title in html
+    assert _titles(html.partition("More in OQC")[0]) == cards
+
+
+@pytest.mark.parametrize("vtype,title,cols", [
+    ("journal", "Journal Voucher", ["ID", "Voucher No", "Voucher Date", "Total Amount", "Description", "Posted", "Print"]),
+    ("payment", "Payment Voucher List", ["ID", "Voucher No", "Voucher Date", "Account Name", "Description",
+                                         "Total Amount", "Posted", "Print"]),
+    ("receipt", "Receipt Voucher List", ["ID", "Voucher No", "Voucher Date", "Account Name", "Description",
+                                         "Total Amount", "Posted", "Print"]),
+])
+def test_voucher_cards_open_their_own_list(admin, vtype, title, cols):
+    html = admin.get(f"/finance/accounts/vouchers?type={vtype}").text
+    assert "<h1" in html and title in html
+    assert f'href="/finance/accounts/vouchers/new?type={vtype}"' in html
+    heads = [re.sub(r"<[^>]+>|\s+", " ", h).strip() for h in re.findall(r"<th[^>]*>(.*?)</th>", html, re.S)]
+    assert heads[:len(cols)] == cols
+
+
+def test_payables_summary_is_the_staff_payment_sheet(admin):
+    html = admin.get("/finance/accounts/reports/payables").text
+    for name in ("shift", "department_id", "designation"):
+        assert f'name="{name}"' in html, name
+    heads = [re.sub(r"<[^>]+>|\s+", " ", h).strip() for h in re.findall(r"<th[^>]*>(.*?)</th>", html, re.S)]
+    assert heads == ["S.NO", "Name", "Status", "Shift", "Department", "Designation", "Bank", "Balance", "Payment", "Signature"]
+    assert admin.get("/finance/accounts/reports/vendor-payables").status_code == 200   # OQC's vendor ageing moved, not lost
+
+
+def test_account_wise_summary_has_the_erps_filters(admin):
+    html = admin.get("/finance/accounts/reports/account-wise").text
+    assert "Account Master" in html and 'name="account_id"' in html and "Show Zero Values?" in html
+    assert "Closing Balance (Debit)" in html and "Closing Balance (Credit)" in html
+    shown = admin.get("/finance/accounts/reports/account-wise?show_zero=Y").text
+    assert shown.count("<tr") >= html.count("<tr")
+
+
+def test_approved_advances_carry_shift_and_remarks(admin):
+    html = admin.get("/finance/accounts/reports/approved-advances").text
+    for col in ("Shift", "No Of Installments", "Remarks", "Hr Remarks"):
+        assert f">{col}<" in html or col in html, col

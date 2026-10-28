@@ -909,6 +909,28 @@ def _empty_buckets() -> dict:
     return {key: 0.0 for key, _ in AGEING_BUCKETS}
 
 
+def staff_payables(db: Session, shift: str = "", department_id: Optional[int] = None, designation: str = "") -> dict:
+    """Payables Summary as the ERP keeps it: every member of staff still on the books with what the college
+    owes them on their employee ledger (bonuses less advances and fines), ready to pay and sign for."""
+    from app.models.hr_erp import EmployeeLedgerEntry  # local import: the HR module owns these models
+    from app.models.people import Employee
+    q = db.query(Employee).filter(Employee.status.notin_(["resigned", "terminated"]))
+    if shift:
+        q = q.filter(Employee.shift == shift)
+    if department_id:
+        q = q.filter(Employee.department_id == department_id)
+    if designation:
+        q = q.filter(Employee.designation == designation)
+    staff = q.order_by(Employee.employee_code).all()
+    owed = dict(db.query(EmployeeLedgerEntry.employee_id,
+                         func.coalesce(func.sum(EmployeeLedgerEntry.debit - EmployeeLedgerEntry.credit), 0))
+                .filter(EmployeeLedgerEntry.employee_id.in_([e.id for e in staff] or [-1]))
+                .group_by(EmployeeLedgerEntry.employee_id).all())
+    rows = [{"employee": e, "balance": round(float(owed.get(e.id, 0) or 0), 2),
+             "bank": " / ".join(x for x in (e.bank_name, e.bank_account_no) if x)} for e in staff]
+    return {"rows": rows, "total": round(sum(r["balance"] for r in rows), 2), "currency": base_currency(db)}
+
+
 def payables_summary(db: Session, as_of: Optional[date] = None) -> dict:
     """Payables Summary: what is owed, by vendor and by account, aged into current / 30 / 60 / 90 days."""
     as_of = as_of or date.today()
@@ -993,7 +1015,8 @@ def approved_advances(db: Session, status: str = "") -> dict:
                      "per_installment": round(amount / installments, 2) if installments else amount,
                      "recovered": recovered, "balance": balance, "status": adv.status,
                      "recovered_pct": round(100.0 * recovered / amount, 1) if amount else 0.0,
-                     "reason": adv.reason})
+                     "reason": adv.reason, "hr_remarks": adv.hr_remarks,
+                     "shift": getattr(emp, "shift", "") if emp else ""})
     return {"rows": rows, "total": round(sum(r["amount"] for r in rows), 2),
             "recovered": round(sum(r["recovered"] for r in rows), 2),
             "outstanding": round(sum(r["balance"] for r in rows), 2),

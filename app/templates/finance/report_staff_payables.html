@@ -1,0 +1,55 @@
+{# Payables Summary as the ERP keeps it: what the college owes each member of staff on their employee
+   ledger, printed as the sheet they are paid and sign from. Payment and Signature stay blank on purpose. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Payables Summary{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Payables Summary") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+{{ ui.tabs(report_tabs, report) }}
+
+{% call ui.filter_bar('/finance/accounts/reports/payables') %}
+  <div class="w-40">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.select('department_id', 'Department', departments, department_id, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.select('designation', 'Designation', designations, designation, placeholder='All') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Payables Summary</h1>
+  <p style="font-size:11px">{{ data.rows|length }} staff &middot; {{ data.currency }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+{{ ui.table_start(['S.NO', 'Name', 'Status', 'Shift', 'Department', 'Designation', 'Bank', 'Balance', 'Payment', 'Signature'], report=False) }}
+{% for r in data.rows %}
+{% set e = r.employee %}
+<tr>
+  <td class="px-3 py-1.5 text-center text-xs">{{ loop.index }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ e.employee_code }} - {{ e.full_name }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ e.status|titleize }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ (e.shift or '')|titleize }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ e.department.name if e.department else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ e.designation or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.bank or '—' }}</td>
+  <td class="px-3 py-1.5 text-right text-xs font-medium whitespace-nowrap {{ 'text-rose-700' if r.balance < 0 }}">{{ r.balance|money }}</td>
+  <td class="w-28 border-l border-slate-100 px-3 py-1.5"></td>
+  <td class="w-36 border-l border-slate-100 px-3 py-1.5"></td>
+</tr>
+{% else %}{{ ui.empty('No staff match these filters.', 10, 'users') }}{% endfor %}
+<tr class="bg-[#e8f1fb] font-bold">
+  <td class="px-3 py-2" colspan="7">Total</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">{{ data.total|money }}</td>
+  <td class="px-3 py-2"></td><td class="px-3 py-2"></td>
+</tr>
+{{ ui.table_end() }}
+<p class="no-print mt-2 text-xs text-slate-500">Balance is what each person's employee ledger shows the college owes them ({{ data.currency }}): bonuses, less advances and fines. A negative balance is owed back by them.</p>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}
