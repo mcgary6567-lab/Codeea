@@ -68,29 +68,6 @@ PRIORITY_LABELS = {"low": "Low", "normal": "Normal", "urgent": "Urgent", "very_u
 TICKET_STATUS_LABELS = {"pending": "Pending", "in_progress": "In Progress", "resolved": "Resolved",
                         "rejected": "Rejected", "closed": "Closed"}
 
-# The Configuration home: the same pages, in the same order, as the Configuration section of the menu
-# (app.core.nav, slug "system"), each shown only to someone who may open it.
-CARDS = [  # title, url, icon, blurb, permission
-    ("Lookups", f"{BASE}/lookups", "list-tree", "Every configurable value list, grouped by App", "settings.view"),
-    ("Setup (Branch Properties)", f"{BASE}/branch-properties", "sliders-horizontal", "Named settings the college runs on",
-     "settings.view"),
-    ("Notification Templates", "/admin/notifications", "send", "Message templates per event and channel",
-     "notifications.view"),
-    ("Support Ticket", f"{BASE}/support-tickets", "life-buoy", "Requests raised to whoever maintains the software",
-     "settings.view"),
-    ("WhatsApp Numbers", f"{BASE}/whatsapp-senders", "message-circle", "Connected senders with their throttle",
-     "settings.view"),
-    ("OTP Configuration", f"{BASE}/otp", "key-round", "One-time passwords: setup and per-user tokens", "security.view"),
-    ("Settings", "/admin/settings", "settings", "Platform settings by group", "settings.view"),
-    ("Integration Hub", "/admin/integrations", "plug", "Connected services and their health", "integrations.view"),
-    ("API & Webhooks", "/admin/api", "code-2", "API keys and outgoing webhooks", "api_keys.view"),
-    ("Security Center", "/admin/security", "lock-keyhole", "Sign-in policy, sessions and security events",
-     "security.view"),
-    ("Backups & DR", "/admin/backups", "database-backup", "Database backups and restore drills", "backups.view"),
-    ("Data Migration", "/admin/migration", "database-zap", "Imports from the legacy system", "migration.view"),
-    ("Audit Log", "/admin/audit", "scroll-text", "Every consequential change, who made it and why", "audit.view"),
-]
-
 # Old Configuration addresses of screens that now live in their business module (docs/MODULE_STRUCTURE.md).
 MOVED = {
     "currency-rates": "/finance/currency-rates",
@@ -265,17 +242,9 @@ def pick_sender(db: Session, purpose: str = "general", now: Optional[datetime] =
 
 # =============================================================================== 1. index
 @router.get("", include_in_schema=False)
-def index(request: Request, db: Session = Depends(get_db), user: User = Depends(require("settings.view"))):
-    counts = {
-        f"{BASE}/lookups": db.query(func.count(Lookup.id)).scalar() or 0,
-        f"{BASE}/branch-properties": db.query(func.count(Setting.id)).scalar() or 0,
-        f"{BASE}/support-tickets": db.query(func.count(SupportTicket.id)).scalar() or 0,
-        f"{BASE}/whatsapp-senders": db.query(func.count(WhatsAppSender.id)).scalar() or 0,
-        f"{BASE}/otp": db.query(func.count(User.id)).filter(User.two_factor_enabled.is_(True)).scalar() or 0,
-    }
-    cards = [{"title": t, "url": u, "icon": i, "blurb": b, "count": counts.get(u)}
-             for t, u, i, b, perm in CARDS if rbac.has_permission(user, perm)]
-    return render(request, "company_config/index.html", {"user": user, "cards": cards})
+def index(user: User = Depends(require("settings.view"))):
+    """The ERP has one Configuration Home: its ten cards live on the launchpad, so the old address lands there."""
+    return RedirectResponse("/home/system", status_code=302)
 
 
 # =============================================================================== 2. lookups

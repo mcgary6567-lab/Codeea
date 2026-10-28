@@ -230,3 +230,29 @@ def test_approved_advances_carry_shift_and_remarks(admin):
     html = admin.get("/finance/accounts/reports/approved-advances").text
     for col in ("Shift", "No Of Installments", "Remarks", "Hr Remarks"):
         assert f">{col}<" in html or col in html, col
+
+
+# --------------------------------------------------------------------------- Configuration
+CONFIG_CARDS = ["Currency Rates", "Roles", "Lookups", "Setup", "Notification Templates", "Support Ticket",
+                "WhatsApp Numbers", "OTP Configuration", "Payment Gateways", "Confido AI Agents"]
+
+
+def test_configuration_home_draws_the_erps_ten_cards(admin):
+    html = admin.get("/home/system").text
+    assert "Configuration Home" in html
+    erp, _, more = html.partition("More in OQC")
+    assert _titles(erp) == CONFIG_CARDS
+    assert [c for _, c in _cards(erp)] == ERP_COLOURS[:10]
+    assert "Integration Hub" in _titles(more) and "Audit Log" in _titles(more)
+
+
+def test_old_configuration_address_lands_on_the_home(admin):
+    r = admin.get("/config", follow_redirects=False)
+    assert r.status_code == 302 and r.headers["location"] == "/home/system"
+
+
+def test_shortcut_pages_stay_in_their_owning_area(admin):
+    # a shortcut card never pulls the page into the Configuration sidebar
+    for url, area in [("/finance/currency-rates", "/home/accounts"), ("/hr/confido-agents", "/home/hr")]:
+        side = re.search(r'<aside id="area-sidebar".*?</aside>', admin.get(url).text, re.S).group(0)
+        assert f'href="{area}"' in side, url

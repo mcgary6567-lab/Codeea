@@ -352,21 +352,32 @@ ADMIN_NAV = [
         _i("Safeguarding", "/safeguarding", "shield-alert", "safeguarding.view"),
         _i("AI Governance", "/ai-governance", "scale", "ai_governance.view"),
     ]},
-    {"slug": "system", "label": "Configuration", "icon": "settings", "blurb": "System-wide settings, integrations, security", "items": [
-        _i("Lookups", "/config/lookups", "list", "settings.view"),
-        _i("Setup", "/config/branch-properties", "sliders-horizontal", "settings.view"),
-        _i("Notification Templates", "/admin/notifications", "mail", "settings.view"),
-        _i("Support Ticket", "/config/support-tickets", "life-buoy", "settings.view"),
+    {"slug": "system", "label": "Configuration", "title": "Configuration Home", "icon": "settings",
+     "blurb": "System-wide settings, integrations, security", "items": [
+        _i("Lookups", "/config/lookups", "list-checks", "settings.view"),
+        _i("Setup", "/config/branch-properties", "grip", "settings.view"),
+        _i("Notification Templates", "/admin/notifications", "bell", "settings.view"),
+        _i("Support Ticket", "/config/support-tickets", "headset", "settings.view"),
         _i("WhatsApp Numbers", "/config/whatsapp-senders", "message-circle", "settings.view"),
-        _i("OTP Configuration", "/config/otp", "shield-check", "security.view"),
-        _i("Settings", "/admin/settings", "settings", "settings.view"),
-        _i("Integration Hub", "/admin/integrations", "plug", "integrations.view"),
-        _i("GoHighLevel Sync", "/admin/integrations/ghl/sync", "arrow-left-right", "integrations.view"),
-        _i("API & Webhooks", "/admin/api", "code-2", "api_keys.view"),
-        _i("Security Center", "/admin/security", "lock-keyhole", "security.view"),
-        _i("Backups & DR", "/admin/backups", "database-backup", "backups.view"),
-        _i("Data Migration", "/admin/migration", "database-zap", "migration.view"),
-        _i("Audit Log", "/admin/audit", "scroll-text", "audit.view"),
+        _i("OTP Configuration", "/config/otp", "lock-keyhole", "security.view"),
+        _i("Settings", "/admin/settings", "settings", "settings.view", extra=True),
+        _i("Integration Hub", "/admin/integrations", "plug", "integrations.view", extra=True),
+        _i("GoHighLevel Sync", "/admin/integrations/ghl/sync", "arrow-left-right", "integrations.view", extra=True),
+        _i("API & Webhooks", "/admin/api", "code-2", "api_keys.view", extra=True),
+        _i("Security Center", "/admin/security", "lock-keyhole", "security.view", extra=True),
+        _i("Backups & DR", "/admin/backups", "database-backup", "backups.view", extra=True),
+        _i("Data Migration", "/admin/migration", "database-zap", "migration.view", extra=True),
+        _i("Audit Log", "/admin/audit", "scroll-text", "audit.view", extra=True),
+    ],
+     # The ERP's Configuration Home draws ten cards in this order. Four of them are pages Accounts and HR own
+     # (docs/MODULE_STRUCTURE.md): their cards here are shortcuts only, so the sidebar, breadcrumbs and search
+     # keep placing those pages in their owning area. A plain string names one of this section's own items.
+     "cards": [
+        _i("Currency Rates", "/finance/currency-rates", "banknote", "currencies.view"),
+        _i("Roles", "/admin/roles", "user-pen", "roles.view"),
+        "Lookups", "Setup", "Notification Templates", "Support Ticket", "WhatsApp Numbers", "OTP Configuration",
+        _i("Payment Gateways", "/finance/payment-gateways", "banknote", "payments.view"),
+        _i("Confido AI Agents", "/hr/confido-agents", "crosshair", "staff_monitoring.view"),
     ]},
 ]
 
@@ -453,6 +464,14 @@ def _allowed(user, items: list[dict]) -> list[dict]:
             if rbac.has_permission(user, item["perm"]) and _EXTRA_CHECKS.get(item["url"], lambda u: True)(user)]
 
 
+def _home_cards(user, section: dict) -> list[dict]:
+    """A section's home cards in the ERP's order: its own items named by label, and shortcuts to pages
+    another area owns, each kept only where the user may open it and coloured by its place in the row."""
+    own = {item["label"]: item for item in section["items"]}
+    cards = [own[c] if isinstance(c, str) else c for c in section["cards"]]
+    return _allowed(user, cards)
+
+
 def nav_for(user) -> list[dict]:
     """Sections (with groups/items) the user may see, with a palette colour attached to every card.
 
@@ -476,7 +495,8 @@ def nav_for(user) -> list[dict]:
         else:
             items = _allowed(user, section["items"])
             if items:
-                out.append(dict(section, items=items, color=palette(i)))
+                out.append(dict(section, items=items, color=palette(i),
+                                home_cards=_home_cards(user, section) if section.get("cards") else None))
     return out
 
 

@@ -9,7 +9,8 @@ list (/finance/currencies) merged into Currency Rates, and the HR branch user li
   query string carried over;
 * the new pages render for an administrator inside the right area sidebar;
 * the people who should open them can (the HR head, an accountant) and a teacher cannot;
-* Configuration's home and its sidebar no longer offer the moved screens.
+* Configuration's sidebar no longer lists the moved screens; its home reaches them only as shortcuts
+  to the owning page.
 
 Read-only against the shared development database: no redirect is followed into a handler that changes
 anything, so the module can be run any number of times. /hr/users and /hr/permissions belong to another
@@ -200,10 +201,15 @@ MOVED_URLS = ["/config/currency-rates", "/config/payment-gateways", "/config/age
               "/admin/users", "/hr/users"]
 
 
-def test_configuration_home_no_longer_offers_the_moved_screens(admin):
-    main = _main(admin.get("/config").text)
-    for needle in MOVED_LABELS + MOVED_URLS + ["Currenc", "currenc", "Gateway", "gateway", "Confido", "Roles"]:
-        assert needle not in main, f"the Configuration home still mentions {needle!r}"
+def test_configuration_home_offers_the_moved_screens_only_as_shortcuts(admin):
+    """The ERP's Configuration Home draws ten cards. The owner chose (28 Oct 2026) to keep all ten: the four
+    screens Accounts and HR own appear as shortcut cards to their owning page, never to an old /config address."""
+    assert admin.get("/config").headers["location"] == "/home/system"
+    main = _main(admin.get("/home/system").text)
+    for old in ["/config/currency-rates", "/config/payment-gateways", "/config/agents", "/config/roles"]:
+        assert old not in main, f"the Configuration home links an old address {old!r}"
+    for owner in ["/finance/currency-rates", "/admin/roles", "/finance/payment-gateways", "/hr/confido-agents"]:
+        assert f'href="{owner}"' in main, f"the Configuration home has no shortcut to {owner}"
     for kept in ["/config/lookups", "/config/branch-properties", "/admin/notifications", "/config/support-tickets",
                  "/config/whatsapp-senders", "/config/otp"]:
         assert kept in main

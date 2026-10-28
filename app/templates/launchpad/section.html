@@ -2,13 +2,18 @@
 {% import "macros.html" as ui %}
 {% block title %}{{ section.title or section.label }}{% endblock %}
 {% block content %}
+{% set more = [] if section.groups else section["items"]|selectattr("extra")|list %}
 <div class="mx-auto max-w-7xl">
   {{ ui.page_header(section.title or section.label, section.blurb) }}
-  {# the ERP's module cards carry the title alone #}
+  {# the ERP's module cards carry the title alone; a section with home_cards draws them in the ERP's order #}
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {% if section.groups %}
       {% for g in section.groups %}
         {{ ui.module_card(g.label, g.url, icon=g.icon, color=g.color) }}
+      {% endfor %}
+    {% elif section.home_cards %}
+      {% for item in section.home_cards %}
+        {{ ui.module_card(item.label, item.url, icon=item.icon, color=item.color) }}
       {% endfor %}
     {% else %}
       {% for item in section["items"] %}
@@ -16,5 +21,13 @@
       {% endfor %}
     {% endif %}
   </div>
+  {% if section.home_cards and more %}
+  <h2 class="mb-3 mt-8 border-b border-slate-200 pb-2 text-[15px] font-semibold text-slate-700">More in OQC</h2>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for item in more %}
+      {{ ui.module_card(item.label, item.url, icon=item.icon, color=palette(loop.index0)) }}
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
