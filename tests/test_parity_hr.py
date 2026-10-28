@@ -23,7 +23,6 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///./data/oqc_parA.db")
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import or_
 
 from app.database import SessionLocal
 from app.main import app
@@ -103,6 +102,11 @@ def teacher_employee(s) -> Employee:
 
 # --------------------------------------------------------------------------- seed
 def test_seed_gives_the_panels_something_to_show(session):
+    # The seed dates its notices from the day it runs and re-dates them on every run, so a database seeded
+    # weeks ago has watched its "scheduled" notice go live. Run that step for today inside this session (the
+    # fixture rolls it back) and check what a seed run gives the panels, whenever the database was seeded.
+    from app.seed import parity_hr
+    parity_hr.run(session)
     today = date.today()
     assert live_employees(session).filter(Employee.contract_end_date.isnot(None)).count() >= 8
     assert (live_employees(session).filter(Employee.contract_end_date >= today,
