@@ -199,7 +199,7 @@ def test_accounts_card_pages_hold_the_erps_cards_first(admin, url, title, cards)
     ("payment", "Payment Voucher List", ["ID", "Voucher No", "Voucher Date", "Account Name", "Description",
                                          "Total Amount", "Posted", "Print"]),
     ("receipt", "Receipt Voucher List", ["ID", "Voucher No", "Voucher Date", "Account Name", "Description",
-                                         "Total Amount", "Posted", "Print"]),
+                                         "Total Amount", "Check Date", "Posted", "Print"]),
 ])
 def test_voucher_cards_open_their_own_list(admin, vtype, title, cols):
     html = admin.get(f"/finance/accounts/vouchers?type={vtype}").text
@@ -272,3 +272,68 @@ def test_teacher_ess_home_is_the_same_erp_design():
     assert {"Performance", "Income & Payslips"} <= set(t.replace("&amp;", "&") for t in _titles(more))
     for url in ("/hr/me/requests", "/hr/me/team-management", "/hr/me/team/violations", "/hr/me?tab=leaves"):
         assert c.get(url).status_code == 200, url
+
+
+# --------------------------------------------------------------------------- Accounts: the two ERP columns
+def test_receipt_voucher_keeps_its_check_date(admin):
+    from datetime import date
+    from app.database import SessionLocal
+    from app.models.finance import Account, JournalEntry
+    form = admin.get("/finance/accounts/vouchers/new?type=receipt").text
+    assert 'name="cheque_date"' in form and "Check No/ Receipt No" in form
+    s = SessionLocal()
+    try:
+        income = s.query(Account).filter(Account.account_type == "income", Account.is_postable.is_(True)).first()
+        desc = "pytest erp design receipt with a check date"
+        r = admin.post("/finance/accounts/vouchers/new", follow_redirects=False, data={
+            "type": "receipt", "action": "draft", "entry_date": date.today().isoformat(), "currency": "PKR",
+            "exchange_rate": "1", "description": desc, "party_type": "other", "party_name": "Walk-in family",
+            "payment_mode": "Cheque", "amount": "1500", "account_id": str(income.id),
+            "reference_no": "CHQ-0042", "cheque_date": "2026-10-20"})
+        assert r.status_code == 303
+        v = s.query(JournalEntry).filter(JournalEntry.description == desc).order_by(JournalEntry.id.desc()).first()
+        assert v is not None and v.cheque_date == date(2026, 10, 20)
+        listing = admin.get("/finance/accounts/vouchers?type=receipt&q=" + v.voucher_number).text
+        assert ">Check Date<" in listing and "20 Oct 2026" in listing
+    finally:
+        for v in s.query(JournalEntry).filter(JournalEntry.description == "pytest erp design receipt with a check date"):
+            s.delete(v)
+        s.commit()
+        s.close()
+
+
+def test_accounts_status_dialog_records_accounts_word(admin):
+    from app.database import SessionLocal
+    from app.models.people import SalaryAdvance
+    s = SessionLocal()
+    adv = s.query(SalaryAdvance).filter(SalaryAdvance.status.in_(["approved", "paid", "settled"])).first()
+    assert adv is not None, "the seed carries approved advances"
+    before = (adv.accounts_status, adv.accounts_remarks)
+    try:
+        html = admin.get("/finance/accounts/reports/approved-advances?date_from=2000-01-01").text
+        assert ">Accounts Remarks<" in html and ">Accounts Status<" in html
+        assert f'/approved-advances/{adv.id}/accounts-status' in html and "Apply Changes" in html
+        r = admin.post(f"/finance/accounts/reports/approved-advances/{adv.id}/accounts-status", follow_redirects=False,
+                       data={"accounts_status": "approved", "accounts_remarks": "pytest paid from the bank"})
+        assert r.status_code == 303
+        s.expire_all()
+        adv = s.get(SalaryAdvance, adv.id)
+        assert adv.accounts_status == "approved" and adv.accounts_remarks == "pytest paid from the bank"
+        bad = admin.post(f"/finance/accounts/reports/approved-advances/{adv.id}/accounts-status",
+                         follow_redirects=False, data={"accounts_status": "nonsense"})
+        assert bad.status_code == 303
+        s.expire_all()
+        assert s.get(SalaryAdvance, adv.id).accounts_status == "approved"
+    finally:
+        adv = s.get(SalaryAdvance, adv.id)
+        adv.accounts_status, adv.accounts_remarks = before
+        s.commit()
+        s.close()
+
+
+def test_teacher_cannot_set_accounts_status():
+    c = TestClient(app)
+    assert c.post("/login", data={"username": "teacher1@oqc.local", "password": "Teacher@123"}, follow_redirects=False).status_code == 303
+    r = c.post("/finance/accounts/reports/approved-advances/1/accounts-status", data={"accounts_status": "approved"},
+               follow_redirects=False)
+    assert r.status_code == 403

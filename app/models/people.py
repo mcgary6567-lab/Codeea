@@ -399,6 +399,9 @@ class SalaryAdvance(Base, PKMixin, TimestampMixin):
     request_date: Mapped[date] = mapped_column(Date, default=date.today, index=True)
     hr_remarks: Mapped[Optional[str]] = mapped_column(Text)
     decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    # ERP Approved Advances: Accounts' own word on an advance HR approved (Pending | Approved | Rejected | Cancelled)
+    accounts_status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
+    accounts_remarks: Mapped[Optional[str]] = mapped_column(Text)
 
     employee = relationship("Employee")
 

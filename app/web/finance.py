@@ -1804,6 +1804,7 @@ async def voucher_create(request: Request, db: Session = Depends(get_db),
     rate = parse_float(form.get("exchange_rate"), 0) or billing.get_rate(db, currency)
     description = (form.get("description") or "").strip()
     reference_no = (form.get("reference_no") or "").strip() or None
+    cheque_date = parse_date(form.get("cheque_date")) if vtype != "journal" else None
     rationale = (form.get("rationale") or form.get("reason") or "").strip() or None
 
     party_type = (form.get("party_type") or "").strip() or None
@@ -1889,6 +1890,7 @@ async def voucher_create(request: Request, db: Session = Depends(get_db),
                                         party_name=party_name, payment_mode=payment_mode,
                                         beneficiary_account_id=beneficiary_id, reference_no=reference_no,
                                         exchange_rate=rate)
+            je.cheque_date = cheque_date
             log_action(db, user, "create", "accounts", entity=je,
                        description=f"Receipt voucher {je.voucher_number} {currency} {amount:,.2f} from {party_name}"
                                    f" applied to {inv.invoice_number}",
@@ -1904,6 +1906,7 @@ async def voucher_create(request: Request, db: Session = Depends(get_db),
             beneficiary_account_id=beneficiary_id, reference_no=reference_no, status=status)
     except ValueError as exc:
         return _err(back, exc)
+    voucher.cheque_date = cheque_date
     log_action(db, user, "create", "accounts", entity=voucher,
                description=f"{accounting.VOUCHER_LABELS[vtype]} {voucher.voucher_number} "
                            f"{currency} {float(voucher.total):,.2f} saved as {status}",
@@ -2174,9 +2177,37 @@ def report_approved_advances(request: Request, date_from: str = "", date_to: str
     return render(request, "finance/report_advances.html", {
         "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS,
         "report": "approved-advances", "rows": rows, "totals": totals, "status": status,
+        "accounts_statuses": ACCOUNTS_STATUSES, "can_decide": rbac.has_permission(user, "accounts.update"),
         "statuses": ["approved", "paid", "settled"], "date_from": start.isoformat(), "date_to": end.isoformat(),
         "base": data["currency"], "print_view": bool(print_view),
         "qs": f"date_from={start}&date_to={end}&status={status}"})
+
+
+# Their Accounts Status dialog on an approved advance: Accounts' own word, beside HR's, with a remark.
+ACCOUNTS_STATUSES = [("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected"), ("cancelled", "Cancelled")]
+
+
+@router.post("/accounts/reports/approved-advances/{id}/accounts-status", include_in_schema=False)
+async def advance_accounts_status(id: int, request: Request, db: Session = Depends(get_db),
+                                  user: User = Depends(require("accounts.update"))):
+    from app.models.people import SalaryAdvance  # the HR module owns this model
+    back = "/finance/accounts/reports/approved-advances"
+    adv = db.query(SalaryAdvance).get(id)
+    if adv is None:
+        raise HTTPException(404)
+    form = await request.form()
+    new_status = (form.get("accounts_status") or "").strip()
+    if new_status not in dict(ACCOUNTS_STATUSES):
+        return redirect(back, "Choose an Accounts Status.", "error")
+    before = {"accounts_status": adv.accounts_status, "accounts_remarks": adv.accounts_remarks}
+    adv.accounts_status = new_status
+    adv.accounts_remarks = (form.get("accounts_remarks") or "").strip() or None
+    log_action(db, user, "update", "accounts", entity=adv, before=before,
+               after={"accounts_status": adv.accounts_status, "accounts_remarks": adv.accounts_remarks},
+               description=f"Accounts status of advance #{adv.id} set to {dict(ACCOUNTS_STATUSES)[new_status]}",
+               request=request)
+    db.commit()
+    return redirect(back, f"Accounts status of advance #{adv.id} saved.")
 
 
 @router.get("/accounts/{id}", include_in_schema=False)

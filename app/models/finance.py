@@ -287,6 +287,7 @@ class JournalEntry(Base, PKMixin, TimestampMixin):
     payment_mode: Mapped[Optional[str]] = mapped_column(String(30))
     beneficiary_account_id: Mapped[Optional[int]] = mapped_column(ForeignKey("beneficiary_accounts.id", ondelete="SET NULL"))
     reference_no: Mapped[Optional[str]] = mapped_column(String(120))
+    cheque_date: Mapped[Optional[date]] = mapped_column(Date)  # the ERP's Check Date on a receipt or payment
     exchange_rate: Mapped[float] = mapped_column(Numeric(14, 6), default=1)
     posted_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     posted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)

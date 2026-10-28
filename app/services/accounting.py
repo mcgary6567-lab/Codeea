@@ -1016,6 +1016,7 @@ def approved_advances(db: Session, status: str = "") -> dict:
                      "recovered": recovered, "balance": balance, "status": adv.status,
                      "recovered_pct": round(100.0 * recovered / amount, 1) if amount else 0.0,
                      "reason": adv.reason, "hr_remarks": adv.hr_remarks,
+                     "accounts_status": adv.accounts_status or "pending", "accounts_remarks": adv.accounts_remarks,
                      "shift": getattr(emp, "shift", "") if emp else ""})
     return {"rows": rows, "total": round(sum(r["amount"] for r in rows), 2),
             "recovered": round(sum(r["recovered"] for r in rows), 2),

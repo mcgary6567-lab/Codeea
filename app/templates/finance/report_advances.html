@@ -31,7 +31,9 @@
   {{ ui.stat("Outstanding", totals.balance|round(0)|int, color=palette(7), hint=base) }}
 </div>
 
-{{ ui.table_start(['ID', 'Employee', 'Shift', 'Request Date', 'Amount', 'No Of Installments', 'Remarks', 'Hr Remarks', 'Recovered', 'Balance', 'Status']) }}
+{% set acc_labels = dict(accounts_statuses) %}
+{% set acc_colours = {'pending': 'bg-[#309fdb]', 'approved': 'bg-emerald-600', 'rejected': 'bg-rose-600', 'cancelled': 'bg-slate-500'} %}
+{{ ui.table_start(['ID', 'Employee', 'Shift', 'Request Date', 'Amount', 'No Of Installments', 'Remarks', 'Hr Remarks', 'Accounts Remarks', 'Recovered', 'Balance', 'Status', 'Accounts Status']) }}
 {% for r in rows %}
 <tr>
   <td class="px-3 py-1.5 font-mono text-xs">{{ r.advance.id }}</td>
@@ -42,18 +44,38 @@
   <td class="px-3 py-1.5 text-center text-xs">{{ r.installments }}</td>
   <td class="px-3 py-1.5 max-w-[14rem] truncate text-xs text-slate-600" title="{{ r.reason or '' }}">{{ r.reason or '—' }}</td>
   <td class="px-3 py-1.5 max-w-[14rem] truncate text-xs text-slate-600" title="{{ r.hr_remarks or '' }}">{{ r.hr_remarks or '—' }}</td>
+  <td class="px-3 py-1.5 max-w-[14rem] truncate text-xs text-slate-600" title="{{ r.accounts_remarks or '' }}">{{ r.accounts_remarks or '—' }}</td>
   <td class="px-3 py-1.5 text-right">{{ r.recovered|money }}</td>
   <td class="px-3 py-1.5 text-right font-semibold">{{ r.balance|money }}</td>
   <td class="px-3 py-1.5">{{ ui.badge(r.status) }}</td>
+  <td class="px-3 py-1.5 text-center">
+    {% set label = acc_labels.get(r.accounts_status, 'Pending') %}
+    {% if can_decide and not print_view %}
+    <button type="button" class="no-print rounded-sm px-2.5 py-1 text-[11px] font-semibold text-white {{ acc_colours.get(r.accounts_status, 'bg-[#309fdb]') }} hover:brightness-95"
+            aria-label="Accounts status of advance {{ r.advance.id }}: {{ label }}"
+            @click="$dispatch('open-modal', 'accStatus{{ r.advance.id }}')">{{ label }}</button>
+    <span class="print-only">{{ label }}</span>
+    {% call ui.modal('accStatus' ~ r.advance.id, 'Accounts Status', 'sm') %}
+    <form method="post" action="/finance/accounts/reports/approved-advances/{{ r.advance.id }}/accounts-status" class="space-y-3 text-left">
+      {{ ui.select('accounts_status', 'Accounts Status', accounts_statuses, r.accounts_status, placeholder=None, required=True) }}
+      {{ ui.textarea('accounts_remarks', 'Accounts Remarks', r.accounts_remarks or '', rows=3) }}
+      <div class="flex justify-end gap-2">
+        {{ ui.button('Cancel', variant='secondary', type='button', attrs='@click="open = false"') }}
+        {{ ui.button('Apply Changes') }}
+      </div>
+    </form>
+    {% endcall %}
+    {% else %}{{ label }}{% endif %}
+  </td>
 </tr>
-{% else %}{{ ui.empty('No approved advances in this range.', 11, 'hand-coins') }}{% endfor %}
+{% else %}{{ ui.empty('No approved advances in this range.', 13, 'hand-coins') }}{% endfor %}
 <tr class="bg-[#e8f1fb] font-bold">
   <td class="px-3 py-2" colspan="4">TOTAL</td>
   <td class="px-3 py-2 text-right">{{ totals.amount|money }}</td>
-  <td class="px-3 py-2" colspan="3"></td>
+  <td class="px-3 py-2" colspan="4"></td>
   <td class="px-3 py-2 text-right">{{ totals.recovered|money }}</td>
   <td class="px-3 py-2 text-right">{{ totals.balance|money }}</td>
-  <td class="px-3 py-2"></td>
+  <td class="px-3 py-2" colspan="2"></td>
 </tr>
 {{ ui.table_end() }}
 <p class="mt-2 text-xs text-slate-500">Advances are raised and approved in Human Resource; this report is the accounting view of what is still to be recovered from payroll.</p>

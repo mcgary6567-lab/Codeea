@@ -86,6 +86,7 @@
       ('Payment Mode', v.payment_mode),
       ('Beneficiary Account', v.beneficiary_account.account_name if v.beneficiary_account else None),
       ('Reference No', v.reference_no),
+      ('Check Date', v.cheque_date|date if v.cheque_date else None),
       ('Currency', v.currency),
       ('Exchange Rate', rate),
       ('Amount (' ~ base ~ ')', v.total|money),

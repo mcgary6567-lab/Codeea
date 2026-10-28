@@ -40,7 +40,7 @@
 
 {% if typed %}
 {% set cols = ['ID', 'Voucher No', 'Voucher Date', 'Total Amount', 'Description', 'Posted', 'Print'] if type == 'journal'
-   else ['ID', 'Voucher No', 'Voucher Date', 'Account Name', 'Description', 'Total Amount', 'Posted', 'Print'] %}
+   else ['ID', 'Voucher No', 'Voucher Date', 'Account Name', 'Description', 'Total Amount'] + (['Check Date'] if type == 'receipt' else []) + ['Posted', 'Print'] %}
 {{ ui.table_start(cols) }}
 {% for v in page.items %}
 {% set rate = v.exchange_rate|float if v.exchange_rate else 1 %}
@@ -52,6 +52,7 @@
   {% if type == 'journal' %}{{ amount }}{% else %}<td class="px-3 py-1.5 text-xs">{{ account_names.get(v.id, '—') }}</td>{% endif %}
   <td class="px-3 py-1.5">{{ v.description }}</td>
   {% if type != 'journal' %}{{ amount }}{% endif %}
+  {% if type == 'receipt' %}<td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ v.cheque_date|date if v.cheque_date else '—' }}</td>{% endif %}
   <td class="px-3 py-1.5 text-center">{% if v.status == 'posted' %}<i data-lucide="check" class="mx-auto h-4 w-4 text-emerald-600" aria-label="Posted"></i>{% else %}{{ ui.badge(v.status) }}{% endif %}</td>
   <td class="px-3 py-1.5 text-center"><a href="/finance/accounts/vouchers/{{ v.id }}?print_view=1" class="inline-flex text-slate-500 hover:text-brand-700" aria-label="Print {{ v.voucher_number }}"><i data-lucide="printer" class="h-4 w-4"></i></a></td>
 </tr>
