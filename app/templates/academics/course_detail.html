@@ -68,7 +68,7 @@
     {% call ui.card('Course settings') %}
     <form method="post" action="/academics/courses/{{ c.id }}/edit" class="space-y-3">
       {{ ui.input('name', 'Name', c.name, required=True) }}
-      {{ ui.input('arabic_name', 'Arabic name', c.arabic_name or '', attrs='dir="rtl" class="font-arabic"') }}
+      {{ ui.input('arabic_name', 'Arabic name', c.arabic_name or '', attrs='dir="rtl"', cls='font-arabic') }}
       {{ ui.input('urdu_name', 'Urdu name', c.urdu_name or '') }}
       <div class="grid grid-cols-2 gap-3">
         {{ ui.input('default_session_minutes', 'Session minutes', c.default_session_minutes, type='number', min=15, max=120) }}

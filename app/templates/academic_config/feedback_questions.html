@@ -27,7 +27,7 @@
 <form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 items-end">
   <input type="hidden" name="applies_to_filter" value="{{ applies_to }}">
   <div class="sm:col-span-2 lg:col-span-3">{{ ui.input('question', 'Question', fq.question if fq else '', required=True, placeholder='e.g. Was the teacher punctual this month?') }}</div>
-  <div class="sm:col-span-2 lg:col-span-3">{{ ui.input('question_urdu', 'Question (Urdu)', fq.question_urdu if fq else '', placeholder='اردو میں سوال', attrs='dir="rtl" lang="ur" class="font-urdu"') }}</div>
+  <div class="sm:col-span-2 lg:col-span-3">{{ ui.input('question_urdu', 'Question (Urdu)', fq.question_urdu if fq else '', placeholder='اردو میں سوال', attrs='dir="rtl" lang="ur"', cls='font-urdu') }}</div>
   {{ ui.select('answer_type', 'Answer Type', answer_types, fq.answer_type if fq else 'rating', placeholder=None) }}
   {{ ui.select('applies_to', 'Applies To', applies_to_options, fq.applies_to if fq else (applies_to or 'client'), placeholder=None) }}
   {{ ui.input('sort_no', 'Sort No', fq.sort_no if fq else next_sort, type='number', min=0, help=None if fq else 'Blank = next in the audience') }}

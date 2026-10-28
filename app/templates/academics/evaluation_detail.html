@@ -82,8 +82,8 @@
       <div class="grid grid-cols-2 gap-3">
         {% for k in criteria %}{{ ui.input('criteria_' ~ k, k|titleize, (ev.criteria or {}).get(k, ''), type='number', min=0, max=10, step='0.5') }}{% endfor %}
       </div>
-      {{ ui.input('score', 'Score', ev.score or '', type='number', step='0.1') }}
-      {{ ui.select('result', 'Result', ['pass','fail','pending'], ev.result, placeholder=None) }}
+      {{ ui.input('score', 'Score', ev.score or '', type='number', step='0.1', min=0, max=ev.max_score, help='From 0 to ' ~ (ev.max_score|float)|round(1) ~ '.') }}
+      {{ ui.select('result', 'Result', [('pending', 'Pending (not marked yet)')], 'pending' if ev.result == 'pending' else None, placeholder='Automatic (pass or fail from the pass mark)') }}
       {{ ui.textarea('teacher_comment', 'Teacher comment', ev.teacher_comment or '', rows=3) }}
       {{ ui.textarea('academic_comment', 'Academic comment', ev.academic_comment or '', rows=3) }}
       {{ ui.button('Save changes', icon='save') }}

@@ -51,7 +51,7 @@
         </div>
         {{ ui.select('trigger', 'Starts when', triggers, wf.trigger, required=True, placeholder=None) }}
         {{ ui.textarea('trigger_filter', 'Trigger filter (JSON object)', filter_json, rows=3) }}
-        {{ ui.textarea('steps', 'Steps (JSON list)', steps_json, rows=14, attrs='class="font-mono"') }}
+        {{ ui.textarea('steps', 'Steps (JSON list)', steps_json, rows=14, cls='font-mono') }}
         {{ ui.textarea('exit_on', 'Exit conditions (JSON object)', exit_json, rows=3) }}
         {{ ui.input('needs', 'Needs (what must be configured first)', wf.needs or '') }}
         {{ ui.checkbox('run_once_per_contact', 'Run once per contact', checked=wf.run_once_per_contact) }}

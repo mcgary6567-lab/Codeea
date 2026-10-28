@@ -53,7 +53,7 @@
       {{ ui.table_end() }}
       <div class="grid gap-3 sm:grid-cols-2">
         {{ ui.textarea('teacher_remarks', 'Teacher remarks (English)', t.teacher_remarks or '', rows=3, required=True) }}
-        {{ ui.textarea('teacher_remarks_urdu', 'Teacher remarks (Urdu)', t.teacher_remarks_urdu or '', rows=3, attrs='dir="rtl" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-urdu text-sm leading-[2.2] dark:border-slate-700 dark:bg-slate-800"') }}
+        {{ ui.textarea('teacher_remarks_urdu', 'Teacher remarks (Urdu)', t.teacher_remarks_urdu or '', rows=3, attrs='dir="rtl"', cls='font-urdu leading-[2.2]') }}
       </div>
       <div class="flex items-center justify-between">
         <p class="text-xs text-slate-500">Saving computes the percentage, grade and improvement, generates the bilingual result card and builds next month's dor schedule.</p>

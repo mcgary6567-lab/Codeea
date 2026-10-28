@@ -63,7 +63,7 @@
   {{ ui.input('name', 'Name', '', required=True, placeholder='e.g. Tafseer-ul-Quran') }}
   {{ ui.select('course_type', 'Type', course_types, 'Islamic Courses', placeholder=None, required=True) }}
   {{ ui.input('fee', 'Fee (PKR)', 4000, type='number', step='0.01', min=0) }}
-  {{ ui.input('arabic_name', 'Arabic name', '', attrs='dir="rtl" class="font-arabic"') }}
+  {{ ui.input('arabic_name', 'Arabic name', '', attrs='dir="rtl"', cls='font-arabic') }}
   {{ ui.input('default_session_minutes', 'Session minutes', 30, type='number', min=15, max=120) }}
   <div class="sm:col-span-2">{{ ui.input('curriculum_link', 'Curriculum Link', '', placeholder='https://…') }}</div>
   {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}

@@ -367,6 +367,42 @@ def evaluation_score(criteria: dict) -> float:
     return round(sum(vals) / len(vals) * 10, 1) if vals else 0.0  # criteria are 0-10 → percent
 
 
+def evaluation_score_error(score, max_score) -> Optional[str]:
+    """Why a score cannot be saved, or None. A score is 0 to the maximum, both included: -10 or 150 out of 100 is
+    refused here, on the server, whatever the browser allowed (QA report OQC-14)."""
+    if max_score is None or float(max_score) <= 0:
+        return "The maximum score must be greater than zero."
+    if score is None:
+        return None
+    if float(score) < 0 or float(score) > float(max_score):
+        return f"The score must be between 0 and {float(max_score):g}; {float(score):g} is outside that range."
+    return None
+
+
+def criteria_error(form, keys) -> Optional[str]:
+    """Criteria are marked 0 to 10; anything outside is refused rather than quietly clamped."""
+    for key in keys:
+        raw = form.get(f"criteria_{key}") if f"criteria_{key}" in form else form.get(key)
+        if raw in (None, ""):
+            continue
+        try:
+            v = float(raw)
+        except (TypeError, ValueError):
+            return f"{key.title()} must be a number from 0 to 10."
+        if v < 0 or v > 10:
+            return f"{key.title()} must be from 0 to 10; {v:g} is outside that range."
+    return None
+
+
+def pass_result(score, max_score, passing_marks=None) -> str:
+    """Pass or fail from the assessment's pass mark, else 55% of the maximum (User Guide, Evaluations)."""
+    if score is None:
+        return "pending"
+    # rounded: 100 * 0.55 is 55.000000000000007 in floating point, which would fail an exact 55
+    line = float(passing_marks) if passing_marks not in (None, "") else round(float(max_score or 100) * 0.55, 6)
+    return "pass" if round(float(score), 6) >= line else "fail"
+
+
 # =============================================================================== monthly tests (Module 41)
 def _questions_for(db: Session, student: Student) -> tuple[list[dict], dict]:
     lessons = course_lessons(db, student.course_id)

@@ -190,10 +190,19 @@ def auto_arrange(db: Session, user: Optional[User], date_from: date, date_to: da
 
 
 # ----------------------------------------------------------------------------- reschedule approvals
+def _require_open_subscription(session: ClassSession) -> None:
+    """A class whose subscription is cancelled or expired is not moved: there is nothing left to deliver it under
+    (QA OQC-07). The subscription has to be renewed first."""
+    sub = session.subscription
+    if sub is not None and sub.status in ("cancelled", "expired"):
+        raise ValueError(f"Subscription {sub.subscription_code} is {sub.status}; renew it before rescheduling its classes.")
+
+
 def create_reschedule_request(db: Session, user: Optional[User], session: ClassSession, new_date: date, new_slot: Optional[SessionSlot],
                               new_time: Optional[time], new_teacher_id: Optional[int], reason: str, request=None) -> RescheduleRequest:
     if session.status not in ("pending", "available", "started", "missed", "absent", "cancelled"):
         raise ValueError(f"A class in status '{session.status}' cannot be rescheduled.")
+    _require_open_subscription(session)
     if not reason:
         raise ValueError("A reason is required to reschedule a class.")
     nt = new_slot.start_time if new_slot else (new_time or session.start_time)
@@ -216,6 +225,7 @@ def approve_reschedule(db: Session, user: Optional[User], rr: RescheduleRequest,
     old = rr.session
     if not old:
         raise ValueError("The original class no longer exists.")
+    _require_open_subscription(old)
     new_start = datetime.combine(rr.new_date, rr.new_start_time)
     teacher_id = rr.new_teacher_id or old.teacher_id
     if _teacher_busy(db, teacher_id, rr.new_date, rr.new_start_time, old.duration_minutes, exclude_id=old.id):

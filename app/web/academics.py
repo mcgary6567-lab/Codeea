@@ -340,7 +340,9 @@ def curriculum_page(request: Request, course_id: int = 0, q: str = "", db: Sessi
             total_minutes += sum(l.expected_minutes or 0 for l in lessons)
             if lessons or not ql:
                 chapters.append({"chapter": ch, "lessons": lessons})
-        if chapters:
+        # A book is listed even before it has a chapter: the counter counts it, and its Add chapter form is the
+        # only way to start filling it. A search keeps just the books that hold a match.
+        if chapters or not ql:
             tree.append({"book": b, "chapters": chapters,
                          "lessons": sum(len(c["lessons"]) for c in chapters)})
     versions = db.query(CurriculumVersion).filter(CurriculumVersion.course_id == course_id).order_by(CurriculumVersion.id.desc()).all() if course else []
@@ -791,7 +793,8 @@ def evaluations(request: Request, page: int = 1, student: str = "", teacher: str
     if parse_int(assessment):
         q = q.filter(Evaluation.assessment_id == int(assessment))
     pg = paginate(q.order_by(Evaluation.date.desc(), Evaluation.id.desc()), page, 25)
-    scoped = db.query(Evaluation)
+    # The tiles count the tab the table shows (Evaluations or Manual Evaluations), so tile and footer agree
+    scoped = db.query(Evaluation).filter(Evaluation.is_manual.is_(tab == "manual"))
     if scope is not None:
         scoped = scoped.filter(Evaluation.student_id.in_(scope or [0]))
     total = scoped.count()
@@ -821,20 +824,25 @@ async def evaluation_create(request: Request, db: Session = Depends(get_db),
     if not student:
         return redirect("/academics/evaluations", "Select a student.", "error")
     _check_student(student, _scope_ids(user, ctx))
-    criteria = {}
-    for key in svc.EVAL_CRITERIA:
-        v = parse_float(form.get(f"criteria_{key}"), 0.0)
-        criteria[key] = max(0.0, min(10.0, v))
+    back = "/academics/evaluations"
+    err = svc.criteria_error(form, svc.EVAL_CRITERIA) or journey_svc.evidence_marks_error(form)
+    if err:
+        return redirect(back, err, "error")
+    criteria = {key: parse_float(form.get(f"criteria_{key}"), 0.0) for key in svc.EVAL_CRITERIA}
     score = parse_float(form.get("score")) if form.get("score") else svc.evaluation_score(criteria)
     max_score = parse_float(form.get("max_score"), 100.0) or 100.0
     # An assessment definition sets the marks scheme: total_marks -> max score, passing_marks -> pass/fail line.
     from app.models.erp import AssessmentDefinition
     assessment = db.get(AssessmentDefinition, parse_int(form.get("assessment_id")) or 0)
-    result = form.get("result") or ""
     if assessment is not None:
         max_score = float(assessment.total_marks or max_score) or max_score
-        result = result or ("pass" if score >= float(assessment.passing_marks or 0) else "fail")
-    result = result or ("pass" if score >= max_score * 0.55 else "fail")
+    err = svc.evaluation_score_error(score, max_score)
+    if err:
+        return redirect(back, err, "error")
+    # Pass or fail always follows the pass mark; the only result a person may choose is Pending (not marked yet).
+    pass_line = assessment.passing_marks if assessment is not None else None
+    held = form.get("result") == "pending"
+    result = "pending" if held else svc.pass_result(score, max_score, pass_line)
     ev = Evaluation(student_id=student.id, teacher_id=parse_int(form.get("teacher_id")) or student.teacher_id,
                     evaluation_type=form.get("evaluation_type") or "manual",
                     date=parse_date(form.get("date")) or date.today(), score=score, max_score=max_score,
@@ -847,10 +855,8 @@ async def evaluation_create(request: Request, db: Session = Depends(get_db),
     db.add(ev)
     db.flush()
     recs = journey_svc.apply_evidence_form(db, ev, form, user, request=request)
-    if ev.assessment_id and ev.score is not None and not form.get("result"):
-        ev.result = "pass" if ev.score >= float(assessment.passing_marks or 0) else "fail"
-    elif ev.score is not None and not form.get("result") and ev.answers:
-        ev.result = "pass" if ev.score >= (ev.max_score or 100) * 0.55 else "fail"
+    if not held:   # marks on the questions may have replaced the score
+        ev.result = result = svc.pass_result(ev.score, ev.max_score, pass_line)
     log_action(db, user, "create", "evaluations", entity=ev, request=request, after=snapshot(ev),
                description=f"{ev.evaluation_type.replace('_', ' ').title()} evaluation for {student.full_name}: {score}/{max_score} ({result})")
     if ev.evaluation_type == "level_completion" and result == "pass" and rbac.has_permission(user, "certificates.add"):
@@ -933,19 +939,29 @@ async def evaluation_edit(eid: int, request: Request, db: Session = Depends(get_
                           user: User = Depends(require("evaluations.update"))):
     ev = _get(db, Evaluation, eid, "Evaluation")
     form = await request.form()
+    back = f"/academics/evaluations/{ev.id}"
+    err = svc.criteria_error(form, svc.EVAL_CRITERIA) or journey_svc.evidence_marks_error(form)
+    if err:
+        return redirect(back, err, "error")
     before = snapshot(ev)
     criteria = dict(ev.criteria or {})
     for key in svc.EVAL_CRITERIA:
         if form.get(f"criteria_{key}") not in (None, ""):
-            criteria[key] = max(0.0, min(10.0, parse_float(form.get(f"criteria_{key}"))))
+            criteria[key] = parse_float(form.get(f"criteria_{key}"))
+    score = parse_float(form.get("score"), ev.score or svc.evaluation_score(criteria))
+    err = svc.evaluation_score_error(score, ev.max_score or 100)
+    if err:
+        return redirect(back, err, "error")
     ev.criteria = criteria
-    ev.score = parse_float(form.get("score"), ev.score or svc.evaluation_score(criteria))
-    ev.result = form.get("result") or ev.result
+    ev.score = score
+    pass_line = ev.assessment.passing_marks if getattr(ev, "assessment", None) is not None else None
+    held = form.get("result") == "pending"
     ev.teacher_comment = form.get("teacher_comment") or ev.teacher_comment
     if form.get("academic_comment"):
         ev.academic_comment = form.get("academic_comment")
         ev.reviewed_by_id = user.id
     journey_svc.apply_evidence_form(db, ev, form, user, request=request)
+    ev.result = "pending" if held else svc.pass_result(ev.score, ev.max_score, pass_line)
     log_action(db, user, "update", "evaluations", entity=ev, before=before, after=snapshot(ev), request=request,
                consequential=True, rationale=form.get("academic_comment") or form.get("teacher_comment"),
                description=f"Evaluation for {ev.student.full_name} updated to {ev.score} ({ev.result})")

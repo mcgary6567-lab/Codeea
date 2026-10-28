@@ -31,6 +31,14 @@ def slot_label(t: time) -> str:
     return t.strftime("%H:%M")
 
 
+def rescheduled_targets(db: Session):
+    """Ids of the classes an approved reschedule created (the rescheduled_to of another class), as a subquery.
+
+    Such a class is a one-off at a date, time and teacher somebody approved: regenerating the recurring schedule
+    must not delete it, and a general teacher change must not override a substitute chosen for it (QA OQC-06)."""
+    return db.query(ClassSession.rescheduled_to_id).filter(ClassSession.rescheduled_to_id.isnot(None))
+
+
 def generate_sessions(db: Session, schedule: Schedule, start: date, end: date) -> list[ClassSession]:
     """Materialise ClassSession rows for a recurring schedule between two dates (idempotent)."""
     if schedule.status != "active":

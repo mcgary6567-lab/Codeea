@@ -450,6 +450,30 @@ def assessments(db: Session, student: Student, start: date, end: date) -> list[E
             .order_by(Evaluation.date.desc(), Evaluation.id.desc()).all())
 
 
+def evidence_marks_error(form) -> Optional[str]:
+    """Question marks are 0 to that question's maximum; a row with marks needs a maximum above zero."""
+    def lst(name):
+        return list(form.getlist(name)) if hasattr(form, "getlist") else list(form.get(name) or [])
+    texts, marks, maxes = lst("q_text"), lst("q_marks"), lst("q_max")
+    for i, text in enumerate(texts):
+        if not (text or "").strip():
+            continue
+        raw_m = (marks[i] if i < len(marks) else "") or ""
+        raw_x = (maxes[i] if i < len(maxes) else "") or ""
+        if not str(raw_m).strip():
+            continue
+        try:
+            m = float(raw_m)
+            x = float(raw_x) if str(raw_x).strip() else None
+        except ValueError:
+            return f"Question {i + 1}: marks must be numbers."
+        if x is None or x <= 0:
+            return f"Question {i + 1}: give the question's maximum marks before awarding marks."
+        if m < 0 or m > x:
+            return f"Question {i + 1}: marks must be between 0 and {x:g}; {m:g} is outside that range."
+    return None
+
+
 def save_evidence(db: Session, ev: Evaluation, form) -> int:
     """Store the question-by-question evidence and the judgement fields posted with an assessment form.
 

@@ -480,10 +480,21 @@ def _apply_teacher_change(db: Session, user: User, r: TeacherChangeRequest, stat
         if sch is not None:
             sch.teacher_id = r.new_teacher_id
         if r.student_id:
-            (db.query(ClassSession)
-             .filter(ClassSession.student_id == r.student_id, ClassSession.status == "pending",
-                     ClassSession.date >= date.today())
-             .update({ClassSession.teacher_id: r.new_teacher_id}, synchronize_session=False))
+            # future classes follow the new teacher, except one already given to an approved substitute;
+            # the ids moved go on the audit trail so a later teacher on a class can be traced (QA OQC-06)
+            moved = (db.query(ClassSession)
+                     .filter(ClassSession.student_id == r.student_id, ClassSession.status == "pending",
+                             ClassSession.date >= date.today(), ClassSession.substitute_for_teacher_id.is_(None),
+                             ClassSession.teacher_id != r.new_teacher_id).all())
+            for cs in moved:
+                cs.teacher_id = r.new_teacher_id
+            if moved:
+                ids = [cs.id for cs in moved]
+                log_action(db, user, "update", "classes", entity_type="ClassSession", entity_id=ids[0],
+                           description=f"Teacher change request #{r.id}: classes "
+                                       f"{', '.join(f'#{i}' for i in ids[:40])}{' and more' if len(ids) > 40 else ''}"
+                                       f" moved to teacher #{r.new_teacher_id}",
+                           after={"teacher_id": r.new_teacher_id, "session_ids": ids}, request=request)
     return r.client
 
 

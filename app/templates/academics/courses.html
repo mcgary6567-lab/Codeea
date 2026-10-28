@@ -94,7 +94,7 @@
 <form method="post" action="/academics/courses/new" class="grid gap-3 sm:grid-cols-2">
   {{ ui.input('code', 'Course code', '', required=True, placeholder='e.g. TAFSIR', help='Short uppercase identifier, unique.') }}
   {{ ui.input('name', 'Course name', '', required=True, placeholder='e.g. Tafsir Foundations') }}
-  {{ ui.input('arabic_name', 'Arabic name', '', attrs='dir="rtl" class="font-arabic"') }}
+  {{ ui.input('arabic_name', 'Arabic name', '', attrs='dir="rtl"', cls='font-arabic') }}
   {{ ui.input('urdu_name', 'Urdu name', '') }}
   {{ ui.input('default_session_minutes', 'Session minutes', 30, type='number', min=15, max=120) }}
   {{ ui.input('completion_target_months', 'Target months', 12, type='number', min=1, max=60) }}

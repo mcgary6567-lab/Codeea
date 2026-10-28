@@ -58,8 +58,8 @@
     </div>
     <p class="mt-2 text-[11px] text-slate-500">Leave the score blank to compute it as the criteria average out of 100.</p>
   </div>
-  {{ ui.input('score', 'Score', '', type='number', step='0.1', min=0, help='Optional — computed from criteria if blank.') }}
-  {{ ui.select('result', 'Result', ['pass','fail','pending'], None, placeholder='Automatic (from the assessment pass mark)') }}
+  {{ ui.input('score', 'Score', '', type='number', step='0.1', min=0, help='Optional — computed from criteria if blank. From 0 to the total marks.') }}
+  {{ ui.select('result', 'Result', [('pending', 'Pending (not marked yet)')], None, placeholder='Automatic (pass or fail from the pass mark)') }}
   {{ ui.input('due_date', 'Next evaluation due', '', type='date') }}
   <div class="flex items-end pb-1">{{ ui.checkbox('is_manual', 'Manual evaluation', help='Shows under the Manual Evaluations tab.') }}</div>
   {% include "academics/_evidence_fields.html" %}

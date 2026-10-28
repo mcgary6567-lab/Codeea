@@ -201,11 +201,20 @@ def propagate_teacher_change(db: Session, student: Student, old_teacher: Optiona
         if sch.teacher_id != new_teacher.id:
             sch.teacher_id = new_teacher.id
             changed["schedules"] += 1
+    moved = []
+    # a class with an approved substitute (a reschedule or an arrangement to another teacher) keeps that substitute
     for cs in db.query(ClassSession).filter(ClassSession.student_id == student.id, ClassSession.status == "pending",
-                                            ClassSession.scheduled_start >= datetime.utcnow() - timedelta(hours=6)):
+                                            ClassSession.scheduled_start >= datetime.utcnow() - timedelta(hours=6),
+                                            ClassSession.substitute_for_teacher_id.is_(None)):
         if cs.teacher_id != new_teacher.id:
             cs.teacher_id = new_teacher.id
             changed["sessions"] += 1
+            moved.append(cs.id)
+    if moved:
+        log_action(db, user, "update", "classes", entity_type="ClassSession", entity_id=moved[0],
+                   description=f"Teacher change for {student.student_code}: classes {', '.join(f'#{i}' for i in moved[:40])}"
+                               f"{' and more' if len(moved) > 40 else ''} moved to {new_teacher.full_name}",
+                   rationale=reason, after={"teacher_id": new_teacher.id, "session_ids": moved})
     for sub in db.query(Subscription).filter(Subscription.student_id == student.id, Subscription.status.in_(["active", "frozen", "pending_approval"])):
         if sub.teacher_id != new_teacher.id:
             sub.teacher_id = new_teacher.id

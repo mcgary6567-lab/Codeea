@@ -147,11 +147,19 @@ def shift_for_time(db: Session, t: time) -> Optional[int]:
 
 
 def regenerate_future_sessions(db: Session, sch: Schedule, horizon_days: int = 14) -> int:
-    """Drop future pending sessions (not yet started) and rebuild them from the schedule definition."""
+    """Drop future pending sessions (not yet started) and rebuild them from the schedule definition.
+
+    A class an approved reschedule created is kept: it is not part of the weekly pattern. It follows a new schedule
+    teacher only when it had the schedule's teacher; a substitute approved for it stays."""
     now = org_now()
+    targets = class_svc.rescheduled_targets(db)
     for s in db.query(ClassSession).filter(ClassSession.schedule_id == sch.id, ClassSession.status == "pending",
-                                           ClassSession.scheduled_start > now):
+                                           ClassSession.scheduled_start > now, ClassSession.id.notin_(targets)):
         db.delete(s)
+    for s in db.query(ClassSession).filter(ClassSession.schedule_id == sch.id, ClassSession.status == "pending",
+                                           ClassSession.scheduled_start > now, ClassSession.id.in_(targets),
+                                           ClassSession.substitute_for_teacher_id.is_(None)):
+        s.teacher_id = sch.teacher_id
     db.flush()
     if sch.status != "active":
         return 0
@@ -242,7 +250,9 @@ def bulk_teacher_change(db: Session, user: User, from_teacher: Teacher, to_teach
         if conflict:
             skipped.append(f"{sch.student.full_name if sch.student else sch.id} ({sch.start_time.strftime('%H:%M')})")
             continue
-        q = db.query(ClassSession).filter(ClassSession.schedule_id == sch.id, ClassSession.status == "pending", ClassSession.date >= start)
+        # only the classes this teacher actually holds: a substitute already approved on one of them keeps it
+        q = db.query(ClassSession).filter(ClassSession.schedule_id == sch.id, ClassSession.status == "pending",
+                                          ClassSession.date >= start, ClassSession.teacher_id == from_teacher.id)
         if end:
             q = q.filter(ClassSession.date <= end)
         for s in q:
@@ -288,6 +298,9 @@ def bulk_teacher_change(db: Session, user: User, from_teacher: Teacher, to_teach
 def reschedule_session(db: Session, user: User, session: ClassSession, new_start: datetime, reason: str, request=None) -> ClassSession:
     if session.status not in ("pending", "started", "missed", "absent", "cancelled"):
         raise ValueError(f"A session in status '{session.status}' cannot be rescheduled.")
+    sub = session.subscription
+    if sub is not None and sub.status in ("cancelled", "expired"):   # the same rule as a reschedule request (QA OQC-07)
+        raise ValueError(f"Subscription {sub.subscription_code} is {sub.status}; renew it before rescheduling its classes.")
     end = new_start + timedelta(minutes=session.duration_minutes or 30)
     others = db.query(ClassSession).filter(ClassSession.teacher_id == session.teacher_id, ClassSession.date == new_start.date(),
                                            ClassSession.status.in_(["pending", "started"]), ClassSession.id != session.id).all()

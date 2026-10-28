@@ -47,7 +47,7 @@
   <form method="post" action="/academics/config/books/{{ b.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
     {{ ui.select('course_id', 'Course', course_options, b.course_id, placeholder=None) }}
     {{ ui.input('title', 'Name', b.title, required=True) }}
-    {{ ui.input('arabic_title', 'Arabic title', b.arabic_title or '', attrs='dir="rtl" class="font-arabic"') }}
+    {{ ui.input('arabic_title', 'Arabic title', b.arabic_title or '', attrs='dir="rtl"', cls='font-arabic') }}
     {{ ui.input('sort_no', 'Sort No', b.order, type='number', min=0) }}
     {{ ui.select('status', 'Status', statuses, b.status, placeholder=None) }}
     <div class="pb-1.5">{{ ui.checkbox('is_public', 'Public book', b.is_public) }}</div>
@@ -64,7 +64,7 @@
 <form method="post" action="/academics/config/books/new" class="grid gap-3 sm:grid-cols-2">
   <div class="sm:col-span-2">{{ ui.select('course_id', 'Course', course_options, None, required=True) }}</div>
   {{ ui.input('title', 'Name', '', required=True, placeholder='e.g. Iqra Book') }}
-  {{ ui.input('arabic_title', 'Arabic title', '', attrs='dir="rtl" class="font-arabic"') }}
+  {{ ui.input('arabic_title', 'Arabic title', '', attrs='dir="rtl"', cls='font-arabic') }}
   {{ ui.input('sort_no', 'Sort No', 1, type='number', min=0) }}
   {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
   <div class="sm:col-span-2">{{ ui.checkbox('is_public', 'Public book', tab == 'public', help='Public books are visible on the website and in the client portal.') }}</div>

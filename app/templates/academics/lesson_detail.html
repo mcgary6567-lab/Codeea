@@ -63,7 +63,7 @@
     {% call ui.card('Edit lesson') %}
     <form method="post" action="/academics/curriculum/lessons/{{ les.id }}/edit" class="space-y-3">
       {{ ui.input('title', 'Title', les.title, required=True) }}
-      {{ ui.textarea('arabic_text', 'Arabic text (tashkeel, one ayah per line)', les.arabic_text or '', rows=6, attrs='dir="rtl" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-arabic text-lg leading-loose dark:border-slate-700 dark:bg-slate-800"') }}
+      {{ ui.textarea('arabic_text', 'Arabic text (tashkeel, one ayah per line)', les.arabic_text or '', rows=6, attrs='dir="rtl"', cls='font-arabic text-lg leading-loose') }}
       {{ ui.textarea('translation', 'Translation', les.translation or '', rows=4) }}
       {{ ui.textarea('objectives', 'Objectives', les.objectives or '', rows=3) }}
       {{ ui.textarea('tajweed_notes', 'Tajweed notes', les.tajweed_notes or '', rows=3) }}

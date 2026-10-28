@@ -459,6 +459,14 @@ def cancel_subscription(db: Session, sub: Subscription, user: Optional[User], re
         sub.student.status = "cancelled"
         sub.student.cancelled_at = date.today()
         sub.student.cancel_reason = reason[:200]
+    # reschedule requests still waiting on this subscription cannot be approved any more: close them with the reason
+    from app.models.erp import RescheduleRequest
+    for rr in db.query(RescheduleRequest).filter(RescheduleRequest.subscription_id == sub.id,
+                                                 RescheduleRequest.status == "pending"):
+        rr.status = "cancelled"
+        rr.comments = f"Subscription {sub.subscription_code} cancelled: {reason}"[:1000]
+        rr.approved_by_id = user.id if user else None
+        rr.approved_at = datetime.utcnow()
     log_action(db, user, "cancel", "subscriptions", entity=sub, description=f"{sub.subscription_code} cancelled",
                rationale=reason, before=before, after={"status": "cancelled"}, consequential=True)
     _notify_client(db, sub.client, "subscription_cancelled", "Subscription cancelled",

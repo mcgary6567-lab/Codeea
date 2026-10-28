@@ -23,6 +23,7 @@ from app.models.people import Student, Teacher, Leave, HRAttendance, TrainingAss
 from app.models.scheduling import (ClassSession, Schedule, Attendance, QAReview, CorrectiveAction, AIClassAnalysis, Trial)
 from app.services import people as svc
 from app.services.classes import set_status, mark_join, teacher_stats, student_attendance_pct
+from app.services import academic as academic_svc
 from app.services import journey as journey_svc
 
 router = APIRouter(prefix="/teacher", dependencies=[Depends(csrf_protect)])
@@ -306,17 +307,22 @@ async def create_evaluation(request: Request, db: Session = Depends(get_db),
     t = me(ctx)
     form = await request.form()
     s = _my_student(db, t, parse_int(form.get("student_id")) or 0)
-    criteria = {k: parse_float(form.get(k)) for k in ("tajweed", "fluency", "memorisation", "attitude") if form.get(k)}
+    keys = ("tajweed", "fluency", "memorisation", "attitude")
+    err = academic_svc.criteria_error(form, keys) or journey_svc.evidence_marks_error(form)
+    criteria = {k: parse_float(form.get(k)) for k in keys if form.get(k)}
     score = round(sum(criteria.values()) / len(criteria) * 10, 1) if criteria else parse_float(form.get("score"))
+    err = err or academic_svc.evaluation_score_error(score, 100)
+    if err:
+        return redirect("/teacher/evaluations", err, "error")
     ev = Evaluation(student_id=s.id, teacher_id=t.id, evaluation_type=form.get("evaluation_type") or "weekly",
                     date=parse_date(form.get("date")) or date.today(), score=score, max_score=100,
-                    result="pass" if (score or 0) >= 50 else "fail", criteria=criteria,
+                    result=academic_svc.pass_result(score, 100), criteria=criteria,
                     teacher_comment=form.get("teacher_comment") or None)
     db.add(ev)
     db.flush()
     recs = journey_svc.apply_evidence_form(db, ev, form, user, request=request)
     if ev.answers and ev.score is not None:
-        score, ev.result = ev.score, ("pass" if ev.score >= 50 else "fail")
+        score, ev.result = ev.score, academic_svc.pass_result(ev.score, 100)
     log_action(db, user, "create", "evaluations", entity=ev, request=request,
                description=f"Evaluation for {s.student_code} ({ev.evaluation_type}) score {score}")
     if s.client and s.client.user_id:
