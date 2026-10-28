@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core import rbac
-from app.core.nav import nav_for, home_for, breadcrumbs_for, section_for_path, sidebar_active_url, TILE, palette  # noqa: F401
+from app.core.nav import nav_for, home_for, breadcrumbs_for, section_for_path, sidebar_active_url, LIGHT, TILE, palette  # noqa: F401
 from app.core.security import mask
 from app.core.utils import pop_flash, money, humanize_delta, pct
 
@@ -177,7 +177,7 @@ templates.env.globals.update({
     "app_name": settings.APP_NAME, "app_env": settings.APP_ENV, "base_url": settings.BASE_URL,
     "has_perm": rbac.has_permission, "is_ceo": rbac.is_ceo, "is_management": rbac.is_management,
     "today": date.today, "utcnow": datetime.utcnow, "MODULES": rbac.MODULES, "ACTIONS": rbac.ACTIONS,
-    "TILE": TILE, "palette": palette, "STATUS_LABELS": STATUS_LABELS, "field_id": field_id,
+    "TILE": TILE, "LIGHT": LIGHT, "palette": palette, "STATUS_LABELS": STATUS_LABELS, "field_id": field_id,
 })
 
 

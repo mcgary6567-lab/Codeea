@@ -18,16 +18,16 @@
 {# Saturated stat tile: big white number on a solid colour, label underneath. `color` is a palette name or a hex. #}
 {% macro stat(label, value, icon=None, color='brand', hint=None, href=None, delta=None) %}
 {% set bg = color if color.startswith('#') else TILE.get(color, TILE['brand']) %}
-{# The ERP's amber and lime tiles are too light for white text (1.6:1 and 2.2:1), so those two keep their
-   colour and switch to dark text; every other tile stays white-on-colour as the ERP draws it. #}
-{% set light = bg|lower in ('#e4cd39', '#7cc24e') %}
+{# The ERP's yellow and amber tiles are too light for white text, so those two keep their colour and
+   switch to dark text, as the ERP draws them; every other tile stays white-on-colour. #}
+{% set light = bg|lower in LIGHT %}
 {# The tag was built as one interpolated string, so Jinja escaped the quotes around href and every
    tile link rendered as href=&#34;/…&#34; -- a URL with literal quotes in it, which goes nowhere. #}
 {% set tile_class = "block rounded-md px-3 py-4 text-center shadow-sm transition hover:brightness-110 " ~ ('text-slate-900' if light else 'text-white') %}
 {% if href %}<a href="{{ href }}" class="{{ tile_class }}" style="background: {{ bg }}">
 {% else %}<div class="{{ tile_class }}" style="background: {{ bg }}">{% endif %}
   <div class="text-[30px] font-bold leading-none tracking-tight">{{ value }}</div>
-  <div class="mt-2 text-[11.5px] font-semibold leading-tight {{ 'text-slate-800/85' if light }}">{{ label }}</div>
+  <div class="mt-1.5 text-[13px] font-medium leading-tight {{ 'text-slate-800/85' if light }}">{{ label }}</div>
   {% if hint or delta is not none %}<div class="mt-1 text-[11px] {{ 'text-slate-800/85' if light else 'text-white/85' }}">
     {% if delta is not none %}<span class="font-semibold">{{ '▲' if delta >= 0 else '▼' }} {{ delta }}%</span>{% endif %}
     {% if hint %}<span>{{ hint }}</span>{% endif %}
@@ -35,17 +35,30 @@
 {% if href %}</a>{% else %}</div>{% endif %}
 {% endmacro %}
 
-{# Launchpad / module card: coloured band with a circular icon, white footer with a centred title. #}
-{% macro module_card(title, href, icon='folder', color='#2b7fd3', subtitle=None, tall=False) %}
-<a href="{{ href }}" class="block overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-  <div class="flex {{ 'h-32' if tall else 'h-24' }} items-center justify-center" style="background: {{ color }}">
-    <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/25 text-white"><i data-lucide="{{ icon }}" class="h-6 w-6"></i></span>
+{# Launchpad / module card, drawn as the ERP's: a tall coloured band with a darker translucent circle and a
+   thin-line icon, then a white footer with a large bold centred title. #}
+{% macro module_card(title, href, icon='folder', color='#309fdb', subtitle=None, tall=False) %}
+{% set light = color|lower in LIGHT %}
+<a href="{{ href }}" class="oqc-mcard group block overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+  <div class="flex {{ 'h-32' if tall else 'h-24 sm:h-28' }} items-center justify-center" style="background: {{ color }}">
+    <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/10 transition group-hover:scale-105 sm:h-16 sm:w-16 {{ 'text-slate-800/75' if light else 'text-white' }}"><i data-lucide="{{ icon }}" class="h-7 w-7 sm:h-8 sm:w-8" stroke-width="1.25"></i></span>
   </div>
-  <div class="px-3 py-3.5 text-center">
-    <div class="text-[15px] font-semibold text-slate-800">{{ title }}</div>
+  <div class="flex min-h-[64px] flex-col items-center justify-center px-3 py-4 text-center sm:min-h-[76px]">
+    <div class="text-[17px] font-bold leading-snug text-slate-900 sm:text-[19px]">{{ title }}</div>
     {% if subtitle %}<div class="mt-0.5 text-xs text-slate-500">{{ subtitle }}</div>{% endif %}
   </div>
 </a>
+{% endmacro %}
+
+{# The ERP's boxed tile region: a white panel with its title on a header row and the tiles side by side,
+   a hairline between each. `tiles` is a list of {label, value, href}; colours cycle from the palette start. #}
+{% macro stat_panel(title, tiles) %}
+<section class="mb-4 rounded-sm border border-slate-200 bg-white shadow-sm" aria-label="{{ title }}">
+  <h2 class="border-b border-slate-200 px-3 py-2.5 text-[15px] font-medium text-slate-800">{{ title }}</h2>
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-flow-col lg:auto-cols-fr lg:grid-cols-none lg:divide-x lg:divide-slate-200">
+    {% for t in tiles %}<div class="p-2 lg:p-3">{{ stat(t.label, t.value, color=palette(loop.index0), href=t.href) }}</div>{% endfor %}
+  </div>
+</section>
 {% endmacro %}
 
 {% macro card(title=None, subtitle=None, padding=True, id=None) %}
@@ -195,11 +208,20 @@
 </nav></div>
 {% endmacro %}
 
-{% macro filter_bar(action='') %}
-<form method="get" action="{{ action }}" class="mb-3 flex flex-wrap items-end gap-2 rounded-md border border-slate-200 bg-white p-2.5">
-  {{ caller() }}
-  <button class="inline-flex items-center gap-1 rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"><i data-lucide="search" class="h-3.5 w-3.5"></i>Go</button>
-  <a href="{{ action or '?' }}" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+{# The ERP's "Search Options" region: a blue header bar that folds the filters away, Reset and Search on its
+   right, the filter fields underneath. Enter in any field still submits. #}
+{% macro filter_bar(action='', title='Search Options') %}
+<form method="get" action="{{ action }}" x-data="{ open: true }" class="oqc-filters mb-3 overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm">
+  <div class="flex items-center gap-2 bg-[#309fdb] px-2 py-1.5 text-white">
+    <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-label="Show or hide search options"
+            class="inline-flex h-6 w-6 items-center justify-center rounded-sm bg-white text-[#309fdb] hover:bg-white/90"><i data-lucide="chevron-down" class="h-4 w-4 transition" :class="open ? '' : '-rotate-90'"></i></button>
+    <span class="flex-1 text-[14px] font-semibold">{{ title }}</span>
+    <a href="{{ action or '?' }}" title="Reset" aria-label="Reset" class="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/60 bg-white text-slate-600 hover:text-slate-900"><i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i></a>
+    <button class="inline-flex h-7 items-center gap-1 rounded-sm border border-white/60 bg-white px-2.5 text-xs font-medium text-slate-700 hover:text-slate-900">Search <i data-lucide="search" class="h-3.5 w-3.5"></i></button>
+  </div>
+  <div x-show="open" class="flex flex-wrap items-end gap-2 p-2.5">
+    {{ caller() }}
+  </div>
 </form>
 {% endmacro %}
 

@@ -166,6 +166,6 @@ def test_a_requester_cannot_set_the_status_or_hr_remarks_of_their_own_request():
 def test_area_home_cards_are_drawn_once(admin):
     for url in ("/home", "/home/academics", "/home/hr", "/home/system"):
         body = re.sub(r"<aside.*?</aside>", "", admin.get(url).text, flags=re.S)
-        hrefs = re.findall(r'<a href="([^"#?]+)" class="block overflow-hidden', body)
+        hrefs = re.findall(r'<a href="([^"#?]+)" class="oqc-mcard ', body)
         assert hrefs, url
         assert not [h for h, n in collections.Counter(hrefs).items() if n > 1], url

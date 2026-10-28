@@ -12,16 +12,20 @@ from __future__ import annotations
 
 from app.core import rbac
 
-# Saturated tile palette in the order the launchpad and stat rows cycle through it.
-PALETTE = ["#2b7fd3", "#1aa7cf", "#27b7a4", "#33b479", "#7cc24e", "#e4cd39",
-           "#ee8a2b", "#e35a4e", "#e95d7c", "#c94ca1", "#8c4ca9", "#5b62b1"]
+# Saturated tile palette in the order the launchpad and stat rows cycle through it: the ERP's own thirteen
+# card colours, measured off its Academic Home, so the same card lands on the same colour in both systems.
+PALETTE = ["#309fdb", "#13b6cf", "#2ebfbc", "#3caf85", "#81bb5f", "#dede53", "#fbce4a",
+           "#ed813e", "#e95b54", "#e85d88", "#ca589d", "#854e9b", "#5a68ad"]
+
+# Too light for white text (yellow 1.4:1, amber 1.6:1): the ERP draws these two with dark text and icons.
+LIGHT = {"#dede53", "#fbce4a"}
 
 # Named colours used by templates (stat(color=...)) mapped onto the same palette.
 TILE = {
-    "sky": "#2b7fd3", "blue": "#2b7fd3", "brand": "#1d6fcf", "cyan": "#1aa7cf", "teal": "#27b7a4",
-    "emerald": "#33b479", "green": "#33b479", "lime": "#7cc24e", "amber": "#e4cd39", "yellow": "#e4cd39",
-    "orange": "#ee8a2b", "rose": "#e35a4e", "red": "#e35a4e", "pink": "#e95d7c", "fuchsia": "#c94ca1",
-    "violet": "#8c4ca9", "purple": "#8c4ca9", "indigo": "#5b62b1", "slate": "#6b7a90", "gray": "#6b7a90",
+    "sky": "#309fdb", "blue": "#309fdb", "brand": "#1d6fcf", "cyan": "#13b6cf", "teal": "#2ebfbc",
+    "emerald": "#3caf85", "green": "#3caf85", "lime": "#81bb5f", "yellow": "#dede53", "amber": "#fbce4a",
+    "orange": "#ed813e", "rose": "#e95b54", "red": "#e95b54", "pink": "#e85d88", "fuchsia": "#ca589d",
+    "violet": "#854e9b", "purple": "#854e9b", "indigo": "#5a68ad", "slate": "#6b7a90", "gray": "#6b7a90",
 }
 
 
