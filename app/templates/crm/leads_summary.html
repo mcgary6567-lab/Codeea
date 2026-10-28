@@ -1,0 +1,42 @@
+{# Lead Summary Report — the ERP's Billing › Client Management › Leads Summary: a Filter region with the
+   two dates, then one line per closer counted by stage, verified and converted. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Lead Summary Report{% endblock %}
+{% block content %}
+{% call ui.page_header("Lead Summary Report", "Leads that came in between the two dates, one line per closer.") %}
+  {{ ui.button("Leads List", href="/crm/leads?view=list", icon="sprout", variant="secondary") }}
+  {{ ui.button("Verify Leads", href="/crm/leads/verify", icon="badge-check", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/crm/leads/summary', title='Filter') %}
+  <div class="w-40">{{ ui.input('start', 'From Date', start, type='date') }}</div>
+  <div class="w-40">{{ ui.input('end', 'To Date', end, type='date') }}</div>
+{% endcall %}
+
+{% set heads = ['Lead Closer', 'Total Leads'] %}
+{% for s in stages %}{% set _ = heads.append(s|label('lead')) %}{% endfor %}
+{% set _ = heads.extend(['Verified', 'Converted', 'Conversion %']) %}
+{{ ui.table_start(heads, compact=True) }}
+{% for r in rows %}
+<tr>
+  <td class="px-3 py-1.5 font-medium">{{ r.closer }}</td>
+  <td class="px-3 py-1.5 text-right font-semibold">{{ r.total }}</td>
+  {% for s in stages %}<td class="px-3 py-1.5 text-right {{ 'text-slate-400' if not r[s] }}">{{ r[s] }}</td>{% endfor %}
+  <td class="px-3 py-1.5 text-right">{{ r.verified }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.converted }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.conversion }}%</td>
+</tr>
+{% else %}{{ ui.empty('No leads came in between these dates.', heads|length, 'sprout') }}{% endfor %}
+{% if rows %}
+<tr class="bg-[#e8f1fb] font-semibold">
+  <td class="px-3 py-1.5">Total</td>
+  <td class="px-3 py-1.5 text-right">{{ totals.total }}</td>
+  {% for s in stages %}<td class="px-3 py-1.5 text-right">{{ totals[s] }}</td>{% endfor %}
+  <td class="px-3 py-1.5 text-right">{{ totals.verified }}</td>
+  <td class="px-3 py-1.5 text-right">{{ totals.converted }}</td>
+  <td class="px-3 py-1.5 text-right">{{ totals.conversion }}%</td>
+</tr>
+{% endif %}
+{{ ui.table_end() }}
+{% endblock %}

@@ -2313,7 +2313,7 @@ SUMMARY_HEADERS = ["ID", "Client Name", "Status", "Reg Date", "Shift Name", "B.R
 
 
 def _summary_rows(db: Session, q: str, status: str, shift: str, currency: str, date_from: str, date_to: str,
-                  view: str) -> list[dict]:
+                  view: str, country: str = "") -> list[dict]:
     """Families matching the Search Options, with their derived money figures, in the ERP's report order."""
     query = db.query(Client)
     if q:
@@ -2330,26 +2330,29 @@ def _summary_rows(db: Session, q: str, status: str, shift: str, currency: str, d
         query = query.filter(Client.shift == shift)
     if currency:
         query = query.filter(Client.currency == currency)
+    if country:
+        query = query.filter(Client.country == country)
     clients = query.order_by(Client.client_code).all()
     rows = billing.client_financial_summary(db, clients, parse_date(date_from), parse_date(date_to))
     return billing.apply_summary_view(rows, view)
 
 
-def _summary_qs(q: str, status: str, shift: str, currency: str, date_from: str, date_to: str, view: str) -> str:
+def _summary_qs(q: str, status: str, shift: str, currency: str, date_from: str, date_to: str, view: str,
+                country: str = "") -> str:
     return (f"q={q}&status={status}&shift={shift}&currency={currency}"
-            f"&date_from={date_from}&date_to={date_to}&view={view}")
+            f"&date_from={date_from}&date_to={date_to}&view={view}&country={country}")
 
 
 @router.get("/clients-summary", include_in_schema=False)
 def clients_financial_summary(request: Request, page: int = 1, q: str = "", status: str = "", shift: str = "",
                               currency: str = "", date_from: str = "", date_to: str = "", view: str = "all",
-                              format: str = "", print_view: int = 0, db: Session = Depends(get_db),
+                              country: str = "", format: str = "", print_view: int = 0, db: Session = Depends(get_db),
                               user: User = Depends(require("billing.view"))):
     from app.core.templating import label as status_label
     from app.core.utils import Page          # paginate() wants a query; these rows are derived in Python
     from app.models.core import NotificationTemplate
     view = view if view in dict(billing.CLIENT_SUMMARY_VIEWS) else "all"
-    rows = _summary_rows(db, q, status, shift, currency, date_from, date_to, view)
+    rows = _summary_rows(db, q, status, shift, currency, date_from, date_to, view, country)
     totals = billing.client_summary_totals(db, rows)
     if format == "csv":
         out = [["Clients Financial Summary", dict(billing.CLIENT_SUMMARY_VIEWS)[view],
@@ -2368,13 +2371,15 @@ def clients_financial_summary(request: Request, page: int = 1, q: str = "", stat
     per_page = 500 if print_view else 25
     start = (max(1, page) - 1) * per_page
     pg = Page(rows[start:start + per_page], len(rows), max(1, page), per_page)
-    qs = _summary_qs(q, status, shift, currency, date_from, date_to, view)
+    qs = _summary_qs(q, status, shift, currency, date_from, date_to, view, country)
     notification_templates = (db.query(NotificationTemplate).filter(NotificationTemplate.is_active.is_(True))
                               .order_by(NotificationTemplate.event_type).all())
     return render(request, "finance/clients_summary.html", {
         "user": user, "page": pg, "rows": pg.items, "totals": totals, "headers": SUMMARY_HEADERS,
         "q": q, "status": status, "shift": shift, "currency": currency, "date_from": date_from,
-        "date_to": date_to, "view": view, "views": billing.CLIENT_SUMMARY_VIEWS, "qs": qs,
+        "date_to": date_to, "view": view, "views": billing.CLIENT_SUMMARY_VIEWS, "qs": qs, "country": country,
+        "countries": [c for (c,) in db.query(Client.country).filter(Client.country.isnot(None), Client.country != "")
+                      .distinct().order_by(Client.country)],
         "statuses": SUMMARY_STATUSES, "shifts": SUMMARY_SHIFTS, "currencies": _currency_codes(db),
         "base_url": f"/finance/clients-summary?{qs}", "print_view": bool(print_view),
         "notify_templates": [(t.id, t.event_type.replace("_", " ").title() + " (" + t.channel + ") - " + t.subject)

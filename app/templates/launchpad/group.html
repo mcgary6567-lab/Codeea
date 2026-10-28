@@ -1,13 +1,24 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}{{ group.label }}{% endblock %}
+{% block title %}{{ group.title or group.label }}{% endblock %}
 {% block content %}
+{% set erp = group["items"]|rejectattr("extra")|list %}
+{% set more = group["items"]|selectattr("extra")|list %}
 <div class="mx-auto max-w-7xl">
-  {{ ui.page_header(group.label, group.blurb) }}
+  {{ ui.page_header(group.title or group.label, group.blurb) }}
+  {# the ERP's own cards, in its order; pages only OQC has follow under their own heading #}
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    {% for item in group["items"] %}
+    {% for item in erp %}
       {{ ui.module_card(item.label, item.url, icon=item.icon, color=item.color) }}
     {% endfor %}
   </div>
+  {% if more %}
+  <h2 class="mb-3 mt-8 border-b border-slate-200 pb-2 text-[15px] font-semibold text-slate-700">More in OQC</h2>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for item in more %}
+      {{ ui.module_card(item.label, item.url, icon=item.icon, color=palette(loop.index0)) }}
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

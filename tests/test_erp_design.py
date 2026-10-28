@@ -52,3 +52,37 @@ def test_list_pages_carry_the_search_options_bar(admin):
     assert "oqc-filters" in html and "Search Options" in html
     form = re.search(r'<form method="get" action="/classes".*?</form>', html, re.S).group(0)
     assert 'name="date_from"' in form and ">Search <" in form
+
+
+# --------------------------------------------------------------------------- Billing Management
+def _titles(html: str) -> list[str]:
+    return [re.sub(r"\s+", " ", t).strip() for t in
+            re.findall(r'class="oqc-mcard .*?<div class="text-\[17px\][^"]*">(.*?)</div>', html, re.S)]
+
+
+def test_billing_card_pages_hold_the_erps_cards_in_its_order(admin):
+    home = admin.get("/home/finance").text
+    assert "Online Academic - Billing" in home
+    assert _titles(home) == ["Client Management", "Billing", "Configurations"]
+    assert _titles(admin.get("/home/finance/clients").text) == [
+        "Clients List", "Clients Financial Summary", "Leads List", "Verify Leads", "Leads Summary"]
+    assert _titles(admin.get("/home/finance/config").text) == ["Billing Groups", "Lead Closers"]
+    billing = admin.get("/home/finance/billing").text
+    assert "<h1" in billing and "Billing Management" in billing
+    erp, _, more = billing.partition("More in OQC")
+    assert _titles(erp) == ["Invoices", "Receipts", "Ledger Additions", "Client Ledger"]
+    assert "Bulk Invoice Generation" in _titles(more)   # OQC's own pages stay reachable, after the ERP's
+
+
+def test_leads_summary_counts_add_up(admin):
+    html = admin.get("/crm/leads/summary?start=2000-01-01&end=2100-01-01").text
+    assert ">Filter<" in html and "Lead Closer" in html
+    total = re.search(r'<tr class="bg-\[#e8f1fb\] font-semibold">(.*?)</tr>', html, re.S).group(1)
+    nums = [int(n) for n in re.findall(r">(\d+)</td>", total)]
+    assert nums[0] == sum(nums[1:9]) > 0      # every lead is in exactly one stage
+
+
+def test_clients_financial_summary_filters_by_country(admin):
+    html = admin.get("/finance/clients-summary?country=Nowhere-Land").text
+    assert 'name="country"' in html
+    assert "C-0" not in html.split("<tbody", 1)[-1].split("</tbody>", 1)[0]

@@ -24,7 +24,7 @@
   <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Collected this month <b class="text-emerald-600">{{ stats.collected_month|money(stats.base) }}</b> · collection rate {{ stats.collection_rate }}%</span>
 </div>
 
-{% call ui.filter_bar('/finance/invoices') %}
+{% call ui.filter_bar('/finance/invoices', title='Filter') %}
   <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
   <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
   <div class="w-56">{{ ui.select('client_id', 'Client', clients, client_id, placeholder='All clients') }}</div>

@@ -385,6 +385,33 @@ async def verify_lead_convert(lead_id: int, request: Request, db: Session = Depe
     return redirect(f"/clients/{client.id}", msg)
 
 
+@router.get("/leads/summary", include_in_schema=False)
+def leads_summary(request: Request, start: str = "", end: str = "", db: Session = Depends(get_db),
+                  user: User = Depends(require("leads.view"))):
+    """The ERP's Lead Summary Report: one line per closer for the leads that came in between two dates,
+    counted by stage, with how many were verified and how many became families."""
+    today = date.today()
+    d1, d2 = parse_date(start) or today.replace(day=1), parse_date(end) or today
+    leads = (scope_leads(db.query(Lead), user)
+             .filter(Lead.created_at >= datetime.combine(d1, datetime.min.time()),
+                     Lead.created_at <= datetime.combine(d2, datetime.max.time())).all())
+    by_closer: dict[int | None, dict] = {}
+    for l in leads:
+        row = by_closer.setdefault(l.assigned_to_id, {
+            "closer": l.assigned_to.full_name if l.assigned_to else "Unassigned", "total": 0, "verified": 0,
+            "converted": 0, **{s: 0 for s in LEAD_STAGES}})
+        row["total"] += 1
+        row[l.stage if l.stage in LEAD_STAGES else "new"] += 1
+        row["verified"] += l.verification_status in ("verified", "converted")
+        row["converted"] += bool(l.converted_client_id)
+    rows = sorted(by_closer.values(), key=lambda r: (r["closer"] == "Unassigned", -r["total"], r["closer"]))
+    totals = {k: sum(r[k] for r in rows) for k in ("total", "verified", "converted", *LEAD_STAGES)}
+    for r in (*rows, totals):
+        r["conversion"] = round(100 * r["converted"] / r["total"], 1) if r["total"] else 0.0
+    return render(request, "crm/leads_summary.html", {"user": user, "rows": rows, "totals": totals, "stages": LEAD_STAGES,
+                                                      "start": d1.isoformat(), "end": d2.isoformat()})
+
+
 @router.get("/leads/{id}", include_in_schema=False)
 def lead_detail(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leads.view"))):
     lead = _lead(db, id, user)
