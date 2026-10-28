@@ -1,6 +1,6 @@
 # prometheusai.tech — all crawlers welcome, including AI search bots
 User-agent: *
-Disallow: /cgi-bin/
+Disallow:
 Allow: /
 
 # AI search / answer engines (explicitly allowed so they can cite this site)
