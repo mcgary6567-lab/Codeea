@@ -50,6 +50,15 @@
 </a>
 {% endmacro %}
 
+{# The ERP's dashboard region: a white box under a blue title bar (HR Home's Gender Distribution, Contract
+   Ends, Today's Attendance Status, Pending Requests). Use with {% call ui.blue_panel("Title") %}. #}
+{% macro blue_panel(title, class='') %}
+<section class="flex flex-col overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm {{ class }}" aria-label="{{ title }}">
+  <h2 class="bg-[#309fdb] px-3 py-2 text-[14px] font-semibold text-white">{{ title }}</h2>
+  <div class="flex-1 p-2">{{ caller() }}</div>
+</section>
+{% endmacro %}
+
 {# The ERP's boxed tile region: a white panel with its title on a header row and the tiles side by side,
    a hairline between each. `tiles` is a list of {label, value, href}; colours cycle from the palette start. #}
 {% macro stat_panel(title, tiles) %}

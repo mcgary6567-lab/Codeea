@@ -929,7 +929,8 @@ def _row_is_type(row: HRAttendance, kind: str) -> bool:
 # ------------------------------------------------------------------ Daily Attendance + the existing tabs
 @router.get("/attendance", include_in_schema=False)
 def attendance_board(request: Request, tab: str = "daily", day: str = "", month: str = "", employee_id: int = 0,
-                     shift: str = "", type: str = "", db: Session = Depends(get_db),
+                     shift: str = "", type: str = "", employee_type: str = "", designation: str = "",
+                     department: str = "", db: Session = Depends(get_db),
                      user: User = Depends(require("hr_attendance.view"))):
     d = parse_date(day) or date.today()
     month = _month_param(month)
@@ -950,10 +951,15 @@ def attendance_board(request: Request, tab: str = "daily", day: str = "", month:
                  "shift": shift, "type": type if type in ATTENDANCE_STATUSES else "", "shifts": SHIFT_GROUPS,
                  "employees": _employee_options(db),
                  "statuses": ATTENDANCE_STATUSES, "type_labels": ATTENDANCE_TYPE_LABELS,
-                 "type_options": ATTENDANCE_TYPE_OPTIONS, "fallback": fallback, "today_date": date.today()}
+                 "type_options": ATTENDANCE_TYPE_OPTIONS, "fallback": fallback, "today_date": date.today(),
+                 # the ERP's Search Options on Daily Attendance: who, and which kind of staff
+                 "employee_type": employee_type, "designation": designation, "department": department,
+                 "employee_types": _employee_types(), "designations": _designations(db),
+                 "departments": [(dp.id, dp.name) for dp in _departments(db)]}
     employees = db.query(Employee).filter(Employee.status.in_(["active", "probation", "on_leave"])).order_by(Employee.full_name).all()
     if tab == "daily":
-        staff = _staff_query(db, shift=shift).all()
+        staff = _staff_query(db, shift=shift, employee_type=employee_type, designation=designation,
+                             department=department, employee_id=employee_id).all()
         ids = [e.id for e in staff]
         rows = (db.query(HRAttendance).filter(HRAttendance.date == d, HRAttendance.employee_id.in_(ids or [-1]))
                 .all()) if ids else []

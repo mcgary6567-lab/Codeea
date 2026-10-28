@@ -8,6 +8,7 @@
   {{ ui.button('Progress Sheet', href='/hr/progress-sheet', icon='clipboard-list', variant='secondary') }}
   {{ ui.button('Leave Assignment', href='/hr/leave-entitlements', icon='calendar-check', variant='secondary') }}
   {{ ui.button('Export month', href='/hr/attendance/export.csv?month=' ~ month, icon='download', variant='secondary') }}
+  {{ ui.button('View Machine Status', href='/hr/attendance-machines', icon='fingerprint', variant='secondary') }}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
 
@@ -23,8 +24,12 @@
 {% call ui.filter_bar('/hr/attendance') %}
   <input type="hidden" name="tab" value="daily">
   <div class="w-44">{{ ui.input('day', 'Date', day|string, type='date') }}</div>
-  <div class="w-40">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
+  <div class="w-56">{{ ui.select('employee_id', 'Employee', employees, employee_id or None, placeholder='All employees') }}</div>
   <div class="w-40">{{ ui.select('type', 'Attendance Type', type_options, type, placeholder='All types') }}</div>
+  <div class="w-36">{{ ui.select('employee_type', 'Employee Type', employee_types, employee_type, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('designation', 'Designation', designations, designation, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('department', 'Department', departments, department, placeholder='All departments') }}</div>
+  <div class="w-40">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
 {% endcall %}
 
 {% if fallback %}

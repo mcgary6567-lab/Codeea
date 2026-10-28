@@ -73,7 +73,7 @@ def admin_home(user: User = Depends(require("users.view", "settings.view", any_o
 # ============================================================================= USERS
 @router.get("/users", include_in_schema=False)
 def users_list(request: Request, user: User = Depends(require("users.view"))):
-    """User management lives in HR now (Human Resource > Users & Access > Users)."""
+    """User management lives in HR now (Human Resource > HR Configurations > Users)."""
     query = request.url.query
     return RedirectResponse("/hr/users" + (f"?{query}" if query else ""), status_code=301)
 

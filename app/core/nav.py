@@ -158,28 +158,29 @@ HR_GROUPS = [
         _i("Attendance Management", "/hr/dashboards/attendance", "clock", "hr_attendance.view"),
         _i("Financial Management", "/hr/dashboards/financial", "banknote", "payroll.view"),
     ]},
-    {"slug": "employment", "label": "Employment Management", "icon": "id-card", "blurb": "Records, requests, violations, bonuses", "items": [
+    {"slug": "employment", "label": "Employee Management", "title": "Employment Management", "icon": "id-card", "blurb": "Records, requests, violations, bonuses", "items": [
         _i("Employee Record", "/hr/employees", "id-card", "employees.view"),
         _i("Notifications", "/hr/notices", "megaphone", "employees.view"),
         _i("Employee Requests", "/hr/requests", "inbox", "employees.view"),
         _i("Staff Violations", "/hr/violations", "triangle-alert", "violations.view"),
         _i("Staff Bonuses", "/hr/bonuses", "gift", "payroll.view"),
         _i("Downloads", "/hr/downloads", "download", "portal_self.view"),
+        _i("Tasks", "/tasks", "list-checks", "tasks.view"),
         _i("Complaints", "/hr/complaints", "life-buoy", "employees.view"),
         _i("Advance Requests", "/hr/advances", "hand-coins", "payroll.view"),
-        _i("Grievances (confidential)", "/hr/grievances", "lock", "grievances.view"),
+        _i("Grievances (confidential)", "/hr/grievances", "lock", "grievances.view", extra=True),
     ]},
-    {"slug": "attendance", "label": "Time and Attendance", "icon": "clock", "blurb": "Attendance, leaves, entitlements, progress", "items": [
+    {"slug": "attendance", "label": "Time and Attendance Management", "title": "Attendance Management", "icon": "clock", "blurb": "Attendance, leaves, entitlements, progress", "items": [
         _i("Daily Attendance", "/hr/attendance", "clock", "hr_attendance.view"),
         _i("Attendance Summary", "/hr/attendance/summary", "table-2", "employees.view"),
         _i("Employees Progress Sheet", "/hr/progress-sheet", "notebook-pen", "employees.view"),
         _i("Leave Assignment", "/hr/leave-entitlements", "calendar-check", "employees.view"),
         _i("Attendance Change Requests", "/hr/attendance/change-requests", "file-clock", "hr_attendance.view"),
-        _i("Attendance Machine List", "/hr/attendance-machines", "fingerprint", "hr_attendance.view"),
+        _i("Attendance Machine List", "/hr/attendance-machines", "fingerprint", "hr_attendance.view", extra=True),
         _i("Leave Management", "/hr/leaves", "plane", "leaves.view"),
         _i("Attendance Report", "/hr/attendance/report", "table", "employees.view"),
     ]},
-    {"slug": "recruitment", "label": "Recruitment and Hiring", "icon": "briefcase", "blurb": "Vacancies, applications, interviews", "items": [
+    {"slug": "recruitment", "label": "Recruitment and Hiring", "title": "Recruitment & Hiring", "icon": "briefcase", "blurb": "Vacancies, applications, interviews", "items": [
         _i("Job Requisitions", "/hr/recruitment", "briefcase", "recruitment.view"),
         _i("Job Applications", "/hr/applications", "file-text", "recruitment.view"),
         _i("Interview Panels", "/hr/interview-panels", "users-round", "recruitment.view"),
@@ -193,28 +194,26 @@ HR_GROUPS = [
     ]},
     {"slug": "financial", "label": "Financial Management", "icon": "banknote", "blurb": "Payroll", "items": [
         _i("Payroll", "/hr/payroll", "banknote", "payroll.view"),
-        _i("Teacher Payroll", "/hr/payroll/teachers", "user-check", "payroll.view"),
-        _i("Payroll Advances", "/hr/payroll/advances", "hand-coins", "payroll.view"),
-        _i("Payroll Bonuses", "/hr/payroll/bonuses", "gift", "payroll.view"),
-        _i("Salary Bands", "/hr/payroll/bands", "layers", "payroll.view"),
+        _i("Teacher Payroll", "/hr/payroll/teachers", "user-check", "payroll.view", extra=True),
+        _i("Payroll Advances", "/hr/payroll/advances", "hand-coins", "payroll.view", extra=True),
+        _i("Payroll Bonuses", "/hr/payroll/bonuses", "gift", "payroll.view", extra=True),
+        _i("Salary Bands", "/hr/payroll/bands", "layers", "payroll.view", extra=True),
     ]},
-    {"slug": "attachments", "label": "Attachments", "icon": "paperclip", "blurb": "Documents held against any record", "items": [
+    {"slug": "attachments", "label": "Attachments", "href": "/hr/attachments", "icon": "paperclip", "blurb": "Documents held against any record", "items": [
         _i("Attachments", "/hr/attachments", "paperclip", "employees.view"),
-    ]},
-    {"slug": "access", "label": "Users & Access", "icon": "user-cog", "blurb": "Staff sign-ins, roles and what each role can open", "items": [
-        _i("Users", "/hr/users", "user-cog", "users.view"),
-        _i("Roles", "/admin/roles", "shield-check", "roles.view"),
-        _i("Permissions", "/hr/permissions", "key-square", "roles.view"),
-        _i("Provisioning", "/hr/provisioning", "key-round", "provisioning.view"),
     ]},
     {"slug": "config", "label": "HR Configurations", "icon": "settings", "blurb": "Departments, shifts, holidays, types, agents", "items": [
         _i("Departments", "/hr/config/departments", "building-2", "employees.update"),
         _i("Shift", "/hr/config/shifts", "sun-moon", "employees.update"),
         _i("Holidays", "/hr/config/holidays", "calendar-x", "employees.update"),
+        _i("Users", "/hr/users", "user-cog", "users.view"),
         _i("Violation Types", "/hr/config/violation-types", "triangle-alert", "employees.update"),
         _i("Staff Bonus Types", "/hr/config/bonus-types", "gift", "employees.update"),
-        _i("Confido Agents", "/hr/confido-agents", "monitor-smartphone", "staff_monitoring.view"),
-        _i("HR Configuration", "/hr/config", "settings", "employees.update"),
+        _i("Roles", "/admin/roles", "shield-check", "roles.view", extra=True),
+        _i("Permissions", "/hr/permissions", "key-square", "roles.view", extra=True),
+        _i("Provisioning", "/hr/provisioning", "key-round", "provisioning.view", extra=True),
+        _i("Confido Agents", "/hr/confido-agents", "monitor-smartphone", "staff_monitoring.view", extra=True),
+        _i("HR Configuration", "/hr/config", "settings", "employees.update", extra=True),
     ]},
 ]
 
@@ -463,7 +462,9 @@ def nav_for(user) -> list[dict]:
             for j, g in enumerate(section["groups"]):
                 items = _allowed(user, g["items"])
                 if items:
-                    groups.append(dict(g, items=items, color=palette(j), url=f"/home/{section['slug']}/{g['slug']}"))
+                    # a group with an ``href`` is one the ERP opens straight onto its only page
+                    groups.append(dict(g, items=items, color=palette(j),
+                                       url=g.get("href") or f"/home/{section['slug']}/{g['slug']}"))
             if not groups:
                 continue
             flat = [it for g in groups for it in g["items"]]

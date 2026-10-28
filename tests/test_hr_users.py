@@ -1,4 +1,4 @@
-"""HR > Users & Access: the guided Create User, the simple user page, the Permissions overview and the 4-level editor.
+"""HR > HR Configurations (Users, Roles, Permissions): the guided Create User, the simple user page, the Permissions overview and the 4-level editor.
 
 The client asked for the previous ERP's path: Create User -> Select Employee -> Select Role -> access applied ->
 customise if required -> Save, with user management, roles and permissions living in HR. The checks below cover
@@ -318,7 +318,7 @@ def test_role_page_simple_level_editor(admin, db, made):
 
 
 def test_hr_head_opens_users_roles_permissions_and_a_teacher_cannot(hr):
-    for url in ("/hr/users", "/hr/users/new", "/admin/roles", "/hr/permissions", "/home/hr/access"):
+    for url in ("/hr/users", "/hr/users/new", "/admin/roles", "/hr/permissions", "/home/hr/config"):
         assert hr.get(url).status_code == 200, url
     teacher = _client("teacher1@oqc.local", "Teacher@123")
     for url in ("/hr/users", "/hr/users/new", "/admin/roles", "/hr/permissions"):

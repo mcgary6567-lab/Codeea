@@ -86,3 +86,42 @@ def test_clients_financial_summary_filters_by_country(admin):
     html = admin.get("/finance/clients-summary?country=Nowhere-Land").text
     assert 'name="country"' in html
     assert "C-0" not in html.split("<tbody", 1)[-1].split("</tbody>", 1)[0]
+
+
+# --------------------------------------------------------------------------- Human Resource
+def test_hr_home_has_the_erps_blue_panels_and_eight_cards(admin):
+    html = admin.get("/home/hr").text.replace("&#39;", "'")
+    for title in ("Gender Distribution", "Contract Ends (Within 2 months)", "Today's Attendance Status", "Pending Requests"):
+        assert f'aria-label="{title}"' in html, title
+    assert _titles(html) == ["Dashboards", "Employee Management", "Time and Attendance Management", "Recruitment and Hiring",
+                             "Benefits Management", "Financial Management", "Attachments", "HR Configurations"]
+    assert '<a href="/hr/attachments" class="oqc-mcard' in html     # the ERP's Attachments card opens the list itself
+
+
+@pytest.mark.parametrize("slug,title,cards", [
+    ("employment", "Employment Management", ["Employee Record", "Notifications", "Employee Requests", "Staff Violations",
+                                             "Staff Bonuses", "Downloads", "Tasks", "Complaints", "Advance Requests"]),
+    ("attendance", "Attendance Management", ["Daily Attendance", "Attendance Summary", "Employees Progress Sheet",
+                                             "Leave Assignment", "Attendance Change Requests", "Leave Management",
+                                             "Attendance Report"]),
+    ("recruitment", "Recruitment &amp; Hiring", ["Job Requisitions", "Job Applications", "Interview Panels",
+                                                "Schedule Interviews", "Candidate Database", "Onboarding", "Summary"]),
+    ("financial", "Financial Management", ["Payroll"]),
+    ("config", "HR Configurations", ["Departments", "Shift", "Holidays", "Users", "Violation Types", "Staff Bonus Types"]),
+])
+def test_hr_card_pages_hold_the_erps_cards_first(admin, slug, title, cards):
+    html = admin.get(f"/home/hr/{slug}").text
+    assert title in html
+    assert _titles(html.partition("More in OQC")[0]) == cards
+
+
+def test_old_users_and_access_page_lands_on_hr_configurations(admin):
+    r = admin.get("/home/hr/access", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/home/hr/config"
+
+
+def test_daily_attendance_has_the_erps_search_options(admin):
+    html = admin.get("/hr/attendance").text
+    for name in ("day", "employee_id", "type", "employee_type", "designation", "department", "shift"):
+        assert f'name="{name}"' in html, name
+    assert 'href="/hr/attendance-machines"' in html

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, csrf_protect
@@ -11,6 +12,9 @@ from app.database import get_db
 from app.models.core import User
 
 router = APIRouter(dependencies=[Depends(csrf_protect)])
+
+# card pages that were folded into another, kept so old links and bookmarks still land somewhere
+_MOVED = {("hr", "access"): "/home/hr/config"}
 
 
 @router.get("/home", include_in_schema=False)
@@ -39,6 +43,8 @@ def section(slug: str, request: Request, db: Session = Depends(get_db), user: Us
 
 @router.get("/home/{slug}/{group_slug}", include_in_schema=False)
 def group(slug: str, group_slug: str, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if (slug, group_slug) in _MOVED:
+        return RedirectResponse(_MOVED[slug, group_slug], status_code=301)
     sec, grp = group_for(user, slug, group_slug)
     if sec is None or grp is None:
         raise HTTPException(status_code=404, detail="That area does not exist or you do not have access to it.")

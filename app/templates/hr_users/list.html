@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}Users{% endblock %}
 {% block content %}
-{% call ui.page_header("Users", "Staff sign-ins: who can sign in, with which role, linked to which employee. Family and student logins are managed from their client or student record.", back="/home/hr/access") %}
+{% call ui.page_header("Users", "Staff sign-ins: who can sign in, with which role, linked to which employee. Family and student logins are managed from their client or student record.", back="/home/hr/config") %}
   {% if has_perm(user, 'roles.view') %}{{ ui.button("Permissions", href="/hr/permissions", icon="key-square", variant="secondary") }}{% endif %}
   {% if has_perm(user, 'users.add') %}{{ ui.button("Create User", href="/hr/users/new", icon="user-plus") }}{% endif %}
 {% endcall %}

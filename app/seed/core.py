@@ -55,7 +55,7 @@ USERS = [
 
 # Sign-ins for roles added after the first production deploy. They are created on development databases only: on a
 # deployed instance deploy_secure.py rotates demo passwords only when its configuration changes, so an account created
-# later would keep the published password. Real staff receive these roles through HR > Users & Access.
+# later would keep the published password. Real staff receive these roles through HR > HR Configurations > Users.
 DEV_ONLY_USERS = [
     ("admissions@oqc.local", "Admit@123", "Rukhsana Javed", "head_of_admissions", "marketing"),
     ("academy@oqc.local", "Academy@123", "Ustadh Hamza Siddiqui", "academy_manager", "academics"),

@@ -1,4 +1,4 @@
-"""HR > Users & Access: staff sign-ins, the guided Create User, the simple user page and the Permissions overview.
+"""HR > HR Configurations (Users, Roles, Permissions): staff sign-ins, the guided Create User, the simple user page and the Permissions overview.
 
 The college's previous ERP made a user in one pass: Create User -> Select Employee -> Select Role -> the role's
 access applies -> customise if required -> Save. These screens follow that path. Access is shown and changed in

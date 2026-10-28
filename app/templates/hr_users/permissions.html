@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}Permissions{% endblock %}
 {% block content %}
-{% call ui.page_header("Permissions", "What each staff role can open in every area of the menu. Hover a cell to see how many pages that is.", back="/home/hr/access") %}
+{% call ui.page_header("Permissions", "What each staff role can open in every area of the menu. Hover a cell to see how many pages that is.", back="/home/hr/config") %}
   {{ ui.button("Roles", href="/admin/roles", icon="shield-check", variant="secondary") }}
   {{ ui.button("Test one exact permission", href="/admin/roles/permission-test", icon="flask-conical", variant="secondary") }}
 {% endcall %}

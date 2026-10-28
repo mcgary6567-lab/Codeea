@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}Roles{% endblock %}
 {% block content %}
-{% call ui.page_header("Roles", "Roles grouped by application area, with the users assigned to each. Open a role to see what it can open in plain words, change its access, or assign users to it.", back="/home/hr/access") %}
+{% call ui.page_header("Roles", "Roles grouped by application area, with the users assigned to each. Open a role to see what it can open in plain words, change its access, or assign users to it.", back="/home/hr/config") %}
   {{ ui.button("Check access", href="/admin/roles/permission-test", icon="flask-conical", variant="secondary") }}
   {{ ui.button("Compare roles", href="/admin/roles/compare", icon="git-compare", variant="secondary") }}
   {% if can_create %}{{ ui.button("Create role", href="/admin/roles/new", icon="plus") }}{% endif %}

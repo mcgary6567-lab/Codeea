@@ -1,7 +1,7 @@
 """HR Configurations — the catalogues behind the Human Resource area (audit docs/AUDIT_HUMAN_RESOURCE.md).
 
 Departments · Shift · Holidays · Violation Types · Staff Bonus Types · Grades & Allowances, with a card for
-Confido Agents (app.web.hr_agents). The branch user list moved to HR › Users & Access (/hr/users);
+Confido Agents (app.web.hr_agents). The branch user list moved to HR › HR Configurations (/hr/users);
 /hr/config/users redirects there.
 Shaped exactly like app/web/academic_config.py: an index of cards, then one simple list page per catalogue
 with status tiles, a filter bar, a bordered table using the ERP's column labels, Create in a modal, inline
@@ -552,6 +552,6 @@ async def grade_assign(gid: int, request: Request, db: Session = Depends(get_db)
 # =============================================================================== 7. Users (moved)
 @router.get("/users", include_in_schema=False)
 def users_page(request: Request):
-    """The branch user list is now HR › Users & Access › Users; old links and bookmarks land there."""
+    """The branch user list is now HR › HR Configurations › Users; old links and bookmarks land there."""
     url = "/hr/users" + (f"?{request.url.query}" if request.url.query else "")
     return RedirectResponse(url, status_code=301)

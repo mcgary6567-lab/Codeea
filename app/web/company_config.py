@@ -14,7 +14,7 @@ Screens that belong to a business module moved there; their old addresses redire
     /config/currency-rates     -> /finance/currency-rates     (Accounts › Setup, app.web.finance_settings)
     /config/payment-gateways   -> /finance/payment-gateways   (Accounts › Setup, app.web.finance_settings)
     /config/agents             -> /hr/confido-agents          (HR › HR Configurations, app.web.hr_agents)
-    /config/roles              -> /admin/roles                (HR › Users & Access)
+    /config/roles              -> /admin/roles                (HR › HR Configurations)
 
 Lookups and branch properties come first because the rest of the system reads them: the attendance grace
 periods decide when a late arrival attracts a fine and the advance invoice days decide how far ahead billing
@@ -905,5 +905,5 @@ def moved_agents(request: Request, rest: str = ""):
 
 @router.api_route("/roles", methods=["GET", "HEAD"], include_in_schema=False)
 def moved_roles(request: Request):
-    """The read-only roles list merged into the one Roles page (HR › Users & Access)."""
+    """The read-only roles list merged into the one Roles page (HR › HR Configurations)."""
     return moved_to(request, "/admin/roles")
