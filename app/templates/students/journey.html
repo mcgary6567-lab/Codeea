@@ -177,6 +177,16 @@
 </div>
 
 {% elif view == 'assessments' %}
+{% for t in monthly_tests %}
+{% call ui.card('Monthly test · ' ~ t.period, 'Tests the month of ' ~ t.period ~ (' · scored ' ~ (t.scored_at|date) if t.scored_at else '') ~ (' · card delivered ' ~ (t.delivered_at|date) if t.delivered_at else '')) %}
+  <div class="flex flex-wrap items-center gap-2 text-sm">
+    {% if t.percentage is not none %}<b>{{ t.score|round(1) }}/{{ t.max_score|int }}</b> <span>{{ t.percentage|round(1) }}%</span>{% if t.grade %} {{ ui.badge('info', 'Grade ' ~ t.grade) }}{% endif %}
+    {% else %}<span class="text-slate-500">Not scored yet</span>{% endif %}
+    {{ ui.badge(t.status) }}
+    <a href="/academics/monthly-tests/{{ t.id }}" class="ml-auto text-xs text-brand-700 hover:underline">Open</a>
+  </div>
+{% endcall %}
+{% endfor %}
 {% for e in evaluations %}
 {% set c = answer_summary(e) %}
 {% call ui.card(e.evaluation_type|titleize ~ ' assessment · ' ~ (e.date|date), (e.teacher.full_name if e.teacher else '') ~ (' · stage: ' ~ e.stage if e.stage else '')) %}
@@ -192,7 +202,7 @@
   <div class="mt-3">{{ ui.dl([('Strengths', e.strengths), ('Weaknesses', e.weaknesses), ('Observations', e.teacher_comment), ('Recommendations', e.recommendations), ('Follow-up', e.follow_up)]) }}</div>
 {% endcall %}
 {% else %}
-{% call ui.card() %}<p class="text-sm text-slate-400">No assessment in this period.</p>{% endcall %}
+{% if not monthly_tests %}{% call ui.card() %}<p class="text-sm text-slate-400">No evaluation or monthly test in this period.</p>{% endcall %}{% endif %}
 {% endfor %}
 {% endif %}
 </div>

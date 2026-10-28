@@ -545,8 +545,10 @@ async def change_status(kind: str, request: Request, db: Session = Depends(get_d
                         user: User = Depends(require("requests.update", "requests.approve", any_of=True))):
     if kind not in KINDS:
         raise HTTPException(404, "Unknown request list")
-    url = f"/requests/{kind}"
     form = await request.form()
+    # back to the list exactly as it was (filters, page): the person carries on where they were working
+    back = form.get("back") or ""
+    url = back if back.startswith(f"/requests/{kind}") and "//" not in back else f"/requests/{kind}"
     status = (form.get("status") or "").strip()
     remarks = (form.get("remarks") or "").strip()
     company_response = (form.get("company_response") or "").strip()
@@ -587,4 +589,4 @@ async def change_status(kind: str, request: Request, db: Session = Depends(get_d
                        f"Your request #{obj.id} has been marked {status}. {remarks}", "/portal/requests")
         n += 1
     db.commit()
-    return redirect(f"{url}?status={status}", f"{n} request(s) moved to {status}.")
+    return redirect(url, f"{n} request(s) moved to {status}.")

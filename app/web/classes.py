@@ -36,6 +36,9 @@ REASON_REQUIRED = {"missed", "absent", "cancelled", "rescheduled", "leave"}
 CLASS_STATUS_OPTIONS = [("cancelled", "Cancelled"), ("done", "Done"), ("missed", "Missed"), ("pending", "Pending"),
                         ("started", "Started"), ("absent", "Student Absent"), ("leave", "Student On-Leave"),
                         ("available", "Teacher is Available")]
+# The Status filter offers every status a tile counts, Rescheduled included (QA OQC-05). The New status action keeps
+# CLASS_STATUS_OPTIONS: a class becomes Rescheduled only through an approved reschedule, never by hand.
+CLASS_FILTER_OPTIONS = sorted(CLASS_STATUS_OPTIONS + [("rescheduled", "Rescheduled")], key=lambda o: o[1])
 TILE_STATUSES = ["pending", "available", "started", "done", "missed", "absent", "leave", "cancelled", "rescheduled"]
 ARRANGEMENT_STATUS_OPTIONS = [("active", "Active"), ("inactive", "In-Active")]
 
@@ -61,6 +64,7 @@ def _erp_filters(db: Session, user: User) -> dict:
     teachers = svc.teachers_for(db, user)
     return {
         "class_status_options": CLASS_STATUS_OPTIONS,
+        "class_filter_options": CLASS_FILTER_OPTIONS,
         "teacher_options": [(t.id, t.full_name) for t in teachers],
         # ClassSession.done_by_teacher_id / substitute_for_teacher_id have no relationship on the model
         "teacher_names": {t.id: t.full_name for t in db.query(Teacher).all()},

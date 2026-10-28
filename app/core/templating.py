@@ -148,7 +148,8 @@ def _asset_version() -> str:
     import hashlib
     h = hashlib.md5(usedforsecurity=False)  # cache-busting fingerprint, not security
     static = Path(__file__).resolve().parents[1] / "static"
-    for rel in ("css/tailwind.css", "css/app.css", "js/app.js"):
+    # every file base.html links with ?v=: a change to any of them must reach browsers on the next deploy
+    for rel in ("css/tailwind.css", "css/app.css", "js/app.js", "js/sidebar.js", "js/report.js"):
         f = static / rel
         if f.exists():
             h.update(f.read_bytes())

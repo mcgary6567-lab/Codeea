@@ -29,6 +29,7 @@
 {% endcall %}
 
 <form method="post" action="/requests/{{ kind }}/change-status">
+  <input type="hidden" name="back" value="{{ base_url }}{{ '&page=' ~ page.page if page.page and page.page > 1 }}">
   <p class="mb-2 text-xs text-slate-500">{{ page.total }} request(s) - showing {{ page.start }}-{{ page.end }}</p>
   {{ ui.table_start([''] + meta.headers + ['Status', 'Created At']) }}
   {% for r in rows %}

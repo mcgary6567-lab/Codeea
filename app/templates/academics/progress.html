@@ -67,6 +67,7 @@
     </div>
     {% else %}
     {{ ui.empty_state('No curriculum published for this student’s course yet.', 'library') }}
+    <p class="-mt-2 mb-4 text-center text-xs text-slate-500">Monthly tests are generated only once the course has a published curriculum; a test listed in the timeline below was generated before that rule.</p>
     {% endfor %}
 
     {% call ui.card('Timeline', 'Evaluations, monthly tests and lesson plans') %}

@@ -451,16 +451,32 @@ def generate_monthly_test(db: Session, student: Student, period: str) -> Monthly
     return t
 
 
-def generate_tests_for_period(db: Session, period: str, user: Optional[User] = None, request=None) -> int:
-    created = 0
+def generate_tests_for_period(db: Session, period: str, user: Optional[User] = None, request=None,
+                              skipped: Optional[list] = None) -> int:
+    """Generate the month's test for every active or trial student who has none yet.
+
+    A student whose course has no published lesson is left out: the test is drawn from the curriculum position, and
+    with no curriculum the Progress page has nothing to measure it against (QA OQC-16). Pass a list as ``skipped`` to
+    learn who was left out; the count goes on the audit trail either way."""
+    created, left_out = 0, []
+    has_lessons: dict[Optional[int], bool] = {}
     students = db.query(Student).filter(Student.status.in_(["active", "trial"])).all()
     for s in students:
         if db.query(MonthlyTest.id).filter(MonthlyTest.student_id == s.id, MonthlyTest.period == period).first():
             continue
+        if s.course_id not in has_lessons:
+            has_lessons[s.course_id] = bool(course_lessons(db, s.course_id))
+        if not has_lessons[s.course_id]:
+            left_out.append(s)
+            continue
         generate_monthly_test(db, s, period)
         created += 1
+    if skipped is not None:
+        skipped.extend(left_out)
     if user is not None:
-        log_action(db, user, "generate", "monthly_tests", entity_type="MonthlyTest", description=f"Generated {created} monthly tests for {period}", request=request)
+        log_action(db, user, "generate", "monthly_tests", entity_type="MonthlyTest", request=request,
+                   description=f"Generated {created} monthly tests for {period}"
+                               + (f"; {len(left_out)} student(s) skipped: no published curriculum for their course" if left_out else ""))
     return created
 
 
@@ -757,11 +773,19 @@ def syllabus_compliance(db: Session, course_id: Optional[int] = None, teacher_id
         plans = db.query(LessonPlan).filter(LessonPlan.student_id == s.id).all()
         planned_n = len(plans)
         delivered_n = sum(1 for p in plans if p.status in ("delivered", "partially_delivered"))
-        compliance = round(100.0 * completed / expected, 1) if expected else (100.0 if completed else 0.0)
+        # Nothing expected yet is not "0% on track": with no published lessons, or none due by now, the student is
+        # Not assessed, the compliance is N/A, and the row stays out of the averages and the status counts (QA OQC-12).
+        if not total:
+            status, compliance = "no_curriculum", None
+        elif not expected:
+            status, compliance = "not_due", None
+        else:
+            compliance = min(round(100.0 * completed / expected, 1), 150.0)
+            status = "on_track" if completed >= expected else ("behind" if completed >= expected * 0.7 else "at_risk")
         rows.append({"student": s, "course": s.course, "teacher": s.teacher, "total": total, "completed": completed, "expected": expected,
-                     "gap": completed - expected, "compliance": min(compliance, 150.0), "plans": planned_n, "delivered_plans": delivered_n,
-                     "delivery_rate": round(100.0 * delivered_n / planned_n, 1) if planned_n else 0.0,
-                     "status": "on_track" if completed >= expected else ("behind" if completed >= expected * 0.7 else "at_risk")})
+                     "gap": completed - expected, "compliance": compliance, "plans": planned_n, "delivered_plans": delivered_n,
+                     "delivery_rate": round(100.0 * delivered_n / planned_n, 1) if planned_n else None,
+                     "assessed": compliance is not None, "status": status})
     return rows
 
 

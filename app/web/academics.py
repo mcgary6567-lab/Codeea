@@ -363,19 +363,24 @@ def curriculum_compliance(request: Request, course_id: int = 0, teacher_id: int 
                           user: User = Depends(require("curriculum.view")), ctx: UserContext = Depends(get_user_context)):
     scope = _scope_ids(user, ctx)
     rows = svc.syllabus_compliance(db, course_id or None, teacher_id or None, scope)
-    summary = {"n": len(rows),
-               "on_track": sum(1 for r in rows if r["status"] == "on_track"),
-               "behind": sum(1 for r in rows if r["status"] == "behind"),
-               "at_risk": sum(1 for r in rows if r["status"] == "at_risk"),
-               "avg_compliance": round(sum(r["compliance"] for r in rows) / len(rows), 1) if rows else 0.0,
-               "avg_delivery": round(sum(r["delivery_rate"] for r in rows) / len(rows), 1) if rows else 0.0}
+    # every figure has its own denominator: compliance over the students with lessons due, plan delivery over the
+    # students who have plans; with none, the tile says N/A rather than 0%
+    assessed = [r for r in rows if r["assessed"]]
+    planned = [r for r in rows if r["delivery_rate"] is not None]
+    summary = {"n": len(assessed), "listed": len(rows),
+               "on_track": sum(1 for r in assessed if r["status"] == "on_track"),
+               "behind": sum(1 for r in assessed if r["status"] == "behind"),
+               "at_risk": sum(1 for r in assessed if r["status"] == "at_risk"),
+               "not_assessed": len(rows) - len(assessed),
+               "avg_compliance": round(sum(r["compliance"] for r in assessed) / len(assessed), 1) if assessed else None,
+               "avg_delivery": round(sum(r["delivery_rate"] for r in planned) / len(planned), 1) if planned else None}
     by_course: dict[str, dict] = {}
-    for r in rows:
+    for r in assessed:
         d = by_course.setdefault(r["course"].name if r["course"] else "—", {"label": r["course"].name if r["course"] else "—", "n": 0, "sum": 0.0})
         d["n"] += 1
         d["sum"] += r["compliance"]
     chart = {"labels": list(by_course), "data": [round(d["sum"] / d["n"], 1) for d in by_course.values()]}
-    rows.sort(key=lambda r: r["compliance"])
+    rows.sort(key=lambda r: (not r["assessed"], r["compliance"] or 0))
     return render(request, "academics/compliance.html", {
         "user": user, "rows": rows, "summary": summary, "chart": chart, "course_id": course_id, "teacher_id": teacher_id,
         "course_options": _course_options(db), "teacher_options": _teacher_options(db)})
@@ -1053,15 +1058,20 @@ async def monthly_tests_generate(request: Request, db: Session = Depends(get_db)
                                  user: User = Depends(require("monthly_tests.add"))):
     form = await request.form()
     period = (form.get("period") or svc.period_of()).strip()
+    skipped: list = []
     try:
-        created = svc.generate_tests_for_period(db, period, user, request=request)
+        created = svc.generate_tests_for_period(db, period, user, request=request, skipped=skipped)
     except Exception as exc:
         return redirect("/academics/monthly-tests", f"Could not generate tests: {exc}", "error")
     db.commit()
-    return redirect(f"/academics/monthly-tests?period={period}",
-                    f"{created} test(s) generated for {svc.period_label(period)}." if created
-                    else f"All active students already have a test for {svc.period_label(period)}.",
-                    "success" if created else "info")
+    msg = (f"{created} test(s) generated for {svc.period_label(period)}." if created
+           else f"No new test for {svc.period_label(period)}: every eligible student already has one.")
+    if skipped:
+        courses = sorted({s.course.name for s in skipped if s.course} | ({"no course"} if any(not s.course for s in skipped) else set()))
+        msg += (f" {len(skipped)} student(s) skipped because their course has no published curriculum yet"
+                f" ({', '.join(courses[:5])}{'…' if len(courses) > 5 else ''}).")
+    return redirect(f"/academics/monthly-tests?period={period}", msg,
+                    "success" if created and not skipped else ("warning" if skipped else "info"))
 
 
 @router.get("/monthly-tests/{tid}", include_in_schema=False)

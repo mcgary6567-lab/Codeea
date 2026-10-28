@@ -305,3 +305,89 @@ def test_a_cancelled_subscription_cannot_have_its_classes_rescheduled(tx):
     assert rr.status == "cancelled" and "cancelled" in (rr.comments or "")
     with pytest.raises(ValueError, match="renew it"):
         arrangements.create_reschedule_request(tx, admin_user, cs, day, None, cs.start_time, None, f"{TAG} again")
+
+
+# --------------------------------------------------------------------------- OQC-02 Teacher Change Requests
+def test_change_status_returns_to_the_list_the_person_was_on(admin):
+    html = admin.get("/requests/teacher-change?status=pending").text
+    back = re.search(r'name="back" value="([^"]+)"', html).group(1).replace("&amp;", "&")
+    assert back.startswith("/requests/teacher-change?status=pending")
+    r = admin.post("/requests/teacher-change/change-status", follow_redirects=False,
+                   data={"status": "approved", "remarks": "x", "back": back})   # no row ticked
+    assert r.status_code == 303 and r.headers["location"] == back, "the error must keep the person's filters"
+    r = admin.post("/requests/teacher-change/change-status", follow_redirects=False,
+                   data={"status": "approved", "remarks": "x", "back": "https://evil.example/x"})
+    assert r.headers["location"] == "/requests/teacher-change", "a back link off this list is never followed"
+
+
+def test_report_toolbar_adopts_a_page_s_own_row_checkbox():
+    """The interactive report used to add its own checkbox column beside the page's name="ids" one: two boxes per row,
+    and ticking the report's box sent no ids. It now adopts the page's box; the script is fingerprinted so the fix
+    reaches browsers that cached the old one."""
+    js = pathlib.Path("app/static/js/report.js").read_text(encoding="utf-8")
+    assert "var own = this.trs.every" in js and "setAttribute('data-ir-row', '')" in js
+    from app.core import templating
+    src = pathlib.Path(templating.__file__).read_text(encoding="utf-8")
+    assert '"js/report.js"' in src.split("def _asset_version", 1)[1].split("ASSET_VERSION =", 1)[0]
+
+
+# --------------------------------------------------------------------------- OQC-05 Class Schedules Rescheduled filter
+def test_class_status_filter_offers_rescheduled_but_the_change_action_does_not(admin):
+    html = admin.get("/classes").text
+    filter_form = re.search(r'<form method="get" action="/classes".*?</form>', html, re.S).group(0)
+    assert '<option value="rescheduled"' in filter_form
+    selects = re.findall(r'<select[^>]*name="status"[^>]*>(.*?)</select>', html, re.S)
+    assert any('value="rescheduled"' not in sel for sel in selects[1:]), "New status must not offer Rescheduled"
+    assert admin.get("/classes?status=rescheduled").status_code == 200
+
+
+# --------------------------------------------------------------------------- OQC-12 / OQC-21 Syllabus Compliance
+def test_students_with_nothing_due_are_not_assessed_and_stay_out_of_the_averages(db):
+    from app.services import academic
+    rows = academic.syllabus_compliance(db)
+    for r in rows:
+        if r["expected"] == 0:
+            assert r["compliance"] is None and r["status"] in ("no_curriculum", "not_due") and not r["assessed"]
+        else:
+            assert r["assessed"] and r["status"] in ("on_track", "behind", "at_risk")
+        if r["plans"] == 0:
+            assert r["delivery_rate"] is None
+
+
+def test_compliance_page_says_na_instead_of_zero_and_explains_an_empty_chart(admin, db):
+    from app.services import academic
+    html = admin.get("/academics/curriculum/compliance").text
+    rows = academic.syllabus_compliance(db)
+    assert "Not assessed" in html and "Compliance = lessons completed" in html
+    assessed = [r for r in rows if r["assessed"]]
+    tile = re.search(r'text-\[30px\][^"]*">\s*(\d+)\s*</div>\s*<div[^>]*>Students assessed</div>', html)
+    assert tile and int(tile.group(1)) == len(assessed)
+    if not assessed:
+        assert "no compliance to chart" in html and "complianceChart" not in html
+
+
+# --------------------------------------------------------------------------- OQC-15 / OQC-16 Journey and monthly tests
+def test_journey_assessments_tab_lists_the_period_s_monthly_tests(admin, db):
+    from app.models.academic import MonthlyTest
+    t = db.query(MonthlyTest).order_by(MonthlyTest.id.desc()).first()
+    if t is None:
+        pytest.skip("no monthly test in this database")
+    html = admin.get(f"/students/{t.student_id}/journey?view=assessments&period=month&month={t.period}").text
+    assert f"Monthly test · {t.period}" in html and f"/academics/monthly-tests/{t.id}" in html
+    assert "No evaluation or monthly test in this period" not in html
+
+
+def test_monthly_tests_are_not_generated_without_a_published_curriculum(tx):
+    from app.models.academic import Course, MonthlyTest
+    from app.models.people import Student
+    from app.services import academic
+    bare = Course(name=f"Course {TAG}", code=f"Q{TAG[-4:]}".upper())
+    tx.add(bare)
+    tx.flush()
+    s = tx.query(Student).filter(Student.status.in_(["active", "trial"])).first()
+    s.course_id = bare.id
+    tx.flush()
+    skipped: list = []
+    academic.generate_tests_for_period(tx, "2099-01", skipped=skipped)
+    assert s in skipped
+    assert tx.query(MonthlyTest).filter(MonthlyTest.student_id == s.id, MonthlyTest.period == "2099-01").count() == 0

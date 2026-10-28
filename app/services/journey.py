@@ -641,6 +641,14 @@ def open_actions(db: Session, student: Student, viewer: User) -> dict:
 
 
 # ============================================================================ monthly summary
+def monthly_tests_for(db: Session, student: Student, start: date, end: date) -> list[MonthlyTest]:
+    """The monthly tests whose test month falls in the window. A test belongs to the month it tests (its period),
+    not to the day it was scored or delivered: September's test scored on 3 October is a September assessment."""
+    return (db.query(MonthlyTest).filter(MonthlyTest.student_id == student.id,
+                                         MonthlyTest.period >= start.strftime("%Y-%m"), MonthlyTest.period <= end.strftime("%Y-%m"))
+            .order_by(MonthlyTest.period.desc(), MonthlyTest.id.desc()).all())
+
+
 def monthly_summary(db: Session, student: Student, period: str, viewer: User) -> dict:
     """Everything the Academy Manager needs about one student for one month, on one page."""
     start, end = month_bounds(period)

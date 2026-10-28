@@ -527,6 +527,17 @@
   Report.prototype.insertBoxes = function () {
     var self = this, head = this.table.tHead && this.table.tHead.rows[0];
     if (!head || !this.trs.length) { return; }
+    // A page that already ticks rows for its own form (name="ids" on Teacher Change Requests and the like) keeps its
+    // one checkbox per row: it is adopted as the report's selection instead of a second column beside it.
+    var own = this.trs.every(function (tr) { return tr.cells[0] && tr.cells[0].querySelector('input[type=checkbox]'); });
+    if (own) {
+      this.trs.forEach(function (tr) { tr.cells[0].querySelector('input[type=checkbox]').setAttribute('data-ir-row', ''); });
+      if (!head.cells[0].querySelector('[data-ir-all]')) {
+        head.cells[0].insertAdjacentHTML('afterbegin', '<input type="checkbox" data-ir-all aria-label="Select every row shown" class="h-3.5 w-3.5 rounded border-slate-400">');
+      }
+      this.listenBoxes();
+      return;
+    }
     var th = document.createElement('th');
     th.setAttribute('data-ir-sel', '');
     th.className = 'w-8 border border-slate-300 px-2 py-2 text-center';
@@ -541,6 +552,10 @@
     });
     var empty = Array.prototype.filter.call(this.table.tBodies[0].rows, function (tr) { return tr.cells.length === 1 && tr.cells[0].colSpan > 1; });
     empty.forEach(function (tr) { tr.cells[0].colSpan += 1; });
+    this.listenBoxes();
+  };
+  Report.prototype.listenBoxes = function () {
+    var self = this;
     this.table.addEventListener('change', function (e) {
       if (e.target.hasAttribute('data-ir-all')) {
         var on = e.target.checked;
