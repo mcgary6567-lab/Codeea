@@ -256,3 +256,19 @@ def test_shortcut_pages_stay_in_their_owning_area(admin):
     for url, area in [("/finance/currency-rates", "/home/accounts"), ("/hr/confido-agents", "/home/hr")]:
         side = re.search(r'<aside id="area-sidebar".*?</aside>', admin.get(url).text, re.S).group(0)
         assert f'href="{area}"' in side, url
+
+
+# --------------------------------------------------------------------------- Teacher's Employee Self Portal
+def test_teacher_ess_home_is_the_same_erp_design():
+    c = TestClient(app)
+    assert c.post("/login", data={"username": "teacher1@oqc.local", "password": "Teacher@123"}, follow_redirects=False).status_code == 303
+    html = c.get("/home/me").text.replace("&#39;", "'")
+    assert "Employee Self Service" in html
+    for title in ("Today's Attendance", "My Team"):
+        assert f'aria-label="{title}"' in html, title
+    erp, _, more = html.partition("More in OQC")
+    assert _titles(erp) == ESS_CARDS
+    assert '<a href="/teacher/online-class" class="oqc-mcard' in erp      # theirs opens the Online Class page
+    assert {"Performance", "Income & Payslips"} <= set(t.replace("&amp;", "&") for t in _titles(more))
+    for url in ("/hr/me/requests", "/hr/me/team-management", "/hr/me/team/violations", "/hr/me?tab=leaves"):
+        assert c.get(url).status_code == 200, url
