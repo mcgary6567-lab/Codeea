@@ -611,7 +611,7 @@ PROVIDER_META: dict[str, dict] = {
     "whatsapp": {"icon": "message-circle", "color": "emerald", "secrets": ["WHATSAPP_TOKEN", "WHATSAPP_PHONE_ID"],
                  "fields": [("phone_number_display", "Business phone (display)"), ("business_account_id", "WABA ID"), ("template_language", "Default template language"), ("daily_limit", "Daily conversation limit")],
                  "test_label": "Send test WhatsApp", "test_placeholder": "+447700900123", "rate_limit": "80 msg/s per phone number; 1,000 business-initiated conversations/day on a new number (tier upgrades automatically)."},
-    "ghl": {"icon": "funnel", "color": "indigo", "secrets": ["GHL_API_KEY"],
+    "ghl": {"icon": "filter", "color": "indigo", "secrets": ["GHL_API_KEY"],
             "fields": [("enabled", "Sync enabled (yes / no)"), ("location_id", "Location ID"), ("pipeline_id", "Pipeline ID"),
                        ("won_stage_id", "Won stage ID"), ("lost_stage_id", "Lost stage ID"),
                        ("stage_map", "Stage map, JSON: ERP stage → GHL stage id"), ("custom_fields", "Send ERP codes as custom fields (yes / no)"),

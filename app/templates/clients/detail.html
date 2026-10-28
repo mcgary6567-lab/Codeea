@@ -7,6 +7,7 @@
   {% if has_perm(user, 'students.add') %}{{ ui.button('Add student', href='/students/new?client_id=' ~ c.id, icon='user-plus', variant='secondary') }}{% endif %}
   {% if has_perm(user, 'clients.update') %}
     {% if has_perm(user, 'clients.update') %}{{ ui.button('Basic Detail', href='/clients/' ~ c.id ~ '/edit', icon='pencil', variant='secondary') }}{% endif %}
+    {{ ui.button('Status', icon='shuffle', variant='secondary', attrs='type="button" @click="$dispatch(\'open-modal\',\'statusModal\')"') }}
     {% if not c.user %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/portal-login', 'Create portal login', icon='key-round', variant='primary', message='Create a parent portal login? A temporary password will be shown once.', size='md') }}
     {% else %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reset-portal-password', 'Reset portal password', icon='key-round', variant='secondary', message='Reset the portal password? The parent will need the new temporary password.', size='md') }}{% endif %}
     {% if c.status in ('inactive', 'churned') %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reactivate', 'Reactivate', icon='rotate-ccw', variant='success', message='Reactivate this client (Regular) and their portal login?', size='md') }}
@@ -327,4 +328,13 @@
   <div class="flex justify-end gap-2">{{ ui.button('Apply', variant='danger', icon='user-x') }}</div>
 </form>
 {% endcall %}
+{% if has_perm(user, 'clients.update') %}
+{% call ui.modal('statusModal', 'Change client status') %}
+<form method="post" action="/clients/{{ c.id }}/status" class="space-y-4" onsubmit="return confirm('Change the status of {{ c.full_name }}?')">
+  {{ ui.select('status', 'New status', statuses, c.status, placeholder=None, help='Inactive and Drop Out also switch off the family portal login.') }}
+  {{ ui.textarea('reason', 'Reason (required)', '', rows=3, required=True, placeholder='Why is the status changing? Kept as the status remark and on the audit trail.') }}
+  <div class="flex gap-2">{{ ui.button('Apply status change', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
 {% endblock %}

@@ -391,3 +391,97 @@ def test_monthly_tests_are_not_generated_without_a_published_curriculum(tx):
     academic.generate_tests_for_period(tx, "2099-01", skipped=skipped)
     assert s in skipped
     assert tx.query(MonthlyTest).filter(MonthlyTest.student_id == s.id, MonthlyTest.period == "2099-01").count() == 0
+
+
+# --------------------------------------------------------------------------- OQC-01 Teacher assignment from Edit Student
+def test_edit_student_shows_the_teacher_and_a_way_to_assign_one(admin, db):
+    from app.models.people import Student
+    s = db.query(Student).filter(Student.status == "active").first()
+    html = admin.get(f"/students/{s.id}/edit").text
+    assert f'href="/students/{s.id}/change-teacher"' in html
+    assert ("Change teacher" if s.teacher_id else "Assign teacher") in html
+
+
+def test_change_teacher_page_offers_every_verified_teacher(admin, db):
+    from app.models.people import Student, Teacher
+    s = db.query(Student).filter(Student.status == "active").first()
+    html = admin.get(f"/students/{s.id}/change-teacher").text
+    verified = db.query(Teacher).filter(Teacher.is_verified.is_(True), Teacher.status == "active")
+    if s.teacher_id:
+        verified = verified.filter(Teacher.id != s.teacher_id)
+    sel = re.search(r'<select[^>]*name="other_teacher_id"[^>]*>(.*?)</select>', html, re.S)
+    assert sel is not None
+    assert sel.group(1).count("<option value=") - 1 == verified.count(), "the list must hold every verified teacher"
+    r = admin.post(f"/students/{s.id}/change-teacher", data={"other_teacher_id": "0", "reason": "x"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].endswith("/change-teacher")
+
+
+# --------------------------------------------------------------------------- OQC-03 icons that never drew
+def test_every_icon_the_app_names_is_in_the_bundled_lucide():
+    """Ledger Additions asked for "plus-minus" and the CRM pages for "funnel": names this build of Lucide does not
+    have, so the tile drew an empty circle. Every icon named in a menu, a macro call or a data-lucide must exist."""
+    js = pathlib.Path("app/static/vendor/lucide.min.js").read_text(encoding="utf-8")
+
+    def have(name):
+        return re.search(r"\b" + "".join(p[:1].upper() + p[1:] for p in name.split("-")) + r"\b", js) is not None
+    pats = [r'data-lucide="([a-z0-9-]+)"', r"""\bicon\s*=\s*['"]([a-z0-9-]+)['"]""",
+            r"""['"]icon['"]\s*:\s*['"]([a-z0-9-]+)['"]""", r"""_i\("[^"]*",\s*"[^"]*",\s*"([a-z0-9-]+)\""""]
+    missing = {}
+    for p in list(pathlib.Path("app/templates").rglob("*.html")) + list(pathlib.Path("app").rglob("*.py")):
+        s = p.read_text(encoding="utf-8")
+        for pat in pats:
+            for m in re.finditer(pat, s):
+                if not have(m.group(1)):
+                    missing.setdefault(m.group(1), set()).add(str(p))
+    assert not missing, missing
+
+
+# --------------------------------------------------------------------------- OQC-17 Bilingual result card layout
+def test_result_card_text_stays_inside_its_margins_and_columns(tx, tmp_path, monkeypatch):
+    pymupdf = pytest.importorskip("pymupdf")
+    from app.models.academic import MonthlyTest
+    from app.services import academic
+    t = tx.query(MonthlyTest).filter(MonthlyTest.percentage.isnot(None)).first()
+    if t is None:
+        pytest.skip("no scored monthly test in this database")
+    monkeypatch.setattr(academic, "CARD_DIR", tmp_path)
+    t.student.full_name = t.student.full_name + " bin Abdul-Rahman Al-Hashimi Qureshi Siddiqui"
+    academic.generate_result_card_pdf(tx, t)
+    pdf = next(tmp_path.glob("*.pdf"))
+    page = pymupdf.open(pdf)[0]
+    width = page.rect.width
+    words = page.get_text("words")
+    assert words
+    assert max(w[2] for w in words) <= width - 40 + 0.5, "text runs past the right margin"
+    name_line = [w for w in words if "Siddiqui" in w[4] or "Qureshi" in w[4]]
+    assert name_line and max(w[2] for w in name_line) <= 40 + 250 + 0.5, "the student's name ran into the Course column"
+
+
+# --------------------------------------------------------------------------- OQC-04 Client status, as on the student page
+def test_client_page_changes_status_with_a_reason_and_audits_it(admin, db):
+    from app.models.core import AuditEvent
+    from app.models.people import Client
+    c = db.query(Client).filter(Client.status == "active").order_by(Client.id.desc()).first()
+    before = (c.status, c.status_remarks, c.user.is_active if c.user else None)
+    try:
+        html = admin.get(f"/clients/{c.id}").text
+        assert f'action="/clients/{c.id}/status"' in html and "Change client status" in html
+        r = admin.post(f"/clients/{c.id}/status", data={"status": "on_leave"}, follow_redirects=False)
+        db.expire_all()
+        assert r.status_code == 303 and db.get(Client, c.id).status == "active", "no reason, no change"
+        admin.post(f"/clients/{c.id}/status", data={"status": "on_leave", "reason": f"{TAG} travelling"}, follow_redirects=False)
+        db.expire_all()
+        c2 = db.get(Client, c.id)
+        assert c2.status == "on_leave" and c2.status_remarks == f"{TAG} travelling"
+        assert db.query(AuditEvent).filter(AuditEvent.entity_type == "Client", AuditEvent.entity_id == c.id,
+                                           AuditEvent.rationale == f"{TAG} travelling").count() == 1
+        admin.post(f"/clients/{c.id}/status", data={"status": "inactive", "reason": f"{TAG} stopped"}, follow_redirects=False)
+        db.expire_all()
+        if db.get(Client, c.id).user:
+            assert db.get(Client, c.id).user.is_active is False, "an inactive family loses its portal login"
+    finally:
+        c = db.get(Client, c.id)
+        c.status, c.status_remarks = before[0], before[1]
+        if c.user and before[2] is not None:
+            c.user.is_active = before[2]
+        db.commit()

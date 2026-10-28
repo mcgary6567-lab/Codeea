@@ -67,7 +67,7 @@
       <td class="px-3 py-1.5 text-right">{% if has_perm(user, 'integrations.configure') and j.direction == 'out' and j.status in ('failed','dead','skipped') %}
         <form method="post" action="/admin/integrations/ghl/sync/{{ j.id }}/retry">{{ ui.button('Retry', size='sm', variant='ghost') }}</form>{% endif %}</td>
     </tr>
-    {% else %}{{ ui.empty('Nothing has been exchanged with GHL yet.', 9, 'funnel') }}{% endfor %}
+    {% else %}{{ ui.empty('Nothing has been exchanged with GHL yet.', 9, 'filter') }}{% endfor %}
     {{ ui.table_end() }}
     {{ ui.pagination(page, base_url) }}
     {% if has_perm(user, 'integrations.configure') and (stats.failed or stats.dead) %}

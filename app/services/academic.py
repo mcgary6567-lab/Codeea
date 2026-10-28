@@ -1000,6 +1000,7 @@ def generate_result_card_pdf(db: Session, test: MonthlyTest) -> str:
     """Branded bilingual (English + Urdu) monthly result card. Returns storage-relative path."""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase.pdfmetrics import stringWidth
     from reportlab.pdfgen import canvas
     CARD_DIR.mkdir(parents=True, exist_ok=True)
     student = test.student
@@ -1014,7 +1015,20 @@ def generate_result_card_pdf(db: Session, test: MonthlyTest) -> str:
     grey = colors.HexColor("#475569")
     line = colors.HexColor("#cbd5e1")
 
-    def bilingual(y, label_en, label_ur, value, x=40, colw=250):
+    def fit(text, font, size, maxw, smallest=7.5):
+        """Shrink to fit the column, then cut with an ellipsis: a long name never runs into the next column."""
+        text = str(text or "—")
+        while size > smallest and stringWidth(text, font, size) > maxw:
+            size -= 0.5
+        while len(text) > 1 and stringWidth(text, font, size) > maxw:
+            text = text[:-2] + "…"
+        return text, size
+
+    # two columns that both end inside the 40pt margins (the second used to end at 560 on a 555 line), with
+    # the English label left, the Urdu label right-aligned on the same baseline, and the value below both
+    colw, col2 = 250, width - 40 - 250
+
+    def bilingual(y, label_en, label_ur, value, x=40):
         c.setFillColor(grey)
         c.setFont("Helvetica", 8)
         c.drawString(x, y + 11, label_en.upper())
@@ -1022,18 +1036,19 @@ def generate_result_card_pdf(db: Session, test: MonthlyTest) -> str:
             c.setFont(ufont, 9)
             c.drawRightString(x + colw, y + 11, shape_rtl(label_ur))
         c.setFillColor(colors.black)
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(x, y - 2, str(value or "—"))
+        text, size = fit(value, "Helvetica-Bold", 11, colw)
+        c.setFont("Helvetica-Bold", size)
+        c.drawString(x, y - 2, text)
 
     y = height - 130
     bilingual(y, "Student", "طالب علم", f"{student.full_name} ({student.student_code})")
-    bilingual(y, "Course", "کورس", (student.course.name if student.course else "—") + (f" · {student.division.name}" if student.division else ""), x=310)
+    bilingual(y, "Course", "کورس", (student.course.name if student.course else "—") + (f" · {student.division.name}" if student.division else ""), x=col2)
     y -= 34
     bilingual(y, "Teacher", "استاد", test.teacher.full_name if test.teacher else "—")
-    bilingual(y, "Guardian", "سرپرست", student.client.full_name if student.client else "—", x=310)
+    bilingual(y, "Guardian", "سرپرست", student.client.full_name if student.client else "—", x=col2)
     y -= 34
     bilingual(y, "Period", "مہینہ", period_label(test.period))
-    bilingual(y, "Current position", "موجودہ سبق", (test.generated_from or {}).get("sabaq_position") or student.sabaq_position or "—", x=310)
+    bilingual(y, "Current position", "موجودہ سبق", (test.generated_from or {}).get("sabaq_position") or student.sabaq_position or "—", x=col2)
     y -= 30
     c.setStrokeColor(line)
     c.line(40, y, width - 40, y)
@@ -1059,7 +1074,7 @@ def generate_result_card_pdf(db: Session, test: MonthlyTest) -> str:
             y = height - 60
         c.setFont("Helvetica", 9)
         c.drawString(40, y, str(i))
-        c.drawString(60, y, (q.get("item") or "")[:70])
+        c.drawString(60, y, fit(q.get("item") or "", "Helvetica", 9, 320, smallest=9)[0])
         c.drawString(390, y, str(q.get("type", "")).title())
         c.drawRightString(480, y, f"{float(q.get('max', 10)):.0f}")
         c.setFont("Helvetica-Bold", 9)
@@ -1080,15 +1095,17 @@ def generate_result_card_pdf(db: Session, test: MonthlyTest) -> str:
         c.setFillColor(colors.HexColor("#f0fdfa"))
         c.setStrokeColor(brand)
         c.roundRect(x + 3, y, bw - 6, 56, 6, stroke=1, fill=1)
+        # a box is ~100pt wide: "PREVIOUS" and its Urdu would collide on one line, so the Urdu sits on its own line
         c.setFillColor(grey)
         c.setFont("Helvetica", 7)
         c.drawString(x + 10, y + 44, en)
         if ufont:
             c.setFont(ufont, 8)
-            c.drawRightString(x + bw - 10, y + 44, shape_rtl(ur))
+            c.drawRightString(x + bw - 10, y + 32, shape_rtl(ur))
         c.setFillColor(brand if en != "IMPROVEMENT" else (colors.HexColor("#059669") if (test.improvement_pct or 0) >= 0 else colors.HexColor("#e11d48")))
-        c.setFont("Helvetica-Bold", 15 if en != "TOTAL" else 12)
-        c.drawString(x + 10, y + 16, val)
+        text, size = fit(val, "Helvetica-Bold", 15 if en != "TOTAL" else 12, bw - 20, smallest=9)
+        c.setFont("Helvetica-Bold", size)
+        c.drawString(x + 10, y + 10, text)
     # remarks
     y -= 30
     c.setFillColor(brand)

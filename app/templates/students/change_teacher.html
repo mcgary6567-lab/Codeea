@@ -14,7 +14,7 @@
           <label class="block cursor-pointer rounded-lg border p-3 transition"
                  :class="chosen === '{{ r.teacher_id }}' ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-900/20' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700'">
             <div class="flex items-start gap-3">
-              <input type="radio" name="teacher_id" value="{{ r.teacher_id }}" x-model="chosen" class="mt-1 h-4 w-4 text-brand-600" required>
+              <input type="radio" name="teacher_id" value="{{ r.teacher_id }}" x-model="chosen" class="mt-1 h-4 w-4 text-brand-600">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center justify-between gap-2">
                   <div class="font-medium text-slate-900 dark:text-white">{{ r.name }}{% if loop.first %}<span class="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-700">Best match</span>{% endif %}</div>
@@ -44,6 +44,14 @@
           {% endfor %}
           </ul>
           {% if not can_verify %}<p class="mt-2 text-xs text-amber-800">Ask someone who can approve teachers (HR / academics head) to verify them.</p>{% endif %}
+        </div>
+        {% endif %}
+        {% if all_options %}
+        <div class="mt-4">
+          {{ ui.select('other_teacher_id', 'Or choose any verified teacher', all_options, None,
+                       placeholder='All ' ~ all_options|length ~ ' verified teachers, best match first',
+                       help='Use this when the teacher you want is not among the cards. A ticked card takes precedence.',
+                       attrs='@change="chosen = \'\'"') }}
         </div>
         {% endif %}
         <div class="mt-4">{{ ui.select('reason_category', 'Reason category', reasons, 'parent_request', placeholder=None) }}</div>

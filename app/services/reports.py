@@ -59,7 +59,7 @@ REPORTS: list[dict] = [
      "description": "Expenses by category, department and status.", "params": ["range", "department"]},
     {"key": "payroll_summary", "name": "Payroll summary", "group": "Finance", "icon": "banknote",
      "description": "Payslip totals per payroll run and per employee.", "params": ["range"]},
-    {"key": "leads_conversion", "name": "Leads & conversion", "group": "Growth", "icon": "funnel",
+    {"key": "leads_conversion", "name": "Leads & conversion", "group": "Growth", "icon": "filter",
      "description": "Leads by source and campaign with won counts and conversion %.", "params": ["range"]},
     {"key": "trials", "name": "Trials", "group": "Growth", "icon": "flask-conical",
      "description": "Trial classes with teacher, outcome and conversion.", "params": ["range", "teacher"]},

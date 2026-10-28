@@ -9,7 +9,7 @@
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
   {{ ui.stat('Spend', totals.spend|money(c.currency), icon='wallet', color='amber', hint='Budget ' ~ (c.budget|money(c.currency))) }}
-  {{ ui.stat('Leads', totals.leads, icon='funnel', color='sky', hint=totals.crm_leads ~ ' attributed in CRM') }}
+  {{ ui.stat('Leads', totals.leads, icon='filter', color='sky', hint=totals.crm_leads ~ ' attributed in CRM') }}
   {{ ui.stat('CPL', totals.cpl|money, icon='tag', color='indigo') }}
   {{ ui.stat('Conversions', totals.conversions, icon='trophy', color='emerald') }}
   {{ ui.stat('CAC', totals.cac|money, icon='user-plus', color='violet') }}

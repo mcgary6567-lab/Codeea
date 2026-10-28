@@ -126,7 +126,7 @@
                 ('Assigned', current.assigned_to.full_name if current.assigned_to else 'Unassigned'),
                 ('Last message', current.last_message_at|datetime if current.last_message_at else '—')]) }}
       <div class="mt-3 flex flex-wrap gap-2">
-        {% if current.lead_id %}{{ ui.button('Open lead', href='/crm/leads/' ~ current.lead_id, icon='funnel', variant='secondary', size='sm') }}{% endif %}
+        {% if current.lead_id %}{{ ui.button('Open lead', href='/crm/leads/' ~ current.lead_id, icon='filter', variant='secondary', size='sm') }}{% endif %}
         {% if current.client_id %}{{ ui.button('Open client', href='/clients/' ~ current.client_id, icon='users', variant='secondary', size='sm') }}{% endif %}
       </div>
     {% endcall %}

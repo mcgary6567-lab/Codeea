@@ -98,7 +98,7 @@ ACADEMIC_GROUPS = [
     {"slug": "billing", "label": "Billing Management", "icon": "receipt", "blurb": "Invoices, receipts, ledger", "items": [
         _i("Invoice List", "/finance/invoices", "receipt", "billing.view"),
         _i("Receipts", "/finance/receipts", "badge-check", "payments.view"),
-        _i("Ledger Additions", "/finance/ledger-additions", "plus-minus", "ledger.view"),
+        _i("Ledger Additions", "/finance/ledger-additions", "diff", "ledger.view"),
         _i("Client Ledger Report", "/finance/ledger", "book-open-text", "ledger.view"),
     ]},
     {"slug": "evaluation", "label": "Evaluation", "icon": "clipboard-check", "blurb": "Evaluations, tests, lesson plans, certificates", "items": [
@@ -268,7 +268,7 @@ BILLING_GROUPS = [
     {"slug": "billing", "label": "Billing", "title": "Billing Management", "icon": "receipt", "blurb": "Invoices, receipts, ledger", "items": [
         _i("Invoices", "/finance/invoices", "receipt", "billing.view"),
         _i("Receipts", "/finance/receipts", "badge-check", "payments.view"),
-        _i("Ledger Additions", "/finance/ledger-additions", "plus-minus", "ledger.view"),
+        _i("Ledger Additions", "/finance/ledger-additions", "diff", "ledger.view"),
         _i("Client Ledger", "/finance/ledger", "book-open-text", "ledger.view"),
         _i("Bulk Invoice Generation", "/finance/invoices/bulk", "layers", "billing.add", extra=True),
         _i("Credit Notes", "/finance/ledger/credits", "file-minus", "ledger.view", extra=True),
@@ -322,7 +322,7 @@ ADMIN_NAV = [
     {"slug": "accounts", "label": "Accounts", "title": "Accounts Home", "icon": "landmark",
      "blurb": "Chart of accounts, vouchers, statements", "groups": ACCOUNT_GROUPS},
     {"slug": "crm", "label": "CRM & Growth", "icon": "megaphone", "blurb": "Leads, WhatsApp, trials, campaigns", "items": [
-        _i("Leads & Pipeline", "/crm/leads", "funnel", "leads.view"),
+        _i("Leads & Pipeline", "/crm/leads", "filter", "leads.view"),
         _i("WhatsApp Inbox", "/crm/inbox", "message-circle", "inbox.view"),
         _i("Trials", "/trials", "flask-conical", "trials.view"),
         _i("Online Registrations", "/registrations", "clipboard-list", "registration.view"),

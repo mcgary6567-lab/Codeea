@@ -66,7 +66,7 @@ def _tiles(m: dict, cur: str = "PKR") -> list[dict]:
          "hint": f"{m['active_subscriptions']} active subscriptions", "href": "/finance/subscriptions"},
         {"label": "Active students", "value": f"{m['active_students']:,}", "icon": "graduation-cap", "color": "sky",
          "delta": d.get("active_students"), "hint": f"+{m['new_students']} joined", "href": "/students?status=active"},
-        {"label": "New leads", "value": f"{m['new_leads']:,}", "icon": "funnel", "color": "indigo",
+        {"label": "New leads", "value": f"{m['new_leads']:,}", "icon": "filter", "color": "indigo",
          "delta": d.get("new_leads"), "hint": f"{m['won_leads']} won", "href": "/crm/leads"},
         {"label": "Lead conversion", "value": fmt_pct(m["lead_conversion"]), "icon": "target", "color": "violet",
          "hint": f"trial {m['trial_conversion']}%", "href": "/crm/marketing"},

@@ -26,7 +26,7 @@
 {% endcall %}
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
-  {{ ui.stat('Leads', d.leads, icon='funnel', color='sky') }}
+  {{ ui.stat('Leads', d.leads, icon='filter', color='sky') }}
   {{ ui.stat('Won', d.won, icon='trophy', color='emerald', hint=d.conversion ~ '% conversion') }}
   {{ ui.stat('Spend', d.spend|money, icon='wallet', color='amber') }}
   {{ ui.stat('CPL', d.cpl|money, icon='tag', color='indigo') }}

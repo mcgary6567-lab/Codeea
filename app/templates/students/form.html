@@ -53,6 +53,14 @@
 <form method="post" action="/students/{{ student.id }}/edit" class="space-y-6 max-w-5xl"
       x-data="{ course: '{{ v.course_id }}', division: '{{ v.division_id }}', divisions: {{ divisions|tojson_safe }} }">
   {% call ui.card("Student details") %}{{ detail_fields(values) }}{% endcall %}
+  {% call ui.card("Teacher", "A teacher is assigned through the matcher, so the change reaches the schedule, the classes and the family.") %}
+    <div class="flex flex-wrap items-center gap-3">
+      {% if student.teacher %}{{ ui.avatar(student.teacher.full_name) }}
+      <div><div class="font-medium">{{ student.teacher.full_name }}</div><div class="font-mono text-[11px] text-slate-500">{{ student.teacher.teacher_code }}</div></div>
+      {% else %}<span class="text-sm text-slate-500">No teacher assigned yet.</span>{% endif %}
+      <div class="ml-auto">{{ ui.button('Change teacher' if student.teacher else 'Assign teacher', href='/students/' ~ student.id ~ '/change-teacher', icon='repeat', variant='secondary') }}</div>
+    </div>
+  {% endcall %}
   {% call ui.card("Family & consent") %}
     <div class="grid gap-4 sm:grid-cols-2">
       {{ ui.select('client_id', 'Parent / client', client_options, v.client_id, placeholder=None, help='Changing the family requires students.assign.') }}

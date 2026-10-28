@@ -567,7 +567,10 @@ def change_teacher_page(id: int, request: Request, db: Session = Depends(get_db)
     # the teachers who cannot be chosen yet, so the reason is visible and the way to fix it is one click away
     waiting = (db.query(Teacher).filter(Teacher.is_verified.is_(False), Teacher.status == "active")
                .order_by(Teacher.full_name).limit(20).all())
+    # every verified teacher, best match first: the one wanted may rank below the eight cards (QA OQC-01)
+    all_options = [(r["teacher_id"], f"{r['name']} · {r['code']} · match {r['score']}") for r in ranked]
     return render(request, "students/change_teacher.html", {"user": user, "s": s, "ranked": ranked, "reasons": TEACHER_CHANGE_REASONS,
+                                                             "all_options": all_options,
                                                              "waiting": waiting, "can_verify": rbac.has_permission(user, "teachers.approve")})
 
 
@@ -575,7 +578,8 @@ def change_teacher_page(id: int, request: Request, db: Session = Depends(get_db)
 async def change_teacher(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("students.assign", "students.update", any_of=True))):
     s = _get(db, id, user)
     form = await request.form()
-    teacher = db.query(Teacher).get(parse_int(form.get("teacher_id")) or 0)
+    # a recommended card, or any verified teacher from the list beneath the cards
+    teacher = db.query(Teacher).get(parse_int(form.get("teacher_id")) or parse_int(form.get("other_teacher_id")) or 0)
     reason = (form.get("reason") or "").strip()
     if not teacher:
         return redirect(f"/students/{s.id}/change-teacher", "Choose a teacher.", "error")

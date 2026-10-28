@@ -13,7 +13,7 @@
   {{ ui.stat('Conversion', stats.conversion ~ '%', icon='trending-up', color='emerald', hint=stats.won ~ ' won / ' ~ stats.lost ~ ' lost') }}
   {{ ui.stat('Average score', stats.avg_score, icon='gauge', color='indigo') }}
   {{ ui.stat('Overdue follow-ups', stats.overdue_follow_ups, icon='alarm-clock', color='amber') }}
-  {{ ui.stat('Open pipeline', stats.total - stats.won - stats.lost, icon='funnel', color='violet', hint=stats.total ~ ' total') }}
+  {{ ui.stat('Open pipeline', stats.total - stats.won - stats.lost, icon='filter', color='violet', hint=stats.total ~ ' total') }}
 </div>
 
 {% if stats.top_lost %}

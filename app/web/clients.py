@@ -381,6 +381,7 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
                                                           (AuditEvent.entity_type == "Student") & (AuditEvent.entity_id.in_(sids)),
                                                           (AuditEvent.entity_type == "User") & (AuditEvent.entity_id == (c.user_id or -1))))
                          .order_by(AuditEvent.created_at.desc()).limit(200).all())
+    ctx["statuses"] = [(s, status_label(s, "client")) for s in STATUSES]
     return render(request, "clients/detail.html", ctx)
 
 
@@ -458,16 +459,7 @@ async def update_client(id: int, request: Request, db: Session = Depends(get_db)
         c.user.timezone = c.timezone
         c.user.phone = c.phone
     if new_status != c.status:
-        old = c.status
-        c.status = new_status
-        if new_status == "trial" and old != "trial":
-            c.converted_at, c.converted_by_id = None, None
-        elif old == "trial" and new_status in ("active", "on_leave"):
-            c.converted_at, c.converted_by_id = datetime.utcnow(), user.id
-        if c.user:
-            c.user.is_active = new_status not in ("inactive", "churned")
-        log_action(db, user, "status_change", "clients", entity=c, description=f"Client {c.client_code} status {old} -> {new_status}",
-                   rationale=reason, before={"status": old}, after={"status": new_status}, request=request, consequential=True)
+        _change_status(db, c, new_status, reason, user, request)
     log_action(db, user, "update", "clients", entity=c, description=f"Client {c.client_code} updated (Basic Detail)", before=before, after=snapshot(c),
                rationale=reason or None, request=request)
     db.commit()
@@ -602,6 +594,43 @@ async def reset_portal_password(id: int, request: Request, db: Session = Depends
     log_action(db, user, "password_reset", "clients", entity=c, description=f"Portal password reset for {c.client_code}", request=request, severity="warning")
     db.commit()
     return render(request, "clients/portal_created.html", {"user": user, "client": c, "password": pwd, "login_email": c.user.email, "reset": True})
+
+
+def _change_status(db: Session, c: Client, new_status: str, reason: str, user: User, request: Request) -> str:
+    """One status change, from the Basic Detail form or the Status dialog: the conversion stamp, the portal login
+    (off for Inactive / Drop Out) and the audit entry with the reason. Returns the old status."""
+    old = c.status
+    c.status = new_status
+    if new_status == "trial" and old != "trial":
+        c.converted_at, c.converted_by_id = None, None
+    elif old == "trial" and new_status in ("active", "on_leave"):
+        c.converted_at, c.converted_by_id = datetime.utcnow(), user.id
+    if c.user:
+        c.user.is_active = new_status not in ("inactive", "churned")
+    log_action(db, user, "status_change", "clients", entity=c, description=f"Client {c.client_code} status {old} -> {new_status}",
+               rationale=reason, before={"status": old}, after={"status": new_status}, request=request, consequential=True)
+    return old
+
+
+@router.post("/{id}/status", include_in_schema=False)
+async def change_status(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.update"))):
+    """The Status dialog on the client page, as the student page has one (QA OQC-04): any client status, a reason
+    always, recorded as the status remark and on the audit trail."""
+    c = _get(db, id, user)
+    form = await request.form()
+    new_status = (form.get("status") or "").strip()
+    reason = (form.get("reason") or form.get("rationale") or "").strip()
+    if new_status not in STATUSES:
+        return redirect(f"/clients/{c.id}", "Choose a valid status.", "error")
+    if not reason:
+        return redirect(f"/clients/{c.id}", "A reason is required for a status change.", "error")
+    if new_status == c.status:
+        return redirect(f"/clients/{c.id}", f"Client is already {status_label(new_status, 'client')}.", "info")
+    c.status_remarks = reason[:200]
+    _change_status(db, c, new_status, reason, user, request)
+    db.commit()
+    return redirect(f"/clients/{c.id}", f"Client marked {status_label(new_status, 'client')}."
+                    + (" Portal login disabled." if c.user and not c.user.is_active else ""))
 
 
 @router.post("/{id}/deactivate", include_in_schema=False)

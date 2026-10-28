@@ -96,7 +96,7 @@
   {% endcall %}
   {% call ui.card("Lead funnel", "Cohort of leads created in the period") %}
     {% if funnel_data|sum %}{{ ui.chart('funnelChart', 260) }}
-    {% else %}{{ ui.empty_state('No leads in this period.', 'funnel') }}{% endif %}
+    {% else %}{{ ui.empty_state('No leads in this period.', 'filter') }}{% endif %}
   {% endcall %}
   {% call ui.card("Today's class execution", today_status.total ~ " sessions scheduled today") %}
     {% if today_status.data|sum %}{{ ui.chart('todayChart', 260) }}

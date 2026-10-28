@@ -10,7 +10,7 @@
 
 <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
   {{ ui.stat('Asks this week', d.stats.week.asks, icon='hand-heart', color='sky') }}
-  {{ ui.stat('Referred leads', d.stats.week.leads, icon='funnel', color='indigo', hint=d.stats.month.leads ~ ' this month') }}
+  {{ ui.stat('Referred leads', d.stats.week.leads, icon='filter', color='indigo', hint=d.stats.month.leads ~ ' this month') }}
   {{ ui.stat('Sign-ups', d.stats.week.signups, icon='user-plus', color='violet', hint=d.stats.month.signups ~ ' this month') }}
   {{ ui.stat('Qualified', d.stats.month.qualified, icon='badge-check', color='emerald', hint='This month') }}
   {{ ui.stat('Credits issued', d.stats.month.credit_total|money, icon='wallet', color='amber', hint=d.stats.month.credited ~ ' credited this month') }}
