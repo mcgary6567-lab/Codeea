@@ -59,6 +59,15 @@
 </section>
 {% endmacro %}
 
+{# The ERP's plain region: a white box with its title on a white header row (Employee Self Service's
+   profile, Today's Attendance and My Team). Use with {% call ui.white_panel("Title") %}. #}
+{% macro white_panel(title, class='') %}
+<section class="flex flex-col overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm {{ class }}" aria-label="{{ title }}">
+  <h2 class="border-b border-slate-200 px-3 py-2.5 text-[14px] font-semibold text-slate-800">{{ title }}</h2>
+  <div class="flex-1 p-3">{{ caller() }}</div>
+</section>
+{% endmacro %}
+
 {# The ERP's boxed tile region: a white panel with its title on a header row and the tiles side by side,
    a hairline between each. `tiles` is a list of {label, value, href}; colours cycle from the palette start. #}
 {% macro stat_panel(title, tiles) %}

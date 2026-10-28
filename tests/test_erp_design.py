@@ -125,3 +125,55 @@ def test_daily_attendance_has_the_erps_search_options(admin):
     for name in ("day", "employee_id", "type", "employee_type", "designation", "department", "shift"):
         assert f'name="{name}"' in html, name
     assert 'href="/hr/attendance-machines"' in html
+
+
+# --------------------------------------------------------------------------- Employee Self Portal
+ESS_CARDS = ["My Schedule", "Requests", "Attendance Sheet", "Tasks", "Daily Progress Sheet", "Team Management",
+             "Account Ledger", "Violations", "Bonuses", "Salary Slips", "Notifications", "Downloads", "Complaints",
+             "My Profile"]
+
+
+@pytest.fixture(scope="module")
+def supervisor():
+    c = TestClient(app)
+    assert c.post("/login", data={"username": "supervisor@oqc.local", "password": "Super@123"}, follow_redirects=False).status_code == 303
+    return c
+
+
+def test_ess_home_has_the_erps_panels_and_fourteen_cards(supervisor):
+    html = supervisor.get("/home/self").text.replace("&#39;", "'")
+    assert "Employee Self Service" in html
+    for title in ("Today's Attendance", "My Team"):
+        assert f'aria-label="{title}"' in html, title
+    assert "Total Pending Tasks &amp; Actions" in html
+    assert 'action="/hr/me/attendance/mark"' in html and 'name="next" value="/home/self"' in html
+    erp, _, more = html.partition("More in OQC")
+    assert _titles(erp) == ESS_CARDS
+    assert [c for _, c in _cards(erp)] == ERP_COLOURS + ERP_COLOURS[:1]   # My Profile wraps to blue, as theirs does
+    assert "My Overview" in _titles(more)
+
+
+def test_ess_home_tree_lists_the_team_under_me(supervisor):
+    html = supervisor.get("/home/self").text
+    team = re.search(r'aria-label="My Team".*?</section>', html, re.S).group(0)
+    assert team.count("<li") >= 2      # me, then at least one report
+
+
+@pytest.mark.parametrize("url,title,cards", [
+    ("/hr/me/requests", "Requests", ["Leave", "Employee Request", "Advance Requests"]),
+    ("/hr/me/team-management", "Team Management", ["Staff Violation", "Staff Bonuses"]),
+])
+def test_ess_card_pages(supervisor, url, title, cards):
+    html = supervisor.get(url).text
+    assert title in html and _titles(html) == cards
+    assert [c for _, c in _cards(html)] == ERP_COLOURS[:len(cards)]
+
+
+@pytest.mark.parametrize("url,title,present,absent", [
+    ("/hr/me/team/violations", "Staff Violations", "Penalty Description", "Bonus Type"),
+    ("/hr/me/team/bonuses", "Staff Bonuses", "Bonus Type", "Penalty Description"),
+])
+def test_team_card_pages_show_their_own_list(supervisor, url, title, present, absent):
+    html = supervisor.get(url).text
+    assert title in html and present in html
+    assert absent not in html

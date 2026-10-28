@@ -83,11 +83,59 @@ def _collaborator_ids(task: Task) -> list[int]:
     return out
 
 
+# ============================================================================== 0. CARD PAGES
+# Two of their fourteen cards open a card page rather than a list: Requests and Team Management.
+REQUEST_CARDS = [("Leave", "/hr/me?tab=leaves", "calendar-off"),
+                 ("Employee Request", "/hr/me?tab=requests", "file-pen"),
+                 ("Advance Requests", "/hr/me?tab=advances", "hand-coins")]
+TEAM_CARDS = [("Staff Violation", "/hr/me/team/violations", "hand"),
+              ("Staff Bonuses", "/hr/me/team/bonuses", "credit-card")]
+
+
+def _card_page(request: Request, user: User, title: str, cards: list[tuple[str, str, str]]):
+    from app.core.nav import palette
+    group = {"label": title, "title": title, "blurb": None,
+             "items": [{"label": label, "url": url, "icon": icon, "color": palette(j)}
+                       for j, (label, url, icon) in enumerate(cards)]}
+    return render(request, "launchpad/group.html", {"user": user, "group": group})
+
+
+@router.get("/requests", include_in_schema=False)
+def requests_menu(request: Request, user: User = Depends(require("portal_self.view"))):
+    return _card_page(request, user, "Requests", REQUEST_CARDS)
+
+
+@router.get("/team-management", include_in_schema=False)
+def team_menu(request: Request, user: User = Depends(require("portal_self.view"))):
+    return _card_page(request, user, "Team Management", TEAM_CARDS)
+
+
 # ============================================================================== 1. TEAM MANAGEMENT
+TEAM_PARTS = {"": "Team Management", "violations": "Staff Violations", "bonuses": "Staff Bonuses"}
+
+
 @router.get("/team", include_in_schema=False)
 def team(request: Request, db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context),
          user: User = Depends(require("portal_self.view"))):
     """My Team as a nested tree, with Staff Violation and Staff Bonuses against anyone inside it."""
+    return _team_page(request, db, ctx, "")
+
+
+@router.get("/team/violations", include_in_schema=False)
+def team_violations(request: Request, db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context),
+                    user: User = Depends(require("portal_self.view"))):
+    """The Staff Violation card: what I have raised against my team, and the Create form."""
+    return _team_page(request, db, ctx, "violations")
+
+
+@router.get("/team/bonuses", include_in_schema=False)
+def team_bonuses(request: Request, db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context),
+                 user: User = Depends(require("portal_self.view"))):
+    """The Staff Bonuses card: what I have proposed for my team, and the Create form."""
+    return _team_page(request, db, ctx, "bonuses")
+
+
+def _team_page(request: Request, db: Session, ctx: UserContext, part: str):
     me = ctx.employee
     tree = dash.reporting_tree(db, me)
     flat = dash.flatten_tree(tree)
@@ -108,6 +156,7 @@ def team(request: Request, db: Session = Depends(get_db), ctx: UserContext = Dep
     b_types = db.query(BonusType).filter(BonusType.status == "active").order_by(BonusType.sort_no).all()
     data = _base(ctx, "team")
     data.update({
+        "part": part, "page_title": TEAM_PARTS[part],
         "tree": tree, "rows": flat, "directs": len(tree), "team_size": len(flat),
         "pending_violations": pending_v, "pending_bonuses": pending_b,
         "member_options": [(n["employee"].id, f"{employee_label(n['employee'])} - {n['employee'].designation}")
@@ -148,7 +197,7 @@ async def team_violation(request: Request, db: Session = Depends(get_db),
     cat = db.get(ViolationType, parse_int(form.get("violation_type_id"), 0) or 0)
     remarks = (form.get("remarks") or form.get("rationale") or "").strip()
     if cat is None or not remarks:
-        return redirect("/hr/me/team", "Choose the offence and say what happened.", "error")
+        return redirect("/hr/me/team/violations", "Choose the offence and say what happened.", "error")
     fine = parse_float(form.get("deduction_amount"), -1.0)
     if fine is None or fine < 0:
         fine = float(cat.penalty_amount or 0)
@@ -171,7 +220,7 @@ async def team_violation(request: Request, db: Session = Depends(get_db),
                f"It is pending a People and Culture decision.",
                event_type="violation", link="/hr/me?tab=violations")
     db.commit()
-    return redirect("/hr/me/team",
+    return redirect("/hr/me/team/violations",
                     f"Violation raised against {target.full_name}; it is pending with People and Culture, "
                     f"and the fine applies only once they approve it.", "warning")
 
@@ -188,10 +237,10 @@ async def team_bonus(request: Request, db: Session = Depends(get_db),
     cat = db.get(BonusType, parse_int(form.get("bonus_type_id"), 0) or 0)
     reason = (form.get("reason") or form.get("rationale") or "").strip()
     if cat is None or not reason:
-        return redirect("/hr/me/team", "Choose the bonus type and say what it is for.", "error")
+        return redirect("/hr/me/team/bonuses", "Choose the bonus type and say what it is for.", "error")
     amount = parse_float(form.get("amount"), 0) or float(cat.bonus_amount or 0)
     if amount <= 0:
-        return redirect("/hr/me/team", "The bonus amount must be greater than zero.", "error")
+        return redirect("/hr/me/team/bonuses", "The bonus amount must be greater than zero.", "error")
     b = Bonus(employee_id=target.id, amount=amount, currency=target.currency or "PKR", bonus_type="performance",
               bonus_type_id=cat.id, reason=reason, period=form.get("period") or month_key(), status="pending")
     db.add(b)
@@ -206,7 +255,7 @@ async def team_bonus(request: Request, db: Session = Depends(get_db),
                f"It is pending a People and Culture decision.",
                event_type="hr_request", link="/hr/me?tab=bonuses")
     db.commit()
-    return redirect("/hr/me/team",
+    return redirect("/hr/me/team/bonuses",
                     f"Bonus of {amount:,.0f} proposed for {target.full_name}; People and Culture decide it.")
 
 

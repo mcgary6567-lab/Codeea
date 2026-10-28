@@ -233,80 +233,60 @@
 <p class="mt-2 text-xs text-slate-500">Late Coming and Duration Shortage are minutes, negative when you were early or worked over. These are the figures payroll reads.</p>
 
 {% elif tab == 'requests' %}
-{# Requests — their sub-menu of three (Leave, Employee Request, Advance Requests) as one tab. #}
-<div class="space-y-6">
-  <div class="grid gap-6 lg:grid-cols-3">
-    <div class="lg:col-span-2">{% call ui.card('Leave Requests') %}
-      {{ ui.table_start(['Type', 'From', 'To', 'Days', 'Reason', 'Status']) }}
-      {% for l in leaves %}
-      <tr><td class="px-3 py-1.5 text-xs">{{ l.leave_type|titleize }}</td><td class="px-3 py-1.5 text-xs">{{ l.start_date|date }}</td>
-        <td class="px-3 py-1.5 text-xs">{{ l.end_date|date }}</td><td class="px-3 py-1.5 text-xs">{{ (l.end_date - l.start_date).days + 1 }}</td>
-        <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[16rem] truncate" title="{{ l.reason or '' }}">{{ l.reason or '—' }}</td>
-        <td class="px-3 py-1.5">{{ ui.badge(l.status, l.status|label('request')) }}</td></tr>
-      {% else %}{{ ui.empty('You have raised no leave requests.', 6) }}{% endfor %}
-      {{ ui.table_end() }}
-    {% endcall %}</div>
-    <div>{% call ui.card('Create Leave Request') %}
-      <form method="post" action="/hr/me/leave" class="space-y-3">
-        {{ ui.select('leave_type', 'Leave Type', leave_types, 'casual', placeholder=None) }}
-        <div class="grid grid-cols-2 gap-2">{{ ui.input('start_date', 'From', '', type='date', required=True) }}{{ ui.input('end_date', 'To', '', type='date') }}</div>
-        {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}
-        {{ ui.button('Create', icon='plus', size='sm') }}
-      </form>
-    {% endcall %}</div>
-  </div>
+{# Employee Requests — the second card on their Requests page. #}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">{% call ui.card('Employee Requests') %}
+    {{ ui.table_start(['ID', 'Date', 'Req Type', 'Description', 'Hr Remarks', 'Status']) }}
+    {% for r in my_requests %}
+    <tr><td class="px-3 py-1.5 font-mono text-xs">{{ r.id }}</td><td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.request_date|date }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ r.request_type }}</td>
+      <td class="px-3 py-1.5 text-xs max-w-[16rem] truncate" title="{{ r.description or '' }}">{{ r.description or '—' }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ r.hr_remarks or '' }}">{{ r.hr_remarks or '—' }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('request')) }}</td></tr>
+    {% else %}{{ ui.empty('You have raised no employee requests.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}</div>
+  <div>{% call ui.card('Create Employee Request') %}
+    <form method="post" action="/hr/me/request" class="space-y-3">
+      {{ ui.select('request_type', 'Req Type', request_types, 'Salary Certificate', placeholder=None) }}
+      {{ ui.textarea('description', 'Description', '', rows=3, required=True) }}
+      {{ ui.button('Create', icon='plus', size='sm') }}
+    </form>
+  {% endcall %}</div>
+</div>
 
-  <div class="grid gap-6 lg:grid-cols-3">
-    <div class="lg:col-span-2">{% call ui.card('Employee Requests') %}
-      {{ ui.table_start(['ID', 'Date', 'Req Type', 'Description', 'Hr Remarks', 'Status']) }}
-      {% for r in my_requests %}
-      <tr><td class="px-3 py-1.5 font-mono text-xs">{{ r.id }}</td><td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.request_date|date }}</td>
-        <td class="px-3 py-1.5 text-xs">{{ r.request_type }}</td>
-        <td class="px-3 py-1.5 text-xs max-w-[16rem] truncate" title="{{ r.description or '' }}">{{ r.description or '—' }}</td>
-        <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ r.hr_remarks or '' }}">{{ r.hr_remarks or '—' }}</td>
-        <td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('request')) }}</td></tr>
-      {% else %}{{ ui.empty('You have raised no employee requests.', 6) }}{% endfor %}
-      {{ ui.table_end() }}
-    {% endcall %}</div>
-    <div>{% call ui.card('Create Employee Request') %}
-      <form method="post" action="/hr/me/request" class="space-y-3">
-        {{ ui.select('request_type', 'Req Type', request_types, 'Salary Certificate', placeholder=None) }}
-        {{ ui.textarea('description', 'Description', '', rows=3, required=True) }}
-        {{ ui.button('Create', icon='plus', size='sm') }}
-      </form>
-    {% endcall %}</div>
-  </div>
-
-  <div class="grid gap-6 lg:grid-cols-3">
-    <div class="lg:col-span-2">{% call ui.card('Advance Requests', 'An approved advance is paid to you and recovered from your salary in instalments; watch it on your Account Ledger.') %}
-      {{ ui.table_start(['ID', 'Request Date', 'Amount', 'No Of Installments', 'Remaining', 'Remarks', 'Hr Remarks', 'Status']) }}
-      {% for a in advances %}
-      <tr><td class="px-3 py-1.5 font-mono text-xs">{{ a.id }}</td><td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ a.request_date|date }}</td>
-        <td class="px-3 py-1.5 text-xs">{{ a.amount|float|money(a.currency) }}</td><td class="px-3 py-1.5 text-xs">{{ a.installments }}</td>
-        <td class="px-3 py-1.5 text-xs">{{ a.remaining|float|money(a.currency) }}</td>
-        <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ a.reason or '' }}">{{ a.reason or '—' }}</td>
-        <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ a.hr_remarks or '' }}">{{ a.hr_remarks or '—' }}</td>
-        <td class="px-3 py-1.5">{{ ui.badge(a.status, a.status|label('request')) }}</td></tr>
-      {% else %}{{ ui.empty('You have requested no advances.', 8) }}{% endfor %}
-      {{ ui.table_end() }}
-    {% endcall %}</div>
-    <div>{% call ui.card('Create Advance Request') %}
-      <form method="post" action="/hr/me/advance" class="space-y-3">
-        {{ ui.input('request_date', 'Request Date', today()|string, type='date', required=True) }}
-        {{ ui.input('amount', 'Amount', '', type='number', step='0.01', min='1', required=True) }}
-        {{ ui.input('installments', 'No Of Installments', '1', type='number', min='1', max='12', required=True) }}
-        {{ ui.textarea('reason', 'Remarks', '', rows=3, placeholder='Why do you need the advance?') }}
-        <div>
-          <label class="mb-1 block text-xs font-medium text-slate-600">Hr Remarks</label>
-          <input type="text" value="" disabled placeholder="Filled in by People &amp; Culture when they decide" class="w-full rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400">
-        </div>
-        {{ ui.button('Create', icon='plus', size='sm') }}
-      </form>
-    {% endcall %}</div>
-  </div>
+{% elif tab == 'advances' %}
+{# Employee Advances — the Advance Requests card on their Requests page. #}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">{% call ui.card('Advance Requests', 'An approved advance is paid to you and recovered from your salary in instalments; watch it on your Account Ledger.') %}
+    {{ ui.table_start(['ID', 'Request Date', 'Amount', 'No Of Installments', 'Remaining', 'Remarks', 'Hr Remarks', 'Status']) }}
+    {% for a in advances %}
+    <tr><td class="px-3 py-1.5 font-mono text-xs">{{ a.id }}</td><td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ a.request_date|date }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ a.amount|float|money(a.currency) }}</td><td class="px-3 py-1.5 text-xs">{{ a.installments }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ a.remaining|float|money(a.currency) }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ a.reason or '' }}">{{ a.reason or '—' }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ a.hr_remarks or '' }}">{{ a.hr_remarks or '—' }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge(a.status, a.status|label('request')) }}</td></tr>
+    {% else %}{{ ui.empty('You have requested no advances.', 8) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}</div>
+  <div>{% call ui.card('Create Advance Request') %}
+    <form method="post" action="/hr/me/advance" class="space-y-3">
+      {{ ui.input('request_date', 'Request Date', today()|string, type='date', required=True) }}
+      {{ ui.input('amount', 'Amount', '', type='number', step='0.01', min='1', required=True) }}
+      {{ ui.input('installments', 'No Of Installments', '1', type='number', min='1', max='12', required=True) }}
+      {{ ui.textarea('reason', 'Remarks', '', rows=3, placeholder='Why do you need the advance?') }}
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-600">Hr Remarks</label>
+        <input type="text" value="" disabled placeholder="Filled in by People &amp; Culture when they decide" class="w-full rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400">
+      </div>
+      {{ ui.button('Create', icon='plus', size='sm') }}
+    </form>
+  {% endcall %}</div>
 </div>
 
 {% elif tab == 'leaves' %}
+{# Leave Requests — the first card on their Requests page, with the year's balance beside the form. #}
 <div class="grid gap-6 lg:grid-cols-3">
   <div class="lg:col-span-2">
     {{ ui.table_start(['Type', 'From', 'To', 'Days', 'Status', 'Reason']) }}
@@ -318,12 +298,12 @@
     {{ ui.table_end() }}
   </div>
   <div class="space-y-4">
-    {% call ui.card('Request leave') %}
+    {% call ui.card('Create Leave Request') %}
     <form method="post" action="/hr/me/leave" class="space-y-3">
-      {{ ui.select('leave_type', 'Type', leave_types, 'casual', placeholder=None) }}
+      {{ ui.select('leave_type', 'Leave Type', leave_types, 'casual', placeholder=None) }}
       <div class="grid grid-cols-2 gap-2">{{ ui.input('start_date', 'From', '', type='date', required=True) }}{{ ui.input('end_date', 'To', '', type='date') }}</div>
       {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}
-      {{ ui.button('Submit request', icon='send', size='sm') }}
+      {{ ui.button('Create', icon='plus', size='sm') }}
     </form>
     {% endcall %}
     {% call ui.card('My balance ' ~ today().year) %}

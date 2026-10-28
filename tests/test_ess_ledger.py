@@ -634,11 +634,15 @@ def test_schedule_tab_for_a_teacher():
     assert "My working pattern" not in body
 
 
-def test_requests_tab_holds_the_three_lists_and_creates_an_advance(staff_a, session, ids):
-    body = staff_a.get("/hr/me?tab=requests").text
-    for block in ["Leave Requests", "Employee Requests", "Advance Requests",
-                  "Create Leave Request", "Create Employee Request", "Create Advance Request"]:
-        assert block in body, block
+def test_requests_pages_hold_the_three_lists_and_create_an_advance(staff_a, session, ids):
+    # their Requests card opens three pages: Leave, Employee Request, Advance Requests
+    for tab, blocks in [("leaves", ["Leave Requests", "Create Leave Request"]),
+                        ("requests", ["Employee Requests", "Create Employee Request"]),
+                        ("advances", ["Employee Advances", "Create Advance Request"])]:
+        body = staff_a.get(f"/hr/me?tab={tab}").text
+        for block in blocks:
+            assert block in body, (tab, block)
+    body = staff_a.get("/hr/me?tab=advances").text
     assert "No Of Installments" in body and "Hr Remarks" in body
 
     r = staff_a.post("/hr/me/advance", follow_redirects=False, data={
@@ -649,7 +653,7 @@ def test_requests_tab_holds_the_three_lists_and_creates_an_advance(staff_a, sess
     assert a is not None and a.employee_id == ids["a"] and a.status == "pending"
     assert a.installments == 2 and float(a.amount) == 4500.0
     assert a.hr_remarks is None, "Hr Remarks belongs to whoever decides it"
-    assert f"Medical bill {TAG}" in staff_a.get("/hr/me?tab=requests").text
+    assert f"Medical bill {TAG}" in staff_a.get("/hr/me?tab=advances").text
 
 
 def test_requests_tab_rejects_a_zero_advance(staff_a, session, ids):

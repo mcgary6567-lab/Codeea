@@ -4,12 +4,15 @@
    the People & Culture queues, which is where they are decided. #}
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Team Management{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
 {% block content %}
-{% call ui.page_header('Team Management', 'Your reporting line, and the Staff Violation and Staff Bonuses pages that go with it.', back='/hr/me') %}
+{# part '' is the whole team page; 'violations' and 'bonuses' are the two cards on their Team Management page #}
+{% set show_v = part in ('', 'violations') %}
+{% set show_b = part in ('', 'bonuses') %}
+{% call ui.page_header(page_title, 'Your reporting line, and the Staff Violation and Staff Bonuses pages that go with it.' if not part else None, back=('/hr/me/team-management' if part else '/hr/me')) %}
   {% if rows %}
-  {{ ui.button('Raise a Violation', icon='shield-alert', variant='warning', attrs="@click=\"$dispatch('open-modal','raiseViolation')\"") }}
-  {{ ui.button('Raise a Bonus', icon='gift', attrs="@click=\"$dispatch('open-modal','raiseBonus')\"") }}
+  {% if show_v %}{{ ui.button('Create' if part else 'Raise a Violation', icon='shield-alert' if not part else 'plus', variant='warning', attrs="@click=\"$dispatch('open-modal','raiseViolation')\"") }}{% endif %}
+  {% if show_b %}{{ ui.button('Create' if part else 'Raise a Bonus', icon='gift' if not part else 'plus', attrs="@click=\"$dispatch('open-modal','raiseBonus')\"") }}{% endif %}
   {% endif %}
 {% endcall %}
 
@@ -19,6 +22,7 @@
 
 {% if no_record %}<div class="mb-4">{{ ui.alert(no_record, 'warning') }}</div>{% endif %}
 
+{% if not part %}
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
   {{ ui.stat('Direct Reports', directs, icon='user-round', color=palette(0)) }}
   {{ ui.stat('My Team', team_size, icon='users-round', color=palette(1), hint='everyone beneath you') }}
@@ -55,10 +59,14 @@
     Your own record, requests and payslips are on <a href="/hr/me" class="text-brand-700 hover:underline">My Overview</a>.</p>
   {% endif %}
 {% endcall %}
+{% elif not rows %}
+<p class="rounded-sm border border-slate-200 bg-white py-6 text-center text-sm text-slate-500">{{ no_record or 'Nobody reports to you, so there is nobody to raise this for.' }}</p>
+{% endif %}
 
 {% if rows %}
-<div class="mt-6">
-{{ ui.section_label('Staff Violation') }}
+{% if show_v %}
+<div class="{{ 'mt-6' if not part }}">
+{% if not part %}{{ ui.section_label('Staff Violation') }}{% endif %}
 {{ ui.table_start(['ID', 'Emp Name', 'Date', 'Penalty Description', 'Remarks', 'Penalty Amount', 'Status']) }}
 {% for v in raised_violations %}
 <tr {% if v.approval_status == 'pending' %}style="background:#fffbeb"{% endif %}>
@@ -73,9 +81,11 @@
 {% else %}{{ ui.empty('No violations have been raised against your team.', 7) }}{% endfor %}
 {{ ui.table_end() }}
 </div>
+{% endif %}
 
-<div class="mt-6">
-{{ ui.section_label('Staff Bonuses') }}
+{% if show_b %}
+<div class="{{ 'mt-6' if not part }}">
+{% if not part %}{{ ui.section_label('Staff Bonuses') }}{% endif %}
 {{ ui.table_start(['ID', 'Emp Name', 'Bonus Type', 'Bonus Amount', 'Remarks', 'Period', 'Acceptance Date', 'Status']) }}
 {% for b in raised_bonuses %}
 <tr {% if b.status == 'pending' %}style="background:#fffbeb"{% endif %}>
@@ -91,9 +101,11 @@
 {% else %}{{ ui.empty('No bonuses have been raised for your team.', 8) }}{% endfor %}
 {{ ui.table_end() }}
 </div>
+{% endif %}
 
 <div class="mt-4">{{ ui.alert('Anything you raise here starts pending and is decided by People &amp; Culture on the Staff Violations and Staff Bonuses queues. You cannot decide your own proposal, and you can only raise one against somebody beneath you in the tree above.', 'info', 'How this is decided') }}</div>
 
+{% if show_v %}
 {% call ui.modal('raiseViolation', 'Raise a Staff Violation') %}
 <form method="post" action="/hr/me/team/violation" class="grid gap-3 sm:grid-cols-2"
       x-data="{ amounts: {{ violation_amounts|tojson_safe }} }">
@@ -107,6 +119,9 @@
 </form>
 {% endcall %}
 
+{% endif %}
+
+{% if show_b %}
 {% call ui.modal('raiseBonus', 'Raise a Staff Bonus') %}
 <form method="post" action="/hr/me/team/bonus" class="grid gap-3 sm:grid-cols-2"
       x-data="{ amounts: {{ bonus_amounts|tojson_safe }} }">
@@ -119,5 +134,6 @@
   <div class="sm:col-span-2 flex justify-end">{{ ui.button('Raise bonus', icon='gift') }}</div>
 </form>
 {% endcall %}
+{% endif %}
 {% endif %}
 {% endblock %}

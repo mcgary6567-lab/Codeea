@@ -48,8 +48,10 @@ EMPLOYEE_TABS = [("overview", "Overview"), ("attendance", "Attendance"), ("leave
 # The tab strip mirrors the fourteen cards of their Employee Self Portal (docs/AUDIT_EMPLOYEE_SELF_PORTAL.md).
 # Tasks, Daily Progress Sheet and Team Management are pages of their own (/hr/me/tasks, /hr/me/progress,
 # /hr/me/team); Notifications, Downloads and My Profile are platform-wide pages the launchpad links direct.
+# Their Requests card opens three pages (Leave, Employee Request, Advance Requests): one tab each here.
 ME_TABS = [("overview", "Overview"), ("schedule", "My Schedule"), ("attendance", "Attendance Sheet"),
-           ("requests", "Requests"), ("leaves", "My Leaves"), ("payslips", "Salary Slips"),
+           ("leaves", "Leave Requests"), ("requests", "Employee Requests"), ("advances", "Employee Advances"),
+           ("payslips", "Salary Slips"),
            ("violations", "Violations"), ("bonuses", "Bonuses"), ("complaints", "Complaints"),
            ("development", "My Development"), ("grievance", "Raise a Grievance")]
 EMP_STATUSES = ["active", "probation", "on_leave", "resigned", "terminated"]
@@ -786,12 +788,14 @@ async def me_mark_attendance(request: Request, db: Session = Depends(get_db),
     The request IP is recorded on the attendance row, and the late figure comes from the shared
     recompute_late_minutes so payroll reads exactly what the member of staff reads.
     """
+    # the Employee Self Service home carries the same button; its press lands back there, nowhere else
+    back = "/home/self" if (await request.form()).get("next") == "/home/self" else "/hr/me"
     if ctx.employee is None:
-        return redirect("/hr/me", "No employee record is linked to your account.", "error")
+        return redirect(back, "No employee record is linked to your account.", "error")
     row, action, message = svc.punch(db, ctx.employee, ctx.user,
                                      ip=request.client.host if request.client else None, request=request)
     db.commit()
-    return redirect("/hr/me", message, "success" if action != "none" else "warning")
+    return redirect(back, message, "success" if action != "none" else "warning")
 
 
 # ------------------------------------------------------------------ Requests: self-service advance
@@ -803,13 +807,13 @@ async def me_advance(request: Request, db: Session = Depends(get_db), ctx: UserC
     form = await request.form()
     amount = parse_float(form.get("amount"), 0)
     if amount <= 0:
-        return redirect("/hr/me?tab=requests", "The advance amount must be greater than zero.", "error")
+        return redirect("/hr/me?tab=advances", "The advance amount must be greater than zero.", "error")
     a = svc.request_advance(db, ctx.employee, amount, max(1, parse_int(form.get("installments"), 1) or 1),
                             (form.get("reason") or form.get("remarks") or "").strip() or None, ctx.user,
                             request=request)
     a.request_date = parse_date(form.get("request_date")) or date.today()
     db.commit()
-    return redirect("/hr/me?tab=requests", f"Advance request for {erp_money(a.amount)} sent to People & Culture.")
+    return redirect("/hr/me?tab=advances", f"Advance request for {erp_money(a.amount)} sent to People & Culture.")
 
 
 # ------------------------------------------------------------------ Account Ledger

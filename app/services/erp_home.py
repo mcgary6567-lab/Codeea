@@ -163,3 +163,21 @@ def hr_home(db: Session) -> dict:
     return {"gender": hr_gender_distribution(db), "contract_ends": hr_contract_ends(db),
             "attendance": hr_todays_attendance(db), "hr_pending": hr_pending_requests(db),
             "contract_window_days": CONTRACT_WINDOW_DAYS}
+
+
+def ess_home(db: Session, user) -> dict:
+    """Employee Self Service home, as the ERP lays it out: who you are, Total Pending Tasks & Actions,
+    Today's Attendance with the one Mark Attendance button, and My Team as a tree under you."""
+    from app.models.ops import Task
+    from app.models.people import Employee
+    from app.services import hr as hr_svc
+    from app.services import hr_dashboards as dash
+
+    open_ = ["todo", "in_progress", "review"]
+    pending = (db.query(Task).filter(Task.status.in_(open_), (Task.assignee_id == user.id) | (Task.creator_id == user.id))
+               .count())
+    me = db.query(Employee).filter(Employee.user_id == user.id).first()
+    if me is None:
+        return {"me": None, "pending_actions": pending, "today_attendance": None, "team": []}
+    return {"me": me, "pending_actions": pending, "today_attendance": hr_svc.attendance_window(db, me),
+            "team": dash.flatten_tree(dash.reporting_tree(db, me))}

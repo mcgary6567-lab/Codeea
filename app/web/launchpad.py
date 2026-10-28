@@ -38,6 +38,10 @@ def section(slug: str, request: Request, db: Session = Depends(get_db), user: Us
         from app.services.erp_home import hr_home
         ctx.update(hr_home(db))
         return render(request, "launchpad/hr_home.html", ctx)
+    if slug == "self":
+        from app.services.erp_home import ess_home
+        ctx.update(ess_home(db, user))
+        return render(request, "launchpad/ess_home.html", ctx)
     return render(request, "launchpad/section.html", ctx)
 
 

@@ -157,7 +157,7 @@ def test_a_requester_cannot_set_the_status_or_hr_remarks_of_their_own_request():
         s.commit()
     finally:
         s.close()
-    page = teacher.get("/hr/me?tab=requests").text
+    page = teacher.get("/hr/me?tab=advances").text
     if "Hr Remarks" in page:
         assert re.search(r'<input type="text" value="" disabled[^>]*Filled in by People', page)
 
