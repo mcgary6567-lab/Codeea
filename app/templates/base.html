@@ -24,14 +24,15 @@
 {% if user %}
 <div class="min-h-full flex flex-col">
 
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-brand-700 focus:shadow">Skip to content</a>
   <!-- Top bar -->
   <header class="sticky top-0 z-40 h-12 bg-brand-600 text-white shadow">
     <div class="flex h-full items-center gap-3 px-3 sm:px-4">
-      <button class="rounded p-1.5 hover:bg-white/15" @click="menuOpen = true" title="Menu"><i data-lucide="menu" class="h-5 w-5"></i></button>
+      <button class="rounded p-1.5 hover:bg-white/15" @click="menuOpen = true" title="Menu" aria-label="Menu"><i data-lucide="menu" class="h-5 w-5"></i></button>
       <a href="/home" class="text-[15px] font-bold tracking-tight whitespace-nowrap" aria-label="Online Quran College home"><span class="sm:hidden">OQC</span><span class="hidden sm:inline">Online Quran College</span></a>
 
       <form action="/search" method="get" class="mx-auto hidden w-full max-w-md md:block">
-        <input name="q" placeholder="Search" class="h-8 w-full rounded border-0 bg-white px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-white/60">
+        <input name="q" placeholder="Search" aria-label="Search" class="h-8 w-full rounded border-0 bg-white px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-white/60">
       </form>
 
       <div class="ml-auto flex items-center gap-1">
@@ -130,7 +131,7 @@
   <div class="flex flex-1 min-h-0">
   {% if current_section %}{% include "_sidebar.html" %}{% endif %}
 
-  <main class="min-w-0 flex-1 px-4 py-5 sm:px-6">
+  <main id="main" tabindex="-1" class="min-w-0 flex-1 px-4 py-5 sm:px-6 focus:outline-none">
     {% for f in flash_messages %}
     <div x-data="{show:true}" x-show="show" role="status" aria-live="polite" class="mb-4 flex items-start gap-3 rounded border px-4 py-3 text-sm
       {% if f.level == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% elif f.level == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% elif f.level == 'warning' %}border-amber-200 bg-amber-50 text-amber-800{% else %}border-sky-200 bg-sky-50 text-sky-800{% endif %}">

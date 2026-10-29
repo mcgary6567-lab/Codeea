@@ -17,14 +17,14 @@
   {{ ui.input('age', 'Age', v.age, type='number', min=3, max=80, help='Left blank it is derived from the date of birth.') }}
   <div>
     <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Course <span class="text-rose-500">*</span></label>
-    <select name="course_id" x-model="course" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+    <select name="course_id" x-model="course" required aria-label="Course" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
       <option value="">— Select —</option>
       {% for cid, cname in course_options %}<option value="{{ cid }}">{{ cname }}</option>{% endfor %}
     </select>
   </div>
   <div>
     <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Division / level</label>
-    <select name="division_id" x-model="division" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+    <select name="division_id" x-model="division" aria-label="Division / level" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
       <option value="">— Any —</option>
       <template x-for="d in divisions.filter(x => String(x.course_id) === String(course))" :key="d.id">
         <option :value="d.id" x-text="d.name"></option>
