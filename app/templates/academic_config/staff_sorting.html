@@ -33,7 +33,7 @@
   <td class="px-4 py-2">{{ ui.badge(e.status) }}</td>
   <td class="px-4 py-2 text-xs">{{ e.shift|titleize }}</td>
   <td class="px-4 py-2 w-24">
-    {% if can_edit %}<input form="sortForm" type="number" name="sort_{{ e.id }}" value="{{ e.sort_no }}" min="0" class="w-20 rounded border border-slate-300 px-2 py-1 text-center text-xs focus:border-brand-500 focus:outline-none">{% else %}<span class="text-xs">{{ e.sort_no }}</span>{% endif %}
+    {% if can_edit %}<input aria-label="Sort number" form="sortForm" type="number" name="sort_{{ e.id }}" value="{{ e.sort_no }}" min="0" class="w-20 rounded border border-slate-300 px-2 py-1 text-center text-xs focus:border-brand-500 focus:outline-none">{% else %}<span class="text-xs">{{ e.sort_no }}</span>{% endif %}
   </td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}

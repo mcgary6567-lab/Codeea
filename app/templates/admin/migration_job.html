@@ -56,7 +56,7 @@
               <span class="block font-mono text-[10px] text-slate-400">{{ target }}</span></td>
             <td class="px-3 py-1.5"><code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-800">{{ kind }}</code></td>
             <td class="px-3 py-1.5">
-              <select name="map_{{ target }}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
+              <select aria-label="Source column for {{ target }}" name="map_{{ target }}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
                 <option value="">— not mapped —</option>
                 {% for h in headers %}<option value="{{ h }}" {% if mapping.get(target) == h %}selected{% endif %}>{{ h }}</option>{% endfor %}
               </select>

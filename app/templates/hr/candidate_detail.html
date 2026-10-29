@@ -28,8 +28,8 @@
         {% if iv.feedback %}{{ iv.feedback }}
         {% elif has_perm(user, 'recruitment.update') %}
         <form method="post" action="/hr/recruitment/interviews/{{ iv.id }}/feedback" class="flex items-center gap-1">
-          <input name="score" type="number" step="0.5" min="0" max="10" placeholder="score" class="w-16 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
-          <input name="feedback" placeholder="feedback" class="w-44 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+          <input aria-label="Score" name="score" type="number" step="0.5" min="0" max="10" placeholder="score" class="w-16 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+          <input aria-label="Feedback" name="feedback" placeholder="feedback" class="w-44 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
           <button class="rounded bg-slate-700 px-2 py-1 text-[11px] text-white">Save</button>
         </form>
         {% else %}—{% endif %}

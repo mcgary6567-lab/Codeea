@@ -6,7 +6,8 @@ from playwright.sync_api import expect
 
 from e2e.pages import LoginPage, StudentsPage
 
-STAFF_PAGES = ["/home", "/home/self", "/students", "/students/new", "/classes", "/finance/accounts/vouchers", "/home/system"]
+STAFF_PAGES = ["/home", "/home/self", "/students", "/students/new", "/classes", "/finance/accounts/vouchers", "/home/system",
+               "/finance/accounts/vouchers/new?type=journal", "/hr/attendance", "/crm/inbox", "/hr/me"]
 
 # What a screen reader would have nothing to announce for: unlabelled fields, nameless buttons and links, images
 # without alt, plus duplicate ids (which break label-for and aria references). A heuristic of the accessible-name rules.

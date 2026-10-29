@@ -46,7 +46,7 @@
         <td class="px-4 py-2 text-sm">{{ q.item }}{% if q.lesson %}<div class="text-[11px] text-slate-400">{{ q.lesson }}</div>{% endif %}</td>
         <td class="px-4 py-2 text-xs">{{ (q.type or 'recitation')|titleize }}</td>
         <td class="px-4 py-2 text-xs">{{ q.max }}</td>
-        <td class="px-4 py-2 w-28"><input type="number" step="0.5" min="0" max="{{ q.max }}" name="score_{{ loop.index0 }}" value="{{ q.score if q.score is not none else '' }}"
+        <td class="px-4 py-2 w-28"><input aria-label="Score for question {{ loop.index }}" type="number" step="0.5" min="0" max="{{ q.max }}" name="score_{{ loop.index0 }}" value="{{ q.score if q.score is not none else '' }}"
           class="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"></td>
       </tr>
       {% else %}{{ ui.empty('This test has no items.', 5) }}{% endfor %}

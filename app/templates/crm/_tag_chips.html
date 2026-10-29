@@ -14,7 +14,7 @@
 {% if _can %}
 <form method="post" action="/crm/tags/apply" class="mt-2 flex items-center gap-1.5">
   <input type="hidden" name="contact_type" value="{{ tc_type }}"><input type="hidden" name="contact_id" value="{{ tc_id }}"><input type="hidden" name="next" value="{{ tc_next }}">
-  <input name="tag" list="tagOptions_{{ tc_type }}" required placeholder="Add a tag…" class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+  <input aria-label="Tag" name="tag" list="tagOptions_{{ tc_type }}" required placeholder="Add a tag…" class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
   <datalist id="tagOptions_{{ tc_type }}">{% for name in tag_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
   <button type="submit" class="inline-flex shrink-0 items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"><i data-lucide="plus" class="h-3 w-3"></i>Add</button>
 </form>

@@ -66,8 +66,8 @@
     {{ ui.button('Slip', href='/hr/payslips/' ~ p.id, size='sm', variant='ghost') }}
     {% if run.status in ('draft','pending_approval') and has_perm(user, 'payroll.update') %}
     <form method="post" action="/hr/payroll/payslips/{{ p.id }}/adjust" class="mt-1 flex items-center justify-end gap-1">
-      <input name="amount" type="number" step="100" placeholder="±" class="w-20 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
-      <input name="reason" placeholder="reason" required class="w-28 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <input aria-label="Adjustment amount" name="amount" type="number" step="100" placeholder="±" class="w-20 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <input aria-label="Reason" name="reason" placeholder="reason" required class="w-28 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
       <button class="rounded bg-slate-700 px-2 py-1 text-[11px] text-white">Adjust</button>
     </form>
     {% endif %}

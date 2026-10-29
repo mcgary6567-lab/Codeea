@@ -88,7 +88,7 @@
     A CSV needs a user ID column (User ID, PIN, AC-No, Emp No) and a time column (or Date and Time columns); the
     machine's own tab-separated log is read as it is. Punches already recorded are skipped.</p>
   {{ ui.select('machine_id', 'Machine', machine_options, none, placeholder='— Not from a registered machine —') }}
-  <input type="file" name="file" accept=".csv,.txt,.dat" required class="block w-full text-sm">
+  <input aria-label="File" type="file" name="file" accept=".csv,.txt,.dat" required class="block w-full text-sm">
   <div class="flex justify-end">{{ ui.button('Upload', icon='upload') }}</div>
 </form>
 {% endcall %}

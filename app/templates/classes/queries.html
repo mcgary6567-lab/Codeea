@@ -34,7 +34,7 @@
     {% if q.status == 'pending' and has_perm(user, 'classes.update') %}
     <form method="post" action="/classes/queries/{{ q.id }}/close" class="flex items-center justify-end gap-1">
       <input type="hidden" name="back" value="{{ base_url }}">
-      <input name="response" required placeholder="Response" class="w-48 rounded border border-slate-300 px-2 py-1 text-xs">
+      <input aria-label="Response" name="response" required placeholder="Response" class="w-48 rounded border border-slate-300 px-2 py-1 text-xs">
       {{ ui.button('Close', size='sm', variant='success', icon='check') }}
     </form>
     {% else %}<span class="text-[11px] text-slate-400">{{ q.closed_at|datetime if q.closed_at else '' }}</span>{% endif %}

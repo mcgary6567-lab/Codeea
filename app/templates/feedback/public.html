@@ -63,12 +63,12 @@
             {% elif q.type == 'text' %}
             <div>
               <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{{ q.text }}</label>
-              <textarea name="comment" rows="4" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800" placeholder="Tell us what went well and what we should improve…"></textarea>
+              <textarea aria-label="{{ q.text }}" name="comment" rows="4" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800" placeholder="Tell us what went well and what we should improve…"></textarea>
             </div>
             {% else %}
             <div>
               <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{{ q.text or q.key }}</label>
-              <input name="{{ q.key }}" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+              <input aria-label="{{ q.text or q.key }}" name="{{ q.key }}" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
             </div>
             {% endif %}
           {% endfor %}

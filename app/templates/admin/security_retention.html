@@ -25,7 +25,7 @@
             <span class="block font-mono text-[11px] text-slate-400">{{ r.key }}</span></td>
           <td class="px-4 py-2">{{ ui.badge(r.group) }}</td>
           <td class="px-4 py-2 w-36">
-            <input type="number" min="0" name="{{ r.key }}" value="{{ r.value }}"
+            <input aria-label="Days to keep" type="number" min="0" name="{{ r.key }}" value="{{ r.value }}"
                    class="w-28 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
           </td>
           <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ r.note }}</td>

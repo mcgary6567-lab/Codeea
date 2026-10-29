@@ -24,7 +24,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <textarea name="fq_{{ q.id }}" rows="2" {% if q.is_required %}required{% endif %} class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800"></textarea>
+  <textarea aria-label="Answer" name="fq_{{ q.id }}" rows="2" {% if q.is_required %}required{% endif %} class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800"></textarea>
   {% endif %}
 </div>
 {% endfor %}

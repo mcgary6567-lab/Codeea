@@ -11,14 +11,14 @@
   <form method="post" action="/hr/payroll/bands" class="space-y-3">
     {% for g, amount in bands.items() %}
     <div class="flex items-center gap-2">
-      <input name="band_key" value="{{ g }}" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm font-semibold dark:border-slate-700 dark:bg-slate-800">
-      <input name="band_value" value="{{ amount }}" type="number" step="500" class="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <input aria-label="Band" name="band_key" value="{{ g }}" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm font-semibold dark:border-slate-700 dark:bg-slate-800">
+      <input aria-label="Band amount" name="band_value" value="{{ amount }}" type="number" step="500" class="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
       <span class="w-28 text-xs text-slate-500">{{ counts.get(g, 0) }} teacher(s)</span>
     </div>
     {% endfor %}
     <div class="flex items-center gap-2">
-      <input name="band_key" placeholder="D" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
-      <input name="band_value" placeholder="0" type="number" step="500" class="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <input aria-label="Band" name="band_key" placeholder="D" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <input aria-label="Band amount" name="band_value" placeholder="0" type="number" step="500" class="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
       <span class="w-28 text-xs text-slate-400">new band</span>
     </div>
     {{ ui.input('rationale', 'Rationale', '', placeholder='Annual band review, inflation adjustment …') }}

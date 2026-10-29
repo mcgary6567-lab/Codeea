@@ -206,21 +206,21 @@
         <input type="hidden" name="session" value="{{ r.session }}">
         <div>
           <label class="block text-[10px] font-medium text-slate-600">New Login Time</label>
-          <input type="time" name="new_check_in" value="{{ r.check_in.strftime('%H:%M') if r.check_in else '' }}" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+          <input aria-label="New Login Time" type="time" name="new_check_in" value="{{ r.check_in.strftime('%H:%M') if r.check_in else '' }}" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
         </div>
         <div>
           <label class="block text-[10px] font-medium text-slate-600">New Logout Time</label>
-          <input type="time" name="new_check_out" value="{{ r.check_out.strftime('%H:%M') if r.check_out else '' }}" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+          <input aria-label="New Logout Time" type="time" name="new_check_out" value="{{ r.check_out.strftime('%H:%M') if r.check_out else '' }}" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
         </div>
         <div>
           <label class="block text-[10px] font-medium text-slate-600">Requested Status</label>
-          <select name="new_status" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+          <select aria-label="Requested Status" name="new_status" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
             {% for v, l in change_statuses %}<option value="{{ v }}" {{ 'selected' if v == r.status }}>{{ l }}</option>{% endfor %}
           </select>
         </div>
         <div>
           <label class="block text-[10px] font-medium text-slate-600">Reason</label>
-          <textarea name="user_remarks" rows="2" required placeholder="What went wrong with the punch?" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]"></textarea>
+          <textarea aria-label="Reason" name="user_remarks" rows="2" required placeholder="What went wrong with the punch?" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]"></textarea>
         </div>
         <button class="w-full rounded bg-brand-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-brand-700">Send to People &amp; Culture</button>
       </form>
@@ -278,7 +278,7 @@
       {{ ui.textarea('reason', 'Remarks', '', rows=3, placeholder='Why do you need the advance?') }}
       <div>
         <label class="mb-1 block text-xs font-medium text-slate-600">Hr Remarks</label>
-        <input type="text" value="" disabled placeholder="Filled in by People &amp; Culture when they decide" class="w-full rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400">
+        <input aria-label="Hr Remarks" type="text" value="" disabled placeholder="Filled in by People &amp; Culture when they decide" class="w-full rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400">
       </div>
       {{ ui.button('Create', icon='plus', size='sm') }}
     </form>

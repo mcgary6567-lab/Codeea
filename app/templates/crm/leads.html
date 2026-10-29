@@ -83,7 +83,7 @@
         {% if has_perm(user, 'leads.update') %}
         <form method="post" action="/crm/leads/{{ l.id }}/stage" class="mt-2 flex items-center gap-1">
           <input type="hidden" name="next" value="{{ base_url }}">
-          <select name="stage" class="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+          <select aria-label="Stage" name="stage" class="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
             {% for s in stages %}<option value="{{ s }}" {% if s == l.stage %}selected{% endif %}>{{ s|label('registration') }}</option>{% endfor %}
           </select>
           <input type="hidden" name="reason" value="Moved from the pipeline board">

@@ -56,7 +56,7 @@
     <tr {% if hl %}style="background: {{ hl }}"{% endif %}>
       <td class="px-2 py-1.5">
         {% if has_perm(user, 'hr_attendance.update') %}
-        <select name="status" form="ar{{ r.id }}" class="w-28 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
+        <select aria-label="Status" name="status" form="ar{{ r.id }}" class="w-28 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
           {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == r.status }}>{{ type_labels.get(s, s|titleize) }}</option>{% endfor %}
         </select>
         {% else %}{{ ui.badge(r.status, type_labels.get(r.status, r.status|titleize)) }}{% endif %}
@@ -65,12 +65,12 @@
       <td class="px-2 py-1.5 text-xs">{{ g.details }}</td>
       <td class="px-2 py-1.5">
         {% if has_perm(user, 'hr_attendance.update') %}
-        <input type="time" name="check_in" form="ar{{ r.id }}" value="{{ r.check_in.strftime('%H:%M') if r.check_in else '' }}" class="w-24 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
+        <input aria-label="Check in" type="time" name="check_in" form="ar{{ r.id }}" value="{{ r.check_in.strftime('%H:%M') if r.check_in else '' }}" class="w-24 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
         {% else %}<span class="text-xs">{{ r.check_in|time if r.check_in else '-' }}</span>{% endif %}
       </td>
       <td class="px-2 py-1.5">
         {% if has_perm(user, 'hr_attendance.update') %}
-        <input type="time" name="check_out" form="ar{{ r.id }}" value="{{ r.check_out.strftime('%H:%M') if r.check_out else '' }}" class="w-24 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
+        <input aria-label="Check out" type="time" name="check_out" form="ar{{ r.id }}" value="{{ r.check_out.strftime('%H:%M') if r.check_out else '' }}" class="w-24 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
         {% else %}<span class="text-xs">{{ r.check_out|time if r.check_out else '-' }}</span>{% endif %}
       </td>
       <td class="px-2 py-1.5 text-xs {{ 'font-semibold text-amber-700' if r.late_minutes }}">{{ (r.late_minutes ~ ' min') if r.late_minutes else '-' }}</td>
@@ -198,9 +198,9 @@
   <td class="px-4 py-2">
     {% if r.correction_status == 'pending' and has_perm(user, 'hr_attendance.approve') %}
     <form method="post" action="/hr/attendance/corrections/{{ r.id }}" class="flex items-center gap-1">
-      <select name="new_status" class="rounded border border-slate-300 px-1 py-1 text-[11px]">
+      <select aria-label="New status" name="new_status" class="rounded border border-slate-300 px-1 py-1 text-[11px]">
         {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == 'present' }}>{{ s|titleize }}</option>{% endfor %}</select>
-      <input name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+      <input aria-label="Note" name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px]">
       <button name="decision" value="approve" class="rounded bg-emerald-600 px-2 py-1 text-[11px] text-white">Approve</button>
       <button name="decision" value="reject" onclick="return confirm('Reject this attendance correction?')" class="rounded bg-rose-600 px-2 py-1 text-[11px] text-white">Reject</button>
     </form>

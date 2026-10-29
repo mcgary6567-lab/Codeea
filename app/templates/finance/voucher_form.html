@@ -79,14 +79,14 @@
     <template x-for="i in lines" :key="i">
       <tr>
         <td class="border border-slate-200 px-2 py-1.5">
-          <select name="account_id" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+          <select aria-label="Account" name="account_id" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
             <option value="">— none —</option>
             {% for id, label in accounts %}<option value="{{ id }}">{{ label }}</option>{% endfor %}
           </select>
         </td>
-        <td class="border border-slate-200 px-2 py-1.5"><input name="debit" type="number" step="0.01" class="w-32 rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
-        <td class="border border-slate-200 px-2 py-1.5"><input name="credit" type="number" step="0.01" class="w-32 rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
-        <td class="border border-slate-200 px-2 py-1.5"><input name="memo" type="text" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
+        <td class="border border-slate-200 px-2 py-1.5"><input aria-label="Debit" name="debit" type="number" step="0.01" class="w-32 rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
+        <td class="border border-slate-200 px-2 py-1.5"><input aria-label="Credit" name="credit" type="number" step="0.01" class="w-32 rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
+        <td class="border border-slate-200 px-2 py-1.5"><input aria-label="Line memo" name="memo" type="text" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
       </tr>
     </template>
     </tbody>

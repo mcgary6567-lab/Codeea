@@ -83,7 +83,7 @@
       </td>
       {% endfor %}
       <td class="px-2 py-1.5 text-center">
-        <input type="checkbox" onclick="document.querySelectorAll('.row-{{ m }}').forEach(c => c.checked = this.checked)"
+        <input type="checkbox" aria-label="Select every {{ m }} permission" onclick="document.querySelectorAll('.row-{{ m }}').forEach(c => c.checked = this.checked)"
                class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" title="Select the whole row (saved as {{ m }}.*)" aria-label="Select every {{ m|titleize }} permission">
       </td>
     </tr>

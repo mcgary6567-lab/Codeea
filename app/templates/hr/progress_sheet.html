@@ -42,10 +42,10 @@
     {# Only a submitted entry can be rated: until the employee submits it from /hr/me/progress it is still theirs to edit. #}
     {% if can_rate and n.status == 'submitted' %}
     <form method="post" action="/hr/progress-sheet/{{ n.id }}/rate" class="flex items-center justify-end gap-1">
-      <select name="manager_rating" class="rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
+      <select aria-label="Manager rating" name="manager_rating" class="rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
         {% for v, l in ratings %}<option value="{{ v }}" {{ 'selected' if n.manager_rating == v }}>{{ v }}</option>{% endfor %}
       </select>
-      <input name="manager_comment" value="{{ n.manager_comment or '' }}" placeholder="comment" class="w-32 rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+      <input aria-label="Comment" name="manager_comment" value="{{ n.manager_comment or '' }}" placeholder="comment" class="w-32 rounded border border-slate-300 px-1.5 py-1 text-[11px]">
       {{ ui.button('Rate', icon='star', size='sm') }}
     </form>
     {% elif can_rate %}

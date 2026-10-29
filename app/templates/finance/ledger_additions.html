@@ -75,7 +75,7 @@
     {{ ui.input('amount', 'Amount', type='number', step='0.01', required=True, attrs='x-model="amount"') }}
     <div>
       <label class="mb-1 block text-xs font-medium text-slate-600">L.C Amount ({{ base }})</label>
-      <input name="lc_amount" type="number" step="0.01" :value="lc" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      <input aria-label="L.C Amount ({{ base }})" name="lc_amount" type="number" step="0.01" :value="lc" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
     </div>
     {{ ui.input('addition_date', 'Ledger Addition Date', today_d, type='date', required=True) }}
     {{ ui.select('addition_type', 'Ledger Addition Type', types, required=True) }}

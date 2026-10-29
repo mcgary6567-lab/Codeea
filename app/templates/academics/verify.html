@@ -49,7 +49,7 @@
     {% endif %}
 
     <form method="get" action="/verify" class="mt-6 flex gap-2">
-      <input name="number" value="{{ number }}" placeholder="OQC-2026-00001" required
+      <input aria-label="Certificate number" name="number" value="{{ number }}" placeholder="OQC-2026-00001" required
              class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
       <button class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="search" class="h-4 w-4"></i>Verify</button>
     </form>

@@ -21,7 +21,7 @@
     {{ ui.input('amount', 'Total Amount', type='number', step='0.01', required=True, attrs='x-model="amount"') }}
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">L.c Amount ({{ base }})</label>
-      <input name="lc_amount" type="number" step="0.01" :value="lc" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+      <input aria-label="L.c Amount ({{ base }})" name="lc_amount" type="number" step="0.01" :value="lc" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
     </div>
     <div class="sm:col-span-3">
       <label for="f_invoice_id" class="mb-1 block text-xs font-semibold text-slate-600">Apply to Invoice</label>

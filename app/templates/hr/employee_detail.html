@@ -176,22 +176,22 @@
       <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Allowances</h4>
       <div id="allow-rows" class="space-y-2">
         {% for k, v in (structure.allowances if structure else {}).items() %}
-        <div class="flex gap-2"><input name="allow_key" value="{{ k }}" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
-          <input name="allow_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
+        <div class="flex gap-2"><input aria-label="Allowance name" name="allow_key" value="{{ k }}" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <input aria-label="Allowance amount" name="allow_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
         {% endfor %}
-        <div class="flex gap-2"><input name="allow_key" placeholder="new allowance" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
-          <input name="allow_value" placeholder="0" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
+        <div class="flex gap-2"><input aria-label="Allowance name" name="allow_key" placeholder="new allowance" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <input aria-label="Allowance amount" name="allow_value" placeholder="0" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
       </div>
     </div>
     <div>
       <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recurring deductions</h4>
       <div class="space-y-2">
         {% for k, v in (structure.deductions if structure else {}).items() %}
-        <div class="flex gap-2"><input name="ded_key" value="{{ k }}" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
-          <input name="ded_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
+        <div class="flex gap-2"><input aria-label="Deduction name" name="ded_key" value="{{ k }}" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <input aria-label="Deduction amount" name="ded_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
         {% endfor %}
-        <div class="flex gap-2"><input name="ded_key" placeholder="new deduction" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
-          <input name="ded_value" placeholder="0" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
+        <div class="flex gap-2"><input aria-label="Deduction name" name="ded_key" placeholder="new deduction" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <input aria-label="Deduction amount" name="ded_value" placeholder="0" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
       </div>
     </div>
   </div>

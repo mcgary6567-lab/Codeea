@@ -33,7 +33,7 @@
     <div>
       <div class="mb-1 text-xs font-semibold text-slate-600">Course Book {% if course %}<span class="font-normal text-slate-400">— books of {{ course.name }}</span>{% endif %}</div>
       {% if books %}
-      <select name="books" multiple size="3" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+      <select aria-label="Books" name="books" multiple size="3" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
         {% for b in books %}<option value="{{ b.id }}" {% if b.id in chosen_books %}selected{% endif %}>{{ b.title }}{% if b.arabic_title %} · {{ b.arabic_title }}{% endif %}</option>{% endfor %}
       </select>
       {% else %}<div class="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-400">Select a course to list its books.</div>{% endif %}

@@ -12,14 +12,14 @@
     <div class="grid gap-4 sm:grid-cols-2">
       <div>
         <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Client / family <span class="text-rose-500">*</span></label>
-        <select name="client_id" required x-model="clientId" @change="onClient()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <select aria-label="Client / family" name="client_id" required x-model="clientId" @change="onClient()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <option value="">— Select family —</option>
           {% for cid, label in client_options %}<option value="{{ cid }}">{{ label }}</option>{% endfor %}
         </select>
       </div>
       <div>
         <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Student <span class="text-rose-500">*</span></label>
-        <select name="student_id" required x-model="studentId" @change="onStudent()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <select aria-label="Student" name="student_id" required x-model="studentId" @change="onStudent()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <option value="">— Select student —</option>
           <template x-for="s in students" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
         </select>
@@ -32,7 +32,7 @@
     <div class="grid gap-4 sm:grid-cols-3">
       <div class="sm:col-span-2">
         <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Package</label>
-        <select name="package_id" x-model="packageId" @change="onPackage()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <select aria-label="Package" name="package_id" x-model="packageId" @change="onPackage()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <option value="">— Custom pricing —</option>
           <template x-for="p in packagesForCountry" :key="p.id">
             <option :value="p.id" x-text="p.name + ' — ' + p.currency + ' ' + p.price.toLocaleString() + (p.country ? ' · ' + p.country : '')"></option>
@@ -44,7 +44,7 @@
       <div>{{ ui.input('price', 'List price (monthly)', '', type='number', step='0.01', attrs='x-model.number="price"', required=True) }}</div>
       <div>
         <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Currency <span class="text-rose-500">*</span></label>
-        <select name="currency" required x-model="currency" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <select aria-label="Currency" name="currency" required x-model="currency" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
           {% for c in currencies %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
         </select>
       </div>
@@ -56,7 +56,7 @@
     <div class="grid gap-4 sm:grid-cols-2">
       <div>
         <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Assigned teacher (verified only) <span class="text-rose-500">*</span></label>
-        <select name="teacher_id" required x-model="teacherId" @change="recalc()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <select aria-label="Assigned teacher (verified only)" name="teacher_id" required x-model="teacherId" @change="recalc()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <option value="">— Select teacher —</option>
           {% for tid, label in teacher_options %}<option value="{{ tid }}">{{ label }}</option>{% endfor %}
         </select>

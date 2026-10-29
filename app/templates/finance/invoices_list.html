@@ -83,14 +83,14 @@
   <div class="grid gap-3 sm:grid-cols-2">
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">Client <span class="text-rose-500">*</span></label>
-      <select name="client_id" required x-model="clientId" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+      <select aria-label="Client" name="client_id" required x-model="clientId" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
         <option value="">— Select —</option>
         {% for v, l in client_options %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
       </select>
     </div>
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">Subscription(s) <span class="text-rose-500">*</span></label>
-      <select name="subscription_ids" multiple size="4" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+      <select aria-label="Subscription(s)" name="subscription_ids" multiple size="4" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
         <template x-for="s in options" :key="s.id"><option :value="s.id" x-text="s.label" selected></option></template>
       </select>
       <p class="mt-1 text-[11px] text-slate-500" x-show="clientId && !options.length">This family has no billable subscription.</p>
@@ -106,11 +106,11 @@
       <button type="button" @click="lines.push({t:'',a:''})" class="text-xs text-brand-600 hover:underline">+ add line</button></div>
     <template x-for="(l, i) in lines" :key="i">
       <div class="mb-2 grid grid-cols-5 gap-2">
-        <select name="addition_type_id" x-model="l.t" class="col-span-3 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+        <select aria-label="Addition type" name="addition_type_id" x-model="l.t" class="col-span-3 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
           <option value="">— Addition type —</option>
           {% for v, lbl in addition_types %}<option value="{{ v }}">{{ lbl }}</option>{% endfor %}
         </select>
-        <input type="number" step="0.01" min="0" name="addition_amount" x-model="l.a" placeholder="Amount" class="col-span-2 rounded border border-slate-300 px-3 py-1.5 text-sm">
+        <input aria-label="Amount" type="number" step="0.01" min="0" name="addition_amount" x-model="l.a" placeholder="Amount" class="col-span-2 rounded border border-slate-300 px-3 py-1.5 text-sm">
       </div>
     </template>
     {% if not addition_types %}<p class="text-[11px] text-slate-500">No addition types defined yet (Academic Configuration → Invoice Addition List).</p>{% endif %}

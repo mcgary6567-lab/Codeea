@@ -10,7 +10,7 @@
     {% set current = steps[i-1] if steps|length >= i else '' %}
     <li class="grid items-center gap-3 sm:grid-cols-[3rem_1fr_1fr]">
       <span class="text-sm font-semibold text-slate-500">Step {{ i }}</span>
-      <select name="step_{{ i }}" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+      <select aria-label="Step {{ i }}" name="step_{{ i }}" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
         <option value="">{{ '— none —' if i > 1 else '— choose —' }}</option>
         {% for r in roles %}<option value="{{ r.slug }}" {% if r.slug == current %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
       </select>

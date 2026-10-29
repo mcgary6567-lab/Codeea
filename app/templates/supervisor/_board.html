@@ -38,7 +38,7 @@
             <div x-show="open" x-cloak class="mt-1 w-full space-y-1">
               <form method="post" action="/supervisor/session/{{ s.id }}/status" class="space-y-1">
                 <input type="hidden" name="back" value="/supervisor?day={{ sel_date }}">
-                <input name="reason" required placeholder="Reason (required)" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-600 dark:bg-slate-900">
+                <input aria-label="Reason (required)" name="reason" required placeholder="Reason (required)" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-600 dark:bg-slate-900">
                 <div class="flex gap-1">
                   <button name="status" value="missed" class="flex-1 rounded bg-rose-600 px-1 py-0.5 text-[10px] font-medium text-white">Missed</button>
                   <button name="status" value="absent" class="flex-1 rounded bg-orange-500 px-1 py-0.5 text-[10px] font-medium text-white">Absent</button>

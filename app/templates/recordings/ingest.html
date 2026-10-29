@@ -14,7 +14,7 @@
 {{ ui.table_start(['', 'Date','Time','Student','Teacher','Duration','Room'], compact=True) }}
 {% for s in rows %}
 <tr>
-  <td class="px-3 py-2"><input type="checkbox" name="session_id" value="{{ s.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600"></td>
+  <td class="px-3 py-2"><input aria-label="Select class" type="checkbox" name="session_id" value="{{ s.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600"></td>
   <td class="px-4 py-2 text-xs">{{ s.date|date }}</td>
   <td class="px-4 py-2 font-mono text-xs">{{ s.start_time|time }}</td>
   <td class="px-4 py-2 text-xs font-medium">{{ s.student.full_name if s.student else '—' }}</td>

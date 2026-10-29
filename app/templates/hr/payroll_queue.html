@@ -30,7 +30,7 @@
   <td class="px-4 py-2">
     {% if r.status == 'pending' and has_perm(user, 'payroll.approve') %}
     <form method="post" action="/hr/payroll/{{ kind }}/{{ r.id }}/decide" class="flex items-center gap-1">
-      <input name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <input aria-label="Note" name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
       <button name="decision" value="approve" class="rounded bg-emerald-600 px-2 py-1 text-[11px] text-white">Approve</button>
       <button name="decision" value="reject" onclick="return confirm('Reject this request?')" class="rounded bg-rose-600 px-2 py-1 text-[11px] text-white">Reject</button>
     </form>

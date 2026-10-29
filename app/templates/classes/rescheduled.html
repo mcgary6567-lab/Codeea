@@ -25,7 +25,7 @@
                    'Old Teacher', 'Created At', 'Approved AT', 'Approved BY', 'Reason', 'Comments', 'Status'], compact=True) }}
 {% for r in page.items %}
 <tr>
-  <td class="px-2 py-1.5">{% if has_perm(user, 'classes.update') and r.status == 'pending' %}<input type="checkbox" name="request_ids" value="{{ r.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
+  <td class="px-2 py-1.5">{% if has_perm(user, 'classes.update') and r.status == 'pending' %}<input aria-label="Select request" type="checkbox" name="request_ids" value="{{ r.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
   <td class="px-3 py-1.5 font-mono text-xs">{{ r.id }}</td>
   <td class="px-3 py-1.5 font-mono text-xs">{% if r.subscription %}<a href="/subscriptions/{{ r.subscription_id }}" class="text-brand-700 hover:underline">{{ r.subscription.subscription_code }}</a>{% else %}-{% endif %}</td>
   <td class="px-3 py-1.5 text-xs whitespace-nowrap font-medium">{{ r.new_date|date }}</td>

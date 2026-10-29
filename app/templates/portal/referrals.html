@@ -16,7 +16,7 @@
       <div class="flex flex-wrap items-center gap-3">
         <div class="rounded-lg bg-slate-900 px-4 py-2 font-mono text-lg font-bold tracking-widest text-white dark:bg-slate-700">{{ c.referral_code }}</div>
         <div class="min-w-0 flex-1">
-          <input readonly value="{{ link }}" onclick="this.select()"
+          <input readonly aria-label="Your referral link" value="{{ link }}" onclick="this.select()"
                  class="w-full select-all rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-800">
           <p class="mt-1 text-xs text-slate-500">Send this link on WhatsApp. It opens the registration form with your code already applied.</p>
         </div>

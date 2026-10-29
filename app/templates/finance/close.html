@@ -22,7 +22,7 @@
         {% if p.status == 'closed' and can_close %}
         <form method="post" action="/finance/accounts/reopen" class="flex items-center justify-end gap-1.5">
           <input type="hidden" name="period" value="{{ p.period }}">
-          <input name="rationale" placeholder="Rationale" required class="w-32 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
+          <input aria-label="Rationale" name="rationale" placeholder="Rationale" required class="w-32 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
           <button class="rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-600">Re-open</button>
         </form>
         {% endif %}

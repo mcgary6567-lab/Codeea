@@ -15,7 +15,7 @@
     <b>question</b> (required), answer, question_type (oral, written, recitation, mcq), marks, assessment, book, status.
     Assessments and books are matched by title. Rows with errors are skipped and listed after the upload; a question
     already in the bank for the same assessment is not added twice.</p>
-  <input type="file" name="file" accept=".csv,.xlsx" required class="block w-full text-sm">
+  <input aria-label="File" type="file" name="file" accept=".csv,.xlsx" required class="block w-full text-sm">
   <div class="flex items-center justify-between">
     <a href="/academics/config/question-bank/template.csv" class="text-sm text-brand-700 hover:underline">Download template</a>
     {{ ui.button('Upload', icon='upload') }}

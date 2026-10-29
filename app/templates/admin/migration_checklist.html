@@ -28,7 +28,7 @@
     <ul class="space-y-3">
       {% for item in items %}
       <li class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800 {{ 'bg-emerald-50/40 dark:bg-emerald-950/10' if item.done }}">
-        <input type="checkbox" name="chk_{{ item.key }}" value="1" {% if item.done %}checked{% endif %}
+        <input aria-label="Done" type="checkbox" name="chk_{{ item.key }}" value="1" {% if item.done %}checked{% endif %}
                {% if not has_perm(user, 'migration.update') %}disabled{% endif %}
                class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
         <div class="min-w-0">

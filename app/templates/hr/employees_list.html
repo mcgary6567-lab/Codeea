@@ -47,7 +47,7 @@
 {% for r in rows %}
 {% set e = r.employee %}
 <tr {% if r.inactive %}style="background: #fef2f2"{% endif %}>
-  {% if can_bulk %}<td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ e.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>{% endif %}
+  {% if can_bulk %}<td class="px-3 py-2 text-center"><input aria-label="Select employee" type="checkbox" name="ids" value="{{ e.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>{% endif %}
   <td class="px-3 py-2 font-mono text-xs font-semibold text-brand-700"><a href="/hr/employees/{{ e.id }}">{{ e.employee_code }}</a></td>
   <td class="px-3 py-2 text-xs"><a href="/hr/employees/{{ e.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ e.full_name }}</a></td>
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ e.designation }}</td>

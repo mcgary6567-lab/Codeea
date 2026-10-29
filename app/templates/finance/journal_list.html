@@ -47,13 +47,13 @@
       <template x-for="i in lines" :key="i">
         <tr>
           <td class="px-3 py-1.5">
-            <select name="account_code" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+            <select aria-label="Account" name="account_code" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
               <option value="">— none —</option>
               {% for a in accounts %}<option value="{{ a.code }}">{{ a.code }} · {{ a.name }}</option>{% endfor %}
             </select>
           </td>
-          <td class="px-3 py-1.5"><input name="debit" type="number" step="0.01" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></td>
-          <td class="px-3 py-1.5"><input name="credit" type="number" step="0.01" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></td>
+          <td class="px-3 py-1.5"><input aria-label="Debit" name="debit" type="number" step="0.01" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></td>
+          <td class="px-3 py-1.5"><input aria-label="Credit" name="credit" type="number" step="0.01" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></td>
         </tr>
       </template>
       </tbody>

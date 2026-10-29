@@ -10,7 +10,7 @@
     {{ ui.select('client_id', 'Family', client_options, family.id if family else '', required=True, attrs='x-model="fam"') }}
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">Student</label>
-      <select name="student_id" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+      <select aria-label="Student" name="student_id" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
         <option value="">The whole family</option>
         <template x-for="s in (byClient[fam] || [])" :key="s[0]"><option :value="s[0]" x-text="s[1]" :selected="String(s[0]) === '{{ student.id if student else '' }}'"></option></template>
       </select>
@@ -47,7 +47,7 @@
   {% call ui.card('Recording and transcript', 'Only where it is legally permitted and the family has been told') %}
   <div class="grid gap-4 sm:grid-cols-2">
     {{ ui.input('recording_url', 'Recording link or reference', '', placeholder='Link from the calling system') }}
-    <div><label class="mb-1 block text-xs font-semibold text-slate-600">Recording file</label><input type="file" name="recording" accept="audio/*,video/mp4,video/webm,.pdf,.txt" class="block w-full text-sm"></div>
+    <div><label class="mb-1 block text-xs font-semibold text-slate-600">Recording file</label><input aria-label="Recording file" type="file" name="recording" accept="audio/*,video/mp4,video/webm,.pdf,.txt" class="block w-full text-sm"></div>
     <div class="sm:col-span-2">{{ ui.textarea('transcript', 'Transcript', '', rows=3) }}</div>
   </div>
   {% endcall %}

@@ -30,7 +30,7 @@
       <button type="button" @click="open = !open" class="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-emerald-700">Close</button>
       <div x-show="open" x-cloak class="mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-lg dark:border-slate-700 dark:bg-slate-800">
         <form method="post" action="/qa/corrective-actions/{{ a.id }}/close" class="space-y-2">
-          <input name="note" required placeholder="Closure note" class="w-full rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
+          <input aria-label="Closure note" name="note" required placeholder="Closure note" class="w-full rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
           <button class="w-full rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white">Confirm closure</button>
         </form>
       </div>

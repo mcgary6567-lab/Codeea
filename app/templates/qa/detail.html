@@ -64,7 +64,7 @@
                 <span><span class="font-medium">{{ it.name }}</span>{% if it.severity == 'critical' %} <span class="ml-1 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">CRITICAL</span>{% endif %}
                   {% if it.description %}<span class="block text-[11px] text-slate-500">{{ it.description }}</span>{% endif %}</span>
               </label>
-              <input type="text" name="issue_note_{{ it.id }}" value="{{ sel.note if sel and sel.note else '' }}" placeholder="Note (optional)" x-show="on" x-cloak
+              <input aria-label="Note (optional)" type="text" name="issue_note_{{ it.id }}" value="{{ sel.note if sel and sel.note else '' }}" placeholder="Note (optional)" x-show="on" x-cloak
                      class="mt-1.5 w-full rounded border border-slate-300 px-2 py-1 text-xs">
             </div>
             {% else %}<p class="text-xs text-slate-400">No active issue types configured.</p>{% endfor %}

@@ -52,9 +52,9 @@
       <div class="mb-1 text-xs font-semibold text-slate-600">Allowances</div>
       <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {% for k, v in (g.allowances or {}).items() %}
-          <div class="flex gap-1"><input name="allow_key" value="{{ k }}" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input name="allow_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
+          <div class="flex gap-1"><input aria-label="Allowance name" name="allow_key" value="{{ k }}" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input aria-label="Allowance amount" name="allow_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
         {% endfor %}
-        <div class="flex gap-1"><input name="allow_key" placeholder="new allowance" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input name="allow_value" type="number" step="100" placeholder="0" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
+        <div class="flex gap-1"><input aria-label="Allowance name" name="allow_key" placeholder="new allowance" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input aria-label="Allowance amount" name="allow_value" type="number" step="100" placeholder="0" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
       </div>
     </div>
     <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save grade', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
@@ -84,7 +84,7 @@
     <div class="mb-1 text-xs font-semibold text-slate-600">Allowances</div>
     <div class="grid gap-2 sm:grid-cols-2">
       {% for i in range(3) %}
-      <div class="flex gap-1"><input name="allow_key" placeholder="e.g. internet" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input name="allow_value" type="number" step="100" placeholder="0" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
+      <div class="flex gap-1"><input aria-label="Allowance name" name="allow_key" placeholder="e.g. internet" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input aria-label="Allowance amount" name="allow_value" type="number" step="100" placeholder="0" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
       {% endfor %}
     </div>
   </div>
