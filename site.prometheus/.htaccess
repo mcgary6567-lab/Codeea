@@ -126,6 +126,7 @@ RewriteRule ^(.+)$ $1.html [L]
   AddType font/woff   .woff
   AddType font/ttf    .ttf
   AddType image/svg+xml .svg
+  AddType image/webp  .webp
 </IfModule>
 
 # ------------------------------------------------------------

@@ -2,12 +2,10 @@
 <html lang="en" class="clickfunnels-com wf-proximanova-i4-active wf-proximanova-i7-active wf-proximanova-n4-active wf-proximanova-n7-active wf-active wf-proximanova-i3-active wf-proximanova-n3-active elFont_lato wf-proximanovasoft-n4-active wf-proximanovasoft-n7-active wf-proximasoft-n4-active wf-proximasoft-i4-active wf-proximasoft-i6-active wf-proximasoft-n6-active wf-proximasoft-i7-active wf-proximasoft-n7-active bgCover js-focus-visible" style="overflow: initial; background-color: rgb(255, 255, 255); font-family: Poppins, Helvetica, sans-serif !important;">
 <head>
 
-    <!-- Social-proof: self-hosted widget (js/social-proof.js) -->
 
 
-    <meta name="msvalidate.01" content="3E27F406F5B111255D010F2498CE2033" />
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=AW-11306824123"></script>
+<meta name="msvalidate.01" content="3E27F406F5B111255D010F2498CE2033" />
+
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -16,17 +14,12 @@
   gtag('config', 'AW-11306824123');
 </script>
 
-<!-- Event snippet for Page view conversion page -->
+
 <script>
   gtag('event', 'conversion', {'send_to': 'AW-11306824123/dwjTCIqHttQYELvjwY8q'});
 </script>
 
-
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><script src="https://js-agent.newrelic.com/nr-1216.min.js"></script><script type="text/javascript" id="www-widgetapi-script" src="./index_files/www-widgetapi.js.download" async=""></script>
-
-<script src="./index_files/iframe_api"></script><script type="text/javascript" async="" src="./index_files/vendor.js.download"></script><script>window.NREUM||(NREUM={});NREUM.info={"beacon":"bam.nr-data.net","errorBeacon":"bam.nr-data.net","licenseKey":"NRJS-fc902efb332119fff33","applicationID":"367981416","transactionName":"dFZWTENWVQ9QExdNRlJLSFlWXEpMRQBfXUYYSU1aXVBKC1AF","queueTime":0,"applicationTime":472,"agent":""}</script>
-
-<script>(window.NREUM||(NREUM={})).init={ajax:{deny_list:["bam.nr-data.net"]}};(window.NREUM||(NREUM={})).loader_config={licenseKey:"NRJS-fc902efb332119fff33",applicationID:"367981416"};window.NREUM||(NREUM={}),__nr_require=function(t,e,n){function r(n){if(!e[n]){var i=e[n]={exports:{}};t[n][0].call(i.exports,function(e){var i=t[n][1][e];return r(i||e)},i,i.exports)}return e[n].exports}if("function"==typeof __nr_require)return __nr_require;for(var i=0;i<n.length;i++)r(n[i]);return r}({1:[function(t,e,n){function r(){}function i(t,e,n,r){return function(){return s.recordSupportability("API/"+e+"/called"),o(t+e,[u.now()].concat(c(arguments)),n?null:this,r),n?void 0:this}}var o=t("handle"),a=t(9),c=t(10),f=t("ee").get("tracer"),u=t("loader"),s=t(4),d=NREUM;"undefined"==typeof window.newrelic&&(newrelic=d);var p=["setPageViewName","setCustomAttribute","setErrorHandler","finished","addToTrace","inlineHit","addRelease"],l="api-",v=l+"ixn-";a(p,function(t,e){d[e]=i(l,e,!0,"api")}),d.addPageAction=i(l,"addPageAction",!0),d.setCurrentRouteName=i(l,"routeName",!0),e.exports=newrelic,d.interaction=function(){return(new r).get()};var m=r.prototype={createTracer:function(t,e){var n={},r=this,i="function"==typeof e;return o(v+"tracer",[u.now(),t,n],r),function(){if(f.emit((i?"":"no-")+"fn-start",[u.now(),r,i],n),i)try{return e.apply(this,arguments)}catch(t){throw f.emit("fn-err",[arguments,this,t],n),t}finally{f.emit("fn-end",[u.now()],n)}}}};a("actionText,setName,setAttribute,save,ignore,onEnd,getContext,end,get".split(","),function(t,e){m[e]=i(v,e)}),newrelic.noticeError=function(t,e){"string"==typeof t&&(t=new Error(t)),s.recordSupportability("API/noticeError/called"),o("err",[t,u.now(),!1,e])}},{}],2:[function(t,e,n){function r(t){if(NREUM.init){for(var e=NREUM.init,n=t.split("."),r=0;r<n.length-1;r++)if(e=e[n[r]],"object"!=typeof e)return;return e=e[n[n.length-1]]}}e.exports={getConfiguration:r}},{}],3:[function(t,e,n){var r=!1;try{var i=Object.defineProperty({},"passive",{get:function(){r=!0}});window.addEventListener("testPassive",null,i),window.removeEventListener("testPassive",null,i)}catch(o){}e.exports=function(t){return r?{passive:!0,capture:!!t}:!!t}},{}],4:[function(t,e,n){function r(t,e){var n=[a,t,{name:t},e];return o("storeMetric",n,null,"api"),n}function i(t,e){var n=[c,t,{name:t},e];return o("storeEventMetrics",n,null,"api"),n}var o=t("handle"),a="sm",c="cm";e.exports={constants:{SUPPORTABILITY_METRIC:a,CUSTOM_METRIC:c},recordSupportability:r,recordCustom:i}},{}],5:[function(t,e,n){function r(){return c.exists&&performance.now?Math.round(performance.now()):(o=Math.max((new Date).getTime(),o))-a}function i(){return o}var o=(new Date).getTime(),a=o,c=t(11);e.exports=r,e.exports.offset=a,e.exports.getLastTimestamp=i},{}],6:[function(t,e,n){function r(t,e){var n=t.getEntries();n.forEach(function(t){"first-paint"===t.name?l("timing",["fp",Math.floor(t.startTime)]):"first-contentful-paint"===t.name&&l("timing",["fcp",Math.floor(t.startTime)])})}function i(t,e){var n=t.getEntries();if(n.length>0){var r=n[n.length-1];if(u&&u<r.startTime)return;var i=[r],o=a({});o&&i.push(o),l("lcp",i)}}function o(t){t.getEntries().forEach(function(t){t.hadRecentInput||l("cls",[t])})}function a(t){var e=navigator.connection||navigator.mozConnection||navigator.webkitConnection;if(e)return e.type&&(t["net-type"]=e.type),e.effectiveType&&(t["net-etype"]=e.effectiveType),e.rtt&&(t["net-rtt"]=e.rtt),e.downlink&&(t["net-dlink"]=e.downlink),t}function c(t){if(t instanceof y&&!w){var e=Math.round(t.timeStamp),n={type:t.type};a(n),e<=v.now()?n.fid=v.now()-e:e>v.offset&&e<=Date.now()?(e-=v.offset,n.fid=v.now()-e):e=v.now(),w=!0,l("timing",["fi",e,n])}}function f(t){"hidden"===t&&(u=v.now(),l("pageHide",[u]))}if(!("init"in NREUM&&"page_view_timing"in NREUM.init&&"enabled"in NREUM.init.page_view_timing&&NREUM.init.page_view_timing.enabled===!1)){var u,s,d,p,l=t("handle"),v=t("loader"),m=t(8),g=t(3),y=NREUM.o.EV;if("PerformanceObserver"in window&&"function"==typeof window.PerformanceObserver){s=new PerformanceObserver(r);try{s.observe({entryTypes:["paint"]})}catch(h){}d=new PerformanceObserver(i);try{d.observe({entryTypes:["largest-contentful-paint"]})}catch(h){}p=new PerformanceObserver(o);try{p.observe({type:"layout-shift",buffered:!0})}catch(h){}}if("addEventListener"in document){var w=!1,b=["click","keydown","mousedown","pointerdown","touchstart"];b.forEach(function(t){document.addEventListener(t,c,g(!1))})}m(f)}},{}],7:[function(t,e,n){function r(t,e){if(!i)return!1;if(t!==i)return!1;if(!e)return!0;if(!o)return!1;for(var n=o.split("."),r=e.split("."),a=0;a<r.length;a++)if(r[a]!==n[a])return!1;return!0}var i=null,o=null,a=/Version\/(\S+)\s+Safari/;if(navigator.userAgent){var c=navigator.userAgent,f=c.match(a);f&&c.indexOf("Chrome")===-1&&c.indexOf("Chromium")===-1&&(i="Safari",o=f[1])}e.exports={agent:i,version:o,match:r}},{}],8:[function(t,e,n){function r(t){function e(){t(c&&document[c]?document[c]:document[o]?"hidden":"visible")}"addEventListener"in document&&a&&document.addEventListener(a,e,i(!1))}var i=t(3);e.exports=r;var o,a,c;"undefined"!=typeof document.hidden?(o="hidden",a="visibilitychange",c="visibilityState"):"undefined"!=typeof document.msHidden?(o="msHidden",a="msvisibilitychange"):"undefined"!=typeof document.webkitHidden&&(o="webkitHidden",a="webkitvisibilitychange",c="webkitVisibilityState")},{}],9:[function(t,e,n){function r(t,e){var n=[],r="",o=0;for(r in t)i.call(t,r)&&(n[o]=e(r,t[r]),o+=1);return n}var i=Object.prototype.hasOwnProperty;e.exports=r},{}],10:[function(t,e,n){function r(t,e,n){e||(e=0),"undefined"==typeof n&&(n=t?t.length:0);for(var r=-1,i=n-e||0,o=Array(i<0?0:i);++r<i;)o[r]=t[e+r];return o}e.exports=r},{}],11:[function(t,e,n){e.exports={exists:"undefined"!=typeof window.performance&&window.performance.timing&&"undefined"!=typeof window.performance.timing.navigationStart}},{}],ee:[function(t,e,n){function r(){}function i(t){function e(t){return t&&t instanceof r?t:t?u(t,f,a):a()}function n(n,r,i,o,a){if(a!==!1&&(a=!0),!l.aborted||o){t&&a&&t(n,r,i);for(var c=e(i),f=m(n),u=f.length,s=0;s<u;s++)f[s].apply(c,r);var p=d[w[n]];return p&&p.push([b,n,r,c]),c}}function o(t,e){h[t]=m(t).concat(e)}function v(t,e){var n=h[t];if(n)for(var r=0;r<n.length;r++)n[r]===e&&n.splice(r,1)}function m(t){return h[t]||[]}function g(t){return p[t]=p[t]||i(n)}function y(t,e){l.aborted||s(t,function(t,n){e=e||"feature",w[n]=e,e in d||(d[e]=[])})}var h={},w={},b={on:o,addEventListener:o,removeEventListener:v,emit:n,get:g,listeners:m,context:e,buffer:y,abort:c,aborted:!1};return b}function o(t){return u(t,f,a)}function a(){return new r}function c(){(d.api||d.feature)&&(l.aborted=!0,d=l.backlog={})}var f="nr@context",u=t("gos"),s=t(9),d={},p={},l=e.exports=i();e.exports.getOrSetContext=o,l.backlog=d},{}],gos:[function(t,e,n){function r(t,e,n){if(i.call(t,e))return t[e];var r=n();if(Object.defineProperty&&Object.keys)try{return Object.defineProperty(t,e,{value:r,writable:!0,enumerable:!1}),r}catch(o){}return t[e]=r,r}var i=Object.prototype.hasOwnProperty;e.exports=r},{}],handle:[function(t,e,n){function r(t,e,n,r){i.buffer([t],r),i.emit(t,e,n)}var i=t("ee").get("handle");e.exports=r,r.ee=i},{}],id:[function(t,e,n){function r(t){var e=typeof t;return!t||"object"!==e&&"function"!==e?-1:t===window?0:a(t,o,function(){return i++})}var i=1,o="nr@id",a=t("gos");e.exports=r},{}],loader:[function(t,e,n){function r(){if(!M++){var t=T.info=NREUM.info,e=m.getElementsByTagName("script")[0];if(setTimeout(u.abort,3e4),!(t&&t.licenseKey&&t.applicationID&&e))return u.abort();f(x,function(e,n){t[e]||(t[e]=n)});var n=a();c("mark",["onload",n+T.offset],null,"api"),c("timing",["load",n]);var r=m.createElement("script");0===t.agent.indexOf("http://")||0===t.agent.indexOf("https://")?r.src=t.agent:r.src=l+"://"+t.agent,e.parentNode.insertBefore(r,e)}}function i(){"complete"===m.readyState&&o()}function o(){c("mark",["domContent",a()+T.offset],null,"api")}var a=t(5),c=t("handle"),f=t(9),u=t("ee"),s=t(7),d=t(2),p=t(3),l=d.getConfiguration("ssl")===!1?"http":"https",v=window,m=v.document,g="addEventListener",y="attachEvent",h=v.XMLHttpRequest,w=h&&h.prototype,b=!1;NREUM.o={ST:setTimeout,SI:v.setImmediate,CT:clearTimeout,XHR:h,REQ:v.Request,EV:v.Event,PR:v.Promise,MO:v.MutationObserver};var E=""+location,x={beacon:"bam.nr-data.net",errorBeacon:"bam.nr-data.net",agent:"js-agent.newrelic.com/nr-1216.min.js"},O=h&&w&&w[g]&&!/CriOS/.test(navigator.userAgent),T=e.exports={offset:a.getLastTimestamp(),now:a,origin:E,features:{},xhrWrappable:O,userAgent:s,disabled:b};if(!b){t(1),t(6),m[g]?(m[g]("DOMContentLoaded",o,p(!1)),v[g]("load",r,p(!1))):(m[y]("onreadystatechange",i),v[y]("onload",r)),c("mark",["firstbyte",a.getLastTimestamp()],null,"api");var M=0}},{}],"wrap-function":[function(t,e,n){function r(t,e){function n(e,n,r,f,u){function nrWrapper(){var o,a,s,p;try{a=this,o=d(arguments),s="function"==typeof r?r(o,a):r||{}}catch(l){i([l,"",[o,a,f],s],t)}c(n+"start",[o,a,f],s,u);try{return p=e.apply(a,o)}catch(v){throw c(n+"err",[o,a,v],s,u),v}finally{c(n+"end",[o,a,p],s,u)}}return a(e)?e:(n||(n=""),nrWrapper[p]=e,o(e,nrWrapper,t),nrWrapper)}function r(t,e,r,i,o){r||(r="");var c,f,u,s="-"===r.charAt(0);for(u=0;u<e.length;u++)f=e[u],c=t[f],a(c)||(t[f]=n(c,s?f+r:r,i,f,o))}function c(n,r,o,a){if(!v||e){var c=v;v=!0;try{t.emit(n,r,o,e,a)}catch(f){i([f,n,r,o],t)}v=c}}return t||(t=s),n.inPlace=r,n.flag=p,n}function i(t,e){e||(e=s);try{e.emit("internal-error",t)}catch(n){}}function o(t,e,n){if(Object.defineProperty&&Object.keys)try{var r=Object.keys(t);return r.forEach(function(n){Object.defineProperty(e,n,{get:function(){return t[n]},set:function(e){return t[n]=e,e}})}),e}catch(o){i([o],n)}for(var a in t)l.call(t,a)&&(e[a]=t[a]);return e}function a(t){return!(t&&t instanceof Function&&t.apply&&!t[p])}function c(t,e){var n=e(t);return n[p]=t,o(t,n,s),n}function f(t,e,n){var r=t[e];t[e]=c(r,n)}function u(){for(var t=arguments.length,e=new Array(t),n=0;n<t;++n)e[n]=arguments[n];return e}var s=t("ee"),d=t(10),p="nr@original",l=Object.prototype.hasOwnProperty,v=!1;e.exports=r,e.exports.wrapFunction=c,e.exports.wrapInPlace=f,e.exports.argsToArray=u},{}]},{},["loader"]);</script>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta content="utf-8" http-equiv="encoding">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -52,52 +45,31 @@
 <meta property="og:locale" content="en_US">
 <meta name="theme-color" content="#0a0d13">
 <meta name="format-detection" content="telephone=no">
-<link rel="stylesheet" media="screen" href="./index_files/lander.css">
+<link rel="stylesheet" media="screen" href="./index_files/lander.min.css">
 <link rel="canonical" href="https://www.prometheusai.tech/">
-<link rel="stylesheet" href="./index_files/all.css">
-<link rel="stylesheet" href="./index_files/v4-shims.css">
-<link href="./index_files/css" rel="stylesheet" type="text/css">
 
 
-
-<script src="./index_files/application.js.download"></script>
-
-<!-- Google Analytics snippet added by Site Kit -->
 <script type="rocketlazyloadscript"   data-rocket-type='text/javascript' src='https://www.googletagmanager.com/gtag/js?id=UA-135625109-2' id='google_gtagjs-js' async></script>
-<script type="rocketlazyloadscript"   data-rocket-type='text/javascript' id='google_gtagjs-js-after'>
-window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}
-gtag('set', 'linker', {"domains":["www.prometheusai.tech"]} );
-gtag("js", new Date());
-gtag("set", "developer_id.dZTNiMT", true);
-gtag("config", "UA-135625109-2", {"anonymize_ip":true});
-</script>
 
-<!-- End Google Analytics snippet added by Site Kit -->
+
 <style>
     [data-timed-style='fade']{display:none}[data-timed-style='scale']{display:none}
   </style>
 <link rel="icon" href="/img/core-img/favicon.ico">
 <link rel="apple-touch-icon" href="/img/core-img/logo.png">
+<link rel="preload" as="image" href="index_files/poster-demo.webp" fetchpriority="high">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;800&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;800&display=swap"></noscript>
 <link rel="dns-prefetch" href="https://www.googletagmanager.com">
 <link rel="dns-prefetch" href="https://embed.tawk.to">
-<script>
-var head = document.head;
-var script = document.createElement('script');
-script.type = 'text/javascript';
-script.src = "https://181689.tracking.hyros.com/v1/lst/universal-script?ph=a2c5d4bce9b3973c97be1d72137434239c664de2e98a517a8fa3466af2c0cb8f&tag=!tracking";
-head.appendChild(script);
-</script><script type="text/javascript" src="./index_files/universal-script"></script>
-
-<script async="" src="./index_files/js"></script>
-
 
 <script>
   gtag('event', 'conversion', {'send_to': 'AW-924721194/ch6eCKG2kpwDEKrA-LgD'});
 </script><meta property="cf:aff_sub2" content=""><meta property="cf:aff_sub3" content=""><meta property="cf:aff_sub" content=""><meta property="cf:affiliate_id" content=""><meta property="cf:cf_affiliate_id" content=""><meta property="cf:content" content=""><meta property="cf:medium" content=""><meta property="cf:name" content=""><meta property="cf:source" content=""><meta property="cf:term" content=""><meta property="cf:client_width" content="1903"><style id="fit-vids-style">.fluid-width-video-wrapper{width:100%;position:relative;padding:0;}.fluid-width-video-wrapper iframe,.fluid-width-video-wrapper object,.fluid-width-video-wrapper embed {position:absolute;top:0;left:0;width:100%;height:100%;}</style><style type="text/css">.addthisevent {visibility:hidden;}.addthisevent-drop ._url,.addthisevent-drop ._start,.addthisevent-drop ._end,.addthisevent-drop ._zonecode,.addthisevent-drop ._summary,.addthisevent-drop ._description,.addthisevent-drop ._location,.addthisevent-drop ._organizer,.addthisevent-drop ._organizer_email,.addthisevent-drop ._attendees,.addthisevent-drop ._facebook_event,.addthisevent-drop ._all_day_event {display:none!important;}</style><style type="text/css" id="ate_css">.addthisevent-drop {display:inline-block;position:relative;font-family:arial;color:#333!important;background:#f4f4f4 url(https://addthisevent.com/gfx/icon-calendar-t1.png) no-repeat 9px 50%;text-decoration:none!important;border:1px solid #d9d9d9;color:#555;font-weight:bold;font-size:14px;text-decoration:none;padding:9px 12px 8px 35px;-moz-border-radius:2px;-webkit-border-radius:2px;-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;}.addthisevent-drop:hover {border:1px solid #aab9d4;color:#555;font-weight:bold;font-size:14px;text-decoration:none!important;}.addthisevent-drop:active {top:1px;}.addthisevent-selected {background-color:#f7f7f7;}.addthisevent_dropdown {width:200px;position:absolute;z-index:99999;padding:6px 0px 0px 0px;background:#fff;text-align:left;display:none;margin-top:-2px;margin-left:-1px;border-top:1px solid #c8c8c8;border-right:1px solid #bebebe;border-bottom:1px solid #a8a8a8;border-left:1px solid #bebebe;-moz-border-radius:2px;-webkit-border-radius:2px;-webkit-box-shadow:1px 3px 6px rgba(0,0,0,0.15);-moz-box-shadow:1px 3px 6px rgba(0,0,0,0.15);box-shadow:1px 3px 6px rgba(0,0,0,0.15);}.addthisevent_dropdown span {display:block;cursor:pointer;line-height:110%;background:#fff;text-decoration:none;font-size:12px;color:#6d84b4;padding:8px 10px 9px 15px;}.addthisevent_dropdown span:hover {background:#f4f4f4;color:#6d84b4;text-decoration:none;font-size:12px;}.addthisevent span {display:none!important;}.addthisevent-drop ._url,.addthisevent-drop ._start,.addthisevent-drop ._end,.addthisevent-drop ._zonecode,.addthisevent-drop ._summary,.addthisevent-drop ._description,.addthisevent-drop ._location,.addthisevent-drop ._organizer,.addthisevent-drop ._organizer_email,.addthisevent-drop ._facebook_event,.addthisevent-drop ._all_day_event {display:none!important;}.addthisevent_dropdown .copyx {width:200px;height:21px;display:block;position:relative;cursor:default;}.addthisevent_dropdown .brx {width:180px;height:1px;overflow:hidden;background:#e0e0e0;position:absolute;z-index:100;left:10px;top:9px;}.addthisevent_dropdown .frs {position:absolute;top:5px;cursor:pointer;right:10px;padding-left:10px;font-style:normal;font-weight:normal;text-align:right;z-index:101;line-height:110%;background:#fff;text-decoration:none;font-size:9px;color:#cacaca;}.addthisevent_dropdown .frs:hover {color:#999!important;}</style>
 
-<!-- Structured data for search engines & AI assistants -->
+
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -213,12 +185,24 @@ img,iframe,video{max-width:100%}
    oversized bottom padding) — targets only this one section, nothing else */
 #section--77316-162{padding-bottom:24px !important}
 </style>
+<style>
+.fa,.fas{display:inline-block;font-style:normal;line-height:1}
+.fa-plus::before,.fa-arrow-alt-circle-right::before{content:"";display:inline-block;width:1em;height:1em;background-color:currentColor;vertical-align:-.125em;-webkit-mask:var(--i) center/contain no-repeat;mask:var(--i) center/contain no-repeat}
+.fa-plus{--i:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M416 208H272V64c0-17.67-14.33-32-32-32h-32c-17.67 0-32 14.33-32 32v144H32c-17.67 0-32 14.33-32 32v32c0 17.67 14.33 32 32 32h144v144c0 17.67 14.33 32 32 32h32c17.67 0 32-14.33 32-32V304h144c17.67 0 32-14.33 32-32v-32c0-17.67-14.33-32-32-32z'/%3E%3C/svg%3E")}
+.fa-arrow-alt-circle-right{--i:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M256 8c137 0 248 111 248 248S393 504 256 504 8 393 8 256 119 8 256 8zm-28.9 143.6l75.5 72.4H120c-13.3 0-24 10.7-24 24v16c0 13.3 10.7 24 24 24h182.6l-75.5 72.4c-9.7 9.3-9.9 24.8-.4 34.3l11 10.9c9.4 9.4 24.6 9.4 33.9 0L404.3 273c9.4-9.4 9.4-24.6 0-33.9L271.6 106.3c-9.4-9.4-24.6-9.4-33.9 0l-11 10.9c-9.5 9.6-9.3 25.1.4 34.4z'/%3E%3C/svg%3E")}
+.fa_prepended{margin-right:.4em}
+</style>
+<style>
+.pm-yt{position:absolute;inset:0;width:100%;height:100%;display:block;background:#000;cursor:pointer;overflow:hidden}
+.pm-yt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.pm-yt:hover img{opacity:.9}
+.pm-yt-box{position:relative;width:100%;padding-top:56.25%;background:#000;border-radius:8px;overflow:hidden}
+img.elIMG{height:auto}
+</style>
 </head>
 
 <body data-affiliate-param="affiliate_id" data-show-progress="true">
-    
-    
-    
+
 <svg xmlns="http://www.w3.org/2000/svg" style="display: none !important">
 <filter id="grayscale">
 <fecolormatrix type="matrix" values="0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0"></fecolormatrix>
@@ -239,7 +223,7 @@ img,iframe,video{max-width:100%}
 <div class="modalBackdropWrapper" style="display: none; background-color: rgba(0, 0, 0, 0.4); height: 100%;"></div>
 <div class="container containerModal midContainer noTopMargin padding40-top padding40-bottom padding40H borderSolid cornersAll radius10 shadow0 bgNoRepeat emptySection borderLight border5px" id="modalPopup" data-title="Modal" data-block-color="0074C7" style="margin-top: 100px; padding-top: 40px; padding-bottom: 40px; border-color: rgb(28, 28, 28); outline: none; position: fixed; display: none; background-color: rgb(255, 255, 255);" data-trigger="none" data-animate="top" data-delay="0">
 <div class="containerInner ui-sortable"></div>
-<div class="closeLPModal"><img fetchpriority="high" decoding="async" src="./index_files/closemodal.png" alt="Close popup"></div>
+<div class="closeLPModal"><img width="39" height="37" fetchpriority="high" decoding="async" src="./index_files/closemodal.png" alt="Close popup"></div>
 </div>
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
 <style id="bold_style_tmp_headline1-90167">#tmp_headline1-90167 .elHeadline b{color:rgb(230,51,51);}</style>
@@ -250,7 +234,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-141" class="innerContent col_left ui-resizable col-md-4" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-33288" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 40px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/unnamed-1-.png" class="elIMG ximg" alt="Prometheus AI automated crypto trading dashboard preview" width="250" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/unnamed-1-.webp" class="elIMG ximg" alt="Prometheus AI automated crypto trading dashboard preview" width="250" tabindex="0">
 </div>
 </div>
 </div>
@@ -308,7 +292,7 @@ img,iframe,video{max-width:100%}
 </div>
 <div class="pm-hero2__media">
 <div class="pm-hero2__video">
-<iframe src="https://www.youtube-nocookie.com/embed/yKunZ0aOnrU?rel=0" title="Prometheus AI — automated crypto trading demo" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<a class="pm-yt" href="https://www.youtube.com/watch?v=yKunZ0aOnrU" data-id="yKunZ0aOnrU" data-title="Prometheus AI — automated crypto trading demo" aria-label="Play the Prometheus AI demo video"><img src="index_files/poster-demo.webp" width="1280" height="720" alt="Prometheus AI demo video — click to play" fetchpriority="high" decoding="async"></a>
 </div>
 </div>
 </div>
@@ -320,21 +304,21 @@ img,iframe,video{max-width:100%}
 <div id="col-left-128" class="innerContent col_left ui-resizable col-md-3" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-41540" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -500px; outline: none; cursor: pointer;" aria-disabled="false" data-hide-on="desktop">
-<img loading="lazy" decoding="async" src="./index_files/19-min-7-.png" class="elIMG ximg" alt="How Prometheus AI trades crypto automatically 24/7" tabindex="0">
+<img width="576" height="360" loading="lazy" decoding="async" src="index_files/19-min-7-.webp" class="elIMG ximg" alt="How Prometheus AI trades crypto automatically 24/7" tabindex="0">
 </div>
 </div>
 </div>
 <div id="col-center-162" class="innerContent col_right ui-resizable col-md-6" data-col="center" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-49321" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/52-min-1-.png" class="elIMG ximg" alt="Prometheus AI crypto trading bot software shown on a laptop with product boxes" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/52-min-1-.webp" class="elIMG ximg" alt="Prometheus AI crypto trading bot software shown on a laptop with product boxes" width="" tabindex="0">
 </div>
 </div>
 </div>
 <div id="col-right-160" class="innerContent col_right ui-resizable col-md-3" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="3rd Column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-15223" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -500px; outline: none; cursor: pointer;" data-hide-on="desktop" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/21-min-10-.png" class="elIMG ximg" alt="Prometheus AI dashboard with live buy and sell trading signals" tabindex="0">
+<img width="513" height="320" loading="lazy" decoding="async" src="index_files/21-min-10-.webp" class="elIMG ximg" alt="Prometheus AI dashboard with live buy and sell trading signals" tabindex="0">
 </div>
 </div>
 </div>
@@ -349,7 +333,7 @@ img,iframe,video{max-width:100%}
 </a>
 </div>
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-71802" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/22.png" class="elIMG ximg" alt="Automated crypto trading illustration with Prometheus AI" tabindex="0">
+<img width="526" height="78" loading="lazy" decoding="async" src="./index_files/12.png?v=2" class="elIMG ximg" alt="Automated crypto trading illustration with Prometheus AI" tabindex="0">
 </div>
 </div>
 </div>
@@ -361,7 +345,7 @@ img,iframe,video{max-width:100%}
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0 de1pxLetterSpacing mfs_18" style="text-align: center; font-size: 38px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false"><b>Prometheus Is Artificial Intelligence-Powered</b></h2>
 </div>
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-63888" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 10px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/45-min-2-.png" class="elIMG ximg" alt="Set up the Prometheus AI trading bot in minutes" tabindex="0">
+<img width="1248" height="80" loading="lazy" decoding="async" src="./index_files/45-min-2-.png" class="elIMG ximg" alt="Set up the Prometheus AI trading bot in minutes" tabindex="0">
 </div>
 </div>
 </div>
@@ -369,15 +353,15 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--24047" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 20px; padding-bottom: 20px; margin: 0px -108.852px; outline: none; width: auto;">
 <div id="col-left-106-167-171" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;"><div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-68332-114-179" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/63-min-1-.png" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
+<img width="1136" height="658" loading="lazy" decoding="async" src="index_files/63-min-1-.webp" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
 </div>
 <div class="de elVideoWrapper de-editable de-video-block elVideoWidth100 elMargin0 ui-droppable effect1 elVideoSkin2" id="tmp_video-64638-109" data-de-type="video" data-de-editing="false" data-title="video" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" data-video-type="youtube" style="outline: none; margin-top: 30px; cursor: pointer;" aria-disabled="false" data-youtube-url="https://youtu.be/WvcfdLqZ3FA" data-element-theme="customized">
 <div class="elVideoplaceholder"><div class="elVideoplaceholder_inner"></div></div>
-<div class="elVideo" style="display: none;"><div class="fluid-width-video-wrapper" style="padding-top: 56.25%;"><iframe src="./index_files/WvcfdLqZ3FA.html" frameborder="0" allowfullscreen="" wmode="opaque" id="fitvid159695"></iframe></div></div>
+<div class="elVideo"><div class="pm-yt-box"><a class="pm-yt" href="https://www.youtube.com/watch?v=WvcfdLqZ3FA" data-id="WvcfdLqZ3FA" data-title="Prometheus AI bonus video" aria-label="Play video"><img loading="lazy" decoding="async" src="index_files/poster-bonus.webp" width="1280" height="720" alt="Prometheus AI bonus video — click to play"></a></div></div>
 </div>
 <div class="de elVideoWrapper de-editable de-video-block elVideoWidth100 elMargin0 ui-droppable effect1 elVideoSkin2" id="tmp_video-25165-140" data-de-type="video" data-de-editing="false" data-title="video" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" data-video-type="youtube" style="outline: none; margin-top: 40px; cursor: pointer;" data-youtube-url="https://youtu.be/8nta_DzViP8" aria-disabled="false" data-element-theme="customized">
 <div class="elVideoplaceholder"><div class="elVideoplaceholder_inner"></div></div>
-<div class="elVideo" style="display: none;"><div class="fluid-width-video-wrapper" style="padding-top: 56.25%;"><iframe src="./index_files/8nta_DzViP8.html" frameborder="0" allowfullscreen="" wmode="opaque" id="fitvid357506"></iframe></div></div>
+<div class="elVideo"><div class="pm-yt-box"><a class="pm-yt" href="https://www.youtube.com/watch?v=8nta_DzViP8" data-id="8nta_DzViP8" data-title="Prometheus AI bonus video" aria-label="Play video"><img loading="lazy" decoding="async" src="index_files/poster-bonus.webp" width="1280" height="720" alt="Prometheus AI bonus video — click to play"></a></div></div>
 </div>
 </div></div>
 <div id="col-right-175-106-146" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;"><div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
@@ -395,10 +379,10 @@ img,iframe,video{max-width:100%}
 </div>
 <div class="de elVideoWrapper de-editable de-video-block elVideoWidth100 elMargin0 ui-droppable effect1 elVideoSkin2" id="tmp_video-30956-170" data-de-type="video" data-de-editing="false" data-title="video" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" data-video-type="youtube" style="outline: none; margin-top: 80px; cursor: pointer;" data-youtube-url="https://youtu.be/K-dthlFq4ZQ" aria-disabled="false" data-element-theme="customized">
 <div class="elVideoplaceholder"><div class="elVideoplaceholder_inner"></div></div>
-<div class="elVideo" style="display: none;"><div class="fluid-width-video-wrapper" style="padding-top: 56.25%;"><iframe src="./index_files/K-dthlFq4ZQ.html" frameborder="0" allowfullscreen="" wmode="opaque" id="fitvid553853"></iframe></div></div>
+<div class="elVideo"><div class="pm-yt-box"><a class="pm-yt" href="https://www.youtube.com/watch?v=K-dthlFq4ZQ" data-id="K-dthlFq4ZQ" data-title="Prometheus AI bonus video" aria-label="Play video"><img loading="lazy" decoding="async" src="index_files/poster-bonus.webp" width="1280" height="720" alt="Prometheus AI bonus video — click to play"></a></div></div>
 </div>
 <div class="de elImageWrapper de-editable de-image-block elAlign_center elMargin0 ui-droppable hiddenElementTools" id="tmp_image-81236-150" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 40px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/63-min-1-(1).png" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
+<img width="1000" height="787" loading="lazy" decoding="async" src="index_files/63-min-1-(1).webp" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
 </div>
 </div></div>
 </div>
@@ -414,7 +398,7 @@ img,iframe,video{max-width:100%}
 <div id="col-center-162-147" class="innerContent col_right ui-resizable col-md-8" data-col="center" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-49321-185" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/52-min-1-.png" class="elIMG ximg" alt="Prometheus AI crypto trading bot software shown on a laptop with product boxes" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/52-min-1-.webp" class="elIMG ximg" alt="Prometheus AI crypto trading bot software shown on a laptop with product boxes" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -432,7 +416,7 @@ img,iframe,video{max-width:100%}
 </a>
 </div>
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-71802-174" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/22.png" class="elIMG ximg" alt="Automated crypto trading illustration with Prometheus AI" tabindex="0">
+<img width="526" height="78" loading="lazy" decoding="async" src="./index_files/12.png?v=2" class="elIMG ximg" alt="Automated crypto trading illustration with Prometheus AI" tabindex="0">
 </div>
 </div>
 </div>
@@ -444,7 +428,7 @@ img,iframe,video{max-width:100%}
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0 de1pxLetterSpacing" style="text-align: center; font-size: 38px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false"><b>Prometheus Is Artificial Intelligence-Powered</b></h2>
 </div>
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-63888-162" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 10px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/45-min-2-.png" class="elIMG ximg" alt="Set up the Prometheus AI trading bot in minutes" tabindex="0">
+<img width="1248" height="80" loading="lazy" decoding="async" src="./index_files/45-min-2-.png" class="elIMG ximg" alt="Set up the Prometheus AI trading bot in minutes" tabindex="0">
 </div>
 </div>
 </div>
@@ -452,15 +436,15 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--65168" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 20px; padding-bottom: 20px; margin: 0px -108.852px; outline: none; width: auto;">
 <div id="col-left-106-167-125" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;"><div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-68332-114-183" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/63-min-1-.png" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
+<img width="1136" height="658" loading="lazy" decoding="async" src="index_files/63-min-1-.webp" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
 </div>
 <div class="de elVideoWrapper de-editable de-video-block elVideoWidth100 elMargin0 ui-droppable effect1 elVideoSkin2" id="tmp_video-64638-121" data-de-type="video" data-de-editing="false" data-title="video" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" data-video-type="youtube" style="outline: none; margin-top: 30px; cursor: pointer;" aria-disabled="false" data-youtube-url="https://youtu.be/WvcfdLqZ3FA" data-element-theme="customized">
 <div class="elVideoplaceholder"><div class="elVideoplaceholder_inner"></div></div>
-<div class="elVideo" style="display: none;"><div class="fluid-width-video-wrapper" style="padding-top: 56.25%;"><iframe src="./index_files/WvcfdLqZ3FA(1).html" frameborder="0" allowfullscreen="" wmode="opaque" id="fitvid408861"></iframe></div></div>
+<div class="elVideo"><div class="pm-yt-box"><a class="pm-yt" href="https://www.youtube.com/watch?v=WvcfdLqZ3FA" data-id="WvcfdLqZ3FA" data-title="Prometheus AI bonus video" aria-label="Play video"><img loading="lazy" decoding="async" src="index_files/poster-bonus.webp" width="1280" height="720" alt="Prometheus AI bonus video — click to play"></a></div></div>
 </div>
 <div class="de elVideoWrapper de-editable de-video-block elVideoWidth100 elMargin0 ui-droppable effect1 elVideoSkin2" id="tmp_video-25165-153" data-de-type="video" data-de-editing="false" data-title="video" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" data-video-type="youtube" style="outline: none; margin-top: 40px; cursor: pointer;" data-youtube-url="https://youtu.be/8nta_DzViP8" aria-disabled="false" data-element-theme="customized">
 <div class="elVideoplaceholder"><div class="elVideoplaceholder_inner"></div></div>
-<div class="elVideo" style="display: none;"><div class="fluid-width-video-wrapper" style="padding-top: 56.25%;"><iframe src="./index_files/8nta_DzViP8(1).html" frameborder="0" allowfullscreen="" wmode="opaque" id="fitvid62450"></iframe></div></div>
+<div class="elVideo"><div class="pm-yt-box"><a class="pm-yt" href="https://www.youtube.com/watch?v=8nta_DzViP8" data-id="8nta_DzViP8" data-title="Prometheus AI bonus video" aria-label="Play video"><img loading="lazy" decoding="async" src="index_files/poster-bonus.webp" width="1280" height="720" alt="Prometheus AI bonus video — click to play"></a></div></div>
 </div>
 </div></div>
 <div id="col-right-175-106-145" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;"><div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
@@ -478,10 +462,10 @@ img,iframe,video{max-width:100%}
 </div>
 <div class="de elVideoWrapper de-editable de-video-block elVideoWidth100 elMargin0 ui-droppable effect1 elVideoSkin2" id="tmp_video-30956-106" data-de-type="video" data-de-editing="false" data-title="video" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" data-video-type="youtube" style="outline: none; margin-top: 80px; cursor: pointer;" data-youtube-url="https://youtu.be/K-dthlFq4ZQ" aria-disabled="false" data-element-theme="customized">
 <div class="elVideoplaceholder"><div class="elVideoplaceholder_inner"></div></div>
-<div class="elVideo" style="display: none;"><div class="fluid-width-video-wrapper" style="padding-top: 56.25%;"><iframe src="./index_files/K-dthlFq4ZQ(1).html" frameborder="0" allowfullscreen="" wmode="opaque" id="fitvid201702"></iframe></div></div>
+<div class="elVideo"><div class="pm-yt-box"><a class="pm-yt" href="https://www.youtube.com/watch?v=K-dthlFq4ZQ" data-id="K-dthlFq4ZQ" data-title="Prometheus AI bonus video" aria-label="Play video"><img loading="lazy" decoding="async" src="index_files/poster-bonus.webp" width="1280" height="720" alt="Prometheus AI bonus video — click to play"></a></div></div>
 </div>
 <div class="de elImageWrapper de-editable de-image-block elAlign_center elMargin0 ui-droppable" id="tmp_image-81236-179" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 40px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/63-min-1-(1).png" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
+<img width="1000" height="787" loading="lazy" decoding="async" src="index_files/63-min-1-(1).webp" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
 </div>
 </div></div>
 </div>
@@ -560,7 +544,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-181" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-20449" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/64-min-1-.png" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
+<img width="477" height="479" loading="lazy" decoding="async" src="index_files/64-min-1-.webp" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="tmp_headline1-55863" data-de-type="headline" data-de-editing="false" data-title="headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 15px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize3 lh4 elMargin0 elBGStyle0 hsTextShadow0 mfs_30" style="text-align: center; font-size: 40px;" data-bold="inherit" data-gramm="false" contenteditable="false"><b>Automated Trading, 24/7</b></h2>
@@ -646,7 +630,7 @@ img,iframe,video{max-width:100%}
 <div id="col-right-120-119" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-20449-186" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/64-min-1-.png" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
+<img width="477" height="479" loading="lazy" decoding="async" src="index_files/64-min-1-.webp" class="elIMG ximg" alt="Prometheus AI bonus included" tabindex="0">
 </div>
 </div>
 </div>
@@ -659,7 +643,7 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover borderSolid cornersAll shadow0 P0-top P0-bottom P0H noTopMargin borderLight border5px radius75" id="row--26723" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 60px; padding-bottom: 60px; margin: 0px auto; outline: none; border-color: rgb(25, 211, 211); width: 90%; max-width: 100%; background-color: rgb(0, 0, 0);">
 <div id="col-left-188" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px"><div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-93203" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/62-min-1-.png" class="elIMG ximg" alt="What you get with Prometheus AI" tabindex="0">
+<img width="604" height="403" loading="lazy" decoding="async" src="index_files/62-min-1-.webp" class="elIMG ximg" alt="What you get with Prometheus AI" tabindex="0">
 </div></div>
 </div>
 <div id="col-right-185" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
@@ -685,7 +669,7 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover borderSolid cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin borderLight border5px" id="row--26723-116" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 60px; padding-bottom: 60px; margin: 60px auto 0px; outline: none; width: 90%; max-width: 100%; border-color: rgb(25, 211, 211); background-color: rgb(0, 0, 0);">
 <div id="col-left-188-107" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px"><div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-35707" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/57-min-2-.png" class="elIMG ximg" alt="Scale on your schedule — Prometheus AI illustration" tabindex="0">
+<img width="604" height="403" loading="lazy" decoding="async" src="index_files/57-min-2-.webp" class="elIMG ximg" alt="Scale on your schedule — Prometheus AI illustration" tabindex="0">
 </div></div>
 </div>
 <div id="col-right-185-139" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
@@ -719,7 +703,7 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover borderSolid cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin borderLight border5px" id="row--26723-147" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 60px; padding-bottom: 60px; margin: 60px auto 0px; outline: none; width: 90%; max-width: 100%; border-color: rgb(25, 211, 211); background-color: rgb(0, 0, 0);">
 <div id="col-left-188-148" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px"><div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-70283" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/56-min-2-.png" class="elIMG ximg" alt="Prometheus AI trading dashboard on mobile" tabindex="0">
+<img width="604" height="403" loading="lazy" decoding="async" src="index_files/56-min-2-.webp" class="elIMG ximg" alt="Prometheus AI trading dashboard on mobile" tabindex="0">
 </div></div>
 </div>
 <div id="col-right-185-161" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
@@ -751,7 +735,7 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover borderSolid cornersAll shadow0 P0-top P0-bottom P0H noTopMargin borderLight border5px radius75" id="row--26723-119" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 60px; padding-bottom: 60px; margin: 0px auto; outline: none; border-color: rgb(25, 211, 211); width: 90%; max-width: 100%; background-color: rgb(0, 0, 0);">
 <div id="col-left-188-153" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px"><div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-93203-126" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/62-min-1-.png" class="elIMG ximg" alt="What you get with Prometheus AI" tabindex="0">
+<img width="604" height="403" loading="lazy" decoding="async" src="index_files/62-min-1-.webp" class="elIMG ximg" alt="What you get with Prometheus AI" tabindex="0">
 </div></div>
 </div>
 <div id="col-right-185-133" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
@@ -777,7 +761,7 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover borderSolid cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin borderLight border5px" id="row--26723-116-185" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 60px; padding-bottom: 60px; margin: 60px auto 0px; outline: none; width: 90%; max-width: 100%; border-color: rgb(25, 211, 211); background-color: rgb(0, 0, 0);">
 <div id="col-left-188-107-120" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px"><div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-35707-169" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/2.png" class="elIMG ximg" alt="Prometheus AI benefit icon" tabindex="0">
+<img width="604" height="403" loading="lazy" decoding="async" src="index_files/2.webp" class="elIMG ximg" alt="Prometheus AI benefit icon" tabindex="0">
 </div></div>
 </div>
 <div id="col-right-185-139-169" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
@@ -811,7 +795,7 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover borderSolid cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin borderLight border5px" id="row--26723-147-184" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 60px; padding-bottom: 60px; margin: 60px auto 0px; outline: none; width: 90%; max-width: 100%; border-color: rgb(25, 211, 211); background-color: rgb(0, 0, 0);">
 <div id="col-left-188-148-167" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px"><div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-70283-143" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/3.png" class="elIMG ximg" alt="Prometheus AI benefit icon" tabindex="0">
+<img width="604" height="403" loading="lazy" decoding="async" src="index_files/3.webp" class="elIMG ximg" alt="Prometheus AI benefit icon" tabindex="0">
 </div></div>
 </div>
 <div id="col-right-185-161-127" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
@@ -857,7 +841,7 @@ img,iframe,video{max-width:100%}
 <div id="col-full-175" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-28364" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 25px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/moneyback.png" class="elIMG ximg" alt="90-day satisfaction guarantee badge" width="200" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/moneyback.webp" class="elIMG ximg" alt="90-day satisfaction guarantee badge" width="200" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="tmp_subheadline-14181" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 45px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0 mfs_18" style="text-align: center; font-size: 20px; color: rgb(255, 255, 255);" data-bold="inherit" data-gramm="false" contenteditable="false">We’re So Confident In Prometheus That
@@ -902,7 +886,7 @@ img,iframe,video{max-width:100%}
 <div id="col-full-175-164" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-28364-187" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 25px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/moneyback.png" class="elIMG ximg" alt="90-day satisfaction guarantee badge" width="200" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/moneyback.webp" class="elIMG ximg" alt="90-day satisfaction guarantee badge" width="200" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable hiddenElementTools" id="tmp_subheadline-14181-166" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 45px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0" style="text-align: center; font-size: 20px; color: rgb(255, 255, 255);" data-bold="inherit" data-gramm="false" contenteditable="false">We’re So Confident In Prometheus That
@@ -945,7 +929,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-149" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-26961" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/48-min-4-.png" class="elIMG ximg" alt="Hands-free automated crypto trading with Prometheus AI" width="470" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/48-min-4-.webp" class="elIMG ximg" alt="Hands-free automated crypto trading with Prometheus AI" width="470" tabindex="0">
 </div>
 </div>
 </div>
@@ -972,7 +956,7 @@ img,iframe,video{max-width:100%}
 <div id="col-full-122" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-21337" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/46-min-3-.png" class="elIMG ximg" alt="Prometheus AI trading chart illustration" tabindex="0">
+<img width="994" height="74" loading="lazy" decoding="async" src="./index_files/46-min-3-.png" class="elIMG ximg" alt="Prometheus AI trading chart illustration" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-80683" data-de-type="headline" data-de-editing="false" data-title="headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 5px; outline: none; cursor: pointer; font-family: Poppins, Helvetica, sans-serif !important;" aria-disabled="false" data-google-font="Poppins">
 <h2 class="ne elHeadline hsSize3 lh4 elMargin0 elBGStyle0 hsTextShadow0 deUppercase mfs_22" style="text-align: center; font-size: 40px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">
@@ -986,7 +970,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-103" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-14759" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/66-min-1-.png" class="elIMG ximg" alt="Prometheus AI limited-time offer" tabindex="0">
+<img width="469" height="479" loading="lazy" decoding="async" src="index_files/66-min-1-.webp" class="elIMG ximg" alt="Prometheus AI limited-time offer" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-39441" data-de-type="headline" data-de-editing="false" data-title="headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 40px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize3 lh4 elMargin0 elBGStyle0 hsTextShadow0 mfs_25" style="text-align: center; font-size: 42px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">
@@ -1010,7 +994,7 @@ img,iframe,video{max-width:100%}
 <div id="col-right-181" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-12808" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 40px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/1.png" class="elIMG ximg" alt="Prometheus AI benefit icon" tabindex="0">
+<img width="1272" height="511" loading="lazy" decoding="async" src="index_files/1.webp" class="elIMG ximg" alt="Prometheus AI benefit icon" tabindex="0">
 </div>
 </div>
 </div>
@@ -1023,7 +1007,7 @@ img,iframe,video{max-width:100%}
 <div id="col-full-122-185" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-21337-120" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/46-min-3-.png" class="elIMG ximg" alt="Prometheus AI trading chart illustration" tabindex="0">
+<img width="994" height="74" loading="lazy" decoding="async" src="./index_files/46-min-3-.png" class="elIMG ximg" alt="Prometheus AI trading chart illustration" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-80683-170" data-de-type="headline" data-de-editing="false" data-title="headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 5px; outline: none; cursor: pointer; font-family: Poppins, Helvetica, sans-serif !important;" aria-disabled="false" data-google-font="Poppins">
 <h2 class="ne elHeadline hsSize3 lh4 elMargin0 elBGStyle0 hsTextShadow0 deUppercase" style="text-align: center; font-size: 40px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">
@@ -1058,7 +1042,7 @@ img,iframe,video{max-width:100%}
 <div id="col-right-181-168" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-14759-171" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/66-min-1-.png" class="elIMG ximg" alt="Prometheus AI limited-time offer" tabindex="0">
+<img width="469" height="479" loading="lazy" decoding="async" src="index_files/66-min-1-.webp" class="elIMG ximg" alt="Prometheus AI limited-time offer" tabindex="0">
 </div>
 </div>
 </div>
@@ -1067,7 +1051,7 @@ img,iframe,video{max-width:100%}
 <div id="col-full-101" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-96536" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/1.png" class="elIMG ximg" alt="Prometheus AI benefit icon" tabindex="0">
+<img width="1272" height="511" loading="lazy" decoding="async" src="index_files/1.webp" class="elIMG ximg" alt="Prometheus AI benefit icon" tabindex="0">
 </div>
 </div>
 </div>
@@ -1089,7 +1073,7 @@ img,iframe,video{max-width:100%}
 </h2>
 </div>
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable hiddenElementTools" id="tmp_image-14759-103" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/67-min-1-.png" class="elIMG ximg" alt="Prometheus AI pricing and instant access" tabindex="0">
+<img width="1254" height="760" loading="lazy" decoding="async" src="index_files/67-min-1-.webp" class="elIMG ximg" alt="Prometheus AI pricing and instant access" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable hiddenElementTools de-editable" id="tmp_subheadline-56211-152" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0 mfs_18" style="text-align: left; font-size: 20px; color: rgb(255, 255, 255);" data-bold="inherit" data-gramm="false" contenteditable="false">The incredibly accurate Stock To Flow Model has correctly predicted all of bitcoin’s major moves …<div>
@@ -1115,7 +1099,7 @@ img,iframe,video{max-width:100%}
 <div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--50139-155-114" data-trigger="none" data-animate="fade" data-delay="500" data-title="2 column row" style="padding-top: 50px; padding-bottom: 50px; margin: 0px -100px; outline: none; width: auto;">
 <div id="col-left-103-169-183" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px"><div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-14759-103-171" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 5px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/67-min-1-.png" class="elIMG ximg" alt="Prometheus AI pricing and instant access" tabindex="0">
+<img width="1254" height="760" loading="lazy" decoding="async" src="index_files/67-min-1-.webp" class="elIMG ximg" alt="Prometheus AI pricing and instant access" tabindex="0">
 </div></div>
 </div>
 <div id="col-right-181-177-158" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
@@ -1154,7 +1138,7 @@ img,iframe,video{max-width:100%}
 <h2 class="ne elHeadline hsSize3 lh4 elMargin0 elBGStyle0 hsTextShadow0 mfs_29" style="text-align: center; font-size: 42px;" data-bold="inherit" data-gramm="false" contenteditable="false"><font color="#ffffff"><b>Minute-By-Minute Results</b></font></h2>
 </div>
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-14759-110" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/68-min-1-.png" class="elIMG ximg" alt="Prometheus AI frequently asked questions" tabindex="0">
+<img width="1254" height="760" loading="lazy" decoding="async" src="index_files/68-min-1-.webp" class="elIMG ximg" alt="Prometheus AI frequently asked questions" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="tmp_subheadline-56211-173" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0 mfs_18" style="text-align: left; font-size: 20px; color: rgb(255, 255, 255);" data-bold="inherit" data-gramm="false" contenteditable="false">Our AI bots act on high-probability trading setups faster &amp; more accurately than any human …<div>
@@ -1208,7 +1192,7 @@ img,iframe,video{max-width:100%}
 </div>
 <div id="col-right-181-159-161" class="col-md-6 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px"><div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-14759-110-108" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/68-min-1-.png" class="elIMG ximg" alt="Prometheus AI frequently asked questions" tabindex="0">
+<img width="1254" height="760" loading="lazy" decoding="async" src="index_files/68-min-1-.webp" class="elIMG ximg" alt="Prometheus AI frequently asked questions" tabindex="0">
 </div></div>
 </div>
 </div>
@@ -1233,7 +1217,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-155" class="col-md-4 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-99248" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/53-min-1-.png" class="elIMG ximg" alt="Crypto candlestick chart illustration" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/53-min-1-.webp" class="elIMG ximg" alt="Crypto candlestick chart illustration" width="" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-38150-178" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 15px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0 mfs_20" style="text-align: center; font-size: 23px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">Short Term</h2>
@@ -1251,7 +1235,7 @@ img,iframe,video{max-width:100%}
 <div id="col-center-189" class="col-md-4 innerContent col_right ui-resizable" data-col="center" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable hiddenElementTools" id="img-49673" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/54-min-1-.png" class="elIMG ximg" alt="Prometheus AI automated crypto trading illustration" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/54-min-1-.webp" class="elIMG ximg" alt="Prometheus AI automated crypto trading illustration" width="" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-42629-103" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 15px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0 mfs_20" style="text-align: center; font-size: 23px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">Hands-Free</h2>
@@ -1269,7 +1253,7 @@ img,iframe,video{max-width:100%}
 <div id="col-right-135" class="col-md-4 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="3rd Column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-54502-189" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/55-min-1-.png" class="elIMG ximg" alt="Prometheus AI automated crypto trading illustration" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/55-min-1-.webp" class="elIMG ximg" alt="Prometheus AI automated crypto trading illustration" width="" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-27158-162" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0 mfs_20" style="text-align: center; font-size: 23px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">Advanced Compounding &amp;</h2>
@@ -1303,7 +1287,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-155-144" class="col-md-4 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-99248-100" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/53-min-1-.png" class="elIMG ximg" alt="Crypto candlestick chart illustration" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/53-min-1-.webp" class="elIMG ximg" alt="Crypto candlestick chart illustration" width="" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-38150-178-134" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 15px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0" style="text-align: center; font-size: 23px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">Short Term</h2>
@@ -1321,7 +1305,7 @@ img,iframe,video{max-width:100%}
 <div id="col-center-189-137" class="col-md-4 innerContent col_right ui-resizable" data-col="center" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-49673-151" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/54-min-1-.png" class="elIMG ximg" alt="Prometheus AI automated crypto trading illustration" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/54-min-1-.webp" class="elIMG ximg" alt="Prometheus AI automated crypto trading illustration" width="" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-42629-103-146" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 15px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0" style="text-align: center; font-size: 23px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">Hands-Free</h2>
@@ -1339,7 +1323,7 @@ img,iframe,video{max-width:100%}
 <div id="col-right-135-159" class="col-md-4 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="3rd Column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-54502-189-180" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/55-min-1-.png" class="elIMG ximg" alt="Prometheus AI automated crypto trading illustration" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/55-min-1-.webp" class="elIMG ximg" alt="Prometheus AI automated crypto trading illustration" width="" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-27158-162-142" data-de-type="headline" data-de-editing="false" data-title="sub-headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" data-gramm="false" style="margin-top: 20px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize2 lh3 elMargin0 elBGStyle0 hsTextShadow0" style="text-align: center; font-size: 23px; color: rgb(0, 0, 0);" data-bold="inherit" data-gramm="false" contenteditable="false">Advanced Compounding &amp;</h2>
@@ -1371,7 +1355,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-149-177" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-26961-107" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/48-min-4-.png" class="elIMG ximg" alt="Hands-free automated crypto trading with Prometheus AI" width="470" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/48-min-4-.webp" class="elIMG ximg" alt="Hands-free automated crypto trading with Prometheus AI" width="470" tabindex="0">
 </div>
 </div>
 </div>
@@ -1410,7 +1394,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-151" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-28646" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/Pometheus_OTO1.png" class="elIMG ximg" alt="Prometheus AI upgrade offer" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/Pometheus_OTO1.webp" class="elIMG ximg" alt="Prometheus AI upgrade offer" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -1458,7 +1442,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-151-111" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-41831" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/Pometheus_OTO2.png" class="elIMG ximg" alt="Prometheus AI Pro upgrade offer" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/Pometheus_OTO2.webp" class="elIMG ximg" alt="Prometheus AI Pro upgrade offer" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -1505,7 +1489,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-151-111-149" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-41831-164" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/Pometheus_OTO3.png" class="elIMG ximg" alt="Prometheus AI Elite upgrade offer" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/Pometheus_OTO3.webp" class="elIMG ximg" alt="Prometheus AI Elite upgrade offer" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -1570,7 +1554,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-151-142" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-28646-133" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/Pometheus_OTO1.png" class="elIMG ximg" alt="Prometheus AI upgrade offer" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/Pometheus_OTO1.webp" class="elIMG ximg" alt="Prometheus AI upgrade offer" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -1618,7 +1602,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-151-111-166" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-41831-157" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/Pometheus_OTO2.png" class="elIMG ximg" alt="Prometheus AI Pro upgrade offer" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/Pometheus_OTO2.webp" class="elIMG ximg" alt="Prometheus AI Pro upgrade offer" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -1665,7 +1649,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-151-111-149-147" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-41831-164-158" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: -30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/Pometheus_OTO3.png" class="elIMG ximg" alt="Prometheus AI Elite upgrade offer" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/Pometheus_OTO3.webp" class="elIMG ximg" alt="Prometheus AI Elite upgrade offer" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -1728,7 +1712,7 @@ img,iframe,video{max-width:100%}
 <div id="col-left-149-177-111" class="col-md-6 innerContent col_left ui-resizable" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="img-91864" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/48-min-4-.png" class="elIMG ximg" alt="Hands-free automated crypto trading with Prometheus AI" width="470" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/48-min-4-.webp" class="elIMG ximg" alt="Hands-free automated crypto trading with Prometheus AI" width="470" tabindex="0">
 </div>
 </div>
 </div>
@@ -1790,7 +1774,7 @@ img,iframe,video{max-width:100%}
 <div id="col-full-148" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-26961-107-105" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/49-min-3-.png" class="elIMG ximg" alt="Prometheus AI risk controls and trade guardrails" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/49-min-3-.webp" class="elIMG ximg" alt="Prometheus AI risk controls and trade guardrails" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -1803,7 +1787,7 @@ img,iframe,video{max-width:100%}
 <div id="col-full-160-152" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-77089-118" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 30px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/50-min-2-.png" class="elIMG ximg" alt="Prometheus AI works on Binance, Bybit, OKX and more" tabindex="0">
+<img width="1521" height="74" loading="lazy" decoding="async" src="./index_files/50-min-2-.png" class="elIMG ximg" alt="Prometheus AI works on Binance, Bybit, OKX and more" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="headline-83295-151" data-de-type="headline" data-de-editing="false" data-title="headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 5px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize3 lh4 elMargin0 elBGStyle0 hsTextShadow0 de1pxLetterSpacing deCapitalize" style="text-align: center; font-size: 32px;" data-bold="inherit" data-gramm="false" contenteditable="false">
@@ -1834,7 +1818,7 @@ img,iframe,video{max-width:100%}
 <div id="col-full-148-162" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable hiddenElementTools" id="tmp_image-26961-107-105-189" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/49-min-3-.png" class="elIMG ximg" alt="Prometheus AI risk controls and trade guardrails" width="" tabindex="0">
+<img loading="lazy" decoding="async" src="index_files/49-min-3-.webp" class="elIMG ximg" alt="Prometheus AI risk controls and trade guardrails" width="" tabindex="0">
 </div>
 </div>
 </div>
@@ -1859,130 +1843,130 @@ img,iframe,video{max-width:100%}
 <div class="de elCustomJs elMargin0 ui-droppable de-editable" id="tmp_customjs-38490" data-de-type="customjs" data-de-editing="false" data-title="Custom JS / HTML" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
 <div class="elCustomJSBg">CUSTOM JAVASCRIPT / HTML</div>
 <div class="elCustomJS_code" data-custom-js="&lt;script src=&quot;https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js&quot;&gt;&lt;/script&gt;
-  &lt;script src=&quot;https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js&quot;&gt;&lt;/script&gt;
-  &lt;div class=&quot;panel-group&quot; id=&quot;accordion&quot;&gt;
-    &lt;div class=&quot;panel panel-default&quot;&gt;
-      &lt;div class=&quot;panel-heading&quot;&gt;
-        &lt;h4 class=&quot;panel-title&quot;&gt;
-          &lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot; href=&quot;#collapse1&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;What Can I Realistically Expect From Prometheus?&lt;/span&gt;&lt;/a&gt;
-        &lt;/h4&gt;
-      &lt;/div&gt;
-      &lt;div id=&quot;collapse1&quot; class=&quot;panel-collapse collapse in&quot;&gt;
-        &lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;That will depend on many factors, but mainly how much you invest. While you can start with as little as $100, we recommend about $3,000 for a fast start.
+&lt;script src=&quot;https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js&quot;&gt;&lt;/script&gt;
+&lt;div class=&quot;panel-group&quot; id=&quot;accordion&quot;&gt;
+&lt;div class=&quot;panel panel-default&quot;&gt;
+&lt;div class=&quot;panel-heading&quot;&gt;
+&lt;h4 class=&quot;panel-title&quot;&gt;
+&lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot; href=&quot;#collapse1&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;What Can I Realistically Expect From Prometheus?&lt;/span&gt;&lt;/a&gt;
+&lt;/h4&gt;
+&lt;/div&gt;
+&lt;div id=&quot;collapse1&quot; class=&quot;panel-collapse collapse in&quot;&gt;
+&lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;That will depend on many factors, but mainly how much you invest. While you can start with as little as $100, we recommend about $3,000 for a fast start.
 But if things are tight right now, you can start small and scale at your own pace.&lt;/span&gt;&lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;panel panel-default&quot;&gt;
-      &lt;div class=&quot;panel-heading&quot;&gt;
-        &lt;h4 class=&quot;panel-title&quot;&gt;
-          &lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot; href=&quot;#collapse2&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;How Fast Can I Get Set Up?&lt;/span&gt;&lt;/a&gt;
-        &lt;/h4&gt;
-      &lt;/div&gt;
-      &lt;div id=&quot;collapse2&quot; class=&quot;panel-collapse collapse&quot;&gt;
-        &lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;We can&#39;t guarantee an actual time because there are always variables beyond anyone&#39;s control.
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;panel panel-default&quot;&gt;
+&lt;div class=&quot;panel-heading&quot;&gt;
+&lt;h4 class=&quot;panel-title&quot;&gt;
+&lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot; href=&quot;#collapse2&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;How Fast Can I Get Set Up?&lt;/span&gt;&lt;/a&gt;
+&lt;/h4&gt;
+&lt;/div&gt;
+&lt;div id=&quot;collapse2&quot; class=&quot;panel-collapse collapse&quot;&gt;
+&lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;We can&#39;t guarantee an actual time because there are always variables beyond anyone&#39;s control.
 However Prometheus starts working the INSTANT your bots are activated, and we recommend starting in demo mode first so you can watch it run with nothing at risk.&lt;/span&gt;&lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;panel panel-default&quot;&gt;
-      &lt;div class=&quot;panel-heading&quot;&gt;
-        &lt;h4 class=&quot;panel-title&quot;&gt;
-          &lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot;
-             href=&quot;#collapse3&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;What Other Costs Are Involved?&lt;/span&gt;&lt;/a&gt;
-        &lt;/h4&gt;
-      &lt;/div&gt;
-      &lt;div id=&quot;collapse3&quot; class=&quot;panel-collapse collapse&quot;&gt;
-        &lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;The software company we partner with has its own full-time development team that constantly updates the software. So they offer 3 different monthly plans:
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;panel panel-default&quot;&gt;
+&lt;div class=&quot;panel-heading&quot;&gt;
+&lt;h4 class=&quot;panel-title&quot;&gt;
+&lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot;
+href=&quot;#collapse3&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;What Other Costs Are Involved?&lt;/span&gt;&lt;/a&gt;
+&lt;/h4&gt;
+&lt;/div&gt;
+&lt;div id=&quot;collapse3&quot; class=&quot;panel-collapse collapse&quot;&gt;
+&lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;The software company we partner with has its own full-time development team that constantly updates the software. So they offer 3 different monthly plans:
 $29 / mo will get you access to 2 bots, which is perfect for starting. Once you&#39;re ready, you can upgrade to their 5 bot plan for $69 / mo. Apart from this, you&#39;ll need to add in your own investment funds. Again, you can get started for just $100 and work your way up - we recommend more, but it&#39;s completely up to you.&lt;/span&gt;&lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;panel panel-default&quot;&gt;
-      &lt;div class=&quot;panel-heading&quot;&gt;
-        &lt;h4 class=&quot;panel-title&quot;&gt;
-          &lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot;
-             href=&quot;#collapse4&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;Is My Money Safe?&lt;/span&gt;&lt;/a&gt;
-        &lt;/h4&gt;
-      &lt;/div&gt;
-      &lt;div id=&quot;collapse4&quot; class=&quot;panel-collapse collapse&quot;&gt;
-        &lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Yes! Which is very important because there have been many bot-related scams in the past .. I&#39;ve even personally lost $15,000 because of one … so Prometheus is different.
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;panel panel-default&quot;&gt;
+&lt;div class=&quot;panel-heading&quot;&gt;
+&lt;h4 class=&quot;panel-title&quot;&gt;
+&lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot;
+href=&quot;#collapse4&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;Is My Money Safe?&lt;/span&gt;&lt;/a&gt;
+&lt;/h4&gt;
+&lt;/div&gt;
+&lt;div id=&quot;collapse4&quot; class=&quot;panel-collapse collapse&quot;&gt;
+&lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Yes! Which is very important because there have been many bot-related scams in the past .. I&#39;ve even personally lost $15,000 because of one … so Prometheus is different.
 The only person who has access to your funds is YOU.
 You don&#39;t send any money to us, your funds are kept inside YOUR crypto wallet. The bots just plug in via API - they can&#39;t withdraw or access your funds and they won&#39;t do anything without your permission. Furthermore, everything is encrypted with 2048-bit encryption, TWICE as much as most banks.&lt;/span&gt; &lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;panel panel-default&quot;&gt;
-      &lt;div class=&quot;panel-heading&quot;&gt;
-        &lt;h4 class=&quot;panel-title&quot;&gt;
-          &lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot;
-             href=&quot;#collapse5&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;How Risky Is This?&lt;/span&gt;&lt;/a&gt;
-        &lt;/h4&gt;
-      &lt;/div&gt;
-      &lt;div id=&quot;collapse5&quot; class=&quot;panel-collapse collapse&quot;&gt;
-        &lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Well your investment in Prometheus is fully refundable as we&#39;ve already covered with the money-back guarantee We don&#39;t want you to feel any pressure at all.
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;panel panel-default&quot;&gt;
+&lt;div class=&quot;panel-heading&quot;&gt;
+&lt;h4 class=&quot;panel-title&quot;&gt;
+&lt;a data-toggle=&quot;collapse&quot; data-parent=&quot;#accordion&quot;
+href=&quot;#collapse5&quot;&gt;&lt;span style=&quot;font-size: 20px;&quot;&gt;How Risky Is This?&lt;/span&gt;&lt;/a&gt;
+&lt;/h4&gt;
+&lt;/div&gt;
+&lt;div id=&quot;collapse5&quot; class=&quot;panel-collapse collapse&quot;&gt;
+&lt;div class=&quot;panel-body&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Well your investment in Prometheus is fully refundable as we&#39;ve already covered with the money-back guarantee We don&#39;t want you to feel any pressure at all.
 In terms of the funds you put into crypto, understand that all investments are speculative … and you should only invest funds you are comfortable losing.
 That&#39;s the &#39;legal&#39; part. The reality, as you&#39;ve seen, is that Prometheus reduces the speculative risk of crypto to the absolute MINIMUM, far lower than you&#39;d be exposed to in any other program.
 Remember one of our founders, Will, who is EXTREMELY risk averse … and he&#39;s &#39;all-in&#39; with Prometheus.
 What Prometheus is built to do is manage that risk for you — fixed position sizing and a stop-loss on every trade, with guardrails that cap your daily loss, across rising, falling and sideways markets. The goal is a disciplined process you can run for the long term, not a promise of returns.&lt;/span&gt;&lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-  &lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
 " data-displaytype="htmlregular">
-  
-  <div class="panel-group" id="accordion">
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h4 class="panel-title">
-          <a data-toggle="collapse" data-parent="#accordion" href="#collapse1"><span style="font-size: 20px;">What Can I Realistically Expect From Prometheus?</span></a>
-        </h4>
-      </div>
-      <div id="collapse1" class="panel-collapse collapse in">
-        <div class="panel-body"><span style="font-size: 18px;">Prometheus automates a disciplined strategy for you 24/7 — entries, stop-losses and exits, without emotion. What it can't do is guarantee a profit; results depend on the market and your own settings. You can start with as little as $100 and scale as you get comfortable.</span></div>
-      </div>
-    </div>
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h4 class="panel-title">
-          <a data-toggle="collapse" data-parent="#accordion" href="#collapse2"><span style="font-size: 20px;">How Fast Can I Get Set Up?</span></a>
-        </h4>
-      </div>
-      <div id="collapse2" class="panel-collapse collapse">
-        <div class="panel-body"><span style="font-size: 18px;">Setup takes minutes, and we include a done-for-you setup call. Prometheus starts working the instant your bots are activated, automating your strategy around the clock. We recommend starting in demo mode first so you can watch it run with nothing at risk.</span></div>
-      </div>
-    </div>
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h4 class="panel-title">
-          <a data-toggle="collapse" data-parent="#accordion" href="#collapse3"><span style="font-size: 20px;">What Other Costs Are Involved?</span></a>
-        </h4>
-      </div>
-      <div id="collapse3" class="panel-collapse collapse">
-        <div class="panel-body"><span style="font-size: 18px;">The software company we partner with has its own full-time development team that constantly updates the software. So they offer 3 different monthly plans:
+
+<div class="panel-group" id="accordion">
+<div class="panel panel-default">
+<div class="panel-heading">
+<h4 class="panel-title">
+<a data-toggle="collapse" data-parent="#accordion" href="#collapse1"><span style="font-size: 20px;">What Can I Realistically Expect From Prometheus?</span></a>
+</h4>
+</div>
+<div id="collapse1" class="panel-collapse collapse in">
+<div class="panel-body"><span style="font-size: 18px;">Prometheus automates a disciplined strategy for you 24/7 — entries, stop-losses and exits, without emotion. What it can't do is guarantee a profit; results depend on the market and your own settings. You can start with as little as $100 and scale as you get comfortable.</span></div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<h4 class="panel-title">
+<a data-toggle="collapse" data-parent="#accordion" href="#collapse2"><span style="font-size: 20px;">How Fast Can I Get Set Up?</span></a>
+</h4>
+</div>
+<div id="collapse2" class="panel-collapse collapse">
+<div class="panel-body"><span style="font-size: 18px;">Setup takes minutes, and we include a done-for-you setup call. Prometheus starts working the instant your bots are activated, automating your strategy around the clock. We recommend starting in demo mode first so you can watch it run with nothing at risk.</span></div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<h4 class="panel-title">
+<a data-toggle="collapse" data-parent="#accordion" href="#collapse3"><span style="font-size: 20px;">What Other Costs Are Involved?</span></a>
+</h4>
+</div>
+<div id="collapse3" class="panel-collapse collapse">
+<div class="panel-body"><span style="font-size: 18px;">The software company we partner with has its own full-time development team that constantly updates the software. So they offer 3 different monthly plans:
 $29 / mo gets you access to 2 bots, which is perfect for starting. You can upgrade to the 5-bot plan for $69 / mo whenever you're ready. Apart from this, you add your own trading funds — you can get started for just $100 and scale at your own pace.</span></div>
-      </div>
-    </div>
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h4 class="panel-title">
-          <a data-toggle="collapse" data-parent="#accordion" href="#collapse4"><span style="font-size: 20px;">Is My Money Safe?</span></a>
-        </h4>
-      </div>
-      <div id="collapse4" class="panel-collapse collapse">
-        <div class="panel-body"><span style="font-size: 18px;">Yes! Which is very important because there have been many bot-related scams in the past .. I've even personally lost $15,000 because of one … so Prometheus is different.
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<h4 class="panel-title">
+<a data-toggle="collapse" data-parent="#accordion" href="#collapse4"><span style="font-size: 20px;">Is My Money Safe?</span></a>
+</h4>
+</div>
+<div id="collapse4" class="panel-collapse collapse">
+<div class="panel-body"><span style="font-size: 18px;">Yes! Which is very important because there have been many bot-related scams in the past .. I've even personally lost $15,000 because of one … so Prometheus is different.
 The only person who has access to your funds is YOU.
 You don't send any money to us, your funds are kept inside YOUR crypto wallet. The bots just plug in via API - they can't withdraw or access your funds and they won't do anything without your permission. Furthermore, everything is encrypted with 2048-bit encryption, TWICE as much as most banks.</span> </div>
-      </div>
-    </div>
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h4 class="panel-title">
-          <a data-toggle="collapse" data-parent="#accordion" href="#collapse5"><span style="font-size: 20px;">How Risky Is This?</span></a>
-        </h4>
-      </div>
-      <div id="collapse5" class="panel-collapse collapse">
-        <div class="panel-body"><span style="font-size: 18px;">Your purchase of Prometheus is fully refundable — it's covered by our 90-day money-back guarantee, so there's no risk in trying it. We don't want you to feel any pressure at all.
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<h4 class="panel-title">
+<a data-toggle="collapse" data-parent="#accordion" href="#collapse5"><span style="font-size: 20px;">How Risky Is This?</span></a>
+</h4>
+</div>
+<div id="collapse5" class="panel-collapse collapse">
+<div class="panel-body"><span style="font-size: 18px;">Your purchase of Prometheus is fully refundable — it's covered by our 90-day money-back guarantee, so there's no risk in trying it. We don't want you to feel any pressure at all.
 As for the funds you put into crypto: all trading is speculative, and you should only use money you are comfortable risking. No bot can remove market risk or guarantee a profit.
 What Prometheus is built to do is manage that risk for you — fixed position sizing and a stop-loss on every trade, with guardrails that cap your daily loss, across rising, falling and sideways markets. The goal is a disciplined process you can run for the long term, not a promise of returns.</span></div>
-      </div>
-    </div>
-  </div>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -1997,7 +1981,7 @@ What Prometheus is built to do is manage that risk for you — fixed position si
 <div id="col-full-140" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-72559" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/unnamed-1-.png" class="elIMG ximg" alt="Prometheus AI automated crypto trading dashboard preview" tabindex="0">
+<img width="313" height="48" loading="lazy" decoding="async" src="index_files/unnamed-1-.webp" class="elIMG ximg" alt="Prometheus AI automated crypto trading dashboard preview" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="tmp_headline1-21977" data-de-type="headline" data-de-editing="false" data-title="headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 35px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize3 lh4 elMargin0 elBGStyle0 hsTextShadow0 mfs_30" style="text-align: center; font-size: 44px;" data-bold="inherit" data-gramm="false" contenteditable="false"><b>Choose Your Registration Option</b></h2>
@@ -2065,7 +2049,7 @@ What Prometheus is built to do is manage that risk for you — fixed position si
 <div id="col-full-140-125" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
 <div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
 <div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-72559-125" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 0px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="./index_files/unnamed-1-.png" class="elIMG ximg" alt="Prometheus AI automated crypto trading dashboard preview" tabindex="0">
+<img width="313" height="48" loading="lazy" decoding="async" src="index_files/unnamed-1-.webp" class="elIMG ximg" alt="Prometheus AI automated crypto trading dashboard preview" tabindex="0">
 </div>
 <div class="de elHeadlineWrapper ui-droppable de-editable" id="tmp_headline1-21977-142" data-de-type="headline" data-de-editing="false" data-title="headline" data-ce="true" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 35px; outline: none; cursor: pointer;" aria-disabled="false">
 <h2 class="ne elHeadline hsSize3 lh4 elMargin0 elBGStyle0 hsTextShadow0" style="text-align: center; font-size: 44px;" data-bold="inherit" data-gramm="false" contenteditable="false"><b>Choose Your Registration Option</b></h2>
@@ -2102,23 +2086,10 @@ What Prometheus is built to do is manage that risk for you — fixed position si
 </div>
 </div>
 
-
-
-
-
-
-
-
-
-
 </div>
-
 
 </div>
 </div>
-
-
-
 
 </div>
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
@@ -2319,9 +2290,7 @@ What Prometheus is built to do is manage that risk for you — fixed position si
 <style id="bold_style_tmp_headline1-47099-151-117">#tmp_headline1-47099-151-117 .elHeadline b{ color: rgb(34, 34, 34);}</style>
 <input type="hidden" name="cf-state-county-dropdown-feature-enabled" value="true">
 </div>
-<style id="custom-css">@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;800&display=swap');
-
-#row--26723-119, #row--26723-116-185, #row--26723-147-184 {box-shadow: 1px 2px 18px #1FD2D2;
+<style id="custom-css">#row--26723-119, #row--26723-116-185, #row--26723-147-184 {box-shadow: 1px 2px 18px #1FD2D2;
 border-radius: 30px;
 padding: 35px;
 }
@@ -2342,57 +2311,8 @@ padding: 35px;
 <input type="hidden" value="" id="cf-cid">
 <input type="hidden" value="false" id="cf-page-oto">
 <input type="hidden" value="false" id="ff-can-use-payment-intent-on-funnel-payments">
-<script type="text/javascript">
-    window.CFAppDomain = "app.clickfunnels.com"
-    window.domainIsCFInternal = "false" == "true"
-  </script>
-<script src="./index_files/lander.js.download"></script>
 <div id="fb-root"></div>
-<script>
-window.addEventListener('load', function(){
-	(function(d, s, id){
-	  if($('.fbCommentsPlaceholder').size()>0){
-	   var js, fjs = d.getElementsByTagName(s)[0];
-	   if (d.getElementById(id)) {return;}
-	   js = d.createElement(s); js.id = id;
-	   js.src = "https://connect.facebook.net/en_US/sdk.js";
-	   fjs.parentNode.insertBefore(js, fjs);
-	  }
-	 }(document, 'script', 'facebook-jssdk'));
-});
- </script>
-<script>
-  window.cfFacebookInitOptions = {
-    appId            : 246441615530259,
-    autoLogAppEvents : false,
-    status           : true,
-    xfbml            : true,
-    version          : "v3.3"
-  };
-  window.fbAsyncInit = function() {
-    FB.init(window.cfFacebookInitOptions);
-  
-    // Iterates over all .fb-comments elements on the page, and renders them using the FB SDK.
-    // It only runs if we have not told the FB.init() to render XFBML on page load
-    var renderFacebookComments = function(renderXFBMLAtLoadTime) {
-      // If we have already marked XFBML to render at page load time, do not proceed.
-      if(renderXFBMLAtLoadTime) { return; }
-  
-      var comments = document.getElementsByClassName('fb-comments');
-      var i = 0;
-      var len = comments.length;
-      var comment = null;
-      for(; i < len; i++) {
-        comment = comments[i];
-        FB.XFBML.parse(comment.parentElement); // comments need to be rendered/parsed from their parent element.
-      }
-    }
-  
-    renderFacebookComments(true);
-  };
-</script>
 <!--[if lt IE 9]>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7/html5shiv.min.js"></script>
 <![endif]-->
 
 <div class="otoloading" style="display: none;">
@@ -2401,9 +2321,6 @@ window.addEventListener('load', function(){
 <div><i class="fa fa-spinner fa-spin"></i></div>
 </div>
 </div>
-<script type="text/javascript">
-    document.createElement('video');document.createElement('audio');document.createElement('track');
-  </script>
 <style>
     #IntercomDefaultWidget {
       display:none;
@@ -2420,57 +2337,20 @@ window.addEventListener('load', function(){
     .vjs-fullscreen {
       padding-top:0;
     }
-  </style>
-
-
-
-<script>
-      var page_key = 't2bec7p4jm4a3a2v';
-      var fid = '11755498';
-      var fspos = '16';
-      var fvrs = '2';
-      var cf_tracker = cf_tracker || [];
-      (function() {
-        cf_key = 'xonc6jr7';
-        page_key = 't2bec7p4jm4a3a2v';
-        serverUrl = '//prometheusbot.com/images/background.png';
-        var cf = document.createElement('script');
-        cf.type = 'text/javascript';
-        cf.async = true;
-        cf.src = '//prometheusbot.com/vendor.js';
-        var s = document.getElementsByTagName('script')[0];
-        s.parentNode.insertBefore(cf, s);
-      })();
-    </script>
-<script type="text/javascript">function getURLParameter(e){return decodeURIComponent((RegExp(e+"=(.+?)(&|$)").exec(location.search)||[,null])[1])}function getURLParameterExact(e){for(var t=window.location.search.substring(1).split("&"),n=0;n<t.length;n++){var r=t[n].split("=");if(r[0]==e)return r[1]}}</script><script type="text/javascript">window.addEventListener("load",function(){$(function(){"null"!=getURLParameter("email")&&($('input[name="contact[email]"]').val(getURLParameterExact("email")),$("[name=email]").val(getURLParameterExact("email"))),"null"!=getURLParameter("name")&&($('input[name="contact[name]"]').val(getURLParameterExact("name")),$("[name=name]").val(getURLParameterExact("name"))),"null"!=getURLParameter("first_name")&&($('input[name="contact[first_name]"]').val(getURLParameter("first_name")),$("[name=first_name]").val(getURLParameter("first_name"))),"null"!=getURLParameter("last_name")&&($('input[name="contact[last_name]"]').val(getURLParameter("last_name")),$("[name=last_name]").val(getURLParameter("last_name"))),"null"!=getURLParameter("address_1")&&($('input[name="contact[address_1]"]').val(getURLParameter("address")),$("[name=address_1]").val(getURLParameter("address_1"))),"null"!=getURLParameter("address_2")&&($('input[name="contact[address_1]"]').val(getURLParameter("address")),$("[name=address_2]").val(getURLParameter("address_2"))),"null"!=getURLParameter("city")&&($('input[name="contact[city]"]').val(getURLParameter("city")),$("[name=city]").val(getURLParameter("city"))),"null"!=getURLParameter("state")&&($('input[name="contact[state]"]').val(getURLParameter("state")),$("[name=state]").val(getURLParameter("state"))),"null"!=getURLParameter("zip")&&($('input[name="contact[zip]"]').val(getURLParameter("zip")),$("[name=zip]").val(getURLParameter("zip"))),"null"!=getURLParameter("phone")&&($('input[name="contact[phone]"]').val(getURLParameter("phone")),$("[name=phone]").val(getURLParameter("phone")))})});</script>
-<script type="text/javascript" src="./index_files/pushcrew.js.download" async="async"></script><meta name="can_calculate_taxes" content="false"><script defer="" src="./index_files/v652eace1692a40cfa3763df669d7439c1639079717194" integrity="sha512-Gi7xpJR8tSkrpF7aordPZQlW2DLtzUlZcumS8dMQjwDHEnw9I7ZLyiOj/6tZStRBGtGgN6ceN6cMH8z7etPGlw==" data-cf-beacon="{&quot;rayId&quot;:&quot;7575dc123ed1c9ea&quot;,&quot;token&quot;:&quot;405b708a9b0242e88fda34dc27903686&quot;,&quot;version&quot;:&quot;2022.8.1&quot;,&quot;si&quot;:100}" crossorigin="anonymous"></script>
-
-
+  </style><meta name="can_calculate_taxes" content="false">
 
 <div style="display: none" class="ubey-RecordingScreen-count-down ubey-RecordingScreen-count-down-container">
-   
-    <div class="ubey-RecordingScreen-count-down-content">
-        <span id="ubey-RecordingScreen-count-count"></span>
-    </div>
+
+<div class="ubey-RecordingScreen-count-down-content">
+<span id="ubey-RecordingScreen-count-count"></span>
+</div>
 </div>
 
-<!--tawl chat script-->
 
-<script type="text/javascript">
-var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-(function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/620b78561ffac05b1d79f0e4/1frucs5hg';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
-})();
-</script>
 
-<script src="js/social-proof.js?v=6" data-endpoint="https://prometheus-bot.fly.dev/api/social_proof" data-logo="index_files/52-min-1-.png"></script>
+<script defer src="js/social-proof.js?v=6" data-endpoint="https://prometheus-bot.fly.dev/api/social_proof" data-logo="index_files/52-min-1-sm.webp"></script>
 
-<!-- ===== Site footer (matched to checkout) ===== -->
+
 <style>
 .ps-site-footer{background:#0a0d13;color:#8b98a8;padding:40px 0;text-align:center;font-family:'Poppins',Helvetica,Arial,sans-serif;font-size:13px}
 .ps-site-footer *{box-sizing:border-box}
@@ -2491,39 +2371,56 @@ s0.parentNode.insertBefore(s1,s0);
 .ps-site-footer__copy{opacity:.75;margin:0}
 </style>
 <footer class="ps-site-footer">
-  <div class="ps-site-footer__wrap">
-    <a href="https://www.prometheusai.tech/" class="ps-flogo" aria-label="Prometheus AI home"><img loading="lazy" decoding="async" src="img/core-img/logo.png" alt="Prometheus AI" /><span>Prometheus AI</span></a>
-    <nav class="ps-fnav" aria-label="Footer">
-      <a href="https://www.prometheusai.tech/blog/">Blog</a>
-      <a href="https://www.prometheusai.tech/pricing">Pricing</a>
-      <a href="https://www.prometheusai.tech/review">Review</a>
-      <a href="https://www.prometheusai.tech/advertiseragreement">Advertiser Agreement</a>
-      <a href="https://www.prometheusai.tech/acceptableuse">Acceptable Use</a>
-      <a href="https://www.prometheusai.tech/privacy">Privacy Policy</a>
-      <a href="https://www.prometheusai.tech/terms">Terms</a>
-      <a href="https://www.prometheusai.tech/disclaimer">Disclaimer</a>
-      <a href="https://www.prometheusai.tech/refund">Refund Policy</a>
-      <a href="https://www.prometheusai.tech/support">Contact</a>
-    </nav>
-    <nav class="ps-fnav" aria-label="Popular guides">
-      <a href="https://www.prometheusai.tech/blog/best-ai-crypto-trading-bot-2026">Best AI crypto trading bot</a>
-      <a href="https://www.prometheusai.tech/blog/are-crypto-trading-bots-safe">Are trading bots safe?</a>
-      <a href="https://www.prometheusai.tech/blog/how-crypto-trading-bots-work">How crypto trading bots work</a>
-      <a href="https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys">Connect a bot to Binance</a>
-      <a href="https://www.prometheusai.tech/blog/crypto-trading-bot-fees-explained">Trading bot fees explained</a>
-    </nav>
-    <div class="ps-social">
-      <a href="https://www.facebook.com/prometheusaisystem/" aria-label="Prometheus AI on Facebook" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.3l.4-2.7h-2.7V9.5c0-.8.2-1.3 1.3-1.3h1.4V5.8c-.2 0-1-.1-2-.1-2 0-3.4 1.2-3.4 3.5v1.9H8.5V14h2v7h3z"/></svg></a>
-      <a href="https://www.youtube.com/channel/UCKXDzlnd74YXm7m7UY4nAcw" aria-label="Prometheus AI on YouTube" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 12s0-3.2-.4-4.7a2.5 2.5 0 0 0-1.8-1.8C19.3 5 12 5 12 5s-7.3 0-8.8.5A2.5 2.5 0 0 0 1.4 7.3C1 8.8 1 12 1 12s0 3.2.4 4.7a2.5 2.5 0 0 0 1.8 1.8C4.7 19 12 19 12 19s7.3 0 8.8-.5a2.5 2.5 0 0 0 1.8-1.8C23 15.2 23 12 23 12zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z"/></svg></a>
-      <a href="https://t.me/prometheusaibot" aria-label="Prometheus AI on Telegram" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 4.27l-3.3 15.56c-.25 1.1-.9 1.37-1.83.85l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.17 9.4-8.5c.41-.36-.09-.56-.63-.2L6.09 13.2l-5-1.57c-1.08-.34-1.1-1.08.23-1.6l19.55-7.53c.9-.33 1.69.22 1.4 1.77z"/></svg></a>
-    </div>
-    <address>1954 West Lullaby Lane, Anaheim, CA 92804, US<br /><a href="mailto:support@prometheusai.tech">support@prometheusai.tech</a></address>
-    <p class="pm-reg" style="font-size:12px;line-height:1.6;color:#8b98a8;max-width:860px;margin:6px auto 12px;text-align:center"><b>Regulatory notice:</b> Prometheus AI is a software product. It is not a bank, broker, exchange or licensed financial adviser, and it is not regulated as a financial institution. It never holds, moves or has custody of your funds &mdash; all trading happens inside your own exchange account through a trade-only API key. Nothing on this site is investment advice. You are responsible for complying with the laws of your jurisdiction. Crypto trading carries risk and is not suitable for everyone.</p>
-    <p class="ps-site-footer__copy">&copy; <span id="ps-year">2026</span> Prometheus AI. All rights reserved.</p>
-  </div>
+<div class="ps-site-footer__wrap">
+<a href="https://www.prometheusai.tech/" class="ps-flogo" aria-label="Prometheus AI home"><img loading="lazy" decoding="async" src="img/core-img/logo.png" alt="Prometheus AI" /><span>Prometheus AI</span></a>
+<nav class="ps-fnav" aria-label="Footer">
+<a href="https://www.prometheusai.tech/blog/">Blog</a>
+<a href="https://www.prometheusai.tech/pricing">Pricing</a>
+<a href="https://www.prometheusai.tech/review">Review</a>
+<a href="https://www.prometheusai.tech/advertiseragreement">Advertiser Agreement</a>
+<a href="https://www.prometheusai.tech/acceptableuse">Acceptable Use</a>
+<a href="https://www.prometheusai.tech/privacy">Privacy Policy</a>
+<a href="https://www.prometheusai.tech/terms">Terms</a>
+<a href="https://www.prometheusai.tech/disclaimer">Disclaimer</a>
+<a href="https://www.prometheusai.tech/refund">Refund Policy</a>
+<a href="https://www.prometheusai.tech/support">Contact</a>
+</nav>
+<nav class="ps-fnav" aria-label="Popular guides">
+<a href="https://www.prometheusai.tech/blog/best-ai-crypto-trading-bot-2026">Best AI crypto trading bot</a>
+<a href="https://www.prometheusai.tech/blog/are-crypto-trading-bots-safe">Are trading bots safe?</a>
+<a href="https://www.prometheusai.tech/blog/how-crypto-trading-bots-work">How crypto trading bots work</a>
+<a href="https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys">Connect a bot to Binance</a>
+<a href="https://www.prometheusai.tech/blog/crypto-trading-bot-fees-explained">Trading bot fees explained</a>
+</nav>
+<div class="ps-social">
+<a href="https://www.facebook.com/prometheusaisystem/" aria-label="Prometheus AI on Facebook" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.3l.4-2.7h-2.7V9.5c0-.8.2-1.3 1.3-1.3h1.4V5.8c-.2 0-1-.1-2-.1-2 0-3.4 1.2-3.4 3.5v1.9H8.5V14h2v7h3z"/></svg></a>
+<a href="https://www.youtube.com/channel/UCKXDzlnd74YXm7m7UY4nAcw" aria-label="Prometheus AI on YouTube" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 12s0-3.2-.4-4.7a2.5 2.5 0 0 0-1.8-1.8C19.3 5 12 5 12 5s-7.3 0-8.8.5A2.5 2.5 0 0 0 1.4 7.3C1 8.8 1 12 1 12s0 3.2.4 4.7a2.5 2.5 0 0 0 1.8 1.8C4.7 19 12 19 12 19s7.3 0 8.8-.5a2.5 2.5 0 0 0 1.8-1.8C23 15.2 23 12 23 12zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z"/></svg></a>
+<a href="https://t.me/prometheusaibot" aria-label="Prometheus AI on Telegram" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 4.27l-3.3 15.56c-.25 1.1-.9 1.37-1.83.85l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.17 9.4-8.5c.41-.36-.09-.56-.63-.2L6.09 13.2l-5-1.57c-1.08-.34-1.1-1.08.23-1.6l19.55-7.53c.9-.33 1.69.22 1.4 1.77z"/></svg></a>
+</div>
+<address>1954 West Lullaby Lane, Anaheim, CA 92804, US<br /><a href="mailto:support@prometheusai.tech">support@prometheusai.tech</a></address>
+<p class="pm-reg" style="font-size:12px;line-height:1.6;color:#8b98a8;max-width:860px;margin:6px auto 12px;text-align:center"><b>Regulatory notice:</b> Prometheus AI is a software product. It is not a bank, broker, exchange or licensed financial adviser, and it is not regulated as a financial institution. It never holds, moves or has custody of your funds &mdash; all trading happens inside your own exchange account through a trade-only API key. Nothing on this site is investment advice. You are responsible for complying with the laws of your jurisdiction. Crypto trading carries risk and is not suitable for everyone.</p>
+<p class="ps-site-footer__copy">&copy; <span id="ps-year">2026</span> Prometheus AI. All rights reserved.</p>
+</div>
 </footer>
 <script>(function(){var y=document.getElementById('ps-year');if(y)y.textContent=new Date().getFullYear();})();</script>
 
+<script>
+/* Third-party scripts load after the page is interactive (first user input or 4s after load) */
+(function(){var done=false;function go(){if(done)return;done=true;
+ var g=document.createElement('script');g.async=true;g.src='https://www.googletagmanager.com/gtag/js?id=AW-11306824123';document.head.appendChild(g);
+ var h=document.createElement('script');h.async=true;h.src='https://181689.tracking.hyros.com/v1/lst/universal-script?ph=a2c5d4bce9b3973c97be1d72137434239c664de2e98a517a8fa3466af2c0cb8f&tag=!tracking';document.head.appendChild(h);
+ window.Tawk_API=window.Tawk_API||{};window.Tawk_LoadStart=new Date();
+ var t=document.createElement('script');t.async=true;t.src='https://embed.tawk.to/620b78561ffac05b1d79f0e4/1frucs5hg';t.charset='UTF-8';t.setAttribute('crossorigin','*');document.head.appendChild(t);}
+ ['scroll','mousemove','touchstart','keydown','click'].forEach(function(e){window.addEventListener(e,go,{once:true,passive:true});});
+ window.addEventListener('load',function(){setTimeout(go,4000);});})();
+</script>
+<script>
+/* Click-to-play YouTube: the real player is only loaded when a visitor presses play */
+document.addEventListener('click',function(e){var a=e.target.closest('.pm-yt');if(!a)return;e.preventDefault();
+ var f=document.createElement('iframe');f.src='https://www.youtube-nocookie.com/embed/'+a.getAttribute('data-id')+'?autoplay=1&rel=0';
+ f.title=a.getAttribute('data-title')||'Video';f.allow='accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';f.allowFullscreen=true;
+ f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';a.innerHTML='';a.appendChild(f);});
+</script>
 </body>
 
 </html>
