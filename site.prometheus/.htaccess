@@ -24,7 +24,7 @@ RewriteRule ^(.*)$ https://www.prometheusai.tech/$1 [R=301,L,NE]
 RewriteCond %{HTTP_HOST} ^prometheusai\.tech$ [NC]
 RewriteRule ^(.*)$ https://www.prometheusai.tech/$1 [R=301,L,NE]
 
-# --- /index.html, /index, /blog/index.html, /vsl/index -> the directory URL ---
+# --- /index.html, /index, /blog/index.html -> the directory URL ---
 #     (stops the folder index being reachable at two URLs = duplicate canonical)
 RewriteCond %{THE_REQUEST} \s/+(.*?/)?index(?:\.html)?[\s?] [NC]
 RewriteRule ^ /%1 [R=301,L,NE]
@@ -32,6 +32,9 @@ RewriteRule ^ /%1 [R=301,L,NE]
 # --- Retired page: /contact, /contact.html, /contact/ -> /support in ONE hop ---
 RewriteCond %{THE_REQUEST} \s/+contact(?:\.html)?/?[\s?] [NC]
 RewriteRule ^ /support [R=301,L,NE]
+
+# --- Retired VSL page: /vsl and anything under it -> home page (the demo video lives there now) ---
+RewriteRule ^vsl(/.*)?$ / [R=301,L,NE]
 
 # --- /404 (and /404.html via the rule below) must answer with a real 404 status ---
 RewriteRule ^404$ - [R=404,L]
