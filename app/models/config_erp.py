@@ -117,8 +117,24 @@ class OtpConfiguration(Base, PKMixin, TimestampMixin):
     resend_after_seconds: Mapped[int] = mapped_column(Integer, default=60)
     required_for_roles: Mapped[list] = mapped_column(JSON, default=list)  # role slugs that must use it
     whatsapp_sender_id: Mapped[Optional[int]] = mapped_column(ForeignKey("whatsapp_senders.id", ondelete="SET NULL"))
+    # after a code is accepted, further client contacts open without a new code for this long (0 = a code every time)
+    reveal_window_minutes: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     whatsapp_sender = relationship("WhatsAppSender")
+
+
+class ContactRevealChallenge(Base, PKMixin, TimestampMixin):
+    """One code sent to a member of staff to open one client contact (the ERP's "OTP Page" behind every View link)."""
+    __tablename__ = "contact_reveal_challenges"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    field: Mapped[str] = mapped_column(String(30))  # email | phone | whatsapp | contact-<id>
+    code_hash: Mapped[str] = mapped_column(String(64))
+    channel: Mapped[str] = mapped_column(String(20))  # where the code went: email | whatsapp | sms
+    sent_to: Mapped[Optional[str]] = mapped_column(String(200))  # masked, for the dialog and the audit trail
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
 
 # --------------------------------------------------------------------------- Confido Agents (Configuration)

@@ -35,10 +35,9 @@
   <td class="px-4 py-2 text-xs">{{ c.currency }}</td>
   <td class="px-4 py-2 text-xs font-medium whitespace-nowrap {{ 'text-rose-600' if balances.get(c.id, 0) > 0 else 'text-emerald-600' }}">{{ balances.get(c.id, 0)|money(c.currency) }}</td>
   <td class="px-4 py-2 text-xs">{{ c.fee_recurrence|titleize }}</td>
-  <td class="px-4 py-2 text-xs">{{ c.email if show_contact else c.email|mask }}</td>
-  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.phone if show_contact else c.phone|mask }}</td>
-  <td class="px-4 py-2 text-xs whitespace-nowrap">{% if c.whatsapp %}<span>{{ c.whatsapp|mask }}</span>
-    <a href="/clients/{{ c.id }}/reveal/whatsapp" hx-get="/clients/{{ c.id }}/reveal/whatsapp" hx-target="closest td" hx-swap="innerHTML" class="ml-1 text-brand-600 hover:underline" title="Reveal (audited)">View</a>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.contact(c.email, '/clients/' ~ c.id ~ '/reveal/email', show_contact) }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ ui.contact(c.phone, '/clients/' ~ c.id ~ '/reveal/phone', show_contact) }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ ui.contact(c.whatsapp, '/clients/' ~ c.id ~ '/reveal/whatsapp', show_contact) }}</td>
   <td class="px-4 py-2 text-xs">{{ c.state or '—' }}</td>
   <td class="px-4 py-2 text-xs">{{ c.shift|titleize }}</td>
   <td class="px-4 py-2 text-xs">{% if c.referred_by %}<a href="/clients/{{ c.referred_by.id }}" class="hover:text-brand-600">{{ c.referred_by.full_name }}</a>{% else %}—{% endif %}</td>

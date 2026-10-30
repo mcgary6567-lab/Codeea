@@ -37,11 +37,11 @@
         <div class="mt-1 text-[11px] text-slate-400">Photo</div>
       </div>
       <div class="min-w-0 flex-1">
-      {{ ui.dl([('Primary Email', c.email if show_contact else c.email|mask), ('Fee Recurrence Type', c.fee_recurrence|titleize),
-                ('Primary Cell', c.phone if show_contact else c.phone|mask), ('Currency', c.currency),
+      {{ ui.dl([('Primary Email', ui.contact(c.email, '/clients/' ~ c.id ~ '/reveal/email', show_contact)), ('Fee Recurrence Type', c.fee_recurrence|titleize),
+                ('Primary Cell', ui.contact(c.phone, '/clients/' ~ c.id ~ '/reveal/phone', show_contact)), ('Currency', c.currency),
                 ('Registration Date', c.joined_at|date), ('Status', c.status|label('client')),
                 ('State', c.state), ('Legacy Code', c.legacy_code),
-                ('WhatsApp', (c.whatsapp if show_contact else c.whatsapp|mask) ~ (' · opted in' if c.whatsapp_opt_in else ' · opted out')), ('Country', c.country),
+                ('WhatsApp', ui.contact(c.whatsapp, '/clients/' ~ c.id ~ '/reveal/whatsapp', show_contact) ~ (' · opted in' if c.whatsapp_opt_in else ' · opted out')), ('Country', c.country),
                 ('Shift', c.shift|titleize), ('Referred By', (c.referred_by.client_code ~ ' - ' ~ c.referred_by.full_name) if c.referred_by else None),
                 ('Billing Representative', c.billing_rep.full_name if c.billing_rep else None), ('Academic Manager', c.academic_manager.full_name if c.academic_manager else None),
                 ('Academic Group', c.academic_group.name if c.academic_group else None), ('Opening Balance', c.opening_balance|money(c.currency)),
@@ -59,7 +59,7 @@
     {% endcall %}
     {% call ui.card("Contacts", "Active contact rows (all rows under the Contacts tab).") %}
     {{ ui.table_start(['Contact Type', 'Contact Detail', 'Remarks', 'Status'], compact=True) }}
-    {% for r in contacts %}<tr><td class="px-3 py-1.5 text-xs">{{ r.contact_type|titleize }}</td><td class="px-3 py-1.5 font-mono text-xs">{{ r.detail if show_contact else r.detail|mask }}</td><td class="px-3 py-1.5 text-xs text-slate-500">{{ r.remarks or '—' }}</td><td class="px-3 py-1.5">{{ ui.badge(r.status) }}</td></tr>
+    {% for r in contacts %}<tr><td class="px-3 py-1.5 text-xs">{{ r.contact_type|titleize }}</td><td class="px-3 py-1.5 font-mono text-xs">{{ ui.contact(r.detail, '/clients/' ~ c.id ~ '/reveal/contact-' ~ r.id, show_contact) }}</td><td class="px-3 py-1.5 text-xs text-slate-500">{{ r.remarks or '—' }}</td><td class="px-3 py-1.5">{{ ui.badge(r.status) }}</td></tr>
     {% else %}{{ ui.empty('No extra contacts recorded.', 4) }}{% endfor %}
     {{ ui.table_end() }}
     {% endcall %}
@@ -119,14 +119,15 @@
   <td class="px-3 py-2 text-xs" colspan="3" x-show="editRow === {{ loop.index }}" x-cloak>
     <form method="post" action="/clients/{{ c.id }}/contacts/{{ r.id }}" class="flex flex-wrap items-end gap-2">
       <div class="w-32">{{ ui.select('contact_type', 'Contact Type', contact_types, r.contact_type, placeholder=None) }}</div>
-      <div class="w-56">{{ ui.input('detail', 'Contact Detail', r.detail, required=True) }}</div>
+      <div class="w-56">{{ ui.input('detail', 'Contact Detail', r.detail if show_contact else r.detail|mask, required=True,
+                                     help=None if show_contact else 'Masked: leave it to keep the number, or type a new one.') }}</div>
       <div class="w-56">{{ ui.input('remarks', 'Remarks', r.remarks or '') }}</div>
       {{ ui.button('Save', icon='save', size='sm') }}
       <button type="button" @click="editRow = null" class="text-xs text-slate-500 hover:text-slate-800">Cancel</button>
     </form>
   </td>
   <td class="px-3 py-2 text-xs" x-show="editRow !== {{ loop.index }}">{{ r.contact_type|titleize }}</td>
-  <td class="px-3 py-2 font-mono text-xs" x-show="editRow !== {{ loop.index }}">{{ r.detail if show_contact else r.detail|mask }}</td>
+  <td class="px-3 py-2 font-mono text-xs" x-show="editRow !== {{ loop.index }}">{{ ui.contact(r.detail, '/clients/' ~ c.id ~ '/reveal/contact-' ~ r.id, show_contact) }}</td>
   <td class="px-3 py-2 text-xs text-slate-500" x-show="editRow !== {{ loop.index }}">{{ r.remarks or '—' }}</td>
   <td class="px-3 py-2">{{ ui.badge(r.status) }}</td>
   <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{{ r.updated_at|datetime if r.updated_at else r.created_at|datetime }}</td>

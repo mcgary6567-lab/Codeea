@@ -814,6 +814,7 @@ async def otp_setup(request: Request, db: Session = Depends(get_db),
     cfg.validity_minutes = min(120, max(1, parse_int(form.get("validity_minutes"), cfg.validity_minutes or 10)))
     cfg.max_attempts = min(20, max(1, parse_int(form.get("max_attempts"), cfg.max_attempts or 5)))
     cfg.resend_after_seconds = min(900, max(10, parse_int(form.get("resend_after_seconds"), cfg.resend_after_seconds or 60)))
+    cfg.reveal_window_minutes = min(480, max(0, parse_int(form.get("reveal_window_minutes"), cfg.reveal_window_minutes or 0)))
     cfg.required_for_roles = [r for r in form.getlist("required_for_roles") if r]
     cfg.whatsapp_sender_id = parse_int(form.get("whatsapp_sender_id"))
     log_action(db, user, "update", MODULE, entity=cfg, severity="warning", consequential=True,

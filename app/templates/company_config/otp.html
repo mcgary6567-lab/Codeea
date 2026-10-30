@@ -16,7 +16,7 @@
 {{ ui.tabs([('setup', 'Setup', '/config/otp?tab=setup'), ('users', 'User Wise', '/config/otp?tab=users')], tab) }}
 
 {% if tab == 'setup' %}
-{% call ui.card('Setup', 'One row governs every one-time password the platform issues.') %}
+{% call ui.card('Setup', 'One row governs every one-time password the platform issues. When enabled, a client\'s email, cell and WhatsApp stay masked for the roles below and each View sends a code to the member of staff, as the ERP\'s OTP Page does.') %}
 <form method="post" action="/config/otp/setup" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   <div class="flex items-end">{{ ui.checkbox('is_enabled', 'One-time passwords enabled', cfg.is_enabled, help='Off by default') }}</div>
   {{ ui.select('channel', 'Channel', channels, cfg.channel, placeholder=None) }}
@@ -25,8 +25,10 @@
   {{ ui.input('validity_minutes', 'Validity (minutes)', cfg.validity_minutes, type='number', min=1, max=120) }}
   {{ ui.input('max_attempts', 'Max Attempts', cfg.max_attempts, type='number', min=1, max=20) }}
   {{ ui.input('resend_after_seconds', 'Resend After (seconds)', cfg.resend_after_seconds, type='number', min=10, max=900) }}
+  {{ ui.input('reveal_window_minutes', 'Contacts Stay Open (minutes)', cfg.reveal_window_minutes or 0, type='number', min=0, max=480,
+              help='After a code is accepted, further client contacts open without a new code for this long. 0 = a code for every contact.') }}
   <div class="sm:col-span-2 lg:col-span-3">
-    <label class="mb-1 block text-xs font-semibold text-slate-600">Roles that must use a one-time password</label>
+    <label class="mb-1 block text-xs font-semibold text-slate-600">Roles that must use a one-time password <span class="font-normal text-slate-500">(none ticked = every staff role)</span></label>
     <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 rounded border border-slate-200 p-3">
       {% for slug, name in roles %}
       <label class="flex items-center gap-2 text-xs">

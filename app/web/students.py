@@ -23,6 +23,7 @@ from app.models.erp import ReferredContact
 from app.models.finance import Subscription, Invoice
 from app.models.people import Client, Student, Teacher, Leave
 from app.models.scheduling import Schedule, ClassSession, Attendance, TeacherMatch
+from app.services import contact_reveal
 from app.services import people as svc
 from app.services import scheduling as sched_svc
 from app.services.classes import student_attendance_pct
@@ -364,7 +365,7 @@ def student_detail(id: int, request: Request, tab: str = "overview", db: Session
     ctx: dict = {"user": user, "s": s, "tab": tab, "tabs": [(k, l, {"basic": f"/students/{s.id}/edit", "journey": f"/students/{s.id}/journey"}.get(k, f"/students/{s.id}?tab={k}")) for k, l in TABS
                                                             if k != "basic" or rbac.has_permission(user, "students.update")],
                  "attendance_pct": student_attendance_pct(db, s.id, 30), "statuses": [(x, status_label(x, "student")) for x in STATUSES],
-                 "show_contact": rbac.has_permission(user, "clients.update") or rbac.is_management(user),
+                 "show_contact": (rbac.has_permission(user, "clients.update") or rbac.is_management(user)) and not contact_reveal.needs_code(db, user),
                  "change_log_url": f"/admin/audit/entity/Student/{s.id}" if rbac.has_permission(user, "audit.view") else f"/students/{s.id}?tab=audit",
                  "subscriptions_count": db.query(func.count(Subscription.id)).filter(Subscription.student_id == s.id).scalar() or 0}
     if tab == "overview":
@@ -467,7 +468,7 @@ def student_print(id: int, request: Request, db: Session = Depends(get_db), user
         "schedules": db.query(Schedule).filter(Schedule.student_id == s.id, Schedule.status == "active").all(),
         "evaluations": (db.query(Evaluation).filter(Evaluation.student_id == s.id)
                         .order_by(Evaluation.date.desc()).limit(5).all()),
-        "show_contact": rbac.has_permission(user, "clients.update") or rbac.is_management(user),
+        "show_contact": (rbac.has_permission(user, "clients.update") or rbac.is_management(user)) and not contact_reveal.needs_code(db, user),
         "day_names": DAY_NAMES, "printed_at": datetime.now()})
 
 

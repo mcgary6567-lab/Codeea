@@ -60,5 +60,61 @@
       form.querySelectorAll('.is-busy').forEach(function (b) { b.disabled = false; b.classList.remove('is-busy'); });
     });
   });
+  // Masked client contacts: View asks the server; it answers with the value, or sends a one-time code to the viewer
+  // and this dialog takes the code (macros.html contact(), web/clients.py reveal_start / reveal_verify).
+  var reveal = { btn: null, url: '', challenge: null };
+  function rv(id) { return document.getElementById(id); }
+  function revealPost(url, data) {
+    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json' }, body: new URLSearchParams(data || {}) })
+      .then(function (r) { return r.json().catch(function () { return { error: 'The server did not answer (' + r.status + ').' }; }); });
+  }
+  function revealShow(open) {
+    var d = rv('reveal-dialog'); if (!d) return;
+    d.classList.toggle('hidden', !open); d.classList.toggle('flex', open);
+    if (open) { if (!rv('reveal-code-row').hidden) rv('reveal-code').focus(); } else if (reveal.btn && reveal.btn.isConnected) { reveal.btn.focus(); }
+  }
+  function revealError(msg) { var e = rv('reveal-error'); e.textContent = msg || ''; e.classList.toggle('hidden', !msg); }
+  function revealFill(btn, value) {
+    var target = btn.dataset.revealInput && document.getElementById(btn.dataset.revealInput);
+    if (target) { target.value = value; target.readOnly = false; target.dataset.revealed = '1'; btn.remove(); return; }
+    var box = btn.closest('[data-reveal-box]') || btn.parentNode;
+    box.textContent = value; box.classList.add('font-mono', 'text-xs');
+  }
+  document.addEventListener('click', function (ev) {
+    if (ev.target.closest('[data-reveal-close]')) { revealShow(false); return; }
+    var btn = ev.target.closest('[data-reveal]');
+    if (!btn) return;
+    ev.preventDefault();
+    reveal.btn = btn; reveal.url = btn.dataset.reveal; reveal.challenge = null;
+    btn.disabled = true;
+    revealPost(reveal.url + '/start').then(function (res) {
+      btn.disabled = false;
+      if (res.value !== undefined) { revealFill(btn, res.value); return; }
+      revealError(res.error || '');
+      rv('reveal-code').value = '';
+      rv('reveal-code-row').hidden = !res.challenge;
+      rv('reveal-submit').hidden = rv('reveal-code-row').hidden;
+      reveal.challenge = res.challenge || null;
+      var msg = '';
+      if (res.challenge && res.sent_to) {
+        msg = 'A code to open ' + res.label + ' was sent by ' + res.channel + ' to ' + res.sent_to + '.';
+        if (res.simulated) { msg = 'Sending by ' + res.channel + ' is not connected on this server, so no code was delivered.' + (res.totp ? ' Type the code from your authenticator app.' : ' Ask the administrator to connect it in Configuration.'); }
+        else if (res.totp) { msg += ' Your authenticator app code works too.'; }
+      }
+      rv('reveal-msg').textContent = msg;
+      revealShow(true);
+    }).catch(function () { btn.disabled = false; OQC.toast('Could not reach the server.', 'error'); });
+  });
+  document.addEventListener('submit', function (ev) {
+    if (ev.target.id !== 'reveal-form') return;
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    revealPost(reveal.url + '/verify', { challenge: reveal.challenge || '', code: rv('reveal-code').value }).then(function (res) {
+      if (res.value !== undefined) { revealError(''); revealShow(false); revealFill(reveal.btn, res.value); return; }
+      revealError(res.error || 'The code was not accepted.');
+    });
+  }, true);
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && rv('reveal-dialog') && !rv('reveal-dialog').classList.contains('hidden')) revealShow(false);
+  });
   if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('/static/sw.js').catch(function(){}); }
 })();

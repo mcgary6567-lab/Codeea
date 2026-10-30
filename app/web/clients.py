@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action, snapshot
+from app.core.security import mask
 from app.core import scope
 from app.core.deps import require, csrf_protect
 from app.core.templating import render, label as status_label
@@ -22,6 +23,7 @@ from app.models.erp import ClientContact, ClientCredential, ClientAcademicGroup
 from app.models.finance import Subscription, Invoice, LedgerEntry, Payment
 from app.models.people import Client, Student, Household
 from app.models.scheduling import Trial
+from app.services import contact_reveal as reveal_svc
 from app.services import people as svc
 from app.services.crm import OPEN_CASE_STATUSES
 
@@ -46,6 +48,11 @@ CREDENTIAL_TYPES = ["zoom", "teams", "skype", "portal", "other"]
 
 def can_see_contact(user: User) -> bool:
     return rbac.has_permission(user, "clients.update") or rbac.is_management(user)
+
+
+def contact_plain(db: Session, user: User) -> bool:
+    """Contacts print unmasked only for those who may see them and need no one-time code right now (Configuration › OTP)."""
+    return can_see_contact(user) and not reveal_svc.needs_code(db, user)
 
 
 def norm_status(value: str) -> str:
@@ -166,7 +173,7 @@ def list_clients(request: Request, page: int = 1, q: str = "", status: str = "",
     return render(request, "clients/list.html", {"user": user, "page": pg, "q": q, "status": status, "shift": shift, "country": country,
                                                  "billing_rep": billing_rep, "academic_manager": academic_manager, "date_from": date_from,
                                                  "date_to": date_to, "stats": _tile_counts(db), "tiles": TILES, **_filter_options(db),
-                                                 **_row_extras(db, pg.items), "show_contact": can_see_contact(user), "base_url": base})
+                                                 **_row_extras(db, pg.items), "show_contact": contact_plain(db, user), "base_url": base})
 
 
 # --------------------------------------------------------------------------- Trial Client List (static path before /{id})
@@ -326,7 +333,7 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
     if tab == "basic":
         return redirect(f"/clients/{c.id}/edit")
     tabs = [(k, l, f"/clients/{c.id}/edit" if k == "basic" else f"/clients/{c.id}?tab={k}") for k, l in TABS]
-    ctx: dict = {"user": user, "c": c, "tab": tab, "tabs": tabs, "show_contact": can_see_contact(user),
+    ctx: dict = {"user": user, "c": c, "tab": tab, "tabs": tabs, "show_contact": contact_plain(db, user),
                  "balance": svc.client_balance(db, c), "students": c.students,
                  "change_log_url": f"/admin/audit/entity/Client/{c.id}" if rbac.has_permission(user, "audit.view") else f"/clients/{c.id}?tab=audit",
                  "contact_types": CONTACT_TYPES, "credential_types": CREDENTIAL_TYPES}
@@ -386,16 +393,74 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
 
 
 # --------------------------------------------------------------------------- masked value reveal (audited, like the ERP "View" link)
+# The ERP opens an "OTP Page" behind every masked email / cell / WhatsApp. Here View posts to .../start: with no code
+# needed (OTP off for the role, or inside the reveal window) the value comes straight back; otherwise a code goes to
+# the viewer's own email / WhatsApp / SMS and .../verify returns the value once it is typed. See services/contact_reveal.
+def _contact_value(db: Session, c: Client, field: str) -> tuple[str, str]:
+    """(label, value) of one contact of this client: email | phone | whatsapp | contact-<row id>."""
+    if field in reveal_svc.FIELDS:
+        return reveal_svc.FIELD_LABELS[field], getattr(c, field) or "-"
+    if field.startswith("contact-"):
+        row = db.query(ClientContact).filter(ClientContact.id == (parse_int(field[8:]) or 0), ClientContact.client_id == c.id).first()
+        if row:
+            return f"{row.contact_type.title()} contact", row.detail or "-"
+    raise HTTPException(404)
+
+
+def _opened(db: Session, c: Client, field: str, label: str, user: User, request: Request, how: str) -> None:
+    log_action(db, user, "reveal", "clients", entity=c, description=f"{label} of {c.client_code} viewed unmasked",
+               rationale=how, request=request, severity="warning", after={"field": field})
+
+
 @router.get("/{id}/reveal/{field}", include_in_schema=False)
 def reveal_field(id: int, field: str, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.view"))):
     c = _get(db, id, user)
-    if field not in ("whatsapp", "phone", "email"):
-        raise HTTPException(404)
-    value = getattr(c, field) or "-"
-    log_action(db, user, "reveal", "clients", entity=c, description=f"{field.title()} of {c.client_code} viewed unmasked",
-               rationale="View link on client list", request=request, severity="warning")
+    label, value = _contact_value(db, c, field)
+    if reveal_svc.needs_code(db, user):
+        return HTMLResponse('<span class="text-xs text-amber-700">A one-time code is required: use View.</span>', status_code=403)
+    _opened(db, c, field, label, user, request, "View link")
     db.commit()
     return HTMLResponse(f'<span class="font-mono text-xs">{value}</span>')
+
+
+@router.post("/{id}/reveal/{field}/start", include_in_schema=False)
+def reveal_start(id: int, field: str, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.view"))):
+    c = _get(db, id, user)
+    label, value = _contact_value(db, c, field)
+    if not reveal_svc.needs_code(db, user):
+        _opened(db, c, field, label, user, request, "View link (no code needed)")
+        db.commit()
+        return JSONResponse({"value": value})
+    try:
+        ch = reveal_svc.start(db, user, c.id, field)
+    except reveal_svc.RevealError as exc:
+        body = {"error": str(exc), "totp": bool(user.two_factor_enabled)}
+        if exc.challenge is not None:  # the earlier code for this same contact is still good: let the dialog take it
+            body.update(challenge=exc.challenge.id, label=label)
+        return JSONResponse(body, status_code=429 if "wait" in str(exc) else 400)
+    simulated = ch.channel.endswith("-simulated")
+    log_action(db, user, "otp_sent", "clients", entity=c, description=f"One-time code sent to open {label} of {c.client_code}",
+               after={"field": field, "channel": ch.channel, "sent_to": ch.sent_to}, request=request)
+    db.commit()
+    return JSONResponse({"challenge": ch.id, "label": label, "channel": ch.channel.replace("-simulated", ""), "sent_to": ch.sent_to,
+                         "simulated": simulated, "totp": bool(user.two_factor_enabled)})
+
+
+@router.post("/{id}/reveal/{field}/verify", include_in_schema=False)
+async def reveal_verify(id: int, field: str, request: Request, db: Session = Depends(get_db), user: User = Depends(require("clients.view"))):
+    c = _get(db, id, user)
+    label, value = _contact_value(db, c, field)
+    form = await request.form()
+    try:
+        reveal_svc.verify(db, user, parse_int(form.get("challenge")) or 0, form.get("code") or "", client_id=c.id, field=field)
+    except reveal_svc.RevealError as exc:
+        log_action(db, user, "otp_failed", "clients", entity=c, description=f"Wrong or expired code for {label} of {c.client_code}",
+                   request=request, severity="warning")
+        db.commit()
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    _opened(db, c, field, label, user, request, "View link, one-time code accepted")
+    db.commit()
+    return JSONResponse({"value": value})
 
 
 @router.get("/{id}/credentials/{cid}/reveal", include_in_schema=False)
@@ -416,6 +481,7 @@ def edit_client(id: int, request: Request, db: Session = Depends(get_db), user: 
     c = _get(db, id, user)
     prefs = {p.channel: p.opted_in for p in db.query(CommunicationPreference).filter(CommunicationPreference.client_id == c.id)}
     return render(request, "clients/form.html", {"user": user, **_form_context(db, c), "mode": "edit", "comm_prefs": prefs,
+                                                 "show_contact": contact_plain(db, user),
                                                  "change_log_url": f"/admin/audit/entity/Client/{c.id}" if rbac.has_permission(user, "audit.view") else f"/clients/{c.id}?tab=audit"})
 
 
@@ -424,6 +490,9 @@ async def update_client(id: int, request: Request, db: Session = Depends(get_db)
     c = _get(db, id, user)
     form = await request.form()
     data = _read_form(form)
+    for f in reveal_svc.FIELDS:  # the masked value came back untouched: keep what is stored
+        if getattr(c, f) and data.get(f) == mask(getattr(c, f)):
+            data[f] = getattr(c, f)
     before = snapshot(c)
     new_status = data["status"] if data["status"] in STATUSES else c.status
     reason = (form.get("reason") or form.get("rationale") or "").strip()
@@ -497,7 +566,8 @@ async def edit_contact(id: int, cid: int, request: Request, db: Session = Depend
     else:
         if form.get("contact_type") in CONTACT_TYPES:
             row.contact_type = form.get("contact_type")
-        row.detail = (form.get("detail") or row.detail).strip()[:200]
+        detail = (form.get("detail") or "").strip()
+        row.detail = row.detail if not detail or detail == mask(row.detail) else detail[:200]
         row.remarks = (form.get("remarks") or "").strip()[:200] or None
         msg = "Contact updated."
     log_action(db, user, "update", "clients", entity=row, description=f"Contact row of {c.client_code} updated", before=before, after=snapshot(row), request=request)

@@ -201,6 +201,16 @@
 </form>
 {% endmacro %}
 
+{% macro contact(value, url, plain=False, input=None) %}
+{# A client contact: the value when the viewer may see it now, else masked with a View button that opens it through
+   the one-time code dialog (base.html, static/js/app.js). url is the client's reveal path, e.g. /clients/7/reveal/email.
+   input = the id of a form field to fill instead of replacing the text. #}
+{%- if plain or not value -%}{{ value or '—' }}
+{%- else -%}<span data-reveal-box class="whitespace-nowrap"><span class="font-mono text-xs">{{ value|mask }}</span>
+<button type="button" data-reveal="{{ url }}"{% if input %} data-reveal-input="{{ input }}"{% endif %} class="ml-1 text-xs font-semibold text-brand-600 hover:underline" aria-label="View the full contact (needs a one-time code)">View</button></span>
+{%- endif -%}
+{% endmacro %}
+
 {% macro dl(items) %}
 {# items: list of (label, value) #}
 <dl class="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2 text-sm">

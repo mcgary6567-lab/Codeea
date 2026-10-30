@@ -88,7 +88,7 @@
       <div class="mt-1 font-mono text-xs text-slate-500">{{ s.client.client_code }}</div>
       <dl class="mt-3 space-y-1.5 text-sm">
         <div class="flex justify-between"><dt class="text-slate-500">Relationship</dt><dd>{{ s.client.relationship_to_student|titleize }}</dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Phone</dt><dd class="font-mono text-xs">{{ s.client.phone if show_contact else s.client.phone|mask }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Phone</dt><dd class="font-mono text-xs">{% if has_perm(user, 'clients.view') %}{{ ui.contact(s.client.phone, '/clients/' ~ s.client_id ~ '/reveal/phone', show_contact) }}{% else %}{{ s.client.phone if show_contact else s.client.phone|mask }}{% endif %}</dd></div>
         <div class="flex justify-between"><dt class="text-slate-500">Country</dt><dd>{{ s.client.country }}</dd></div>
         <div class="flex justify-between"><dt class="text-slate-500">Family Status</dt><dd>{{ ui.badge(s.client.status, s.client.status|label('client')) }}</dd></div>
         <div class="flex justify-between"><dt class="text-slate-500">Shift</dt><dd>{{ s.client.shift|titleize }}</dd></div>

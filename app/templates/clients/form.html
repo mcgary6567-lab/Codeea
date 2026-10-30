@@ -21,9 +21,14 @@
         {% for sv, sl in statuses %}<option value="{{ sv }}" {% if (c and c.status == sv) or (not c and (preset_status or 'trial') == sv) %}selected{% endif %}>{{ sl }}</option>{% endfor %}
       </select>
     </div>
-    {{ ui.input('email', 'Primary Email', c.email if c else '', type='email', help='Used for the portal login and invoices.') }}
-    {{ ui.input('phone', 'Primary Cell', c.phone if c else '', placeholder='+44 7...') }}
-    {{ ui.input('whatsapp', 'WhatsApp', c.whatsapp if c else '', placeholder='Defaults to the primary cell') }}
+    {% set hide = c and not show_contact %}
+    {# a masked value posted back unchanged keeps the stored one (clients.update_client); View opens it to edit #}
+    <div>{{ ui.input('email', 'Primary Email', (c.email|mask if c.email else '') if hide else (c.email if c else ''), type='email', help='Used for the portal login and invoices.') }}
+      {% if hide and c.email %}{{ ui.contact(c.email, '/clients/' ~ c.id ~ '/reveal/email', False, input='f_email') }}{% endif %}</div>
+    <div>{{ ui.input('phone', 'Primary Cell', (c.phone|mask if c.phone else '') if hide else (c.phone if c else ''), placeholder='+44 7...') }}
+      {% if hide and c.phone %}{{ ui.contact(c.phone, '/clients/' ~ c.id ~ '/reveal/phone', False, input='f_phone') }}{% endif %}</div>
+    <div>{{ ui.input('whatsapp', 'WhatsApp', (c.whatsapp|mask if c.whatsapp else '') if hide else (c.whatsapp if c else ''), placeholder='Defaults to the primary cell') }}
+      {% if hide and c.whatsapp %}{{ ui.contact(c.whatsapp, '/clients/' ~ c.id ~ '/reveal/whatsapp', False, input='f_whatsapp') }}{% endif %}</div>
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">Country <span class="text-rose-500">*</span></label>
       <select name="country" x-model="country" @change="if (map[country]) { tz = map[country].timezone; cur = map[country].currency }" required class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
