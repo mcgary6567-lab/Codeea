@@ -141,6 +141,9 @@
   }
 
 
+  // Let other page elements (e.g. the header "Talk to Jono" button) open it.
+  window.ttjOpen = function (why) { open(why || "manual"); };
+
   // ---- scheduling -------------------------------------------------------
   // ?jono=1 forces the popup (for testing); otherwise once per visit.
   var force = /[?&]jono=1\b/.test(location.search);

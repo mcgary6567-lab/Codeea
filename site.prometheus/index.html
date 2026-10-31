@@ -231,33 +231,65 @@ img.elIMG{height:auto}
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
 <style id="bold_style_tmp_headline1-90167">#tmp_headline1-90167 .elHeadline b{color:rgb(230,51,51);}</style>
 <style id="button_style_tmp_button-94931">#tmp_button-94931 .elButtonFlat:hover{background-color:#0564a9!important;}#tmp_button-94931 .elButtonBottomBorder:hover{background-color:#0564a9!important;}#tmp_button-94931 .elButtonSubtle:hover{background-color:#0564a9!important;}#tmp_button-94931 .elButtonGradient{background-image:-webkit-gradient(linear,left top,left bottom,color-stop(0,rgb(6,124,209)),color-stop(1,#0564a9));background-image:-o-linear-gradient(bottom,rgb(6,124,209) 0%,#0564a9 100%);background-image:-moz-linear-gradient(bottom,rgb(6,124,209) 0%,#0564a9 100%);background-image:-webkit-linear-gradient(bottom,rgb(6,124,209) 0%,#0564a9 100%);background-image:-ms-linear-gradient(bottom,rgb(6,124,209) 0%,#0564a9 100%);background-image:linear-gradient(to bottom,rgb(6,124,209) 0%,#0564a9 100%);}#tmp_button-94931 .elButtonGradient:hover{background-image:-webkit-gradient(linear,left top,left bottom,color-stop(1,rgb(6,124,209)),color-stop(0,#0564a9));background-image:-o-linear-gradient(bottom,rgb(6,124,209) 100%,#0564a9 0%);background-image:-moz-linear-gradient(bottom,rgb(6,124,209) 100%,#0564a9 0%);background-image:-webkit-linear-gradient(bottom,rgb(6,124,209) 100%,#0564a9 0%);background-image:-ms-linear-gradient(bottom,rgb(6,124,209) 100%,#0564a9 0%);background-image:linear-gradient(to bottom,rgb(6,124,209) 100%,#0564a9 0%);}#tmp_button-94931 .elButtonBorder{border:3px solid rgb(6,124,209)!important;color:rgb(6,124,209)!important;}#tmp_button-94931 .elButtonBorder:hover{background-color:rgb(6,124,209)!important;color:#FFF!important;}</style>
-<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 bgNoRepeat emptySection" id="section--14536" data-title="Section" data-block-color="0074C7" style="padding-top: 0px; padding-bottom: 0px; outline: none; background-color: rgb(0, 0, 0);" data-trigger="none" data-animate="fade" data-delay="500">
-<div class="containerInner ui-sortable">
-<div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--80393" data-trigger="none" data-animate="fade" data-delay="500" data-title="3 column row" style="padding-top: 20px; padding-bottom: 20px; margin: 0px; outline: none;">
-<div id="col-left-141" class="innerContent col_left ui-resizable col-md-4" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
-<div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
-<div class="de elImageWrapper de-image-block elAlign_center elMargin0 ui-droppable de-editable" id="tmp_image-33288" data-de-type="img" data-de-editing="false" data-title="image" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 40px; outline: none; cursor: pointer;" aria-disabled="false">
-<img loading="lazy" decoding="async" src="index_files/unnamed-1-.webp" class="elIMG ximg" alt="Prometheus AI automated crypto trading dashboard preview" width="250" tabindex="0">
+<style>
+.pmh{position:fixed;top:0;left:0;right:0;z-index:2147482000;background:rgba(10,13,19,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);font-family:Poppins,Montserrat,Helvetica,Arial,sans-serif}
+.pmh *{box-sizing:border-box}
+.pmh-sp{height:77px}
+.pmh__in{max-width:1240px;margin:0 auto;height:76px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.pmh__logo{display:block;line-height:0}.pmh__logo img{height:32px;width:auto}
+.pmh__nav{display:flex;gap:32px}
+.pmh__nav a{color:#c9d3de;font-size:15px;font-weight:500;text-decoration:none;transition:color .15s}
+.pmh__nav a:hover{color:#fff}
+.pmh__r{display:flex;align-items:center;gap:12px}
+.pmh__jono{display:inline-flex;align-items:center;gap:9px;color:#e6edf3;font:600 14px/1 Poppins,Helvetica,Arial,sans-serif;padding:8px 16px 8px 8px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:transparent;cursor:pointer;text-decoration:none;transition:border-color .15s,background .15s}
+.pmh__jono:hover{border-color:#19d3d3;background:rgba(25,211,211,.08)}
+.pmh__jono img{width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid #19d3d3}
+.pmh__cta{display:inline-flex;align-items:center;background:#ff1f1f;color:#fff!important;font-weight:700;font-size:15px;padding:12px 22px;border-radius:10px;text-decoration:none!important;white-space:nowrap;box-shadow:0 8px 22px -8px rgba(255,31,31,.8);transition:background .15s,transform .12s}
+.pmh__cta:hover{background:#e01414;transform:translateY(-1px)}
+.pmh__menu{display:none;width:42px;height:42px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:transparent;cursor:pointer;align-items:center;justify-content:center}
+.pmh__menu i{display:block;width:18px;height:2px;background:#fff;box-shadow:0 6px 0 #fff,0 -6px 0 #fff}
+.pmh__drop{display:none;border-top:1px solid rgba(255,255,255,.08);padding:10px 16px 16px}
+.pmh__drop a,.pmh__drop button{display:flex;align-items:center;gap:10px;width:100%;padding:13px 6px;color:#e6edf3;font:500 16px Poppins,Helvetica,Arial,sans-serif;text-decoration:none;background:none;border:0;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;text-align:left}
+.pmh__drop img{width:28px;height:28px;border-radius:50%;border:1px solid #19d3d3}
+.pmh.open .pmh__drop{display:block}
+@media (max-width:900px){.pmh__nav,.pmh__r .pmh__jono{display:none}.pmh__menu{display:inline-flex}}
+@media (max-width:520px){.pmh-sp{height:63px}.pmh__in{height:62px;padding:0 14px;gap:10px}.pmh__logo img{height:24px}.pmh__cta{padding:10px 14px;font-size:13.5px}.pmh__r{gap:8px}}
+</style>
+<header class="pmh" id="pm-header">
+<div class="pmh__in">
+<a class="pmh__logo" href="/" aria-label="Prometheus AI home"><img src="index_files/unnamed-1-.webp" alt="Prometheus AI" width="313" height="48" fetchpriority="high"></a>
+<nav class="pmh__nav" aria-label="Main">
+<a href="#how-it-works" data-pm-how>How it works</a>
+<a href="/pricing">Pricing</a>
+<a href="/review">Review</a>
+</nav>
+<div class="pmh__r">
+<a class="pmh__jono" href="https://wa.me/13106293398" data-pm-jono><img src="/img/jono.webp" alt="" width="26" height="26">Talk to Jono</a>
+<a class="pmh__cta" href="/checkout">Get Prometheus AI &raquo;</a>
+<button class="pmh__menu" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="pmh-drop"><i></i></button>
 </div>
 </div>
+<div class="pmh__drop" id="pmh-drop">
+<a href="#how-it-works" data-pm-how>How it works</a>
+<a href="/pricing">Pricing</a>
+<a href="/review">Review</a>
+<a href="https://wa.me/13106293398" data-pm-jono><img src="/img/jono.webp" alt="" width="28" height="28">Talk to Jono</a>
 </div>
-<div id="col-center-126" class="innerContent col_right ui-resizable col-md-4" data-col="center" data-trigger="none" data-animate="fade" data-delay="500" data-title="2nd column" style="outline: none;">
-<div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
-</div>
-</div>
-<div id="col-right-182" class="col-md-4 innerContent col_right ui-resizable" data-col="right" data-trigger="none" data-animate="fade" data-delay="500" data-title="3rd Column" style="outline: none;">
-<div class="col-inner bgCover  noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" style="padding: 0 10px">
-<div class="de elBTN elAlign_center elMargin0 ui-droppable de-editable" id="button-30290" data-de-type="button" data-de-editing="false" data-title="button" data-ce="false" data-trigger="none" data-animate="fade" data-delay="500" style="margin-top: 35px; outline: none; cursor: pointer;" aria-disabled="false">
-<a href="/checkout" class="elButton elButtonSize1 elButtonColor1 elButtonRounded elButtonPadding2 elButtonCorner3 elBtnHP_25 elBTN_b_1 elButtonShadowN1 elButtonTxtColor1 elButtonFull elBtnVP_10 ea-buttonElevate mfs_20" style="color: rgb(255, 255, 255); font-weight: 600; background-color: rgb(255, 0, 0); font-size: 22px;" rel="noopener noreferrer" id="undefined-708-434">
-<span class="elButtonMain">Get Prometheus AI &raquo;</span>
-<span class="elButtonSub"></span>
-</a>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
+</header>
+<div class="pmh-sp" aria-hidden="true"></div>
+<script>
+(function(){var h=document.getElementById('pm-header');if(!h)return;
+var mb=h.querySelector('.pmh__menu');
+mb.addEventListener('click',function(){var o=h.classList.toggle('open');mb.setAttribute('aria-expanded',o?'true':'false');});
+function close(){h.classList.remove('open');mb.setAttribute('aria-expanded','false');}
+h.querySelectorAll('[data-pm-how]').forEach(function(a){a.addEventListener('click',function(e){
+ var t=[].slice.call(document.querySelectorAll('[data-pm-anchor="how"]')).filter(function(x){return x.offsetParent!==null;})[0];
+ if(!t)return; e.preventDefault(); close();
+ window.scrollTo({top:t.getBoundingClientRect().top+window.pageYOffset-h.offsetHeight-8,behavior:'smooth'});});});
+h.querySelectorAll('[data-pm-jono]').forEach(function(a){a.addEventListener('click',function(e){
+ if(typeof window.ttjOpen==='function'){e.preventDefault();close();window.ttjOpen('header');}});});
+})();
+</script>
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
 <div class="pm-hero2" id="section--91943">
 <style>
@@ -301,7 +333,7 @@ img.elIMG{height:auto}
 </div>
 </div>
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
-<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 containerWithVisibleOverflow emptySection bgCover101" id="section--89610" data-title="Section" data-block-color="0074C7" style="padding-top: 5px; padding-bottom: 100px; outline: none;" data-trigger="none" data-animate="fade" data-delay="500" data-hide-on="mobile">
+<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 containerWithVisibleOverflow emptySection bgCover101" id="section--89610" data-pm-anchor="how" data-title="Section" data-block-color="0074C7" style="padding-top: 5px; padding-bottom: 100px; outline: none;" data-trigger="none" data-animate="fade" data-delay="500" data-hide-on="mobile">
 <div class="containerInner ui-sortable">
 <div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--91351" data-trigger="none" data-animate="fade" data-delay="500" data-title="3 column row" style="padding-top: 20px; padding-bottom: 20px; margin: 20px -300px 0px; outline: none; width: auto;">
 <div id="col-left-128" class="innerContent col_left ui-resizable col-md-3" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
@@ -392,7 +424,7 @@ img.elIMG{height:auto}
 <style id="bold_style_tmp_headline1-47099-151">#tmp_headline1-47099-151 .elHeadline b{ color: rgb(34, 34, 34);}</style>
 </div>
 </div>
-<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 containerWithVisibleOverflow emptySection bgCover101" id="section--89610-105" data-title="Section - Clone" data-block-color="0074C7" style="padding-top: 100px; padding-bottom: 100px; outline: none; background-image: url(&quot;//prometheusbot.com/hosted/images/84/80cf67c79f45a8960a400cfc326ff3/Untitled-1.png&quot;);" data-trigger="none" data-animate="fade" data-delay="500" data-hide-on="desktop">
+<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 containerWithVisibleOverflow emptySection bgCover101" id="section--89610-105" data-pm-anchor="how" data-title="Section - Clone" data-block-color="0074C7" style="padding-top: 100px; padding-bottom: 100px; outline: none; background-image: url(&quot;//prometheusbot.com/hosted/images/84/80cf67c79f45a8960a400cfc326ff3/Untitled-1.png&quot;);" data-trigger="none" data-animate="fade" data-delay="500" data-hide-on="desktop">
 <div class="containerInner ui-sortable">
 <div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--91351-116" data-trigger="none" data-animate="fade" data-delay="500" data-title="3 column row" style="padding-top: 20px; padding-bottom: 20px; margin: 20px -200px 0px; outline: none; width: auto;">
 <div id="col-left-128-143" class="innerContent col_left ui-resizable col-md-2" data-col="left" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
@@ -2466,7 +2498,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('.pm-yt');i
  f.title=a.getAttribute('data-title')||'Video';f.allow='accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';f.allowFullscreen=true;
  f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';a.innerHTML='';a.appendChild(f);});
 </script>
-<script defer src="js/talk-to-jono.js?v=6" data-video="ADvR1rBXF_E" data-wa="13106293398" data-tg="https://t.me/prometheusaibot"></script>
+<script defer src="js/talk-to-jono.js?v=7" data-video="ADvR1rBXF_E" data-wa="13106293398" data-tg="https://t.me/prometheusaibot"></script>
 </body>
 
 </html>
