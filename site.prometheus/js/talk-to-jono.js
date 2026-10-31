@@ -8,10 +8,7 @@
  * Behaviour (conversion settings):
  *  - Shows on the visitor's first scroll, or 30 s after load if they never
  *    scroll — but never within the first 5 s of the page loading.
- *  - Once per visit. Closing it leaves a small "Chat with Jono" bubble that
- *    reopens it; a close also suppresses auto-open for 3 days.
- *  - Never auto-opens again after a WhatsApp / Telegram click (they already
- *    have the contact); the bubble stays available.
+ *  - Auto-opens once per visit (browser session). No launcher icon.
  *  - Hides the purchase-notification card while open so they never overlap.
  *  - Loads nothing (no CSS, no thumbnail) until it is actually shown.
  *  - Fires Google Ads / gtag events: jono_popup_open, jono_video_play,
@@ -36,12 +33,8 @@
   var MIN_DELAY = 5000;      // never before 5 s
   var MAX_DELAY = 30000;     // auto-open at 30 s if no scroll
   var SCROLL_PX = 80;        // "started scrolling"
-  var SNOOZE_MS = 3 * 86400000; // 3 days after a close
 
-  var LS = { closed: "ttj_closed_at", contacted: "ttj_contacted" };
   var SS = { shown: "ttj_shown" };
-  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function ssGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
   function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
   function track(name, extra) {
@@ -81,14 +74,11 @@
     ".ttj-btn svg{width:20px;height:20px;flex:none}" +
     ".ttj-btn+.ttj-btn{margin-top:10px}.ttj-wa{background:#25D366}.ttj-tg{background:#229ED9}.ttj-btn:hover{filter:brightness(1.06)}" +
     ".ttj-foot{margin-top:12px;font-size:11.5px;color:#6b7a8c;text-align:center}" +
-    ".ttj-mini{position:fixed;right:20px;bottom:96px;z-index:2147483001;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 6px;border-radius:999px;border:1px solid rgba(25,211,211,.5);" +
-    "background:#0f172a;color:#fff;font:700 13px/1 Poppins,Montserrat,Helvetica,Arial,sans-serif;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.5)}" +
-    ".ttj-mini .ttj-av{width:32px;height:32px;border-width:1px}" +
     "body.ttj-open .sp2{display:none!important}" +
     "@media (max-width:640px){.ttj{width:calc(100vw - 24px);border-radius:18px}.ttj-body{padding:16px 18px 18px}.ttj h3{font-size:18px}" +
-    ".ttj-mini{bottom:20px;right:16px}}";
+    "}";
 
-  var card = null, bd = null, mini = null, cssDone = false, opened = false;
+  var card = null, bd = null, cssDone = false, opened = false;
 
   function ensureCss() {
     if (cssDone) return; cssDone = true;
@@ -127,15 +117,14 @@
       box.innerHTML = ""; box.appendChild(f); box.style.cursor = "default";
       track("jono_video_play");
     });
-    card.querySelector(".ttj-wa").addEventListener("click", function () { lsSet(LS.contacted, "1"); track("jono_whatsapp_click"); });
-    card.querySelector(".ttj-tg").addEventListener("click", function () { lsSet(LS.contacted, "1"); track("jono_telegram_click"); });
+    card.querySelector(".ttj-wa").addEventListener("click", function () { track("jono_whatsapp_click"); });
+    card.querySelector(".ttj-tg").addEventListener("click", function () { track("jono_telegram_click"); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && card && card.classList.contains("on")) close(true); });
   }
 
   function open(auto) {
     ensureCss();
     if (!card) build();
-    if (mini) { mini.style.display = "none"; }
     document.body.classList.add("ttj-open");
     card.style.display = ""; bd.style.display = "";
     requestAnimationFrame(function () { card.classList.add("on"); bd.classList.add("on"); });
@@ -148,34 +137,12 @@
     card.classList.remove("on"); if (bd) bd.classList.remove("on");
     document.body.classList.remove("ttj-open");
     setTimeout(function () { card.style.display = "none"; if (bd) bd.style.display = "none"; }, 350);
-    if (byUser) { lsSet(LS.closed, String(Date.now())); track("jono_popup_close"); }
-    showMini();
+    if (byUser) track("jono_popup_close");
   }
 
-  function showMini() {
-    ensureCss();
-    if (!mini) {
-      mini = document.createElement("button");
-      mini.className = "ttj-mini"; mini.type = "button"; mini.setAttribute("aria-label", "Chat with Jono Armstrong");
-      mini.innerHTML = '<span class="ttj-av" aria-hidden="true"></span>Chat with Jono';
-      mini.addEventListener("click", function () { open("bubble"); });
-      document.body.appendChild(mini);
-    }
-    mini.style.display = "";
-  }
 
   // ---- scheduling -------------------------------------------------------
-  var closedAt = parseInt(lsGet(LS.closed) || "0", 10);
-  var snoozed = closedAt && (Date.now() - closedAt) < SNOOZE_MS;
-  var contacted = lsGet(LS.contacted) === "1";
-  var shownThisVisit = ssGet(SS.shown) === "1";
-
-  if (contacted || snoozed || shownThisVisit) {
-    // No auto-open — just the bubble so it stays one tap away.
-    if (document.readyState === "complete") showMini();
-    else window.addEventListener("load", showMini);
-    return;
-  }
+  if (ssGet(SS.shown) === "1") return; // already shown during this visit
 
   var armed = false, fired = false, t0 = Date.now();
   function fire(why) {
