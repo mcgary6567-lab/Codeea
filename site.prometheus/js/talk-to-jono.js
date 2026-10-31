@@ -34,7 +34,7 @@
   var MAX_DELAY = 30000;     // auto-open at 30 s if no scroll
   var SCROLL_PX = 80;        // "started scrolling"
 
-  var SS = { shown: "ttj_shown" };
+  var SS = { shown: "ttj_shown_v6" };
   function ssGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
   function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
   function track(name, extra) {
@@ -142,24 +142,27 @@
 
 
   // ---- scheduling -------------------------------------------------------
-  if (ssGet(SS.shown) === "1") return; // already shown during this visit
+  // ?jono=1 forces the popup (for testing); otherwise once per visit.
+  var force = /[?&]jono=1\b/.test(location.search);
+  if (!force && ssGet(SS.shown) === "1") return; // already shown during this visit
 
-  var armed = false, fired = false, t0 = Date.now();
+  var fired = false, t0 = Date.now(), pending = false;
+  var EVTS = ["scroll", "wheel", "touchmove", "keydown"];
+  function unbind() { EVTS.forEach(function (e) { window.removeEventListener(e, onIntent, true); }); }
   function fire(why) {
-    if (fired) return; fired = true;
-    window.removeEventListener("scroll", onScroll);
-    open(why);
+    if (fired) return; fired = true; unbind();
+    var go = function () { if (document.body) open(why); else window.addEventListener("DOMContentLoaded", function () { open(why); }); };
+    go();
   }
-  function onScroll() {
-    if ((window.pageYOffset || document.documentElement.scrollTop) < SCROLL_PX) return;
-    if (!armed) { // scrolled before 5 s: wait for the minimum delay, then show
-      setTimeout(function () { fire("scroll"); }, Math.max(0, MIN_DELAY - (Date.now() - t0)));
-      window.removeEventListener("scroll", onScroll);
-      return;
-    }
-    fire("scroll");
+  // Any sign the visitor has started scrolling — window scroll past 80 px,
+  // a scroll inside any container, a wheel / touch swipe or a scroll key.
+  function onIntent(e) {
+    if (e.type === "scroll" && (e.target === document || e.target === window) &&
+        (window.pageYOffset || document.documentElement.scrollTop || 0) < SCROLL_PX) return;
+    if (e.type === "keydown" && !/^(ArrowDown|PageDown|Space| |End)$/.test(e.key)) return;
+    if (pending) return; pending = true; unbind();
+    setTimeout(function () { fire("scroll"); }, Math.max(0, MIN_DELAY - (Date.now() - t0)));
   }
-  window.addEventListener("scroll", onScroll, { passive: true });
-  setTimeout(function () { armed = true; }, MIN_DELAY);
-  setTimeout(function () { fire("timer"); }, MAX_DELAY);
+  EVTS.forEach(function (e) { window.addEventListener(e, onIntent, { passive: true, capture: true }); });
+  setTimeout(function () { fire("timer"); }, force ? MIN_DELAY : MAX_DELAY);
 })();
