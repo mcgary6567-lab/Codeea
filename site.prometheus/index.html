@@ -2355,54 +2355,96 @@ padding: 35px;
 
 
 <style>
-.ps-site-footer{background:#0a0d13;color:#8b98a8;padding:40px 0;text-align:center;font-family:'Poppins',Helvetica,Arial,sans-serif;font-size:13px}
-.ps-site-footer *{box-sizing:border-box}
-.ps-site-footer__wrap{width:100%;max-width:1080px;margin:0 auto;padding:0 20px;display:grid;gap:16px;justify-items:center}
-.ps-site-footer .ps-flogo{display:inline-flex;align-items:center;gap:9px;text-decoration:none}
-.ps-site-footer .ps-flogo img{height:30px;width:auto}
-.ps-site-footer .ps-flogo span{color:#fff;font-weight:800;font-size:17px;letter-spacing:-.01em}
-.ps-site-footer .ps-fnav{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 18px;padding:0;margin:0;list-style:none}
-.ps-site-footer .ps-fnav a{color:#d3dbe4;text-decoration:none}
-.ps-site-footer .ps-fnav a:hover{color:#19d3d3;text-decoration:underline}
-.ps-site-footer .ps-social{display:flex;gap:12px}
-.ps-site-footer .ps-social a{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);transition:background .2s,transform .15s}
-.ps-site-footer .ps-social a:hover{background:#19d3d3;transform:translateY(-2px)}
-.ps-site-footer .ps-social svg{width:19px;height:19px;fill:#d3dbe4}
-.ps-site-footer .ps-social a:hover svg{fill:#0a0d13}
-.ps-site-footer address{font-style:normal;line-height:1.7;color:#8b98a8}
-.ps-site-footer a[href^="mailto"]{color:#19d3d3;text-decoration:none}
-.ps-site-footer__copy{opacity:.75;margin:0}
+.pf{background:#070a10;color:#8b98a8;font-family:'Poppins',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;border-top:1px solid rgba(25,211,211,.18)}
+.pf *{box-sizing:border-box}
+.pf a{color:#c9d3de;text-decoration:none;transition:color .15s}
+.pf a:hover{color:#19d3d3}
+.pf__in{max-width:1180px;margin:0 auto;padding:56px 24px 0}
+.pf__cta{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding:26px 30px;margin-bottom:48px;border-radius:16px;
+ background:linear-gradient(120deg,rgba(25,211,211,.14),rgba(25,211,211,.03));border:1px solid rgba(25,211,211,.28)}
+.pf__cta h2{margin:0;color:#fff;font-size:22px;font-weight:800;line-height:1.25}
+.pf__cta p{margin:4px 0 0;color:#9fb3c8;font-size:14px}
+.pf__btn{display:inline-flex;align-items:center;gap:8px;background:#ff1f1f;color:#fff!important;font-weight:700;font-size:15px;padding:13px 26px;border-radius:10px;box-shadow:0 10px 28px rgba(255,31,31,.28);white-space:nowrap}
+.pf__btn:hover{background:#e01414;color:#fff!important}
+.pf__grid{display:grid;grid-template-columns:1.5fr 1fr 1.25fr 1fr 1.2fr;gap:36px}
+.pf__brand .pf__logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:14px}
+.pf__brand .pf__logo img{height:34px;width:auto}
+.pf__brand .pf__logo span{color:#fff;font-weight:800;font-size:19px;letter-spacing:-.01em}
+.pf__brand p{margin:0 0 18px;max-width:290px;color:#8b98a8}
+.pf__social{display:flex;gap:10px}
+.pf__social a{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.pf__social a:hover{background:#19d3d3;border-color:#19d3d3}
+.pf__social svg{width:18px;height:18px;fill:#c9d3de}
+.pf__social a:hover svg{fill:#070a10}
+.pf h3{margin:0 0 14px;color:#fff;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pf ul{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.pf__contact li{display:flex;gap:9px;align-items:flex-start}
+.pf__contact svg{width:16px;height:16px;flex:none;margin-top:4px;fill:#19d3d3}
+.pf__trust{display:flex;flex-wrap:wrap;gap:10px;margin-top:40px;padding-top:24px;border-top:1px solid rgba(255,255,255,.07)}
+.pf__trust span{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:#c9d3de;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:6px 13px}
+.pf__trust b{color:#19d3d3;font-weight:800}
+.pf__bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:22px 0 28px;margin-top:24px;border-top:1px solid rgba(255,255,255,.07);font-size:12.5px;color:#6b7a8c}
+.pf__bar nav{display:flex;gap:18px;flex-wrap:wrap}
+.pf__bar a{color:#8b98a8}
+@media (max-width:980px){.pf__grid{grid-template-columns:1fr 1fr 1fr}.pf__brand{grid-column:1/-1}}
+@media (max-width:640px){.pf__in{padding:40px 18px 0}.pf__cta{padding:22px 20px;margin-bottom:36px}.pf__cta h2{font-size:19px}.pf__btn{width:100%;justify-content:center}
+ .pf__grid{grid-template-columns:1fr 1fr;gap:28px 20px}.pf__contact,.pf__grid>nav[aria-label=Legal]{grid-column:1/-1}.pf__grid>nav[aria-label=Legal] ul{grid-template-columns:1fr 1fr;column-gap:20px}.pf__bar{flex-direction:column;align-items:flex-start}}
 </style>
-<footer class="ps-site-footer">
-<div class="ps-site-footer__wrap">
-<a href="https://www.prometheusai.tech/" class="ps-flogo" aria-label="Prometheus AI home"><img loading="lazy" decoding="async" src="img/core-img/logo.png" alt="Prometheus AI" /><span>Prometheus AI</span></a>
-<nav class="ps-fnav" aria-label="Footer">
-<a href="https://www.prometheusai.tech/blog/">Blog</a>
-<a href="https://www.prometheusai.tech/pricing">Pricing</a>
-<a href="https://www.prometheusai.tech/review">Review</a>
-<a href="https://www.prometheusai.tech/advertiseragreement">Advertiser Agreement</a>
-<a href="https://www.prometheusai.tech/acceptableuse">Acceptable Use</a>
-<a href="https://www.prometheusai.tech/privacy">Privacy Policy</a>
-<a href="https://www.prometheusai.tech/terms">Terms</a>
-<a href="https://www.prometheusai.tech/disclaimer">Disclaimer</a>
-<a href="https://www.prometheusai.tech/refund">Refund Policy</a>
-<a href="https://www.prometheusai.tech/support">Contact</a>
-</nav>
-<nav class="ps-fnav" aria-label="Popular guides">
-<a href="https://www.prometheusai.tech/blog/best-ai-crypto-trading-bot-2026">Best AI crypto trading bot</a>
-<a href="https://www.prometheusai.tech/blog/are-crypto-trading-bots-safe">Are trading bots safe?</a>
-<a href="https://www.prometheusai.tech/blog/how-crypto-trading-bots-work">How crypto trading bots work</a>
-<a href="https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys">Connect a bot to Binance</a>
-<a href="https://www.prometheusai.tech/blog/crypto-trading-bot-fees-explained">Trading bot fees explained</a>
-</nav>
-<div class="ps-social">
+<footer class="pf">
+<div class="pf__in">
+<div class="pf__cta">
+<div><h2>Ready to automate your crypto trading?</h2><p>One-time $267 &middot; lifetime access &middot; 90-day money-back guarantee.</p></div>
+<a class="pf__btn" href="/checkout">Get Prometheus AI &raquo;</a>
+</div>
+<div class="pf__grid">
+<div class="pf__brand">
+<a href="https://www.prometheusai.tech/" class="pf__logo" aria-label="Prometheus AI home"><img loading="lazy" decoding="async" src="img/core-img/logo.png" alt="Prometheus AI" width="34" height="34"><span>Prometheus AI</span></a>
+<p>Automated, non-custodial AI crypto trading that runs 24/7 on your own exchange account.</p>
+<div class="pf__social">
 <a href="https://www.facebook.com/prometheusaisystem/" aria-label="Prometheus AI on Facebook" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.3l.4-2.7h-2.7V9.5c0-.8.2-1.3 1.3-1.3h1.4V5.8c-.2 0-1-.1-2-.1-2 0-3.4 1.2-3.4 3.5v1.9H8.5V14h2v7h3z"/></svg></a>
 <a href="https://www.youtube.com/channel/UCKXDzlnd74YXm7m7UY4nAcw" aria-label="Prometheus AI on YouTube" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 12s0-3.2-.4-4.7a2.5 2.5 0 0 0-1.8-1.8C19.3 5 12 5 12 5s-7.3 0-8.8.5A2.5 2.5 0 0 0 1.4 7.3C1 8.8 1 12 1 12s0 3.2.4 4.7a2.5 2.5 0 0 0 1.8 1.8C4.7 19 12 19 12 19s7.3 0 8.8-.5a2.5 2.5 0 0 0 1.8-1.8C23 15.2 23 12 23 12zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z"/></svg></a>
 <a href="https://t.me/prometheusaibot" aria-label="Prometheus AI on Telegram" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 4.27l-3.3 15.56c-.25 1.1-.9 1.37-1.83.85l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.17 9.4-8.5c.41-.36-.09-.56-.63-.2L6.09 13.2l-5-1.57c-1.08-.34-1.1-1.08.23-1.6l19.55-7.53c.9-.33 1.69.22 1.4 1.77z"/></svg></a>
+<a href="https://wa.me/13106293398" aria-label="Chat with Prometheus AI on WhatsApp" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 12 12 0 0 0 4.6 4c1.7.7 2.1.6 2.8.5a2.4 2.4 0 0 0 1.6-1.1c.2-.6.2-1 .1-1.1l-.5-.2z"/></svg></a>
 </div>
-<address>1954 West Lullaby Lane, Anaheim, CA 92804, US<br /><a href="mailto:support@prometheusai.tech">support@prometheusai.tech</a></address>
-<p class="pm-reg" style="font-size:12px;line-height:1.6;color:#8b98a8;max-width:860px;margin:6px auto 12px;text-align:center"><b>Regulatory notice:</b> Prometheus AI is a software product. It is not a bank, broker, exchange or licensed financial adviser, and it is not regulated as a financial institution. It never holds, moves or has custody of your funds &mdash; all trading happens inside your own exchange account through a trade-only API key. Nothing on this site is investment advice. You are responsible for complying with the laws of your jurisdiction. Crypto trading carries risk and is not suitable for everyone.</p>
-<p class="ps-site-footer__copy">&copy; <span id="ps-year">2026</span> Prometheus AI. All rights reserved.</p>
+</div>
+<nav aria-label="Product"><h3>Product</h3><ul>
+<li><a href="/checkout">Get Prometheus AI</a></li>
+<li><a href="https://www.prometheusai.tech/pricing">Pricing</a></li>
+<li><a href="https://www.prometheusai.tech/review">Review</a></li>
+<li><a href="https://www.prometheusai.tech/blog/">Blog</a></li>
+</ul></nav>
+<nav aria-label="Popular guides"><h3>Guides</h3><ul>
+<li><a href="https://www.prometheusai.tech/blog/best-ai-crypto-trading-bot-2026">Best AI crypto trading bot</a></li>
+<li><a href="https://www.prometheusai.tech/blog/are-crypto-trading-bots-safe">Are trading bots safe?</a></li>
+<li><a href="https://www.prometheusai.tech/blog/how-crypto-trading-bots-work">How trading bots work</a></li>
+<li><a href="https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys">Connect a bot to Binance</a></li>
+<li><a href="https://www.prometheusai.tech/blog/crypto-trading-bot-fees-explained">Trading bot fees explained</a></li>
+</ul></nav>
+<nav aria-label="Legal"><h3>Legal</h3><ul>
+<li><a href="https://www.prometheusai.tech/terms">Terms</a></li>
+<li><a href="https://www.prometheusai.tech/privacy">Privacy Policy</a></li>
+<li><a href="https://www.prometheusai.tech/refund">Refund Policy</a></li>
+<li><a href="https://www.prometheusai.tech/disclaimer">Disclaimer</a></li>
+<li><a href="https://www.prometheusai.tech/acceptableuse">Acceptable Use</a></li>
+<li><a href="https://www.prometheusai.tech/advertiseragreement">Advertiser Agreement</a></li>
+</ul></nav>
+<div class="pf__contact"><h3>Contact</h3><ul>
+<li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm9 7.2L4 7.4V17h16V7.4l-8 4.8zM19.2 7H4.8L12 11.3 19.2 7z"/></svg><a href="mailto:support@prometheusai.tech">support@prometheusai.tech</a></li>
+<li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 4.27l-3.3 15.56c-.25 1.1-.9 1.37-1.83.85l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.17 9.4-8.5c.41-.36-.09-.56-.63-.2L6.09 13.2l-5-1.57c-1.08-.34-1.1-1.08.23-1.6l19.55-7.53c.9-.33 1.69.22 1.4 1.77z"/></svg><a href="https://t.me/prometheusaibot" target="_blank" rel="noopener">Telegram support</a></li>
+<li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 12 12 0 0 0 4.6 4c1.7.7 2.1.6 2.8.5a2.4 2.4 0 0 0 1.6-1.1c.2-.6.2-1 .1-1.1l-.5-.2z"/></svg><a href="https://wa.me/13106293398" target="_blank" rel="noopener">WhatsApp</a></li>
+<li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg><address style="font-style:normal">1954 West Lullaby Lane<br>Anaheim, CA 92804, US</address></li>
+</ul></div>
+</div>
+<div class="pf__trust">
+<span><b>&#10003;</b> Non-custodial &mdash; funds stay on your exchange</span>
+<span><b>&#10003;</b> Trade-only API keys</span>
+<span><b>&#10003;</b> 90-day money-back guarantee</span>
+<span><b>&#10003;</b> Free setup call</span>
+</div>
+<div class="pf__bar">
+<span>&copy; <span id="ps-year">2026</span> Prometheus AI. All rights reserved. Crypto trading involves risk; nothing here is financial advice.</span>
+<nav aria-label="Footer legal"><a href="https://www.prometheusai.tech/terms">Terms</a><a href="https://www.prometheusai.tech/privacy">Privacy</a><a href="https://www.prometheusai.tech/support">Contact</a></nav>
+</div>
 </div>
 </footer>
 <script>(function(){var y=document.getElementById('ps-year');if(y)y.textContent=new Date().getFullYear();})();</script>
