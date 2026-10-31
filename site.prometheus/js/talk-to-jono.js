@@ -1,8 +1,9 @@
 /*
  * "Talk directly to Jono Armstrong" popup — Prometheus AI
  *
- * Vertical corner card (bottom sheet on mobile) with a click-to-play video,
- * Jono's avatar and WhatsApp / Telegram buttons.
+ * Centered spotlight card over a dimmed page, with a click-to-play video,
+ * Jono's photo and WhatsApp / Telegram buttons. Clicking the backdrop,
+ * the X or Escape closes it.
  *
  * Behaviour (conversion settings):
  *  - Shows on the visitor's first scroll, or 30 s after load if they never
@@ -56,37 +57,39 @@
   var ICON_PLAY = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 68 48'%3E%3Cpath d='M66.5 7.7c-.8-2.9-3-5.2-5.9-6C55.4 0 34 0 34 0S12.6 0 7.4 1.7c-2.9.8-5.1 3.1-5.9 6C0 13 0 24 0 24s0 11 1.5 16.3c.8 2.9 3 5.2 5.9 6C12.6 48 34 48 34 48s21.4 0 26.6-1.7c2.9-.8 5.1-3.1 5.9-6C68 35 68 24 68 24s0-11-1.5-16.3z' fill='%23ff0000'/%3E%3Cpath d='M45 24L27 14v20' fill='%23fff'/%3E%3C/svg%3E";
 
   var CSS =
-    ".ttj{position:fixed;right:24px;bottom:96px;width:300px;max-width:calc(100vw - 32px);z-index:2147483001;background:#0f172a;color:#fff;" +
-    "border:1px solid rgba(25,211,211,.4);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);" +
-    "font-family:Poppins,Montserrat,Helvetica,Arial,sans-serif;transform:translateY(24px);opacity:0;transition:transform .35s ease,opacity .35s ease}" +
-    ".ttj.on{transform:none;opacity:1}" +
+    ".ttj{position:fixed;left:50%;top:50%;width:400px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;z-index:2147483002;background:#0f172a;color:#fff;" +
+    "border:1px solid rgba(25,211,211,.4);border-radius:20px;box-shadow:0 30px 90px rgba(0,0,0,.7);" +
+    "font-family:Poppins,Montserrat,Helvetica,Arial,sans-serif;transform:translate(-50%,-50%) scale(.94);opacity:0;transition:transform .35s ease,opacity .35s ease}" +
+    ".ttj-bd{position:fixed;inset:0;z-index:2147483001;background:rgba(0,0,0,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;transition:opacity .35s ease}" +
+    ".ttj-bd.on{opacity:1}" +
+".ttj.on{transform:translate(-50%,-50%) scale(1);opacity:1}" +
     ".ttj *{box-sizing:border-box}" +
-    ".ttj-x{position:absolute;top:8px;right:10px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:18px;line-height:1;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center}" +
+    ".ttj-x{position:absolute;top:10px;right:12px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:18px;line-height:1;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center}" +
     ".ttj-vid{position:relative;display:block;width:100%;aspect-ratio:16/9;background:#000 linear-gradient(135deg,#0e1a2a,#1b2a3d);overflow:hidden;cursor:pointer}" +
     ".ttj-vid img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}" +
     ".ttj-vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}" +
-    ".ttj-vid .ttj-play{position:absolute;left:50%;top:50%;width:64px;height:44px;margin:-22px 0 0 -32px;background:url(\"" + ICON_PLAY + "\") center/contain no-repeat;filter:drop-shadow(0 4px 12px rgba(0,0,0,.6));transition:transform .15s}" +
+    ".ttj-vid .ttj-play{position:absolute;left:50%;top:50%;width:76px;height:52px;margin:-26px 0 0 -38px;background:url(\"" + ICON_PLAY + "\") center/contain no-repeat;filter:drop-shadow(0 4px 12px rgba(0,0,0,.6));transition:transform .15s}" +
     ".ttj-vid:hover .ttj-play{transform:scale(1.08)}" +
-    ".ttj-cap{position:absolute;left:0;right:0;bottom:0;padding:26px 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:11px;color:#dbe4ee;display:flex;justify-content:space-between;pointer-events:none}" +
-    ".ttj-body{padding:14px 16px 16px}" +
+    ".ttj-cap{position:absolute;left:0;right:0;bottom:0;padding:28px 14px 9px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:12px;color:#dbe4ee;display:flex;justify-content:space-between;pointer-events:none}" +
+    ".ttj-body{padding:18px 22px 20px}" +
     ".ttj-who{display:flex;align-items:center;gap:10px}" +
-    ".ttj-av{width:44px;height:44px;border-radius:50%;flex:none;position:relative;border:2px solid #19d3d3;background:#0e1a2a url(" + THUMB + ") 50% 30%/230% auto no-repeat}" +
-    ".ttj-av::after{content:'';position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#22c55e;border:2px solid #0f172a}" +
-    ".ttj-who b{display:block;font-size:13px;line-height:1.2}.ttj-who span{font-size:11px;color:#9fb3c8}.ttj-who em{font-style:normal;color:#22c55e}" +
-    ".ttj h3{margin:10px 0 4px;font-size:16px;font-weight:800;line-height:1.25}" +
-    ".ttj p{margin:0 0 12px;font-size:12px;line-height:1.5;color:#9fb3c8}" +
-    ".ttj-btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:12px 14px;border-radius:10px;color:#fff!important;text-decoration:none!important;font-weight:700;font-size:14px;line-height:1.2}" +
-    ".ttj-btn svg{width:18px;height:18px;flex:none}" +
-    ".ttj-btn+.ttj-btn{margin-top:8px}.ttj-wa{background:#25D366}.ttj-tg{background:#229ED9}.ttj-btn:hover{filter:brightness(1.06)}" +
-    ".ttj-foot{margin-top:10px;font-size:10.5px;color:#6b7a8c;text-align:center}" +
+    ".ttj-av{width:54px;height:54px;border-radius:50%;flex:none;position:relative;border:2px solid #19d3d3;background:#0e1a2a url(/img/jono.webp) center/cover no-repeat}" +
+    ".ttj-av::after{content:'';position:absolute;right:0;bottom:0;width:14px;height:14px;border-radius:50%;background:#22c55e;border:2px solid #0f172a}" +
+    ".ttj-who b{display:block;font-size:15px;line-height:1.2}.ttj-who span{font-size:12px;color:#9fb3c8}.ttj-who em{font-style:normal;color:#22c55e}" +
+    ".ttj h3{margin:14px 0 6px;font-size:20px;font-weight:800;line-height:1.25}" +
+    ".ttj p{margin:0 0 14px;font-size:13.5px;line-height:1.55;color:#9fb3c8}" +
+    ".ttj-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px 16px;border-radius:12px;color:#fff!important;text-decoration:none!important;font-weight:700;font-size:15.5px;line-height:1.2}" +
+    ".ttj-btn svg{width:20px;height:20px;flex:none}" +
+    ".ttj-btn+.ttj-btn{margin-top:10px}.ttj-wa{background:#25D366}.ttj-tg{background:#229ED9}.ttj-btn:hover{filter:brightness(1.06)}" +
+    ".ttj-foot{margin-top:12px;font-size:11.5px;color:#6b7a8c;text-align:center}" +
     ".ttj-mini{position:fixed;right:20px;bottom:96px;z-index:2147483001;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 6px;border-radius:999px;border:1px solid rgba(25,211,211,.5);" +
     "background:#0f172a;color:#fff;font:700 13px/1 Poppins,Montserrat,Helvetica,Arial,sans-serif;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.5)}" +
-    ".ttj-mini .ttj-av{width:32px;height:32px}" +
+    ".ttj-mini .ttj-av{width:32px;height:32px;border-width:1px}" +
     "body.ttj-open .sp2{display:none!important}" +
-    "@media (max-width:640px){.ttj{right:0;left:0;bottom:0;width:auto;max-width:none;border-radius:18px 18px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}" +
+    "@media (max-width:640px){.ttj{width:calc(100vw - 24px);border-radius:18px}.ttj-body{padding:16px 18px 18px}.ttj h3{font-size:18px}" +
     ".ttj-mini{bottom:20px;right:16px}}";
 
-  var card = null, mini = null, cssDone = false, opened = false;
+  var card = null, bd = null, mini = null, cssDone = false, opened = false;
 
   function ensureCss() {
     if (cssDone) return; cssDone = true;
@@ -110,6 +113,8 @@
         '<a class="ttj-btn ttj-tg" href="' + TG + '" target="_blank" rel="noopener">' + ICON_TG + 'Message on Telegram</a>' +
         '<div class="ttj-foot">Usually replies within minutes &middot; no obligation</div>' +
       '</div>';
+    bd = document.createElement("div"); bd.className = "ttj-bd"; bd.addEventListener("click", function () { close(true); });
+    document.body.appendChild(bd);
     document.body.appendChild(card);
 
     card.querySelector(".ttj-x").addEventListener("click", function () { close(true); });
@@ -134,17 +139,17 @@
     if (!card) build();
     if (mini) { mini.style.display = "none"; }
     document.body.classList.add("ttj-open");
-    card.style.display = "";
-    requestAnimationFrame(function () { card.classList.add("on"); });
+    card.style.display = ""; bd.style.display = "";
+    requestAnimationFrame(function () { card.classList.add("on"); bd.classList.add("on"); });
     ssSet(SS.shown, "1"); opened = true;
     track("jono_popup_open", { trigger: auto || "manual" });
   }
 
   function close(byUser) {
     if (!card) return;
-    card.classList.remove("on");
+    card.classList.remove("on"); if (bd) bd.classList.remove("on");
     document.body.classList.remove("ttj-open");
-    setTimeout(function () { card.style.display = "none"; }, 350);
+    setTimeout(function () { card.style.display = "none"; if (bd) bd.style.display = "none"; }, 350);
     if (byUser) { lsSet(LS.closed, String(Date.now())); track("jono_popup_close"); }
     showMini();
   }
