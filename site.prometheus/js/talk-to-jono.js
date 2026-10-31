@@ -19,6 +19,7 @@
  *   data-video  YouTube id            (default ADvR1rBXF_E)
  *   data-wa     WhatsApp number, digits only incl. country code
  *   data-tg     Telegram URL
+ *   data-auto   "off" = never auto-open (opened only by the header button)
  */
 (function () {
   "use strict";
@@ -145,6 +146,9 @@
   window.ttjOpen = function (why) { open(why || "manual"); };
 
   // ---- scheduling -------------------------------------------------------
+  // data-auto="off": only open on demand (header button), never automatically.
+  if (me && me.getAttribute("data-auto") === "off") return;
+
   // ?jono=1 forces the popup (for testing); otherwise once per visit.
   var force = /[?&]jono=1\b/.test(location.search);
   if (!force && ssGet(SS.shown) === "1") return; // already shown during this visit

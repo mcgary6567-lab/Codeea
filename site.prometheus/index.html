@@ -246,6 +246,8 @@ img.elIMG{height:auto}
 .pmh__jono img{width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid #19d3d3}
 .pmh__cta{display:inline-flex;align-items:center;background:#ff1f1f;color:#fff!important;font-weight:700;font-size:15px;padding:12px 22px;border-radius:10px;text-decoration:none!important;white-space:nowrap;box-shadow:0 8px 22px -8px rgba(255,31,31,.8);transition:background .15s,transform .12s}
 .pmh__cta:hover{background:#e01414;transform:translateY(-1px)}
+.pmh__s{display:none}
+@media (max-width:520px){.pmh__l{display:none}.pmh__s{display:inline}}
 .pmh__menu{display:none;width:42px;height:42px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:transparent;cursor:pointer;align-items:center;justify-content:center}
 .pmh__menu i{display:block;width:18px;height:2px;background:#fff;box-shadow:0 6px 0 #fff,0 -6px 0 #fff}
 .pmh__drop{display:none;border-top:1px solid rgba(255,255,255,.08);padding:10px 16px 16px}
@@ -259,37 +261,27 @@ img.elIMG{height:auto}
 <div class="pmh__in">
 <a class="pmh__logo" href="/" aria-label="Prometheus AI home"><img src="index_files/unnamed-1-.webp" alt="Prometheus AI" width="313" height="48" fetchpriority="high"></a>
 <nav class="pmh__nav" aria-label="Main">
-<a href="#how-it-works" data-pm-how>How it works</a>
-<a href="/pricing">Pricing</a>
-<a href="/review">Review</a>
+<a href="/#how-it-works" data-pm-go="how">How it works</a>
+<a href="/#reviews" data-pm-go="reviews">Reviews</a>
+<a href="/#faq" data-pm-go="faq">FAQ</a>
+<a href="/checkout">Pricing</a>
 </nav>
 <div class="pmh__r">
 <a class="pmh__jono" href="https://wa.me/13106293398" data-pm-jono><img src="/img/jono.webp" alt="" width="26" height="26">Talk to Jono</a>
-<a class="pmh__cta" href="/checkout">Get Prometheus AI &raquo;</a>
+<a class="pmh__cta" href="/checkout"><span class="pmh__l">Get Prometheus AI &raquo;</span><span class="pmh__s">Get It Now &raquo;</span></a>
 <button class="pmh__menu" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="pmh-drop"><i></i></button>
 </div>
 </div>
 <div class="pmh__drop" id="pmh-drop">
-<a href="#how-it-works" data-pm-how>How it works</a>
-<a href="/pricing">Pricing</a>
-<a href="/review">Review</a>
+<a href="/#how-it-works" data-pm-go="how">How it works</a>
+<a href="/#reviews" data-pm-go="reviews">Reviews</a>
+<a href="/#faq" data-pm-go="faq">FAQ</a>
+<a href="/checkout">Pricing</a>
 <a href="https://wa.me/13106293398" data-pm-jono><img src="/img/jono.webp" alt="" width="28" height="28">Talk to Jono</a>
 </div>
 </header>
 <div class="pmh-sp" aria-hidden="true"></div>
-<script>
-(function(){var h=document.getElementById('pm-header');if(!h)return;
-var mb=h.querySelector('.pmh__menu');
-mb.addEventListener('click',function(){var o=h.classList.toggle('open');mb.setAttribute('aria-expanded',o?'true':'false');});
-function close(){h.classList.remove('open');mb.setAttribute('aria-expanded','false');}
-h.querySelectorAll('[data-pm-how]').forEach(function(a){a.addEventListener('click',function(e){
- var t=[].slice.call(document.querySelectorAll('[data-pm-anchor="how"]')).filter(function(x){return x.offsetParent!==null;})[0];
- if(!t)return; e.preventDefault(); close();
- window.scrollTo({top:t.getBoundingClientRect().top+window.pageYOffset-h.offsetHeight-8,behavior:'smooth'});});});
-h.querySelectorAll('[data-pm-jono]').forEach(function(a){a.addEventListener('click',function(e){
- if(typeof window.ttjOpen==='function'){e.preventDefault();close();window.ttjOpen('header');}});});
-})();
-</script>
+<script defer src="/js/header.js?v=3"></script>
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
 <div class="pm-hero2" id="section--91943">
 <style>
@@ -1768,7 +1760,7 @@ h.querySelectorAll('[data-pm-jono]').forEach(function(a){a.addEventListener('cli
 </div>
 </div>
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
-<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 emptySection bgCover100" id="section--58726" data-title="Section" data-block-color="0074C7" style="padding-top: 35px; padding-bottom: 35px; outline: none; background-color: rgb(17, 15, 37); background-image: url(&quot;//prometheusbot.com/hosted/images/31/80c42b74f043289a419c11103abe5f/47-min-3-.png&quot;);" data-trigger="none" data-animate="fade" data-delay="500" data-hide-on="mobile">
+<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 emptySection bgCover100" id="section--58726" data-pm-anchor="reviews" data-title="Section" data-block-color="0074C7" style="padding-top: 35px; padding-bottom: 35px; outline: none; background-color: rgb(17, 15, 37); background-image: url(&quot;//prometheusbot.com/hosted/images/31/80c42b74f043289a419c11103abe5f/47-min-3-.png&quot;);" data-trigger="none" data-animate="fade" data-delay="500" data-hide-on="mobile">
 <div class="containerInner ui-sortable">
 <div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--54122" data-trigger="none" data-animate="fade" data-delay="500" data-title="1 column row" style="padding-top: 20px; padding-bottom: 20px; margin: 0px; outline: none;">
 <div id="col-full-160" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
@@ -1816,7 +1808,7 @@ h.querySelectorAll('[data-pm-jono]').forEach(function(a){a.addEventListener('cli
 </div>
 </div>
 </div>
-<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 emptySection bgCover101" id="section--58726-125" data-title="Section - Clone" data-block-color="0074C7" style="padding-top: 100px; padding-bottom: 100px; outline: none; background-color: rgb(17, 15, 37); background-image: url(&quot;//prometheusbot.com/hosted/images/31/80c42b74f043289a419c11103abe5f/47-min-3-.png&quot;);" data-trigger="none" data-animate="fade" data-delay="500" data-hide-on="desktop">
+<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 emptySection bgCover101" id="section--58726-125" data-pm-anchor="reviews" data-title="Section - Clone" data-block-color="0074C7" style="padding-top: 100px; padding-bottom: 100px; outline: none; background-color: rgb(17, 15, 37); background-image: url(&quot;//prometheusbot.com/hosted/images/31/80c42b74f043289a419c11103abe5f/47-min-3-.png&quot;);" data-trigger="none" data-animate="fade" data-delay="500" data-hide-on="desktop">
 <div class="containerInner ui-sortable">
 <div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--54122-111" data-trigger="none" data-animate="fade" data-delay="500" data-title="1 column row" style="padding-top: 20px; padding-bottom: 20px; margin: 0px; outline: none;">
 <div id="col-full-160-152" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
@@ -1861,7 +1853,7 @@ h.querySelectorAll('[data-pm-jono]').forEach(function(a){a.addEventListener('cli
 </div>
 </div>
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
-<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 emptySection bgCover100" id="section--36767" data-title="Section" data-block-color="0074C7" style="padding-top: 100px; padding-bottom: 100px; outline: none; background-image: url(&quot;//prometheusbot.com/hosted/images/64/f354f891684dc188617b670ad073db/10-min-9-.png&quot;);" data-trigger="none" data-animate="fade" data-delay="500">
+<div class="container fullContainer noTopMargin padding20-top padding20-bottom padding40H noBorder borderSolid border3px cornersAll radius0 shadow0 emptySection bgCover100" id="section--36767" data-pm-anchor="faq" data-title="Section" data-block-color="0074C7" style="padding-top: 100px; padding-bottom: 100px; outline: none; background-image: url(&quot;//prometheusbot.com/hosted/images/64/f354f891684dc188617b670ad073db/10-min-9-.png&quot;);" data-trigger="none" data-animate="fade" data-delay="500">
 <div class="containerInner ui-sortable">
 <div class="row bgCover noBorder borderSolid border3px cornersAll radius0 shadow0 P0-top P0-bottom P0H noTopMargin" id="row--61442" data-trigger="none" data-animate="fade" data-delay="500" data-title="1 column row" style="padding-top: 20px; padding-bottom: 20px; margin: 0px; outline: none;">
 <div id="col-full-124" class="col-md-12 innerContent col_left" data-col="full" data-trigger="none" data-animate="fade" data-delay="500" data-title="1st column" style="outline: none;">
@@ -2498,7 +2490,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('.pm-yt');i
  f.title=a.getAttribute('data-title')||'Video';f.allow='accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';f.allowFullscreen=true;
  f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';a.innerHTML='';a.appendChild(f);});
 </script>
-<script defer src="js/talk-to-jono.js?v=7" data-video="ADvR1rBXF_E" data-wa="13106293398" data-tg="https://t.me/prometheusaibot"></script>
+<script defer src="js/talk-to-jono.js?v=8" data-video="ADvR1rBXF_E" data-wa="13106293398" data-tg="https://t.me/prometheusaibot"></script>
 </body>
 
 </html>
