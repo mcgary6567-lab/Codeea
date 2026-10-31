@@ -1,0 +1,70 @@
+name: Deploy Prometheus Web to Fly.io
+
+# Full self-bootstrapping deploy — needs NO local terminal.
+# CI creates the Fly app + volume, sets secrets, and deploys, all on GitHub's
+# runners (which CAN reach Fly). You only add repo secrets (see DEPLOY.md):
+#   FLY_API_TOKEN            (required) — a Fly deploy token from the dashboard
+#   PROMETHEUS_SECRET_KEY    (required) — long random string; encrypts API keys
+#   PROMETHEUS_ADMIN_EMAIL   (optional) — becomes admin on signup
+#
+# Trigger: Actions tab -> this workflow -> "Run workflow", or push to main.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app.prometheus/**"
+      - ".github/workflows/deploy-fly.yml"
+
+jobs:
+  deploy:
+    name: fly deploy
+    runs-on: ubuntu-latest
+    concurrency: deploy-prometheus-web
+    defaults:
+      run:
+        working-directory: app.prometheus
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Read app name from fly.toml
+        id: cfg
+        run: echo "app=$(grep -E '^app\s*=' fly.toml | head -1 | cut -d'\"' -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Create app if missing
+        run: |
+          APP="${{ steps.cfg.outputs.app }}"
+          if flyctl apps list | awk '{print $1}' | grep -qx "$APP"; then
+            echo "App $APP already exists."
+          else
+            echo "Creating app $APP…"
+            flyctl apps create "$APP" --org personal
+          fi
+
+      - name: Create data volume if missing
+        run: |
+          APP="${{ steps.cfg.outputs.app }}"
+          REGION="$(grep -E '^primary_region' fly.toml | cut -d'\"' -f2)"
+          if flyctl volumes list -a "$APP" | grep -q prometheus_data; then
+            echo "Volume already exists."
+          else
+            echo "Creating volume prometheus_data in $REGION…"
+            flyctl volumes create prometheus_data --size 1 --region "$REGION" -a "$APP" --yes
+          fi
+
+      - name: Stage secrets
+        run: |
+          APP="${{ steps.cfg.outputs.app }}"
+          if [ -z "${{ secrets.PROMETHEUS_SECRET_KEY }}" ]; then
+            echo "::error::Add a PROMETHEUS_SECRET_KEY repo secret first (a long random string)."
+            exit 1
+          fi
+          flyctl secrets set --stage -a "$APP" \
+            PROMETHEUS_SECRET_KEY="${{ secrets.PROMETHEUS_SECRET_KEY }}" \
+            PROMETHEUS_ADMIN_EMAIL="${{ secrets.PROMETHEUS_ADMIN_EMAIL }}"
+
+      - name: Deploy
+        run: flyctl deploy --remote-only --ha=false
