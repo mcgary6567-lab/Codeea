@@ -31,8 +31,7 @@
   var TG = (me && me.getAttribute("data-tg")) || "https://t.me/prometheusaibot";
   var WA_TEXT = "Hi Jono, I'm looking at Prometheus AI and have a question.";
   var WA_URL = "https://wa.me/" + WA + "?text=" + encodeURIComponent(WA_TEXT);
-  var THUMB = "https://i.ytimg.com/vi/" + VIDEO + "/hqdefault.jpg";
-  var THUMB_HD = "https://i.ytimg.com/vi/" + VIDEO + "/maxresdefault.jpg";
+  // Poster is Jono's own photo, not the YouTube thumbnail (which carries an earnings claim).
 
   var MIN_DELAY = 5000;      // never before 5 s
   var MAX_DELAY = 30000;     // auto-open at 30 s if no scroll
@@ -102,8 +101,7 @@
     card.innerHTML =
       '<button class="ttj-x" type="button" aria-label="Close">&times;</button>' +
       '<a class="ttj-vid" href="https://www.youtube.com/watch?v=' + VIDEO + '" aria-label="Play: a message from Jono Armstrong">' +
-        '<img src="' + THUMB_HD + '" alt="Jono Armstrong — video message" loading="lazy" decoding="async" ' +
-        'onload="if(this.naturalWidth&lt;=120&amp;&amp;!this.dataset.f){this.dataset.f=1;this.src=\'' + THUMB + '\'}" onerror="this.style.display=\'none\'">' +
+        '<img src="/img/jono-poster.webp" width="800" height="450" alt="Jono Armstrong — video message" decoding="async">' +
         '<span class="ttj-play"></span><span class="ttj-cap"><span>&#9654; A short message from Jono</span><span>Watch</span></span></a>' +
       '<div class="ttj-body">' +
         '<div class="ttj-who"><div class="ttj-av" aria-hidden="true"></div><div><b>Jono Armstrong</b><span>Founder, Prometheus AI &middot; <em>&#9679; online</em></span></div></div>' +
