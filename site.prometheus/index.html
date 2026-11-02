@@ -288,37 +288,46 @@ header.pmh .pmh__jono{font-family:Poppins,Montserrat,Helvetica,Arial,sans-serif}
 <div class="dropZoneForSections ui-droppable" style="display: none;"><div class="dropIconr"><i class="fa fa-plus"></i></div></div>
 <div class="pm-hero2" id="section--91943">
 <style>
-.pm-hero2{background:#161616 url("//prometheusbot.com/hosted/images/d2/3448f87a584121a3b82c3888823826/9-min-9-.png") center/cover no-repeat;padding:54px 20px 60px;font-family:Montserrat,'Poppins',Helvetica,Arial,sans-serif}
+.pm-hero2{background:#161616 url("//prometheusbot.com/hosted/images/d2/3448f87a584121a3b82c3888823826/9-min-9-.png") center/cover no-repeat;padding:64px 20px 70px;font-family:Poppins,Montserrat,Helvetica,Arial,sans-serif}
 .pm-hero2 *{box-sizing:border-box}
-.pm-hero2__wrap{width:100%;max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:46px}
+.pm-hero2__wrap{width:100%;max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:52px}
 .pm-hero2__text{flex:1 1 47%;min-width:0;color:#fff}
-.pm-hero2__eyebrow{display:inline-block;background:rgba(25,211,211,.14);border:1px solid rgba(25,211,211,.45);color:#19d3d3;font-weight:700;font-size:13px;letter-spacing:.09em;padding:6px 14px;border-radius:999px;margin-bottom:16px}
-.pm-hero2__h1{font-size:clamp(30px,3.6vw,46px);font-weight:800;line-height:1.12;letter-spacing:-.01em;color:#fff;margin:0 0 14px}
-.pm-hero2__h1 b{color:#19d3d3;font-weight:800}
-.pm-hero2__sub{color:#c7d2de;font-size:clamp(15px,1.4vw,18px);line-height:1.6;margin:0 0 18px;max-width:560px}
-.pm-hero2__tags{display:inline-block;background:rgba(25,211,211,.9);color:#063;color:#05363a;font-weight:700;font-size:14px;padding:9px 16px;border-radius:10px;margin-bottom:24px}
-.pm-hero2__cta{display:inline-block;background:#f60;background:#ff0000;color:#fff;text-decoration:none;font-weight:800;font-size:19px;padding:16px 38px;border-radius:10px;box-shadow:0 10px 26px rgba(255,0,0,.28);transition:transform .15s,background .15s}
-.pm-hero2__cta:hover{background:#e20000;transform:translateY(-2px)}
-.pm-hero2__note{color:#9fb0c0;font-size:13.5px;margin:13px 0 0}
+.pm-hero2__eyebrow{display:inline-flex;align-items:center;gap:9px;background:rgba(25,211,211,.09);border:1px solid rgba(25,211,211,.45);color:#19d3d3;font-weight:700;font-size:12.5px;letter-spacing:.1em;padding:7px 15px;border-radius:999px;margin-bottom:20px}
+.pm-hero2__eyebrow i{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.2)}
+.pm-hero2__h1{font-family:Poppins,Montserrat,Helvetica,Arial,sans-serif;font-size:clamp(32px,4.2vw,54px);font-weight:800;line-height:1.08;letter-spacing:-.02em;color:#fff;margin:0}
+.pm-hero2__h1 em{font-style:normal;background:linear-gradient(90deg,#19d3d3,#7ef0e0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pm-hero2__sub{color:#b9c6d3;font-size:clamp(15.5px,1.4vw,18px);line-height:1.6;margin:18px 0 22px;max-width:560px}
+.pm-hero2__sub b{color:#fff;font-weight:600}
+.pm-hero2__chips{list-style:none;margin:0 0 28px;padding:0;display:flex;flex-wrap:wrap;gap:10px}
+.pm-hero2__chips li{display:inline-flex;align-items:center;gap:9px;font-size:14.5px;font-weight:600;color:#e6edf3;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:9px 15px}
+.pm-hero2__chips span{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#19d3d3;color:#061018;font-size:12px;font-weight:800}
+.pm-hero2__row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.pm-hero2__cta{display:inline-block;background:#ff1f1f;color:#fff;text-decoration:none;font-weight:700;font-size:18px;padding:17px 34px;border-radius:12px;box-shadow:0 14px 34px -12px rgba(255,31,31,.85);transition:transform .15s,background .15s}
+.pm-hero2__cta:hover{background:#e01414;transform:translateY(-2px)}
+.pm-hero2__note{color:#8b98a8;font-size:13.5px;line-height:1.5;margin:0}
+.pm-hero2__note b{color:#c9d3de;font-weight:600}
 .pm-hero2__media{flex:1 1 53%;min-width:0}
 .pm-hero2__video{position:relative;width:100%;padding-top:56.25%;border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.5);border:1px solid rgba(25,211,211,.35);background:#000}
 .pm-hero2__video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 @media(max-width:860px){
   .pm-hero2{padding:36px 18px 44px}
+  .pm-hero2__h1{font-size:clamp(30px,8vw,40px)}
   .pm-hero2__wrap{flex-direction:column;gap:28px;text-align:center}
   .pm-hero2__text{flex:none;width:100%}
   .pm-hero2__sub{margin-left:auto;margin-right:auto}
+  .pm-hero2__chips,.pm-hero2__row{justify-content:center}
+  .pm-hero2__row{flex-direction:column;gap:12px}
+  .pm-hero2__cta{width:100%;max-width:420px;text-align:center}
   .pm-hero2__media{flex:none;width:100%}
 }
 </style>
 <div class="pm-hero2__wrap">
 <div class="pm-hero2__text">
-<span class="pm-hero2__eyebrow">AUTOMATED · NON-CUSTODIAL · 24/7</span>
-<h1 class="pm-hero2__h1">AI Crypto Trading Bot — Automated 24/7 Trading on Your Own Exchange</h1>
-<p class="pm-hero2__sub">A.I. bots trade the markets for you, on your own exchange — no charts, no guesswork. Your funds never leave your account.</p>
-<div class="pm-hero2__tags">For Beginners · For Investors · For Hands-Free Trading</div>
-<div><a class="pm-hero2__cta" href="/checkout">Get Prometheus AI &raquo;</a></div>
-<p class="pm-hero2__note">One-time $267 · Lifetime access · 90-day money-back guarantee</p>
+<span class="pm-hero2__eyebrow"><i aria-hidden="true"></i>BUILT FOR BUSY INVESTORS</span>
+<h1 class="pm-hero2__h1">The <em>Hands-Free</em> AI Crypto Trading Bot</h1>
+<p class="pm-hero2__sub">No charts. No learning curve. No screen time. <b>We set it up for you in one quick call</b> &mdash; then it trades 24/7 on your own exchange.</p>
+<ul class="pm-hero2__chips"><li><span aria-hidden="true">&#10003;</span>Zero experience needed</li><li><span aria-hidden="true">&#10003;</span>Done-for-you setup</li></ul>
+<div class="pm-hero2__row"><a class="pm-hero2__cta" href="/checkout">Get Prometheus AI &raquo;</a><p class="pm-hero2__note"><b>One-time $267</b> &middot; lifetime access<br>90-day money-back guarantee</p></div>
 </div>
 <div class="pm-hero2__media">
 <div class="pm-hero2__video">
