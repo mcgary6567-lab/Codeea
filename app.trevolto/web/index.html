@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Trevolto — AI Crypto Trading</title>
+<link rel="icon" href="https://trevolto.com/assets/img-01.png"/>
+<link rel="manifest" href="/manifest.webmanifest"/>
+<meta name="theme-color" content="#0a0d13"/>
+<link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+<div id="toasts" class="toasts"></div>
+<div id="social-proof" class="social-proof hidden" aria-live="polite"></div>
+
+<datalist id="symbols">
+  <option>BTC/USDT</option><option>ETH/USDT</option><option>SOL/USDT</option>
+  <option>BNB/USDT</option><option>XRP/USDT</option><option>DOGE/USDT</option>
+  <option>ADA/USDT</option><option>AVAX/USDT</option><option>LINK/USDT</option>
+  <option>TON/USDT</option><option>TRX/USDT</option><option>PEPE/USDT</option>
+</datalist>
+
+<!-- ============ LANDING + AUTH ============ -->
+<div id="landing">
+  <div class="land-hero">
+    <div class="land-copy">
+      <div class="brand" style="font-size:22px;font-weight:800"><img src="https://trevolto.com/assets/img-01.png" class="logo-img big" alt="Trevolto"/></div>
+      <h1>Crypto trading on autopilot.</h1>
+      <p class="lead"><b>How it works:</b> connect your exchange, pick your coins, and the bot trades the entries, stop-losses and take-profits for you — 24/7.</p>
+      <ul class="land-feats">
+        <li><span class="lf-ic">🤖</span><span><b>Proven auto-strategy, 24/7</b> — EMA 9/21 + 100-EMA trend filter &amp; swing stops handle every entry, stop-loss and take-profit for you.</span></li>
+        <li><span class="lf-ic">📶</span><span><b>Live signal strength &amp; pro charts</b> — a TradingView-style chart with a 0–100% signal meter and a heads-up alert the second a BUY/SELL is lining up.</span></li>
+        <li><span class="lf-ic">📰</span><span><b>Smart news protection</b> — auto-pause new entries around high-impact US news (FOMC, CPI, jobs) so the bot sidesteps the wild spikes.</span></li>
+        <li><span class="lf-ic">🔒</span><span><b>Your funds never leave your exchange</b> — non-custodial, trade-only keys. We even warn you if a key can withdraw.</span></li>
+        <li><span class="lf-ic">📈</span><span><b>Profit Simulator</b> — replay the exact strategy on real market history before you risk a cent.</span></li>
+        <li><span class="lf-ic">🎮</span><span><b>Control it from Telegram</b> — check status, pause, resume or close everything with a quick message.</span></li>
+        <li><span class="lf-ic">🔔</span><span><b>Never miss a trade</b> — instant Telegram, browser &amp; push alerts. Install it as an app and get notified even when it's closed.</span></li>
+        <li><span class="lf-ic">🛡️</span><span><b>Bank-grade security</b> — 2FA, encrypted keys, login history and one-click sign-out on every device.</span></li>
+        <li><span class="lf-ic">🎁</span><span><b>10 days free — no card</b> — watch it trade in paper mode, then flip to live when you're convinced.</span></li>
+      </ul>
+      <div class="cta-line">Start free — <b>upgrade only when the results speak for themselves.</b></div>
+      <div class="hint">Trading involves risk and can lose money. Past/backtested performance is not a guarantee of future results. Provided as-is, no warranty.</div>
+    </div>
+    <div id="auth">
+      <div class="auth-head">
+        <div class="brand"><img src="https://trevolto.com/assets/img-01.png" class="logo-img" alt="Trevolto"/></div>
+        <h2 id="auth-title">Welcome back</h2>
+        <p id="auth-sub" class="auth-sub">Sign in to your trading dashboard</p>
+      </div>
+      <div class="tabsw">
+        <button id="tab-login" class="on" onclick="authTab('login')">🔑 Log in</button>
+        <button id="tab-reg" onclick="authTab('reg')">🎁 Start free trial</button>
+      </div>
+      <div id="reg-fields" class="hidden">
+        <div class="row">
+          <div class="col"><label>First name</label><input id="au-first" placeholder="Jane"/></div>
+          <div class="col"><label>Last name</label><input id="au-last" placeholder="Doe"/></div>
+        </div>
+      </div>
+      <div id="login-panel">
+        <label>Email</label><input id="au-email" type="email" placeholder="you@email.com"/>
+        <label>Password</label><input id="au-pass" type="password" placeholder="••••••••"/>
+        <div id="tfa-field" class="hidden"><label>2FA code</label><input id="au-totp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"/></div>
+        <div class="err" id="au-err"></div>
+        <button class="btn" style="width:100%;margin-top:10px" onclick="doAuth()">➡️ Continue</button>
+        <div class="hint"><a onclick="forgotPassword()" style="cursor:pointer">Forgot password?</a> · New accounts get a free trial.</div>
+      </div>
+      <div id="reset-panel" class="hidden">
+        <h3 style="margin:0 0 10px">Set a new password</h3>
+        <label>New password</label><input id="rs-pass" type="password" placeholder="••••••••"/>
+        <div class="err" id="rs-err"></div>
+        <button class="btn" style="width:100%;margin-top:10px" onclick="doReset()">🔑 Reset password</button>
+      </div>
+    </div>
+  </div>
+  <footer class="site-footer">
+    <div class="foot-inner">
+      <div class="foot-brand"><img src="https://trevolto.com/assets/img-01.png" class="logo-img" alt="Trevolto"/></div>
+      <div class="foot-links">
+        <a href="https://trevolto.com/contact" target="_blank" rel="noopener">Contact us</a>
+        <span class="foot-sep">·</span>
+        <a href="https://trevolto.com/checkout" target="_blank" rel="noopener">Get licence</a>
+      </div>
+      <div class="foot-copy">© 2026 Trevolto. All rights reserved.</div>
+    </div>
+  </footer>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <button class="hamb" onclick="document.querySelector('.side').classList.toggle('open')">☰</button>
+    <div class="brand"><img src="https://trevolto.com/assets/img-01.png" class="logo-img" alt="Trevolto"/></div>
+    <span class="dot" id="st-dot"></span><b id="st-conn" class="conn">Disconnected</b>
+    <span class="chip hide-sm" id="st-ex">—</span>
+    <span class="chip warn hidden" id="st-ro">READ-ONLY</span>
+    <span class="chip danger hidden" id="st-halt">HALTED</span>
+    <span class="chip warn hidden" id="st-weekend" title="Weekend pause — new entries held until Sunday evening, then the bot resumes. Open trades stay managed.">🗓️ WEEKEND</span>
+    <span class="chip warn hidden" id="st-paper">PAPER</span>
+    <span class="grow"></span>
+    <span class="vipunlocked hidden" id="st-vip-unlocked" title="Custom Strategy is unlocked on your account.">⭐ VIP Unlocked</span>
+    <span class="chip vippending hidden" id="st-vip-pending" title="Your VIP request is in — we'll email you an invoice to unlock.">⏳ VIP pending</span>
+    <button class="btn sm vipbtn hidden" id="st-vip" onclick="openVip()" title="Unlock Custom Strategy — one-time $497 for lifetime access">⭐ Unlock VIP</button>
+    <span class="chip pick" id="st-access" onclick="goCheckout()">—</span>
+    <a class="btn sm hidden" id="st-buy" href="#" target="_blank" rel="noopener">✨ Get licence</a>
+    <span class="chip hide-sm" id="st-email">—</span>
+    <div class="bell-wrap">
+      <button class="bell-btn" id="bell-btn" onclick="toggleBell()">🔔<span class="bell-badge hidden" id="bell-badge">0</span></button>
+      <div class="bell-panel hidden" id="bell-panel">
+        <div class="bell-head"><span>Alerts</span><button class="bell-clear" id="bell-clear" onclick="clearBell()">Clear all</button></div>
+        <div class="bell-list" id="bell-list"><div class="bell-empty">No alerts yet.</div></div>
+      </div>
+    </div>
+    <a class="btn ghost sm hidden" id="st-admin" href="/admin" target="_blank">Admin</a>
+    <button class="btn ghost sm" onclick="logout()">🚪 Logout</button>
+  </header>
+
+  <div class="shell">
+    <nav class="side">
+      <button class="on" data-v="home" onclick="show('home',this)">📊 Dashboard</button>
+      <button data-v="exchange" onclick="show('exchange',this)">🔌 Exchange</button>
+      <button data-v="strategy" onclick="show('strategy',this)">🤖 Bot Setting</button>
+      <button data-v="backtest" onclick="show('backtest',this)">📈 Profit Simulator</button>
+      <button data-v="analytics" onclick="show('analytics',this)">📅 Analytics</button>
+      <button data-v="log" onclick="show('log',this)">📜 Log</button>
+      <button data-v="settings" onclick="show('settings',this)">⚙️ Settings</button>
+      <button data-v="guide" onclick="show('guide',this)">⚡ How it works</button>
+    </nav>
+
+    <main class="content">
+      <div class="warnbox hidden" id="announce"></div>
+      <div class="warnbox hidden" id="access-warn"></div>
+      <div class="warnbox hidden" id="withdraw-warn"></div>
+
+      <!-- DASHBOARD -->
+      <section id="v-home">
+        <div class="welcome" id="welcome">Welcome back 👋</div>
+        <div class="pricestrip" id="pricestrip"></div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Account equity</span><span class="delta" id="t-daydelta">—</span></div>
+            <div class="kpi-big mono" id="t-equity">—</div>
+            <div class="kpi-sub">Balance <b class="mono" id="t-bal">—</b> · uPnL <b class="mono" id="t-pnl">—</b></div>
+            <svg class="kspark" id="t-spark" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"></svg>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Today · realized</span></div>
+            <div class="kpi-big mono" id="t-today">—</div>
+            <div class="kpi-sub" id="t-today-sub">—</div>
+            <div class="kwl" id="t-today-bar"></div>
+            <div class="kpi-sub" id="t-today-wl" style="margin-top:6px">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Win rate · 30d</span></div>
+            <div class="kpi-big mono" id="t-wr">—</div>
+            <div class="kpi-sub">Profit factor <b class="mono" id="t-pf">—</b> · <span id="t-wr-n">—</span></div>
+            <div class="kmeter"><i id="t-wr-meter"></i></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Open exposure</span></div>
+            <div class="kpi-big mono" id="t-exp">—</div>
+            <div class="kpi-sub"><span id="t-exp-n">—</span> · margin <b class="mono" id="t-margin">—</b></div>
+            <div class="kmeter"><i id="t-exp-meter" class="blue"></i></div>
+            <div class="kpi-sub" id="t-exp-pct" style="margin-top:6px">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Bot status</span><span class="delta" id="t-strat-chip">—</span></div>
+            <div class="kpi-big" id="t-strat" style="font-size:15.5px"><span class="dot off"></span> Bot is off</div>
+            <div class="kpi-sub" id="t-sig-note" style="margin-top:12px;font-weight:600">No signal yet</div>
+          </div>
+        </div>
+
+        <div class="card" id="pnl-compare-card" style="display:none">
+          <h3>Paper vs Live — realized PnL</h3>
+          <div class="grid2">
+            <div class="pcompare live"><div class="k"><span class="dot on"></span> LIVE</div>
+              <div class="v mono" id="pc-live-pnl">—</div>
+              <div class="k"><span id="pc-live-tr">0</span> trades · <span id="pc-live-wr">0</span>% win</div></div>
+            <div class="pcompare paper"><div class="k">📝 PAPER</div>
+              <div class="v mono" id="pc-paper-pnl">—</div>
+              <div class="k"><span id="pc-paper-tr">0</span> trades · <span id="pc-paper-wr">0</span>% win</div></div>
+          </div>
+          <div class="hint">Simulated (paper) vs real (live) realized PnL from closed trades — compare before you flip Paper off.</div>
+        </div>
+
+        <div class="chart-order-row">
+        <div class="card">
+          <div class="chart-head">
+            <h3 style="margin:0">Live chart</h3>
+            <input id="ch-sym" list="symbols" value="BTC/USDT" style="width:116px"/>
+            <select id="ch-tf" style="width:auto"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
+            <button class="btn ghost sm" onclick="loadChart()">🔄 Load</button>
+            <label class="chkline" style="margin:0;font-size:12px;white-space:nowrap"><input type="checkbox" id="ch-follow" onchange="chFollowToggle()"/> Follow strategy</label>
+            <div class="chart-tools">
+              <button class="btn ghost sm" onclick="chReset()" title="Reset zoom &amp; view" aria-label="Reset chart zoom">↺</button>
+              <button class="btn ghost sm" onclick="chZoom(0.8)" title="Zoom in" aria-label="Zoom in">＋</button>
+              <button class="btn ghost sm" onclick="chZoom(1.25)" title="Zoom out" aria-label="Zoom out">－</button>
+            </div>
+          </div>
+          <div class="chart-topbar"><div class="chlegend" id="ch-legend"></div><div class="ch-sig hidden" id="ch-sig"><div class="ch-sig-top"><span class="ch-sig-badge" id="ch-sig-badge">📶 SIGNAL</span><span class="ch-sig-state" id="ch-sig-state"></span><span class="ch-sig-pct" id="ch-sig-pct"></span></div><div class="ch-sig-u"><i id="ch-sig-fill"></i></div></div><div class="ch-news" id="ch-news"><span class="ch-news-k">📰 NEWS TRADING</span><button class="ch-news-btn" id="ch-news-btn" type="button" role="switch" aria-checked="true" aria-label="News trading. Turn OFF to pause new trades one hour before and after high-impact USD news." onclick="toggleNews()"><span class="ch-news-dot"></span><span class="ch-news-lbl" id="ch-news-lbl">ON</span></button><span class="ch-news-flag hidden" id="ch-news-flag"></span><span class="ch-news-tip" role="tooltip">Click <b>OFF</b> to pause new trades for <b>1 hour before &amp; after</b> high-impact <b>USD</b> news — FOMC, CPI, jobs. Open trades stay fully managed.</span></div><div class="ch-ohlc" id="ch-ohlc"></div></div>
+          <div id="ch-price" class="tvchart"></div>
+          <div class="hint">Drag to pan · scroll / pinch to zoom · hover for OHLC &amp; time · scroll left to check back-data. <span class="lg-fast">━ EMA fast</span> <span class="lg-slow">━ EMA slow</span> <span class="lg-trend">━ trend</span> · <span style="color:var(--green)">▲BUY</span>/<span style="color:var(--red)">▼SELL</span>, <span style="color:var(--red)">SL</span> / <span style="color:var(--green)">TP</span> lines.</div>
+        </div>
+
+        <div class="card ord-ticket">
+          <h3>🎯 Custom Trade</h3>
+          <label>Symbol</label>
+          <select id="tr-sym" onchange="markTick()">
+            <option>BTC/USDT</option><option>ETH/USDT</option><option>SOL/USDT</option>
+            <option>BNB/USDT</option><option>XRP/USDT</option><option>DOGE/USDT</option>
+            <option>ADA/USDT</option><option>AVAX/USDT</option><option>LINK/USDT</option>
+            <option>TON/USDT</option><option>TRX/USDT</option><option>PEPE/USDT</option>
+          </select>
+          <div class="row">
+            <div class="col"><label>Mark</label><input id="tr-mark" readonly value="—"/></div>
+            <div class="col"><label>Size <span class="k">(blank = auto)</span></label><input id="tr-size" placeholder="auto"/></div>
+          </div>
+          <div class="btnrow big">
+            <button class="btn green" onclick="trade('buy')">▲ BUY</button>
+            <button class="btn red" onclick="trade('sell')">▼ SELL</button>
+          </div>
+          <div class="hint">⚡ <b>Live trading</b> — orders are real. Sizing: <b id="tr-mode">—</b></div>
+        </div>
+        </div>
+
+        <div class="card">
+          <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">🛑 Close All</button></h3>
+          <div class="tablewrap"><table class="table--pos"><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>PnL</th><th>PnL %</th><th>Progress to TP</th><th></th></tr></thead>
+            <tbody id="pos-body"><tr><td colspan="9" class="k">No open positions.</td></tr></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- EXCHANGE -->
+      <section id="v-exchange" class="hidden">
+        <div class="card" style="border-color:var(--accent)">
+          <h3>🌐 Bot server IP <span class="chip">for exchange IP whitelist</span></h3>
+          <div class="hint">If you turn on <b>IP access restriction</b> for your API key, whitelist the IP below. Your bot connects to the exchange from <b>our cloud server</b>, so it is this <b>server IP</b> that must be allowed — <b>not</b> your home or office IP.</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input id="srv-ip" class="mono grow" readonly value="Loading…"/>
+            <button class="btn" onclick="copyServerIP()" style="flex-shrink:0">📋 Copy IP</button>
+          </div>
+          <div class="hint">⚠️ Optional. If the exchange later blocks the connection, re-copy this IP or turn IP restriction off — your trade-only key is still safe. Always keep <b>withdrawals disabled</b>.</div>
+        </div>
+        <div class="card">
+          <h3>Exchange connection <span class="chip" id="ex-state">—</span></h3>
+          <div class="row">
+            <div class="col"><label>Exchange</label>
+              <select id="cx-ex">
+                <option value="binance">Binance</option><option value="bybit">Bybit</option>
+                <option value="okx">OKX</option><option value="kucoin">KuCoin</option>
+                <option value="bitget">Bitget</option><option value="kraken">Kraken</option>
+                <option value="coinbase">Coinbase</option><option value="binanceus">Binance.US</option>
+              </select></div>
+            <div class="col"><label>Market</label>
+              <select id="cx-mkt"><option value="spot">Spot</option><option value="futures">Futures</option></select></div>
+          </div>
+          <label>API key</label><input id="cx-key" placeholder="key"/>
+          <label>API secret</label><input id="cx-sec" type="password" placeholder="secret"/>
+          <label>Passphrase <span class="k">(OKX / KuCoin / Bitget)</span></label><input id="cx-pass" placeholder="optional"/>
+          <div class="btnrow big">
+            <button class="btn" onclick="saveConnect()">🔌 Save &amp; Connect</button>
+            <button class="btn ghost" onclick="disconnect()">⏸️ Disconnect</button>
+            <button class="btn ghost" id="btn-clear-keys" onclick="clearKeys()" style="margin-left:auto">🗑 Remove saved keys</button>
+          </div>
+          <label class="chkline"><input type="checkbox" id="s-ro"/> Read-only (monitor only, block all orders)</label>
+          <div class="warnbox" style="margin-top:12px">⚡ This is <b>live trading</b>. Use API keys with <b>trade permission but withdrawals disabled</b>, and IP-whitelist where possible. Keys are stored encrypted server-side.</div>
+        </div>
+      </section>
+
+      <!-- STRATEGY -->
+      <section id="v-strategy" class="hidden">
+        <div class="card">
+          <h3>Bot Setting <span class="chip" id="strat-state">on</span></h3>
+          <div class="warnbox hidden" id="strat-managed-banner">🔒 Your <b>strategy, risk &amp; sizing are managed for you</b> — set centrally and updated automatically. Your <b>exchange, paper mode, alerts, 2FA &amp; account</b> stay yours to control.</div>
+          <div class="hidden" id="strat-upgrade" style="background:linear-gradient(90deg,rgba(249,115,22,.12),transparent);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+            <b>⭐ Want to run your own strategy?</b>
+            <div class="hint" style="margin:4px 0 8px">Advanced trader, or want to take higher risk? Request <b>Custom Strategy</b> access — once we approve it you can fully tune every setting below.</div>
+            <button class="btn sm" id="strat-req-btn" onclick="requestCustom()">⭐ Request custom-strategy access</button>
+            <span class="hint" id="strat-req-status" style="margin-left:8px"></span>
+          </div>
+          <div class="hint">Fast EMA crossing the Slow EMA triggers; a Trend EMA filters direction; N confirmation candles validate; the stop sits at the recent swing point. <b>ON by default</b> — auto-starts on connect.</div>
+          <div class="row" style="margin-top:12px">
+            <div class="col"><label>Timeframe the strategy trades on</label>
+              <select id="sg-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
+            <div class="col"><label>Symbols (pick one or more)</label>
+              <div class="msel">
+                <div class="msel-head" onclick="mselToggle()"><span id="sg-label">BTC/USDT</span><span class="k">▾</span></div>
+                <div class="msel-panel hidden" id="sg-panel"></div>
+              </div>
+              <input type="hidden" id="sg-sym" value="BTC/USDT"/>
+            </div>
+          </div>
+          <div class="hint">Each selected pair runs the strategy independently. Concurrent open trades are capped by <b>Max open positions</b> (Settings → Guardrails).</div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>EMA cross &amp; trend</h3>
+            <div class="row">
+              <div class="col"><label>Fast EMA period</label><input id="p-fast_ema" type="number"/></div>
+              <div class="col"><label>Slow EMA period</label><input id="p-slow_ema" type="number"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Trend EMA (master filter)</label><input id="p-trend_ema" type="number"/></div>
+              <div class="col"><label>Only trade with price fully past trend EMA</label>
+                <select id="p-use_trend_filter"><option value="1">Yes</option><option value="0">No</option></select></div>
+              <div class="col"><label>Entry style <span class="k">(Strict = fewer, cleaner)</span></label>
+                <select id="p-aggressive_entries"><option value="0">Strict — cross only, whole candle past EMA</option><option value="1">Aggressive — close-based + pullback re-arm</option></select></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Confirming candles required <span class="k">(0 = enter on cross)</span></label><input id="p-confirm" type="number"/></div>
+              <div class="col"><label>Min candle body (0–1 of range)</label><input id="p-min_body" type="number" step="0.05"/></div>
+            </div>
+            <div class="hint">After the cross, require this many <b>consecutive green (long) / red (short)</b> candles whose body ≥ the min ratio before entering (entry at the next candle's open). Set candles to 0 to enter right on the cross.</div>
+          </div>
+          <div class="card"><h3>Stop-loss &amp; target</h3>
+            <div class="row">
+              <div class="col"><label>SL buffer beyond EMA21 (%)</label><input id="p-sl_ema_buffer_pct" type="number" step="0.05"/></div>
+              <div class="col"><label>Swing lookback (bars)</label><input id="p-swing_lookback" type="number"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Partial target R:R</label><input id="p-tp_r" type="number" step="0.1"/></div>
+              <div class="col"><label>Partial close fraction (0–1)</label><input id="p-partial_pct" type="number" step="0.05"/></div>
+            </div>
+            <div class="hint">Stop = the <b>lower of</b> {EMA21 − buffer%} and the recent swing low (mirror for shorts). Close the partial at the R:R target; trail the rest on EMA21 and exit fully on a counter-cross.</div>
+          </div>
+        </div>
+        <div class="card"><h3>Safety guardrails (whipsaw &amp; time)</h3>
+          <div class="row">
+            <div class="col"><label>Whipsaw: max crosses…</label><input id="p-whipsaw_max_crosses" type="number"/></div>
+            <div class="col"><label>…within N candles</label><input id="p-whipsaw_window" type="number"/></div>
+            <div class="col"><label>Suspend entries (hours)</label><input id="p-whipsaw_suspend_hours" type="number" step="0.5"/></div>
+            <div class="col"><label>🛑 Cooldown after stop-loss (candles)</label><input id="p-post_sl_cooldown_bars" type="number" min="0"/></div>
+            <div class="col"><label>Avoid daily close window</label>
+              <select id="p-avoid_daily_close"><option value="1">Yes</option><option value="0">No</option></select></div>
+          </div>
+          <div class="hint">If EMA9/21 cross more than <i>max crosses</i> within the window, new entries pause for the suspend hours (chop protection). <b>Cooldown after stop-loss</b> blocks a new entry on the same symbol for that many closed candles after any stop-out (0 = off) — stops the bot re-entering right where it was just stopped. <i>Avoid daily close</i> blocks new entries 23:30–00:30 UTC (existing trades keep their stops).</div>
+        </div>
+        <div class="btnrow big">
+          <button class="btn" id="btn-save-strat" onclick="saveStrategy()">💾 Save strategy</button>
+          <button class="btn green" onclick="strategy(true)">▶ Enable / Start</button>
+          <button class="btn ghost" onclick="strategy(false)">⏸️ Disable</button>
+          <button class="btn ghost" id="btn-reset-strat" onclick="resetStrategy()">↺ Reset defaults</button>
+        </div>
+
+        <h3 style="margin:22px 0 12px">Execution, sizing &amp; risk guardrails <span class="chip hidden" id="exec-managed-note">🔒 managed for you</span></h3>
+        <div class="grid2">
+          <div class="card"><h3>Execution &amp; sizing</h3>
+            <label>Sizing mode</label>
+            <select id="s-sizing"><option value="fixed">Fixed lot (base coin)</option><option value="fixed_quote">Fixed $ (quote)</option><option value="risk_balance">Risk % of balance</option><option value="risk_stop">Risk % per trade (stop-based)</option></select>
+            <div class="row">
+              <div class="col"><label>Fixed lot</label><input id="s-fixed" type="number" step="0.0001"/></div>
+              <div class="col"><label>Fixed $</label><input id="s-fixedq" type="number"/></div>
+              <div class="col"><label>Risk %</label><input id="s-risk" type="number" step="0.1"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Order type</label><select id="s-otype"><option value="market">Market</option><option value="limit">Limit</option></select></div>
+              <div class="col"><label>Leverage</label><input id="s-lev" type="number"/></div>
+              <div class="col"><label>Margin</label><select id="s-margin"><option value="">Default</option><option value="cross">Cross</option><option value="isolated">Isolated</option></select></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>TP1 fraction</label><input id="s-tp1f" type="number" step="0.1"/></div>
+              <div class="col end"><label class="chkline"><input type="checkbox" id="s-bracket"/> Auto SL/TP</label></div>
+            </div>
+            <label class="chkline"><input type="checkbox" id="s-paper"/> 📝 Paper trading (simulate orders — no real fills)</label>
+            <div class="hint">Turn Paper on to watch the strategy trade with simulated fills before risking real funds. Reconnect the exchange after changing it.</div>
+          </div>
+          <div class="card"><h3>Risk guardrails</h3>
+            <div class="row">
+              <div class="col"><label>Max open positions</label><input id="s-maxopen" type="number"/></div>
+              <div class="col"><label>Daily loss limit (%)</label><input id="s-dloss" type="number" step="0.5"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Daily profit limit (%)</label><input id="s-dprofit" type="number" step="0.5"/></div>
+              <div class="col"><label>Cooldown (s)</label><input id="s-cool" type="number"/></div>
+              <div class="col"><label>Dedupe (s)</label><input id="s-dedupe" type="number"/></div>
+            </div>
+            <div class="hint">Daily limits are a <b>% of the day's starting balance</b> (scale with any account). Each 0 = disabled. Closing is never blocked, only new entries. Max open positions caps concurrent trades across all your pairs.</div>
+          </div>
+        </div>
+        <div class="card"><h3>➕ Scale-in (pyramiding) <span class="chip">advanced</span></h3>
+          <label class="chkline"><input type="checkbox" id="s-scalein"/> Enable scale-in — add to a trade that's already winning</label>
+          <div class="row">
+            <div class="col"><label>Trigger — % of the way to TP</label><input id="s-scalein-trig" type="number" step="1" min="5" max="95" value="40"/></div>
+            <div class="col"><label>Add-on size — % of first trade</label><input id="s-scalein-size" type="number" step="5" min="5" max="200" value="50"/></div>
+          </div>
+          <label class="chkline"><input type="checkbox" id="s-scalein-be"/> Move the first trade's stop to <b>break-even</b> on scale-in <span class="k">(recommended)</span></label>
+          <div class="hint">When your first trade is <b>X% of the way to its take-profit</b>, the bot opens a <b>smaller trade in the same direction</b> and moves the original stop to break-even — growing the winner without risking your starting capital. Happens <b>once per position</b>, respects your Max-open &amp; daily-loss limits. Off by default.</div>
+        </div>
+        <div class="card"><h3>🗓️ Weekend pause</h3>
+          <label class="chkline"><input type="checkbox" id="s-weekend"/> Don't open new trades on <b>Saturday &amp; Sunday</b></label>
+          <label class="chkline"><input type="checkbox" id="s-weekend-local"/> Use my <b>device's timezone</b> instead of UTC <span class="k" id="s-weekend-tz"></span></label>
+          <div class="hint">Crypto weekends are thin and choppy. When on, the bot <b>holds new entries (and scale-in adds) on Sat &amp; Sun</b> — but <b>open trades stay fully managed</b> (SL/TP keep running) and your manual orders always go through. Weekend is measured in <b>UTC</b> unless you tick the box above. Off by default.</div>
+        </div>
+        <div class="btnrow"><button class="btn" onclick="saveSettings()">💾 Save execution &amp; guardrails</button></div>
+      </section>
+
+      <!-- BACKTEST -->
+      <section id="v-backtest" class="hidden">
+        <div class="card">
+          <h3>Profit Simulator <span class="chip">pro</span></h3>
+          <div class="row">
+            <div class="col"><label>Exchange</label>
+              <select id="bt-ex">
+                <option value="binance">Binance</option><option value="bybit">Bybit</option>
+                <option value="okx">OKX</option><option value="kucoin">KuCoin</option>
+                <option value="bitget">Bitget</option><option value="kraken">Kraken</option>
+                <option value="coinbase">Coinbase</option><option value="binanceus">Binance.US</option>
+              </select></div>
+            <div class="col"><label>Symbol</label><input id="bt-sym" list="symbols" value="BTC/USDT"/></div>
+            <div class="col"><label>Timeframe</label>
+              <select id="bt-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
+            <div class="col"><label>Period</label>
+              <select id="bt-period">
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option><option value="180">Last 180 days</option>
+                <option value="365">Last 1 year</option>
+              </select></div>
+          </div>
+          <div class="row">
+            <div class="col"><label>Start equity ($)</label><input id="bt-eq" type="number" value="2000"/></div>
+            <div class="col"><label>Risk % per trade <span class="k">(0 = full balance)</span></label><input id="bt-risk" type="number" step="0.1" value="5"/></div>
+            <div class="col"><label>Fee %</label><input id="bt-fee" type="number" step="0.01" value="0.02"/></div>
+            <div class="col"><label>Allow shorts</label><select id="bt-short"><option value="1">Yes</option><option value="0">No</option></select></div>
+            <div class="col"><label>News filter <span class="k">(skip high-impact news)</span></label><select id="bt-news"><option value="">Follow my setting</option><option value="1" selected>On</option><option value="0">Off</option></select></div>
+            <div class="col"><label>Scale-in <span class="k">(pyramiding)</span></label><select id="bt-scalein"><option value="">Follow my setting</option><option value="1" selected>On</option><option value="0">Off</option></select></div>
+            <div class="col"><label>Weekend pause <span class="k">(skip Sat/Sun)</span></label><select id="bt-weekend"><option value="">Follow my setting</option><option value="1">On</option><option value="0">Off</option></select></div>
+          </div>
+          <div class="hint" style="margin:10px 0 0">Uses your saved strategy parameters. Longer periods on small timeframes are capped at ~8,000 candles — use a bigger timeframe for multi-month tests.</div>
+          <div class="btnrow">
+            <button class="btn" id="bt-run" onclick="runBacktest()">▶ Run simulation</button>
+            <button class="btn ghost" id="bt-csv" onclick="btCsv()" disabled>⬇ Export CSV</button>
+          </div>
+          <div class="hint" id="bt-period-info"></div>
+        </div>
+        <div id="bt-out" class="hidden">
+          <div class="tiles" id="bt-tiles"></div>
+          <div class="card"><h3>Equity curve &amp; drawdown</h3>
+            <canvas id="bt-eqc" class="chart" style="height:240px"></canvas>
+            <canvas id="bt-ddc" class="chart" style="height:90px;margin-top:6px"></canvas></div>
+          <div class="card"><h3>Trades <span class="chip" id="bt-ntr">0</span></h3>
+            <div class="tablewrap" style="max-height:360px;overflow:auto">
+              <table class="table--cards"><thead><tr><th>#</th><th>Side</th><th>Entry</th><th>Exit</th><th>Qty</th><th>PnL</th><th>R</th><th>Reason</th></tr></thead>
+                <tbody id="bt-trades"></tbody></table></div></div>
+        </div>
+      </section>
+
+      <!-- ANALYTICS -->
+      <section id="v-analytics" class="hidden">
+        <div class="card">
+          <div class="chart-head">
+            <h3 style="margin:0">Performance</h3>
+            <label style="margin:0">From</label><input id="an-from" type="date" style="width:auto"/>
+            <label style="margin:0">To</label><input id="an-to" type="date" style="width:auto"/>
+            <button class="btn ghost sm" onclick="loadAnalytics()">✅ Apply</button>
+            <button class="btn ghost sm" onclick="anRange(7)">7d</button>
+            <button class="btn ghost sm" onclick="anRange(30)">30d</button>
+            <button class="btn ghost sm" onclick="anRange(0)">All</button>
+          </div>
+        </div>
+        <div class="tiles">
+          <div class="tile"><div class="k">Win rate</div><div class="v" id="an-wr">—</div></div>
+          <div class="tile"><div class="k">Realized PnL</div><div class="v" id="an-pnl">—</div></div>
+          <div class="tile"><div class="k">Trades</div><div class="v" id="an-n">—</div></div>
+          <div class="tile"><div class="k">Best / Worst</div><div class="v" id="an-bw">—</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>Equity over time</h3><canvas id="an-chart" class="chart" style="height:240px"></canvas></div>
+          <div class="card"><h3>By coin</h3>
+            <div class="tablewrap"><table><thead><tr><th>Coin</th><th>Trades</th><th>Win %</th><th>PnL</th></tr></thead>
+              <tbody id="an-coins"><tr><td colspan="4" class="k">No closed trades yet.</td></tr></tbody></table></div></div>
+        </div>
+      </section>
+
+      <!-- LOG -->
+      <section id="v-log" class="hidden">
+        <div class="card"><h3>Trade &amp; activity log <button class="btn ghost sm" style="float:right" onclick="refresh()">🔄 Refresh</button><button class="btn red sm" style="float:right;margin-right:8px" onclick="clearLog()">🗑 Clear</button></h3>
+          <div class="log" id="log"></div></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="v-settings" class="hidden">
+        <div class="grid2">
+          <div class="card"><h3>Account</h3>
+            <div class="row">
+              <div class="col"><label>First name</label><input id="ac-first"/></div>
+              <div class="col"><label>Last name</label><input id="ac-last"/></div>
+            </div>
+            <label>Email</label><input id="ac-email" type="email"/>
+            <label>New password <span class="k">(blank = keep)</span></label><input id="ac-newpass" type="password" placeholder="••••••••"/>
+            <label>Current password <span class="k">(required)</span></label><input id="ac-cur" type="password" placeholder="••••••••"/>
+            <div class="err" id="ac-err"></div>
+            <button class="btn" style="margin-top:10px" onclick="saveAccount()">💾 Update account</button>
+          </div>
+          <div class="card"><h3>Telegram notifications</h3>
+            <label>Bot token</label><input id="tg-token" placeholder="123456:ABC-..."/>
+            <label>Chat ID</label><input id="tg-chat" placeholder="e.g. 987654321"/>
+            <label class="chkline"><input type="checkbox" id="s-summary"/> 📊 Daily PnL recap (Telegram + email)</label>
+            <label class="chkline"><input type="checkbox" id="s-alert-skips"/> ⏭️ Alert on skipped signals (blocked by guardrails)</label>
+            <div style="margin-top:6px"><button class="btn ghost sm" id="notif-btn" onclick="toggleNotif()">🔔 Enable browser notifications</button></div>
+            <div class="btnrow">
+              <button class="btn" onclick="saveTelegram()">💾 Save Telegram</button>
+              <button class="btn ghost" id="tg-test" onclick="tgTest()">✈️ Send test</button>
+            </div>
+            <div class="err" id="tg-result"></div>
+            <div class="hint">Alerts on every entry, close and connect.</div>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>🔐 Security — Two-factor authentication</h3>
+            <div id="tfa-off">
+              <div class="hint">Add an extra layer with an authenticator app (Google Authenticator, Authy). Strongly recommended — your account controls real funds.</div>
+              <button class="btn" style="margin-top:10px" onclick="twofaSetup()">🔐 Enable 2FA</button>
+              <div id="tfa-setup" class="hidden" style="margin-top:12px">
+                <div class="hint"><b>Scan this QR</b> with your authenticator app (Google Authenticator, Authy) — then enter the 6-digit code below.</div>
+                <div id="tfa-qr-wrap" class="hidden" style="text-align:center;margin:12px 0"><img id="tfa-qr" alt="2FA QR code" style="width:184px;height:184px;border-radius:12px;background:#fff;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,.4)"/></div>
+                <div class="hint">Can't scan? Choose <b>"enter a setup key"</b> instead and paste this secret (account: your email):</div>
+                <div class="mono" id="tfa-secret" style="margin:8px 0;padding:8px;background:var(--chip);border-radius:8px;word-break:break-all"></div>
+                <input id="tfa-code" inputmode="numeric" placeholder="123456"/>
+                <button class="btn" style="margin-top:8px" onclick="twofaEnable()">✅ Confirm &amp; turn on</button>
+              </div>
+            </div>
+            <div id="tfa-on" class="hidden">
+              <div class="hint">✅ 2FA is <b>ON</b> — you'll enter a code at login.</div>
+              <label>Password (to disable)</label><input id="tfa-pass" type="password" placeholder="••••••••"/>
+              <button class="btn red" style="margin-top:8px" onclick="twofaDisable()">🔓 Disable 2FA</button>
+            </div>
+          </div>
+          <div class="card"><h3>🖥️ Sessions &amp; login history</h3>
+            <div class="hint">Recent sign-ins to your account. If anything looks unfamiliar, change your password and sign out everywhere.</div>
+            <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>When</th><th>IP</th><th>Device</th></tr></thead>
+              <tbody id="login-rows"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
+            <button class="btn red" style="margin-top:12px" onclick="logoutAll()">🚪 Sign out all other devices</button>
+          </div>
+          <div class="card"><h3>🔧 Diagnostics — self-test</h3>
+            <div class="hint">Run an end-to-end check of your account: database, trading library, exchange connection &amp; balance, market-data feed, strategy loop and licence.</div>
+            <button class="btn ghost" style="margin-top:10px" id="selftest-btn" onclick="runSelfTest()">🔧 Run self-test</button>
+            <div id="selftest-out" class="hidden" style="margin-top:12px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HOW TO USE -->
+      <section id="v-guide" class="hidden">
+        <div class="guide-hero card">
+          <h2>⚡ How Trevolto works</h2>
+          <p class="guide-lead"><b>It's fully automatic.</b> Connect your exchange API keys once and your bot starts taking trades on its own — entries, stop-losses, take-profits and exits are all handled for you. No charts to babysit, no buttons to press. <b>Just connect and watch the profit.</b></p>
+          <div class="guide-badges">
+            <span class="gbadge auto">🤖 100% automated — connect &amp; done</span>
+            <span class="gbadge tg">🌍 World's first bot you run entirely from Telegram</span>
+          </div>
+          <p class="guide-lead" style="margin:14px 0 16px">Here's the whole system top-to-bottom — but honestly, <b>Step 1 is all you need to start.</b> <span class="vip-only">Two optional pro features (⭐ VIP &amp; 🆕 NEW) are marked as such.</span><span class="vip-off">One optional pro feature (🆕 NEW) is marked as such.</span> Tap a chip to jump to any screen.</p>
+          <div class="guide-steps">
+            <span class="gstep" onclick="show('exchange',qNav('exchange'))"><span class="gs-n">1</span> Connect</span>
+            <span class="gstep" onclick="show('strategy',qNav('strategy'))"><span class="gs-n">2</span> Bot Setting</span>
+            <span class="gstep" onclick="show('backtest',qNav('backtest'))"><span class="gs-n">3</span> Simulator</span>
+            <span class="gstep" onclick="show('home',qNav('home'))"><span class="gs-n">4</span> Go live</span>
+            <span class="gstep" onclick="show('analytics',qNav('analytics'))"><span class="gs-n">5</span> Track</span>
+            <span class="gstep" onclick="show('settings',qNav('settings'))"><span class="gs-n">6</span> Security</span>
+            <span class="gstep" onclick="show('settings',qNav('settings'))"><span class="gs-n">7</span> Telegram bot</span>
+            <span class="gstep gstep-help" onclick="document.getElementById('troubleshoot').scrollIntoView({behavior:'smooth',block:'start'})">🛠️ Help &amp; fixes</span>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">1</div>
+          <div class="gbody">
+            <h3>🔌 Connect your exchange</h3>
+            <p>Open <b>Exchange</b> in the menu. Pick your exchange and market (Spot or Futures), paste an <b>API key + secret</b> created with <b>trade permission but withdrawals disabled</b>, then <b>Save &amp; Connect</b>. Keys are encrypted server-side — we never see or move your funds.</p>
+            <div class="gshot">
+              <div class="gs-topbar"><span class="gs-dot on"></span> Connected · Binance · Spot</div>
+              <div class="gs-field"><span>Exchange</span><i>Binance ▾</i></div>
+              <div class="gs-field"><span>API key</span><i>••••••••••••7f2a</i></div>
+              <div class="gs-field"><span>API secret</span><i>••••••••••••••••</i></div>
+              <div class="gs-btnrow"><b class="gs-btn">Save &amp; Connect</b><b class="gs-btn ghost">Disconnect</b></div>
+            </div>
+            <p class="gtip">💡 Tip: turn on <b>Read-only</b> first if you just want to watch without any orders being placed.</p>
+            <p class="gtip">🌐 <b>IP whitelist (optional):</b> if you restrict the key to certain IPs, copy the <b>Bot server IP</b> at the top of the Exchange tab — trades come from our cloud, so that's the IP to allow, not your device. Connection error? See <b>🛠️ Help &amp; fixes</b> below.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">2</div>
+          <div class="gbody">
+            <h3>🤖 Bot Setting — your strategy</h3>
+            <p>Open <b>Bot Setting</b>. Your bot runs a <b>professionally-managed EMA 9/21 cross + 100-EMA trend strategy</b> — including its <b>risk %, sizing &amp; guardrails</b> — that we tune and keep up to date for you. It's <b>ON by default</b> and auto-starts the moment you connect, and your <b>exchange, paper mode, alerts, 2FA &amp; account</b> stay yours to control.<span class="vip-only"> Want to run your <i>own</i> parameters for a higher-profit setup? See <b>⭐ Unlock Custom Strategy</b> just below.</span></p>
+            <div class="gshot">
+              <div class="gs-row"><div class="gs-field"><span>Timeframe</span><i>15m ▾</i></div><div class="gs-field"><span>Symbols</span><i>BTC/USDT, ETH/USDT ▾</i></div></div>
+              <div class="gs-row"><div class="gs-field"><span>Fast EMA</span><i>9</i></div><div class="gs-field"><span>Slow EMA</span><i>21</i></div><div class="gs-field"><span>Trend EMA</span><i>100</i></div></div>
+              <div class="gs-row"><div class="gs-field"><span>Confirm candles</span><i>2</i></div><div class="gs-field"><span>Partial R:R</span><i>1.0</i></div></div>
+              <div class="gs-btnrow"><b class="gs-btn">💾 Save strategy</b><b class="gs-btn green">Enable / Start</b></div>
+            </div>
+            <p class="gtip">💡 Sizing &amp; risk guardrails live just below — set <b>Risk % per trade</b>, <b>Max open positions</b> and daily loss/profit limits. Flip <b>📝 Paper trading</b> ON to simulate fills with zero real risk.</p>
+            <p class="gtip">➕ <b>Scale-in (pyramiding):</b> optional. When a trade is <b>40% of the way to its take-profit</b>, the bot adds a smaller same-direction trade (default 50% of the first) and moves the original stop to <b>break-even</b> — so it grows a winner without risking your starting capital. Happens once per position and respects your Max-open &amp; daily-loss limits. Off by default; turn it on in the <b>Scale-in</b> card below.</p>
+            <p class="gtip">🗓️ <b>Weekend pause:</b> optional. Turn it on to <b>hold new entries (and scale-in adds) from Saturday until Sunday evening</b> — crypto weekends are thin and choppy — then the bot <b>resumes automatically on Sunday evening</b> for the market re-open. <b>Open trades stay fully managed</b> (SL/TP keep running) and your manual orders always go through. The weekend is measured in <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local time instead. Off by default; set it in the <b>Weekend pause</b> card below.</p>
+          </div>
+        </div>
+
+        <div class="card gcard gcard-vip vip-only">
+          <span class="gribbon vip">⭐ VIP</span>
+          <div class="gnum">⭐</div>
+          <div class="gbody">
+            <h3>Unlock Custom Strategy — your own high-profit setup</h3>
+            <p>By default your bot follows our <b>professionally-managed strategy</b> — the safe, hands-off way to trade. If you're an <b>advanced trader</b> who wants to chase <b>higher returns</b> — tighter timeframes, more pairs, more aggressive entries and targets — you can unlock <b>full control of every parameter</b> — a <b>one-time $497</b> for lifetime access. Here's how:</p>
+            <ol class="glist">
+              <li><b>Open 🤖 Bot Setting.</b> If your strategy is managed, you'll see a 🔒 <i>“managed for you”</i> banner and a ⭐ <b>“Want to run your own strategy?”</b> box.</li>
+              <li><b>Tap “Request custom-strategy access”</b> and tell us your plan (e.g. higher risk, your own edge, specific pairs). It takes one click.</li>
+              <li><b>We email you an invoice for $497.</b> Pay it and VIP <b>activates instantly</b> — you'll get a 🔔 in-app alert (and a push/Telegram ping if enabled) the moment it's unlocked.</li>
+              <li><b>Everything unlocks.</b> Timeframe, symbols, Fast/Slow/Trend EMA, confirmation candles, swing stop, partial targets, trailing and whipsaw filters all become editable — tune them for maximum profit and hit <b>💾 Save</b>.</li>
+            </ol>
+            <div class="gshot">
+              <div class="gs-field"><span>🔒 Strategy</span><i>Managed → Custom (VIP)</i></div>
+              <div class="gs-field"><span>⭐ Access</span><i>Request → Approved ✓</i></div>
+              <div class="gs-btnrow"><b class="gs-btn">⭐ Request custom access</b><b class="gs-btn green">💾 Save my strategy</b></div>
+            </div>
+            <p class="gtip">🚀 <b>Higher profit potential means higher risk.</b> Custom Strategy is built for experienced traders — always test your settings in the <b>🧪 Profit Simulator</b> first, and keep your risk % and daily loss limit sensible. Your funds always stay on your own exchange.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">3</div>
+          <div class="gbody">
+            <h3>🧪 Profit Simulator — see returns before you risk a cent</h3>
+            <p>Open <b>Profit Simulator</b>. Pick a symbol, timeframe and period, then <b>Run simulation</b> — it replays the <i>exact</i> live strategy on real market history and shows an equity curve, drawdown, win-rate and every trade. Export to CSV to dig deeper.</p>
+            <div class="gshot">
+              <div class="gs-tiles"><div class="gs-tile"><span>Net PnL</span><b class="pos">+18.4%</b></div><div class="gs-tile"><span>Win rate</span><b>57%</b></div><div class="gs-tile"><span>Trades</span><b>42</b></div><div class="gs-tile"><span>Max DD</span><b class="neg">-6.1%</b></div></div>
+              <div class="gs-curve"><svg viewBox="0 0 200 44" preserveAspectRatio="none"><polyline points="0,38 25,34 50,36 75,26 100,28 125,18 150,20 175,10 200,6" fill="none" stroke="#22c55e" stroke-width="2"/></svg></div>
+            </div>
+            <p class="gtip">💡 The Profit Simulator uses your <b>saved</b> strategy parameters — tune in Strategy, then re-run here to compare.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">4</div>
+          <div class="gbody">
+            <h3>📊 Go live &amp; watch the dashboard</h3>
+            <p>The <b>Dashboard</b> is home base: live prices for your coins, balance and unrealized PnL tiles, a live chart with <b>▲BUY / ▼SELL</b> markers and SL/TP lines, plus a <b>Custom Trade</b> panel for manual trades and <b>Open positions</b> with one-click <b>Close All</b>. When your strategy fires, entries and exits appear here automatically.</p>
+            <div class="gshot">
+              <div class="gs-tiles"><div class="gs-tile"><span>Balance</span><b>1,000.00</b></div><div class="gs-tile"><span>Unreal. PnL</span><b class="pos">+24.10</b></div><div class="gs-tile"><span>Access</span><b>Licensed</b></div><div class="gs-tile"><span>Strategy</span><b class="pos">On</b></div></div>
+              <div class="gs-curve"><svg viewBox="0 0 200 44" preserveAspectRatio="none"><polyline points="0,30 20,28 40,32 60,22 80,26 100,16 120,20 140,12 160,18 180,8 200,12" fill="none" stroke="#f97316" stroke-width="2"/><circle cx="60" cy="22" r="3" fill="#22c55e"/><circle cx="140" cy="12" r="3" fill="#ef4444"/></svg></div>
+            </div>
+            <p class="gtip">💡 The <b>Paper vs Live</b> card compares simulated and real realized PnL — a confidence check before you turn Paper off.</p>
+          </div>
+        </div>
+
+        <div class="card gcard gcard-new">
+          <span class="gribbon new">🆕 NEW</span>
+          <div class="gnum">📈</div>
+          <div class="gbody">
+            <h3>Pro chart tools — signal strength &amp; news filter</h3>
+            <p>The <b>Dashboard chart</b> is now a full <b>TradingView-style</b> chart — real time axis, scroll back through history, zoom and pan. Above it, a live header shows exactly what the bot is thinking. Here's each new tool, left to right:</p>
+            <ol class="glist">
+              <li><b>🎯 Last signal</b> — the bot's most recent entry for the selected pair, e.g. <b class="pos">▲ BUY 4,073.33</b> or <b class="neg">▼ SELL</b>, with the price and coin. It stays on screen after the trade so you always see where the last BUY/SELL happened.</li>
+              <li><b>📶 Signal-strength bar (0–100%)</b> — a live meter of how close the strategy is to firing: EMAs converging → cross → confirming → ready. It's <b class="pos">green when a BUY</b> is lining up and <b class="neg">red when a SELL</b> is, with a plain-English label (“Cross brewing”, “Confirming — 1/2 candles”, “Signal ready — entry imminent”). At <b>85%</b> it fires a <b>Telegram + app alert</b> — “⚡ BUY signal firing… the bot is getting ready to trade” — so you get a heads-up seconds before the entry.</li>
+              <li><b>📰 News trading ON / OFF</b> — a one-tap safety switch. <b>Hover it</b> for a full explanation. Leave it <b>ON</b> to trade around the clock, or turn it <b>OFF</b> and the bot will <b>hold new entries for 1 hour before and after high-impact USD news</b> (FOMC rate decisions, CPI, jobs) — the violent, low-liquidity spikes that stop-hunt tight stops. When armed it shows the <b>next event</b> (“🛡 Next: CPI in 2h 23m”); inside the window it shows a red <b>⛔ Paused</b> flag and sends you an alert explaining why. <b>Open trades are never touched</b> — stops and targets keep running; only brand-new entries wait.</li>
+            </ol>
+            <div class="gshot">
+              <div class="gs-field"><span>🎯 Last signal</span><i class="pos">▲ BUY 4,073.33 · BTC/USDT</i></div>
+              <div class="gs-field"><span>📶 Signal</span><i><b style="color:#22c55e">████████░░ 88%</b> · Signal ready — entry imminent</i></div>
+              <div class="gs-field"><span>📰 News trading</span><i><b style="color:#ef4444">● OFF</b> · 🛡 Next: CPI (USD) in 2h 23m</i></div>
+              <div class="gs-btnrow"><b class="gs-btn green">⚡ 85% — get-ready alert</b><b class="gs-btn">⛔ Paused near news</b></div>
+            </div>
+            <p class="gtip">💡 The signal bar and news filter only affect the <b>built-in strategy's own entries</b> — your manual orders always go through. The news calendar covers <b>USD high-impact events only</b>, the ones that actually move crypto.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">5</div>
+          <div class="gbody">
+            <h3>📅 Track performance &amp; get alerts</h3>
+            <p><b>Analytics</b> breaks down win-rate, realized PnL, best/worst trades and per-coin results over any date range. <b>Log</b> is the full activity feed. In <b>Settings</b> add your <b>Telegram</b> bot for entry/close alerts + a <b>daily PnL recap</b>, manage your <b>account</b>, and turn on <b>2FA</b> — strongly recommended since your account controls real funds.</p>
+            <div class="gshot">
+              <div class="gs-tiles"><div class="gs-tile"><span>Win rate</span><b>57%</b></div><div class="gs-tile"><span>Realized</span><b class="pos">+184.20</b></div><div class="gs-tile"><span>Trades</span><b>42</b></div><div class="gs-tile"><span>Best</span><b class="pos">+41.0</b></div></div>
+              <div class="gs-field"><span>✈️ Telegram</span><i>Daily recap ON</i></div>
+              <div class="gs-field"><span>🔐 Two-factor auth</span><i>Enabled</i></div>
+            </div>
+            <p class="gtip">💡 Trial user? Hit <b>✨ Get licence</b> in the top bar any time to unlock unlimited live trading.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">6</div>
+          <div class="gbody">
+            <h3>🔔 Alerts, remote control &amp; security</h3>
+            <p>Run the bot hands-off and keep your account safe — all set up in <b>Settings</b>. Here's what we just added:</p>
+            <ul class="glist">
+              <li><b>🎮 Two-way Telegram control <span class="gribbon new" style="position:static;display:inline-block;vertical-align:middle">🌍 WORLD FIRST</span></b> — the <b>first trading bot you can run entirely from Telegram</b>. Add your Telegram bot token + chat ID, then message the bot <b>/status</b>, <b>/pnl</b>, <b>/positions</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> to control everything from your phone — no dashboard needed. Only your own linked chat can send commands.</li>
+              <li><b>📲 Install as an app + push notifications</b> — use your browser's “Install / Add to Home Screen” option, then tap <b>Enable browser notifications</b> in Settings → Telegram. You'll get an alert on every entry &amp; close — <b>even when the app is closed</b>.</li>
+              <li><b>⏭️ Skipped-signal alerts</b> — optionally get pinged when a signal is blocked by a guardrail (daily loss limit, max positions, cooldown), so you always know why the bot held.</li>
+              <li><b>🖥️ Sessions &amp; login history</b> — see recent sign-ins (time, IP, device) and <b>sign out of all other devices</b> in one click if anything looks off.</li>
+              <li><b>⚠️ Withdrawal-key warning</b> — if the API key you connect can withdraw funds, we flag it right away so you can switch to a safer trade-only key.</li>
+            </ul>
+            <div class="gshot">
+              <div class="gs-field"><span>✈️ Telegram bot</span><i>token + chat ID · Send test</i></div>
+              <div class="gs-field"><span>🔔 Notifications</span><i>Enable browser / push</i></div>
+              <div class="gs-field"><span>🔐 Two-factor auth</span><i>Enabled</i></div>
+              <div class="gs-field"><span>🖥️ Sessions</span><i>Sign out all devices</i></div>
+            </div>
+            <p class="gtip">💡 Set Telegram once, tap <b>✈️ Send test</b> to confirm, enable notifications, and you're covered on every device.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">7</div>
+          <div class="gbody">
+            <h3>✈️ Make your Telegram bot &amp; control the system by command</h3>
+            <p>Set this up once and you can run everything from your phone — check status, pause, resume or close all trades — just by messaging your own bot. It takes about <b>3 minutes</b>.</p>
+            <ul class="glist">
+              <li><b>1 · Open @BotFather</b> — in Telegram, search <b>BotFather</b> (the one with the blue tick), tap <b>Start</b>, then send <b>/newbot</b>.</li>
+              <li><b>2 · Name it</b> — pick any name, then a username ending in <b>bot</b> (e.g. <i>my_trading_bot</i>). BotFather replies with a <b>bot token</b> that looks like <span class="gcode">1234567890:AAE…xyz</span> — copy it.</li>
+              <li><b>3 · Get your Chat ID</b> — search <b>@userinfobot</b>, tap <b>Start</b>, and it replies with your numeric <b>Id</b>. Copy that number.</li>
+              <li><b>4 · Say hi to your bot</b> — open the bot you just made and tap <b>Start</b> once, so Telegram allows it to message you.</li>
+              <li><b>5 · Paste into the app</b> — go to <b>Settings → Telegram notifications</b>, paste the <b>token</b> and <b>Chat ID</b>, then tap <b>✈️ Send test</b>. You'll get a test message — you're linked.</li>
+            </ul>
+            <p style="margin-top:14px"><b>Now message your bot any of these — from anywhere:</b></p>
+            <div class="gshot gs-chat">
+              <div class="gs-topbar"><span class="gs-dot on"></span> Your bot · online</div>
+              <div class="gs-msg you">/status</div>
+              <div class="gs-msg bot"><span class="dot on"></span> Connected · Binance<br>Strategy: running<br>Balance: 1,240.55 · uPnL: +18.30<br>Open: 2 · live</div>
+              <div class="gs-msg you">/pause</div>
+              <div class="gs-msg bot">⏸️ Strategy paused.</div>
+            </div>
+            <div class="gshot">
+              <div class="gs-field"><span>/status</span><i>Connection, strategy, balance &amp; open trades</i></div>
+              <div class="gs-field"><span>/pnl</span><i>Realized PnL — 24h + all-time</i></div>
+              <div class="gs-field"><span>/positions</span><i>List every open position</i></div>
+              <div class="gs-field"><span>/pause</span><i>Stop opening new trades</i></div>
+              <div class="gs-field"><span>/resume</span><i>Start the strategy again</i></div>
+              <div class="gs-field"><span>/closeall</span><i>Close all open positions now</i></div>
+              <div class="gs-field"><span>/help</span><i>Show the full command list</i></div>
+            </div>
+            <p class="gtip">🔒 Only your own linked chat can send commands — nobody else can control your bot, even if they learn its name.</p>
+          </div>
+        </div>
+
+        <div class="card gfaq">
+          <h3>❓ Quick answers</h3>
+          <details class="gq"><summary>Is my money safe?</summary><div class="ga">Yes — Trevolto only places trades through your API keys. With withdrawals disabled on the key, funds can never leave your exchange.</div></details>
+          <details class="gq"><summary>Will an update wipe my data?</summary><div class="ga">No. Your account, keys, trade history and licence live in a persistent database that survives every deploy. Only unsaved draft edits aren't kept.</div></details>
+          <details class="gq"><summary>Paper vs live?</summary><div class="ga">Paper simulates fills so you can watch the strategy risk-free. Flip it off in <b>Bot Setting → Scale-in / Execution</b> when you're ready for real orders.</div></details>
+          <details class="gq"><summary>Forgot my password?</summary><div class="ga">Use <b>Forgot password?</b> on the login screen — you'll get a secure reset link by email.</div></details>
+          <details class="gq"><summary>Can I control the bot from my phone?</summary><div class="ga">Yes — connect Telegram in Settings, then message your bot <b>/status</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> from anywhere.</div></details>
+          <details class="gq"><summary>Which IP do I whitelist on my exchange?</summary><div class="ga">The <b>Bot server IP</b> shown at the top of the Exchange tab — the bot trades from our cloud, so your own IP will not work. IP restriction is optional; a trade-only key with withdrawals disabled is safe on its own.</div></details>
+          <details class="gq"><summary>Do alerts work when the app is closed?</summary><div class="ga">Install it as an app and enable notifications for push alerts even with the tab closed. Telegram alerts always work.</div></details>
+          <details class="gq vip-only"><summary>Can I use my own strategy settings?</summary><div class="ga">Yes — by default your bot runs our managed strategy, but you can request <b>⭐ Custom Strategy (VIP)</b> access from the <b>Bot Setting</b> tab. Once we approve it, every parameter unlocks so you can tune your own higher-profit setup. It's built for advanced traders — test in the Profit Simulator first.</div></details>
+          <details class="gq"><summary>What is the signal-strength bar?</summary><div class="ga">A live 0–100% meter on the Dashboard chart showing how close the strategy is to an entry — green for a building BUY, red for a SELL. At 85% it sends you a Telegram + app “get ready” alert seconds before the bot trades. It reflects the strategy only; your manual orders are unaffected.</div></details>
+          <details class="gq"><summary>What does “News trading OFF” do?</summary><div class="ga">It pauses <i>new</i> bot entries for 1 hour before and after high-impact <b>USD</b> economic news (FOMC, CPI, jobs) to dodge volatility spikes. The header shows the next event and a red “Paused” flag while active. Open trades and their stops/targets are never blocked. Turn it back ON to trade through everything.</div></details>
+          <details class="gq"><summary>Can I stop the bot from trading on weekends?</summary><div class="ga">Yes — in <b>Bot Setting → Weekend pause</b>, turn on <b>“Don't open new trades on the weekend.”</b> The bot then holds new entries (and scale-in adds) from <b>Saturday until Sunday evening</b>, then <b>resumes automatically</b> for the Sunday-night market re-open. <b>Open trades stay fully managed</b> (SL/TP keep running) and your manual orders still go through. The weekend is <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local time. A <b>🗓️ WEEKEND</b> chip shows in the top bar while it's active.</div></details>
+        </div>
+
+        <div class="card gfaq" id="troubleshoot" style="scroll-margin-top:80px">
+          <h3>🛠️ Troubleshooting — exchange connection &amp; orders</h3>
+          <div class="hint" style="margin-bottom:6px">Tap any issue to see the fix. Most connection problems are the API key's <b>IP whitelist</b> or <b>Futures setup</b> — not the app.</div>
+          <details class="gq"><summary>❗ “Invalid API-key, IP, or permissions” (Binance <b>-2015</b>)</summary><div class="ga">Almost always the key's <b>IP whitelist</b>. If it connected before and suddenly fails, the <b>bot server IP changed</b> — open the <b>Exchange</b> tab, copy the <b>🌐 Bot server IP</b>, and add it to the key's <b>IP access restriction</b> on the exchange (or set the key to <b>Unrestricted</b>). For <b>Futures</b> also: activate a Futures account, tick <b>Enable Futures</b> on the key, and confirm Futures is available in your region. Wait ~30–60s after saving, then <b>Save &amp; Connect</b> again.</div></details>
+          <details class="gq"><summary>❗ “Order type not supported… use the Algo Order API” (<b>-4120</b>)</summary><div class="ga">This meant a stop-loss / take-profit couldn't attach, leaving the position unprotected. It's <b>fixed in the latest version</b> — make sure your app is updated (redeploy). If you have an open trade that hit this before the fix, set its SL/TP manually on the exchange.</div></details>
+          <details class="gq"><summary>❗ “Restricted location” / HTTP <b>451</b></summary><div class="ga">The exchange blocks your region/IP. If you're in the US, pick <b>Binance.US</b> in the exchange list; otherwise use <b>Bybit, OKX, KuCoin or Bitget</b>. Disable any VPN that lands in a blocked country.</div></details>
+          <details class="gq"><summary>❗ Spot connects but <b>Futures is rejected</b></summary><div class="ga">Futures needs its own setup: 1) open/activate a <b>Futures account</b> on the exchange (accept the agreement/quiz) — until you do, the key's Futures permission does nothing; 2) enable the <b>Futures</b> permission on the API key (re-create the key if you toggled it on after creating it); 3) make sure Futures is available in your region.</div></details>
+          <details class="gq"><summary>❗ Kraken Futures won't authenticate</summary><div class="ga">Kraken Futures uses a <b>separate API key</b> from Kraken Spot. Create one in the <b>Kraken Futures dashboard</b> (not the spot key) with trading permission.</div></details>
+          <details class="gq"><summary>❗ Coinbase Futures won't connect</summary><div class="ga">Coinbase futures run on <b>Coinbase International Exchange</b> (non-US). Use a Coinbase International API key, or switch to <b>Coinbase Spot</b> or <b>Kraken Futures</b>.</div></details>
+          <details class="gq"><summary>❗ Keys look blank / “Disconnected” after I log back in</summary><div class="ga">By design — your key &amp; secret are stored <b>encrypted</b> and never shown again, so the fields stay blank (you'll see “•••••• saved”). The bot auto-reconnects on its own; if it doesn't, just click <b>Save &amp; Connect</b>. Still failing? Re-check the IP whitelist (see the -2015 fix above).</div></details>
+          <details class="gq"><summary>❗ No stop-loss was placed (Spot)</summary><div class="ga">Spot markets have <b>no stop-market order type</b>, so a hard SL can't be auto-placed on spot. Switch the market to <b>Futures</b> for automatic SL/TP brackets, or set the stop manually. Take-profit still works on spot.</div></details>
+          <details class="gq"><summary>❗ Order rejected — insufficient balance / margin</summary><div class="ga">The order is bigger than your available funds. Lower <b>Risk % per trade</b> or size, add margin/collateral, or reduce <b>leverage</b>. On futures, check funds are in the <b>Futures wallet</b>, not Spot.</div></details>
+          <details class="gq"><summary>❗ It shows “PAPER” / balance is 0 with a real key</summary><div class="ga"><b>Paper trading</b> is turned on. Go to <b>Bot Setting → Scale-in / Execution</b>, uncheck <b>📝 Paper trading</b>, save, then reconnect the exchange to trade live.</div></details>
+          <details class="gq"><summary>❗ Telegram: “chat not found” / “Forbidden”</summary><div class="ga">Either the <b>Chat ID</b> is wrong or you never messaged the bot first. Get your <b>numeric Chat ID</b> (not the bot token), press <b>Start</b> in your bot's chat once, then re-save Telegram and hit <b>Send test</b>.</div></details>
+          <details class="gq"><summary>❗ Balance / positions look wrong or stale</summary><div class="ga">Click <b>Refresh</b>. Make sure the key has <b>read</b> permission, and that the selected market (<b>Spot vs Futures</b>) matches where your funds actually are.</div></details>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Manual order modal: R:R + SL/TP + partial (defaults from the bot strategy) -->
+  <div id="order-modal" class="omodal hidden">
+    <div class="omodal-card">
+      <div class="omodal-head">
+        <span id="om-side" class="om-side">▲ BUY</span>
+        <span id="om-sym" class="om-sym">BTC/USDT</span>
+        <span class="grow"></span>
+        <span class="chip danger" id="om-mode">Live</span>
+        <button class="omodal-x" onclick="closeOrderModal()">✕</button>
+      </div>
+      <div class="omodal-body">
+        <div class="row">
+          <div class="col"><label>Order type</label><select id="om-otype" onchange="omRecalc()"><option value="market">Market</option><option value="limit">Limit</option></select></div>
+          <div class="col"><label>Entry price</label><input id="om-entry" type="number" step="any" oninput="omRecalc()"/></div>
+          <div class="col"><label>Size <span class="k">(blank = auto)</span></label><input id="om-size" type="number" step="any" placeholder="auto" oninput="omRecalc()"/></div>
+        </div>
+        <div class="row">
+          <div class="col"><label>Stop-loss <span class="k" id="om-sl-pct"></span></label><input id="om-sl" type="number" step="any" oninput="omRecalc()"/></div>
+          <div class="col"><label>Take-profit <span class="k" id="om-tp-pct"></span></label><input id="om-tp" type="number" step="any" oninput="omRecalc()"/></div>
+          <div class="col"><label>Partial close at TP (%)</label><input id="om-partial" type="number" step="5" min="0" max="100" oninput="omRecalc()"/></div>
+        </div>
+        <div class="om-rr">
+          <span>R:R <b id="om-rr">—</b></span>
+          <span class="om-presets">set:<button type="button" onclick="omSetRR(1)">1:1</button><button type="button" onclick="omSetRR(2)">1:2</button><button type="button" onclick="omSetRR(3)">1:3</button></span>
+          <span class="grow"></span>
+          <span>Risk <b id="om-risk" class="neg">—</b></span>
+          <span>Reward <b id="om-reward" class="pos">—</b></span>
+        </div>
+        <div class="hint" id="om-note">⚡ Places a real order with a reduce-only <b>SL &amp; TP bracket</b> on your exchange. Defaults come from your bot strategy — edit anything before placing.</div>
+      </div>
+      <div class="omodal-foot">
+        <button class="btn ghost" onclick="closeOrderModal()">Cancel</button>
+        <button class="btn" id="om-place" onclick="placeOrder()">✅ Place order</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="foot-inner">
+      <div class="foot-brand"><img src="https://trevolto.com/assets/img-01.png" class="logo-img" alt="Trevolto"/></div>
+      <div class="foot-links">
+        <a href="https://trevolto.com/contact" target="_blank" rel="noopener">Contact us</a>
+        <span class="foot-sep">·</span>
+        <a href="https://trevolto.com/checkout" target="_blank" rel="noopener">Get licence</a>
+      </div>
+      <div class="foot-copy">© 2026 Trevolto. All rights reserved.</div>
+    </div>
+  </footer>
+</div>
+
+<!-- VIP upsell modal -->
+<div id="vip-modal" class="vipmodal hidden" onclick="if(event.target===this)closeVip()">
+  <div class="vipcard">
+    <button class="vipx" onclick="closeVip()" aria-label="Close">✕</button>
+    <div class="viphead">
+      <div class="vipstar">⭐</div>
+      <div>
+        <div class="vipkicker">VIP UPGRADE</div>
+        <h2>Unlock Custom Strategy</h2>
+        <p>Take full control of the bot and run your <b>own higher-profit setup</b>.</p>
+      </div>
+    </div>
+    <ul class="vipbenefits">
+      <li><span>✓</span> <b>Every parameter unlocks</b> — timeframe, EMAs, confirmation, targets &amp; trailing</li>
+      <li><span>✓</span> <b>Tighter timeframes &amp; more pairs</b> — trade more setups, your way</li>
+      <li><span>✓</span> <b>More aggressive entries &amp; targets</b> — chase higher returns</li>
+      <li><span>✓</span> <b>Backtest first</b> — validate your edge in the Profit Simulator</li>
+    </ul>
+    <div class="vipprice"><span class="vipprice-amt">$497</span><span class="vipprice-sub">one-time · lifetime access</span></div>
+    <div class="vipnote">🧾 We'll email you an <b>invoice for $497</b> to unlock — VIP activates the moment it's paid, and you'll get an instant alert.</div>
+    <textarea id="vip-reason" placeholder="Tell us your plan (optional) — e.g. higher risk, your own edge, specific pairs…"></textarea>
+    <button class="vipcta" id="vip-cta" onclick="submitVip()">⭐ Request access now</button>
+    <div class="viprisk">Higher profit potential means higher risk — built for advanced traders. Your funds always stay on your own exchange.</div>
+    <button class="viplater" onclick="closeVip()">Maybe later</button>
+  </div>
+</div>
+
+<!-- First-run welcome: one step to fully-automated trading -->
+<div id="welcome-modal" class="vipmodal hidden" onclick="if(event.target===this)closeWelcome()">
+  <div class="vipcard">
+    <button class="vipx" onclick="closeWelcome()" aria-label="Close">✕</button>
+    <div class="viphead">
+      <div class="vipstar">🚀</div>
+      <div>
+        <div class="vipkicker">WELCOME</div>
+        <h2>You're one step from automated trading</h2>
+        <p>Connect your exchange <b>API keys</b> and your bot <b>starts taking trades instantly</b>. Everything after that is automatic — just watch the profit.</p>
+      </div>
+    </div>
+    <ul class="vipbenefits">
+      <li><span>✓</span> <b>Fully automatic</b> — entries, stop-loss, take-profit &amp; exits all handled for you</li>
+      <li><span>✓</span> <b>One step to go live</b> — paste a trade-only API key and the bot starts working</li>
+      <li><span>✓</span> <b>Run it from Telegram</b> — the world's first bot you control entirely from your phone</li>
+      <li><span>✓</span> <b>Just watch the profit</b> — no charts to babysit, no buttons to press</li>
+    </ul>
+    <div class="vipnote">🔒 Keys are encrypted server-side and <b>can't withdraw</b> your funds — they never leave your exchange.</div>
+    <button class="vipcta" onclick="closeWelcome(); show('exchange', qNav('exchange'))">🔌 Connect exchange &amp; start</button>
+    <button class="viplater" onclick="closeWelcome()">I'll explore first</button>
+  </div>
+</div>
+
+<script src="/static/lightweight-charts.js?v=2"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

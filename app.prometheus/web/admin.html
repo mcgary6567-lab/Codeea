@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Prometheus — Admin console</title>
+<link rel="stylesheet" href="/static/style.css"/>
+<link rel="icon" href="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png"/>
+</head>
+<body>
+<div id="toasts" class="toasts"></div>
+
+<header class="topbar">
+  <div class="brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/> Prometheus</div>
+  <span class="chip">Admin console</span>
+  <span class="chip safe hidden" id="ad-online">● 0 online</span>
+  <span class="grow"></span>
+  <span class="chip hide-sm" id="ad-me">—</span>
+  <label class="chkline hide-sm" style="margin:0;font-size:12px" id="ad-auto-wrap"><input type="checkbox" id="ad-auto" onchange="toggleAuto()"/> Auto-refresh</label>
+  <button class="btn ghost sm" onclick="reloadAll()">↻ Refresh</button>
+  <a class="btn ghost sm" href="/">← Dashboard</a>
+  <button class="btn ghost sm" onclick="logout()">🚪 Logout</button>
+</header>
+
+<div class="admin-wrap">
+  <!-- GATE -->
+  <div id="gate" class="card hidden" style="max-width:400px;margin:8vh auto">
+    <div class="auth-head"><div class="brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/></div>
+      <h2 style="margin:14px 0 4px">Admin sign-in</h2><p class="auth-sub">Restricted — administrators only</p></div>
+    <label>Email</label><input id="g-email" type="email"/>
+    <label>Password</label><input id="g-pass" type="password" onkeydown="if(event.key==='Enter')adminLogin()"/>
+    <div class="err" id="g-err"></div>
+    <button class="btn" style="width:100%;margin-top:12px" onclick="adminLogin()">🔐 Sign in</button>
+  </div>
+
+  <!-- PANEL -->
+  <div id="panel" class="hidden">
+    <!-- business KPIs -->
+    <div class="kpi-row" id="kpi-biz"></div>
+    <!-- trading KPIs -->
+    <div class="kpi-row" id="kpi-trade"></div>
+    <!-- revenue KPIs -->
+    <div class="kpi-row" id="kpi-rev"></div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>New sign-ups <span class="k">— last 30 days</span></h3>
+        <canvas id="ad-signups" class="chart" style="height:120px"></canvas>
+        <div class="hint" id="ad-signups-cap">—</div>
+      </div>
+      <div class="card">
+        <h3>Customer mix</h3>
+        <div id="ad-mix"></div>
+        <div class="hint">Estimated MRR assumes every active licence pays the configured price. Informational only — the app does not bill.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🤖 Global Bot Strategy <span class="chip">applies to all customers</span></h3>
+      <div class="hint">Change these and <b>every customer's bot updates automatically within seconds</b> — no action on their side. Customers are locked to this strategy unless you approve a custom-access request below.</div>
+      <div class="row" style="margin-top:10px">
+        <div class="col"><label>Timeframe</label><select id="gs-tf"><option>5m</option><option>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
+        <div class="col" style="flex:2"><label>Symbols <span class="hint" style="font-weight:400">pick popular pairs or add your own</span></label>
+          <div class="psel" id="sym-msel">
+            <div class="psel-field" id="sym-field"><span id="sym-chips" class="psel-chips"></span><span class="psel-caret">▾</span></div>
+            <div class="psel-menu hidden" id="sym-menu">
+              <input class="psel-search" id="sym-search" placeholder="Search or type BTC/USDT then Enter…" autocomplete="off"/>
+              <div id="sym-options" class="psel-options"></div>
+            </div>
+          </div>
+          <input type="hidden" id="gs-sym"/>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Fast EMA</label><input id="gp-fast_ema" type="number"/></div>
+        <div class="col"><label>Slow EMA</label><input id="gp-slow_ema" type="number"/></div>
+        <div class="col"><label>Trend EMA</label><input id="gp-trend_ema" type="number"/></div>
+        <div class="col"><label>Trend filter</label><select id="gp-use_trend_filter"><option value="1">Yes</option><option value="0">No</option></select></div>
+        <div class="col"><label>Entry style</label><select id="gp-aggressive_entries"><option value="0">Strict</option><option value="1">Aggressive</option></select></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Confirm candles</label><input id="gp-confirm" type="number"/></div>
+        <div class="col"><label>Min body (0-1)</label><input id="gp-min_body" type="number" step="0.05"/></div>
+        <div class="col"><label>SL buffer % past EMA21</label><input id="gp-sl_ema_buffer_pct" type="number" step="0.05"/></div>
+        <div class="col"><label>Swing lookback</label><input id="gp-swing_lookback" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Partial TP R:R</label><input id="gp-tp_r" type="number" step="0.1"/></div>
+        <div class="col"><label>Partial close (0-1)</label><input id="gp-partial_pct" type="number" step="0.05"/></div>
+        <div class="col"><label>Whipsaw max crosses</label><input id="gp-whipsaw_max_crosses" type="number"/></div>
+        <div class="col"><label>within N candles</label><input id="gp-whipsaw_window" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Suspend entries (hours)</label><input id="gp-whipsaw_suspend_hours" type="number" step="0.5"/></div>
+        <div class="col"><label>🛑 Cooldown after SL (candles)</label><input id="gp-post_sl_cooldown_bars" type="number" min="0"/></div>
+        <div class="col"><label>Avoid daily close</label><select id="gp-avoid_daily_close"><option value="1">Yes</option><option value="0">No</option></select></div>
+      </div>
+      <h4 style="margin:16px 0 2px">⚙️ Execution &amp; risk <span class="chip">pushed to all managed customers</span></h4>
+      <div class="hint" style="margin-bottom:8px">Sizing and guardrails for every managed customer. Custom-access users keep their own. Daily limits are a % of the day's starting balance.</div>
+      <div class="row">
+        <div class="col"><label>Sizing mode</label><select id="gx-sizing_mode"><option value="risk_stop">Risk % (stop-based)</option><option value="risk_balance">Risk % (balance)</option><option value="fixed">Fixed lot</option><option value="fixed_quote">Fixed $</option></select></div>
+        <div class="col"><label>Risk %</label><input id="gx-risk_percent" type="number" step="0.1"/></div>
+        <div class="col"><label>Fixed lot</label><input id="gx-fixed_size" type="number" step="0.001"/></div>
+        <div class="col"><label>Fixed $</label><input id="gx-fixed_quote" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Order type</label><select id="gx-order_type"><option value="market">Market</option><option value="limit">Limit</option></select></div>
+        <div class="col"><label>Leverage</label><input id="gx-leverage" type="number"/></div>
+        <div class="col"><label>Margin</label><select id="gx-margin_mode"><option value="">Default</option><option value="cross">Cross</option><option value="isolated">Isolated</option></select></div>
+        <div class="col"><label>Auto SL/TP</label><select id="gx-auto_bracket"><option value="1">Yes</option><option value="0">No</option></select></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>TP1 fraction (0-1)</label><input id="gx-tp1_fraction" type="number" step="0.05"/></div>
+        <div class="col"><label>Max open positions</label><input id="gx-max_open" type="number"/></div>
+        <div class="col"><label>Daily loss limit (%)</label><input id="gx-daily_loss_pct" type="number" step="0.5"/></div>
+        <div class="col"><label>Daily profit limit (%)</label><input id="gx-daily_profit_pct" type="number" step="0.5"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Cooldown (s)</label><input id="gx-cooldown" type="number"/></div>
+        <div class="col"><label>Dedupe (s)</label><input id="gx-dedupe" type="number"/></div>
+        <div class="col"></div><div class="col"></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Scale-in (pyramiding)</label><select id="gx-scale_in"><option value="0">Off</option><option value="1">On</option></select></div>
+        <div class="col"><label>Scale-in trigger (% to TP)</label><input id="gx-scale_in_trigger" type="number" step="1"/></div>
+        <div class="col"><label>Scale-in size (% of first)</label><input id="gx-scale_in_size" type="number" step="5"/></div>
+        <div class="col"><label>Stop → break-even</label><select id="gx-scale_in_be"><option value="1">Yes</option><option value="0">No</option></select></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Weekend pause (skip Sat/Sun)</label><select id="gx-weekend_pause"><option value="0">Off</option><option value="1">On</option></select></div>
+        <div class="col"></div><div class="col"></div><div class="col"></div>
+      </div>
+      <div class="row">
+        <div class="col end" style="margin-left:auto"><button class="btn" onclick="saveGlobalStrategy()">💾 Save &amp; push to all customers</button></div>
+      </div>
+      <div class="hint" id="gs-info">-</div>
+    </div>
+
+    <div class="card">
+      <h3>🙋 Custom-strategy requests <span class="chip" id="req-count">0</span></h3>
+      <div class="hint">Customers who requested ⭐ VIP Custom Strategy. Email them an invoice, then click <b>🧾 Invoice paid → Unlock</b> once they've paid — that activates VIP and shows them the "VIP Unlocked" badge. Deny to dismiss.</div>
+      <div id="req-list" style="margin-top:10px"><div class="k">No pending requests.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="chart-head" style="margin-bottom:12px">
+        <h3 style="margin:0">Customers <span class="chip" id="ad-count">0</span></h3>
+        <input id="ad-search" placeholder="🔎 Search email or name…" style="max-width:240px" oninput="applyFilters()"/>
+        <select id="ad-filter" style="width:auto" onchange="applyFilters()">
+          <option value="">All statuses</option>
+          <option value="trial">Trial</option>
+          <option value="licensed">Licensed</option>
+          <option value="expired">Expired</option>
+          <option value="suspended">Suspended</option>
+          <option value="admin">Admins</option>
+          <option value="online">Online now</option>
+        </select>
+        <span class="grow"></span>
+        <button class="btn ghost sm" onclick="exportCsv()">⬇ Export CSV</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th class="sortable" onclick="sortBy('id')">ID</th>
+            <th class="sortable" onclick="sortBy('email')">Customer</th>
+            <th class="sortable" onclick="sortBy('status')">Status</th>
+            <th class="sortable" onclick="sortBy('days')">Days left</th>
+            <th>Keys</th><th>Live</th>
+            <th class="sortable" onclick="sortBy('last_seen')">Last seen</th>
+            <th class="sortable" onclick="sortBy('created')">Joined</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="u-body"></tbody>
+        </table>
+      </div>
+      <div class="hint" id="ad-empty" style="display:none">No customers match your filters.</div>
+      <div id="ad-pager" class="pager"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>📣 Broadcast announcement</h3>
+        <div class="hint">Shows as a banner to every customer. Optionally also push via Telegram + browser notifications.</div>
+        <textarea id="bc-msg" rows="2" placeholder="e.g. Scheduled maintenance tonight 2–3am UTC…" style="width:100%;margin-top:8px;background:var(--chip);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font-family:inherit;font-size:13px"></textarea>
+        <label class="chkline"><input type="checkbox" id="bc-notify"/> Also send via Telegram + push</label>
+        <div class="btnrow">
+          <button class="btn" onclick="sendBroadcast()">📢 Post announcement</button>
+          <button class="btn ghost" onclick="broadcastOff()">🗑 Clear active</button>
+        </div>
+        <div id="bc-list" class="hint" style="margin-top:10px">—</div>
+      </div>
+      <div class="card">
+        <h3>🎉 Sale popup (social proof)</h3>
+        <div class="hint">Shows a small “<b>Richard from United States just purchased!</b>” popup to trial/expired customers, built from your <b>real</b> sales (recorded when you grant a licence with a sale amount). Nudges upgrades.</div>
+        <label class="chkline" style="margin-top:10px"><input type="checkbox" id="sp-on" onchange="toggleSocialProof()"/> Show the sale popup to trial &amp; expired customers</label>
+        <div id="sp-state" class="hint" style="margin-top:6px">—</div>
+      </div>
+      <div class="card">
+        <h3>🧾 Admin audit log</h3>
+        <div class="tablewrap" style="max-height:300px;overflow:auto"><table><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Detail</th></tr></thead>
+          <tbody id="audit-rows"><tr><td colspan="4" class="k">—</td></tr></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>💾 Backup &amp; restore <span class="chip">whole database</span></h3>
+        <div class="hint">One-click <b>export</b> downloads the entire database — every customer, encrypted key, trade &amp; licence — as a single backup file. <b>Import</b> restores it (e.g. when moving to a new server).</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn green sm" onclick="exportDb()">⬇️ Export database</button>
+          <input type="file" id="db-import-file" accept=".db,.sqlite" style="display:none" onchange="importDb()"/>
+          <button class="btn ghost sm" onclick="document.getElementById('db-import-file').click()">⬆️ Import database…</button>
+        </div>
+        <div class="hint" style="margin-top:8px">⚠️ Import <b>overwrites</b> all current data. Encrypted API keys only decrypt if the new server uses the <b>same SECRET_KEY</b>. Restart the app after importing.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL DRAWER -->
+<div id="drawer-scrim" class="drawer-scrim hidden" onclick="closeDrawer()"></div>
+<aside id="drawer" class="drawer hidden">
+  <div class="drawer-head">
+    <div><h3 id="dw-name" style="margin:0">—</h3><div class="k mono" id="dw-email">—</div></div>
+    <button class="btn ghost sm" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="dw-body"></div>
+</aside>
+
+<footer class="site-footer">
+  <div class="foot-inner">
+    <div class="foot-brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/> <b>Prometheus</b></div>
+    <div class="foot-links"><a href="https://www.prometheusai.tech/support" target="_blank" rel="noopener">Contact us</a></div>
+    <div class="foot-copy">© 2026 Prometheus. All rights reserved.</div>
+  </div>
+</footer>
+<script src="/static/admin.js"></script>
+</body>
+</html>

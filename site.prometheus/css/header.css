@@ -1,0 +1,32 @@
+/* Shared site header (Prometheus AI) - same design as the homepage header */
+header.pmh{display:block;margin:0;padding:0;position:fixed;top:0;left:0;right:0;z-index:2147482000;background:rgba(10,13,19,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);font-family:Poppins,Montserrat,Helvetica,Arial,sans-serif}
+.pmh *{box-sizing:border-box}
+.pmh-sp{height:77px}
+.pmh__in{max-width:1240px;margin:0 auto;height:76px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.pmh__logo{display:block;line-height:0}.pmh__logo img{height:32px;width:auto}
+.pmh__nav{display:flex;gap:32px}
+.pmh__nav a{color:#c9d3de;font-size:15px;font-weight:500;text-decoration:none;transition:color .15s}
+.pmh__nav a:hover{color:#fff}
+.pmh__r{display:flex;align-items:center;gap:12px}
+.pmh__jono{display:inline-flex;align-items:center;gap:9px;color:#e6edf3;font:600 14px/1 Poppins,Helvetica,Arial,sans-serif;padding:8px 16px 8px 8px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:transparent;cursor:pointer;text-decoration:none;transition:border-color .15s,background .15s}
+.pmh__jono:hover{border-color:#19d3d3;background:rgba(25,211,211,.08)}
+.pmh__jono img{width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid #19d3d3}
+.pmh__cta{display:inline-flex;align-items:center;background:#ff1f1f;color:#fff!important;font-weight:700;font-size:15px;padding:12px 22px;border-radius:10px;text-decoration:none!important;white-space:nowrap;box-shadow:0 8px 22px -8px rgba(255,31,31,.8);transition:background .15s,transform .12s}
+.pmh__cta:hover{background:#e01414;transform:translateY(-1px)}
+.pmh__menu{display:none;width:42px;height:42px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:transparent;cursor:pointer;align-items:center;justify-content:center}
+.pmh__menu i{display:block;width:18px;height:2px;background:#fff;box-shadow:0 6px 0 #fff,0 -6px 0 #fff}
+.pmh__drop{display:none;border-top:1px solid rgba(255,255,255,.08);padding:10px 16px 16px}
+.pmh__drop a,.pmh__drop button{display:flex;align-items:center;gap:10px;width:100%;padding:13px 6px;color:#e6edf3;font:500 16px Poppins,Helvetica,Arial,sans-serif;text-decoration:none;background:none;border:0;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;text-align:left}
+.pmh__drop img{width:28px;height:28px;border-radius:50%;border:1px solid #19d3d3}
+.pmh.open .pmh__drop{display:block}
+@media (max-width:900px){.pmh__nav,.pmh__r .pmh__jono{display:none}.pmh__menu{display:inline-flex}}
+@media (max-width:520px){.pmh-sp{height:63px}.pmh__in{height:62px;padding:0 14px;gap:10px}.pmh__logo img{height:24px}.pmh__cta{padding:10px 14px;font-size:13.5px}.pmh__r{gap:8px}}
+
+header.pmh a,header.pmh button{font-family:Poppins,Montserrat,Helvetica,Arial,sans-serif;line-height:1.2}
+header.pmh img{max-width:none;display:inline-block;vertical-align:middle}
+header.pmh nav{display:flex;background:none;padding:0;margin:0}
+header.pmh .pmh__nav a[aria-current="page"]{color:#fff;box-shadow:inset 0 -2px 0 #19d3d3;padding-bottom:4px}
+header.pmh.pmh--checkout .pmh__cta{display:none}
+@media (max-width:900px){header.pmh .pmh__nav{display:none}}
+.pmh__s{display:none}
+@media (max-width:520px){.pmh__l{display:none}.pmh__s{display:inline}}
