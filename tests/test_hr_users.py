@@ -235,7 +235,8 @@ def test_change_role_customise_and_reset_on_the_user_page(admin, db, made):
     assert r.status_code == 303
     u = _user_by_email(db, email)
     assert rbac.has_permission(u, "students.add") and not rbac.has_permission(u, "payroll.view")
-    assert rbac.has_permission(u, "employees.delete"), "modules not changed keep the role's access"
+    assert rbac.has_permission(u, "employees.update"), "modules not changed keep the role's access"
+    assert not rbac.has_permission(u, "employees.delete"), "deleting stays with Admins"
     assert "CUSTOMISED" in admin.get(f"/hr/users/{u.id}").text
     r = admin.post(f"/hr/users/{u.id}/access", data={"reset": "1", "rationale": "back to normal"}, follow_redirects=False)
     u = _user_by_email(db, email)

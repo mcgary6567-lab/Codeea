@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header('Payroll ' ~ run.period, (run.description or (summary.payslips ~ ' payslips')) ~ ' · ' ~ summary.teachers ~ ' teachers, ' ~ summary.staff ~ ' staff', back='/hr/payroll') %}
   {{ ui.badge(run.status, run.status|label('payroll')) }}
-  {{ ui.button('Export CSV', href='/hr/payroll/' ~ run.id ~ '/export.csv', icon='download', variant='secondary', size='sm') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/hr/payroll/' ~ run.id ~ '/export.csv', icon='download', variant='secondary', size='sm') }}{% endif %}
   {% if not locked and has_perm(user, 'payroll.add') %}
   {{ ui.confirm_form('/hr/payroll/' ~ run.id ~ '/generate', 'Generate', icon='calculator', variant='secondary', message='Rebuild every payslip for this month?') }}
   {% endif %}

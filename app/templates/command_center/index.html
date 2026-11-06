@@ -3,7 +3,7 @@
 {% block title %}CEO Command Center{% endblock %}
 {% block content %}
 {% call ui.page_header("CEO Command Center", "Institutional health, executive KPIs, AI insights and anomalies · " ~ period.label) %}
-  {{ ui.button("Executive report (XLSX)", href="/command-center/export?" ~ period.qs, icon="file-spreadsheet", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Executive report (XLSX)", href="/command-center/export?" ~ period.qs, icon="file-spreadsheet", variant="secondary") }}{% endif %}
   {{ ui.button("Trajectory meetings", href="/transformation/meetings", icon="calendar-clock", variant="secondary") }}
   {{ ui.button("KPI scorecards", href="/kpis/scorecards", icon="target") }}
 {% endcall %}

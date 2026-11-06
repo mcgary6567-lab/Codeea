@@ -113,6 +113,13 @@ def totp_uri(secret: str, account: str, issuer: str = "OnlineQuranCollege") -> s
     return f"otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}&digits=6&period=30"
 
 
+def unmasked(submitted: Optional[str], stored: Optional[str]) -> Optional[str]:
+    """A form field that showed a masked value and came back untouched keeps the stored value; anything else wins."""
+    if stored and (submitted or "").strip() == mask(stored):
+        return stored
+    return submitted
+
+
 def mask(value: Optional[str], keep: int = 3) -> str:
     """Institutional masking for sensitive data (phones, CNIC, emails)."""
     if not value:

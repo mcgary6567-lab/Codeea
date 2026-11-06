@@ -176,7 +176,7 @@ def field_id(name: str) -> str:
 templates.env.globals.update({
     "asset_version": ASSET_VERSION,
     "app_name": settings.APP_NAME, "app_env": settings.APP_ENV, "base_url": settings.BASE_URL,
-    "has_perm": rbac.has_permission, "is_ceo": rbac.is_ceo, "is_management": rbac.is_management,
+    "has_perm": rbac.has_permission, "is_admin": rbac.is_admin, "is_ceo": rbac.is_ceo, "is_management": rbac.is_management,
     "today": date.today, "utcnow": datetime.utcnow, "MODULES": rbac.MODULES, "ACTIONS": rbac.ACTIONS,
     "TILE": TILE, "LIGHT": LIGHT, "palette": palette, "STATUS_LABELS": STATUS_LABELS, "field_id": field_id,
 })
@@ -214,7 +214,7 @@ def render(request: Request, template: str, context: Optional[dict] = None, stat
     if ctx["ir_staff"]:
         from app.services.migration import ENTITIES, entity_for_path
         entity = entity_for_path(request.url.path)
-        if entity and rbac.has_permission(user, "migration.add"):
+        if entity and rbac.is_admin(user) and rbac.has_permission(user, "migration.add"):
             ctx["ir_import"] = {"entity": entity, "label": ENTITIES[entity]["label"]}
         db_ir: Optional[Session] = getattr(request.state, "db", None)
         if db_ir is not None:

@@ -67,8 +67,12 @@ def test_exports_can_be_limited_to_admins():
     hr = _login("hr@oqc.local", "People@123")
     admin = _login("admin@oqc.local", "Admin@12345")
     payload = {"name": TAG, "headers": ["A"], "rows": [["1"]], "format": "csv"}
-    assert hr.post("/ir/export", json=payload).status_code == 200, "everyone on staff by default"
-    before = _set("exports_admin_only", True)
+    before = _set("exports_admin_only", False)
+    try:
+        assert hr.post("/ir/export", json=payload).status_code == 200, "with the switch at No, everyone on staff"
+    finally:
+        _restore("exports_admin_only", before)
+    before = _set("exports_admin_only", True)  # the college's choice (QA change request, 6 Nov 2026)
     try:
         assert hr.post("/ir/export", json=payload).status_code == 403
         assert "data-ir-no-export" in hr.get("/hr/employees").text
@@ -76,7 +80,6 @@ def test_exports_can_be_limited_to_admins():
         assert "data-ir-no-export" not in admin.get("/hr/employees").text
     finally:
         _restore("exports_admin_only", before)
-    assert hr.post("/ir/export", json=payload).status_code == 200
 
 
 def _invoice(s, client: Client, amount: float) -> Invoice:

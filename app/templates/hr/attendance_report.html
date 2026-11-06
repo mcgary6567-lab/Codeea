@@ -16,7 +16,7 @@
 <div class="no-print">
 {% call ui.page_header('Attendance Report', 'Attendance Summery Report: present, absent, leave, late and shortage for a date range.') %}
   {{ ui.button('Print Report', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
-  {{ ui.button('Export CSV', href='/hr/attendance/report?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/hr/attendance/report?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}{% endif %}
   {{ ui.button('Daily Attendance', href='/hr/attendance', icon='clock', variant='secondary') }}
 {% endcall %}
 </div>

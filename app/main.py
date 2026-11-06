@@ -89,6 +89,33 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Exports and downloads of data are for Admins only (QA change request, 6 Nov 2026; Branch Properties › "Exports
+# for admins only"). Every CSV, Excel and ZIP the server hands a member of staff passes here, whichever page or
+# report built it, so a hidden button cannot be bypassed by typing the URL. Families and students keep their own
+# statements; documents (invoice, receipt, payslip PDFs) follow their own page permissions.
+DATA_FILE_TYPES = ("text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml", "application/vnd.ms-excel",
+                   "application/zip", "application/x-zip")
+
+
+class DataDownloadGuardMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if not response.headers.get("content-type", "").startswith(DATA_FILE_TYPES):
+            return response
+        user = getattr(request.state, "user", None)
+        if user is None or user.portal in ("client", "student"):
+            return response
+        from app.services.ir import can_export
+        db = getattr(request.state, "db", None)
+        if db is not None and can_export(db, user):
+            return response
+        log.warning("data download refused for user %s on %s", user.id, request.url.path)
+        if request.url.path.startswith("/api/"):
+            return JSONResponse({"detail": "Exports and downloads are limited to admins"}, status_code=403)
+        return render(request, "error.html", {"code": 403, "title": "Access denied", "user": user,
+                      "message": "Exports and downloads are limited to admins."}, status_code=403)
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Captures of staff screens live under storage/ with everything else, but they are served only
@@ -138,6 +165,18 @@ _CSP = "; ".join([
 ])
 
 
+def _api_admin_only(request: Request, user=None) -> None:
+    """The JSON API under /api/v1 serves Admins and admin-issued integration keys only (QA change request,
+    6 Nov 2026): any member of staff could otherwise sign in through /api/v1/auth/login and list every record,
+    unmasked, around the screens' export and masking rules. Inbound webhooks carry their own signatures."""
+    from fastapi import HTTPException
+    from app.core import rbac
+    if "/webhooks/" in request.url.path or user is None or getattr(request.state, "api_key", None) is not None:
+        return  # a route without a user still answers 401 through its own dependency
+    if not rbac.is_admin(user):
+        raise HTTPException(403, "The API is limited to admins and integration keys")
+
+
 def _discover_routers(app: FastAPI, package: str, prefix: str = "") -> None:
     """Import every module in ``package`` exposing ``router`` and mount it."""
     pkg = importlib.import_module(package)
@@ -152,7 +191,15 @@ def _discover_routers(app: FastAPI, package: str, prefix: str = "") -> None:
             continue
         router = getattr(mod, "router", None)
         if router is not None:
-            app.include_router(router, prefix=prefix)
+            if package == "app.api" and mod_info.name not in ("auth", "webhooks"):
+                from fastapi import Depends
+                from app.core.deps import get_optional_user
+
+                def api_gate(request: Request, user=Depends(get_optional_user)) -> None:
+                    _api_admin_only(request, user)
+                app.include_router(router, prefix=prefix, dependencies=[Depends(api_gate)])
+            else:
+                app.include_router(router, prefix=prefix)
             log.debug("Mounted %s", name)
 
 
@@ -174,6 +221,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.APP_NAME, version="1.1.0", docs_url="/api/docs", redoc_url="/api/redoc",
                   openapi_url="/api/openapi.json", lifespan=lifespan)
+    app.add_middleware(DataDownloadGuardMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(DBSessionMiddleware)
     # Added last so it runs first: the query string must be cleaned before routing and validation.

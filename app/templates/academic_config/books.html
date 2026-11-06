@@ -5,7 +5,7 @@
 {% call ui.page_header("Define Books", "Internal books are used by teachers; public books appear on the website and in the client portal.", back="/academics/config") %}
   {{ ui.button("Download Template", href="/academics/config/books/template.csv", icon="download", variant="secondary") }}
   {% if can_add %}
-  {{ ui.button("Upload CSV", icon="upload", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'uploadBooks\')"') }}
+  {% if is_admin(user) %}{{ ui.button("Upload CSV", icon="upload", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'uploadBooks\')"') }}{% endif %}
   {{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newBook\')"') }}
   {% endif %}
 {% endcall %}

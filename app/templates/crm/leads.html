@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header("Leads & Pipeline", "Module 3 — capture, score, assign, convert. " ~ stats.total ~ " leads in view.") %}
   {{ ui.button('KPIs', href='/crm/leads/kpis', icon='target', variant='secondary') }}
-  {{ ui.button('Export', href='/crm/leads/export', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export', href='/crm/leads/export', icon='download', variant='secondary') }}{% endif %}
   {% if has_perm(user, 'leads.add') %}{{ ui.button('New lead', href='/crm/leads/new', icon='plus') }}{% endif %}
 {% endcall %}
 
@@ -49,7 +49,7 @@
     <a href="/crm/leads/{{ l.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ l.full_name }}</a>
     <div class="font-mono text-[11px] text-slate-400">{{ l.lead_code }}{% if l.is_duplicate_of_id %} · <span class="text-amber-600">duplicate</span>{% endif %}</div>
   </td>
-  <td class="px-4 py-2 text-xs text-slate-500">{{ l.phone or l.email or '—' }}<div>{{ l.country or '' }}</div></td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ ui.masked(l.phone or l.email, '/crm/leads/' ~ l.id ~ '/reveal/' ~ ('phone' if l.phone else 'email'), is_admin(user)) }}<div>{{ l.country or '' }}</div></td>
   <td class="px-4 py-2 text-xs">{{ l.source.name if l.source else '—' }}<div class="text-slate-400">{{ l.campaign.name if l.campaign else '' }}</div></td>
   <td class="px-4 py-2">{{ ui.badge(l.stage, l.stage|label('registration')) }}</td>
   <td class="px-4 py-2 w-32">{{ ui.progress(l.score, 'brand' if l.score >= 70 else ('amber' if l.score >= 45 else 'slate'), label=l.score ~ '/100') }}</td>

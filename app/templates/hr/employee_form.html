@@ -25,13 +25,15 @@
   {% endcall %}
   {% call ui.card('Contact & sensitive data', 'CNIC is masked everywhere except for holders of employees.update.') %}
   <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    {{ ui.input('email', 'Work email', e.email if e else '', type='email') }}
-    {{ ui.input('phone', 'Phone', e.phone if e else '') }}
-    {{ ui.input('cnic', 'CNIC', e.cnic if e else '', placeholder='35202-1234567-1') }}
+    {% set hide = e and not is_admin(user) %}
+    {{ ui.input('email', 'Work email', ((e.email|mask if e.email else '') if hide else (e.email if e else '')), type='email') }}
+    {{ ui.input('phone', 'Phone', ((e.phone|mask if e.phone else '') if hide else (e.phone if e else ''))) }}
+    {{ ui.input('cnic', 'CNIC', ((e.cnic|mask if e.cnic else '') if hide else (e.cnic if e else '')), placeholder='35202-1234567-1') }}
     {{ ui.input('device_name', 'Device name', e.device_name if e else '', help='OQC-DEPT-NNN (auto-assigned when blank)') }}
-    {{ ui.input('whatsapp', 'WhatsApp', e.whatsapp if e else '') }}
+    {{ ui.input('whatsapp', 'WhatsApp', ((e.whatsapp|mask if e.whatsapp else '') if hide else (e.whatsapp if e else ''))) }}
     {{ ui.input('bank_name', 'Bank name', e.bank_name if e else '') }}
-    {{ ui.input('bank_account_no', 'Bank account no', e.bank_account_no if e else '') }}
+    {{ ui.input('bank_account_no', 'Bank account no', ((e.bank_account_no|mask if e.bank_account_no else '') if hide else (e.bank_account_no if e else '')),
+                 help='Masked values are kept as they are unless you type a new one.' if hide else None) }}
     <div class="sm:col-span-2 lg:col-span-4">{{ ui.textarea('address', 'Address', e.address if e else '', rows=2) }}</div>
   </div>
   {% endcall %}

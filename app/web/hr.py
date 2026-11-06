@@ -93,7 +93,8 @@ def _emp(db: Session, id: int) -> Employee:
 
 
 def can_see_sensitive(user: User) -> bool:
-    return rbac.has_permission(user, "employees.update") or rbac.is_management(user)
+    """Contact details, CNIC and bank account print unmasked for Admins only (QA change request, 6 Nov 2026)."""
+    return rbac.is_admin(user)
 
 
 def _kv_from_form(form, key_field: str, value_field: str) -> dict:
@@ -475,6 +476,10 @@ async def employee_update(id: int, request: Request, db: Session = Depends(get_d
     e = _emp(db, id)
     form = await request.form()
     data = _employee_form_data(form)
+    from app.core.security import unmasked
+    for f in ("email", "phone", "cnic", "whatsapp", "bank_account_no"):  # masked on the form and left alone
+        if f in data:
+            data[f] = unmasked(data[f], getattr(e, f, None))
     data["exit_date"] = parse_date(form.get("exit_date"))
     data["exit_reason"] = form.get("exit_reason")
     data["mfa_enforced"] = parse_bool(form.get("mfa_enforced"))

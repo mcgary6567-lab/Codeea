@@ -7,7 +7,7 @@
 <div class="no-print">
 {% call ui.page_header("Account Wise Summary", "Opening, debits, credits and closing for every account in the range.") %}
   {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
-  {{ ui.button('Export CSV', href='/finance/accounts/reports/account-wise?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/finance/accounts/reports/account-wise?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}{% endif %}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
 {{ ui.tabs(report_tabs, report) }}

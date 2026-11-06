@@ -77,7 +77,7 @@
   {{ ui.table_end() }}
   <div class="mt-3 flex justify-end gap-2">
     {{ ui.button('Full history', href='/daily-reports/history', icon='history', variant='secondary', size='sm') }}
-    {{ ui.button('Export CSV', href='/daily-reports/export?scope=mine', icon='download', variant='secondary', size='sm') }}
+    {% if not ir_no_export %}{{ ui.button('Export CSV', href='/daily-reports/export?scope=mine', icon='download', variant='secondary', size='sm') }}{% endif %}
   </div>
   {% endcall %}
 </div>

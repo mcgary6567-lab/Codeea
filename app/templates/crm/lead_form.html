@@ -8,9 +8,10 @@
     {% call ui.card('Family & contact') %}
     <div class="grid gap-4 sm:grid-cols-2">
       {{ ui.input('full_name', 'Parent / contact name', lead.full_name if lead else '', required=True) }}
-      {{ ui.input('email', 'Email', lead.email if lead else '', type='email') }}
-      {{ ui.input('phone', 'Phone', lead.phone if lead else '', help='Used for duplicate detection') }}
-      {{ ui.input('whatsapp', 'WhatsApp', lead.whatsapp if lead else '') }}
+      {% set hide = lead and not is_admin(user) %}
+      {{ ui.input('email', 'Email', ((lead.email|mask if lead.email else '') if hide else (lead.email if lead else '')), type='email') }}
+      {{ ui.input('phone', 'Phone', ((lead.phone|mask if lead.phone else '') if hide else (lead.phone if lead else '')), help='Used for duplicate detection' if not hide else 'Masked: kept as it is unless you type a new one.') }}
+      {{ ui.input('whatsapp', 'WhatsApp', ((lead.whatsapp|mask if lead.whatsapp else '') if hide else (lead.whatsapp if lead else ''))) }}
       {{ ui.select('country', 'Country', countries, lead.country if lead else '', placeholder='Select country') }}
       {{ ui.input('preferred_time', 'Preferred class time', lead.preferred_time if lead else '', placeholder='e.g. Weekdays after 6pm UK') }}
     </div>

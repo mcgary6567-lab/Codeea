@@ -60,6 +60,13 @@
       form.querySelectorAll('.is-busy').forEach(function (b) { b.disabled = false; b.classList.remove('is-busy'); });
     });
   });
+  // Exports and downloads are for Admins (the server refuses them anyway: main.DataDownloadGuardMiddleware); for
+  // everyone else the Export CSV / XLSX links on pages are taken away so nobody clicks into an "Access denied".
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!document.body.hasAttribute('data-ir-no-export')) return;
+    var dl = /\/export(\.csv)?(\?|$)|\.csv(\?|$)|[?&]format=(csv|xlsx)(&|$)/;
+    document.querySelectorAll('a[href]').forEach(function (a) { if (dl.test(a.getAttribute('href'))) a.remove(); });
+  });
   // Masked client contacts: View asks the server; it answers with the value, or sends a one-time code to the viewer
   // and this dialog takes the code (macros.html contact(), web/clients.py reveal_start / reveal_verify).
   var reveal = { btn: null, url: '', challenge: null };

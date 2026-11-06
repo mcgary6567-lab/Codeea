@@ -3,7 +3,7 @@
 {% block title %}Audit log{% endblock %}
 {% block content %}
 {% call ui.page_header("Audit log", "Immutable trail of every create, update, delete, approval, export and login across the platform") %}
-  {{ ui.button("Export CSV", href="/admin/audit/export.csv?" ~ params, icon="download", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Export CSV", href="/admin/audit/export.csv?" ~ params, icon="download", variant="secondary") }}{% endif %}
   {{ ui.button("Security centre", href="/admin/security", icon="shield", variant="secondary") }}
 {% endcall %}
 

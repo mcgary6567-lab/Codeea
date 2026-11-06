@@ -47,7 +47,8 @@ CREDENTIAL_TYPES = ["zoom", "teams", "skype", "portal", "other"]
 
 
 def can_see_contact(user: User) -> bool:
-    return rbac.has_permission(user, "clients.update") or rbac.is_management(user)
+    """Unmasked contacts are for Admins (QA change request, 6 Nov 2026); everyone else uses View."""
+    return rbac.is_admin(user)
 
 
 def contact_plain(db: Session, user: User) -> bool:

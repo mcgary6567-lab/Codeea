@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action, snapshot
-from app.core.deps import csrf_protect, require
+from app.core.deps import PermissionDenied, csrf_protect, require
 from app.core.templating import render
 from app.core.utils import paginate, parse_bool, parse_date, parse_float, parse_int, redirect
 from app.database import get_db
@@ -433,6 +433,9 @@ async def book_create(request: Request, db: Session = Depends(get_db), user: Use
 
 @router.post("/books/upload", include_in_schema=False)
 async def books_upload(request: Request, db: Session = Depends(get_db), user: User = Depends(require(f"{MODULE}.add"))):
+    from app.services.ir import can_import
+    if not can_import(user):
+        raise PermissionDenied("imports are limited to admins")
     form = await request.form()
     upload = form.get("file")
     if upload is None or not hasattr(upload, "read"):
@@ -1011,6 +1014,9 @@ def question_template(user: User = Depends(require(f"{MODULE}.view"))):
 
 @router.post("/question-bank/upload", include_in_schema=False)
 async def question_upload(request: Request, db: Session = Depends(get_db), user: User = Depends(require(f"{MODULE}.add"))):
+    from app.services.ir import can_import
+    if not can_import(user):
+        raise PermissionDenied("imports are limited to admins")
     """The ERP's Question Bank "CSV Upload": the columns are matched by name, every row is checked, and good rows
     are imported while bad ones are reported. The run is kept as a Data Migration job for the record."""
     from app.models.ops import MigrationJob

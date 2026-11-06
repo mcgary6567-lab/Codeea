@@ -18,7 +18,7 @@
 <div class="no-print">
 {% call ui.page_header('Attendance Summary', 'One row per employee: Present, Absent, On Leave, Late Coming, Total Sessions and Shortage Hours for a date range.') %}
   {{ ui.button('Print Report', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
-  {{ ui.button('Export CSV', href='/hr/attendance/summary?' ~ qs ~ '&view=' ~ view ~ '&format=csv', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/hr/attendance/summary?' ~ qs ~ '&view=' ~ view ~ '&format=csv', icon='download', variant='secondary') }}{% endif %}
   {{ ui.button('Attendance Report', href='/hr/attendance/report?' ~ qs, icon='table', variant='secondary') }}
   {{ ui.button('Daily Attendance', href='/hr/attendance', icon='clock', variant='secondary') }}
 {% endcall %}

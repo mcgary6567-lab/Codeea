@@ -52,14 +52,14 @@
   </td>
   <td class="px-3 py-2 font-mono text-xs">{% if r.client_code %}<a href="/clients/{{ l.converted_client_id }}" class="text-brand-700 hover:underline">{{ r.client_code }}</a>{% else %}—{% endif %}</td>
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ l.converted_at|datetime if l.converted_at else '—' }}</td>
-  <td class="px-3 py-2 text-xs whitespace-nowrap">{% if l.phone %}{{ l.phone }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
-  <td class="px-3 py-2 text-xs whitespace-nowrap">{% if l.whatsapp %}{{ l.whatsapp }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{% if l.phone %}{{ ui.masked(l.phone, '/crm/leads/' ~ l.id ~ '/reveal/phone', is_admin(user)) }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{% if l.whatsapp %}{{ ui.masked(l.whatsapp, '/crm/leads/' ~ l.id ~ '/reveal/whatsapp', is_admin(user)) }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
   <td class="px-3 py-2 text-xs">{{ r.shift or '—' }}</td>
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.referred_by or '—' }}</td>
   <td class="px-3 py-2 text-xs">{{ l.country or '—' }}</td>
   <td class="px-3 py-2 text-xs text-slate-300" title="Not held on our lead record">—</td>
   <td class="px-3 py-2 text-xs text-slate-300" title="Not held on our lead record">—</td>
-  <td class="px-3 py-2 text-xs">{% if l.email %}{{ l.email }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{% if l.email %}{{ ui.masked(l.email, '/crm/leads/' ~ l.id ~ '/reveal/email', is_admin(user)) }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
   <td class="px-3 py-2 text-xs">{{ r.source_name or '—' }}</td>
   <td class="px-3 py-2 text-xs text-slate-300" title="Not held on our lead record">—</td>
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ l.next_follow_up|date if l.next_follow_up else '—' }}</td>
@@ -110,7 +110,7 @@
         <div class="flex flex-wrap items-end gap-2">
           <div class="w-56">
             <label class="mb-1 block text-xs font-medium text-slate-600" for="cmail-{{ l.id }}">Portal Email</label>
-            <input id="cmail-{{ l.id }}" form="convert-form-{{ l.id }}" name="email" value="{{ l.email or '' }}"
+            <input id="cmail-{{ l.id }}" form="convert-form-{{ l.id }}" name="email" value="{{ (l.email or '') if is_admin(user) else (l.email|mask if l.email else '') }}"
                    placeholder="Leave blank to generate one"
                    class="w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40">
           </div>

@@ -1516,8 +1516,15 @@ async def migration_checklist_save(request: Request, db: Session = Depends(get_d
     return redirect("/admin/migration/checklist", "Checklist saved.")
 
 
+def _import_guard(user: User) -> None:
+    from app.services.ir import can_import
+    if not can_import(user):
+        raise PermissionDenied("imports are limited to admins")
+
+
 @router.post("/migration/upload", include_in_schema=False)
 async def migration_upload(request: Request, db: Session = Depends(get_db), user: User = Depends(require("migration.add"))):
+    _import_guard(user)
     form = await request.form()
     entity = form.get("entity") or ""
     if entity not in mig.ENTITIES:
@@ -1600,6 +1607,7 @@ async def migration_validate(job_id: int, request: Request, db: Session = Depend
 @router.post("/migration/{job_id}/import", include_in_schema=False)
 async def migration_import(job_id: int, request: Request, db: Session = Depends(get_db),
                            user: User = Depends(require("migration.execute"))):
+    _import_guard(user)
     job = db.get(MigrationJob, job_id)
     if not job:
         raise PermissionDenied("migration.execute")

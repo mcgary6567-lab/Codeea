@@ -211,6 +211,14 @@
 {%- endif -%}
 {% endmacro %}
 
+{% macro masked(value, url=None, plain=False) %}
+{# Sensitive data for someone who is not an Admin: masked, with an audited View link when a reveal route exists. #}
+{%- if plain or not value -%}{{ value or '—' }}
+{%- else -%}<span class="whitespace-nowrap"><span class="font-mono text-xs">{{ value|mask }}</span>{% if url %}
+<a href="{{ url }}" hx-get="{{ url }}" hx-target="closest span" hx-swap="outerHTML" class="ml-1 text-xs font-semibold text-brand-600 hover:underline" title="View (audited)">View</a>{% endif %}</span>
+{%- endif -%}
+{% endmacro %}
+
 {% macro dl(items) %}
 {# items: list of (label, value) #}
 <dl class="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2 text-sm">

@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header("Report history", (target.full_name if target else 'My') ~ " — structured daily reports", back='/daily-reports') %}
   {% if can_team %}{{ ui.button("Team compliance", href="/daily-reports/team", icon="users", variant="secondary") }}{% endif %}
-  {{ ui.button("Export CSV", href="/daily-reports/export?scope=mine&start=" ~ start ~ "&end=" ~ end, icon="download", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Export CSV", href="/daily-reports/export?scope=mine&start=" ~ start ~ "&end=" ~ end, icon="download", variant="secondary") }}{% endif %}
 {% endcall %}
 
 <div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

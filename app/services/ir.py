@@ -33,9 +33,15 @@ def can_export(db, user) -> bool:
     from app.services.scheduling import setting_value
     if user is None:
         return False
-    if not setting_value(db, "exports_admin_only", False):
+    if not setting_value(db, "exports_admin_only", True):
         return True
-    return bool(user.is_superuser or rbac.is_ceo(user) or rbac.has_permission(user, "settings.configure"))
+    return rbac.is_admin(user)
+
+
+def can_import(user) -> bool:
+    """Bulk imports (Import CSV, the migration wizard, book and question-bank uploads) are for Admins only."""
+    from app.core import rbac
+    return rbac.is_admin(user)
 
 
 def _text(fragment: str) -> str:

@@ -7,7 +7,7 @@
 <div class="no-print">
 {% call ui.page_header("Income Statement", "Income less expense for the range, by account and by group, against the previous period of the same length.") %}
   {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
-  {{ ui.button('Export CSV', href='/finance/accounts/reports/income-statement?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/finance/accounts/reports/income-statement?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}{% endif %}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
 {{ ui.tabs(report_tabs, report) }}

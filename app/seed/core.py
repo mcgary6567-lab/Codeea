@@ -187,7 +187,8 @@ def run(db: Session) -> None:
     # The owner's decisions (docs/FUSION_PARITY.md): Branch Properties, No by default.
     for key, group, label, desc, sort_no in OWNER_SWITCHES:
         if not db.query(Setting).filter(Setting.key == key).first():
-            db.add(Setting(key=key, value={"value": False}, group=group, label=label, description=desc,
+            # exports for admins only is Yes from the start (QA change request, 6 Nov 2026); the rest start No
+            db.add(Setting(key=key, value={"value": key == "exports_admin_only"}, group=group, label=label, description=desc,
                            value_type="boolean", is_editable=True, is_secret=False, sort_no=sort_no))
 
     # QA action types (the old ERP's QA Action Type list), so a new installation does not start empty.

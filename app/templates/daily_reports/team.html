@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header("Team reporting compliance", "Submitted, late and missing structured reports by person and department", back='/daily-reports') %}
   {{ ui.button("My report", href="/daily-reports", icon="file-clock", variant="secondary") }}
-  {{ ui.button("Export CSV", href="/daily-reports/export?scope=team&" ~ qs, icon="download", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Export CSV", href="/daily-reports/export?scope=team&" ~ qs, icon="download", variant="secondary") }}{% endif %}
 {% endcall %}
 
 <div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">

@@ -3,7 +3,7 @@
 {% block title %}Subscription Detail Report{% endblock %}
 {% block content %}
 {% call ui.page_header("Subscription Detail Report", "Subscriptions by manager, period, country and currency") %}
-  {{ ui.button("Export CSV", href="/subscriptions/detail-report?" ~ query_string ~ "&format=csv", icon="download", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Export CSV", href="/subscriptions/detail-report?" ~ query_string ~ "&format=csv", icon="download", variant="secondary") }}{% endif %}
   {{ ui.button("Value Report", href="/subscriptions/value-report", icon="file-spreadsheet", variant="secondary") }}
 {% endcall %}
 

@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header(job.name, entity_meta.get('label', job.entity|titleize) ~ " · source " ~ job.source_system, back="/admin/migration") %}
   {{ ui.badge(job.status) }}
-  {% if job.errors %}{{ ui.button('Error CSV', href='/admin/migration/' ~ job.id ~ '/errors.csv', icon='download', variant='secondary', size='sm') }}{% endif %}
+  {% if not ir_no_export %}{% if job.errors %}{{ ui.button('Error CSV', href='/admin/migration/' ~ job.id ~ '/errors.csv', icon='download', variant='secondary', size='sm') }}{% endif %}{% endif %}
   {{ ui.button('CSV template', href='/admin/migration/template/' ~ job.entity ~ '.csv', icon='file-down', variant='secondary', size='sm') }}
   {% if back %}{{ ui.button('Back to the list', href=back, icon='arrow-left', variant='secondary', size='sm') }}{% endif %}
 {% endcall %}

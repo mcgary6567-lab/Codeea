@@ -3,7 +3,7 @@
 {% block title %}Login history{% endblock %}
 {% block content %}
 {% call ui.page_header("Login history", "Sign-ins, sign-outs, failed attempts and lockouts drawn straight from the audit trail", back="/admin/security") %}
-  {{ ui.button("Export CSV", href="/admin/audit/export.csv?module=security", icon="download", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Export CSV", href="/admin/audit/export.csv?module=security", icon="download", variant="secondary") }}{% endif %}
   {{ ui.button("Incidents", href="/admin/security/incidents", icon="siren", variant="secondary") }}
 {% endcall %}
 

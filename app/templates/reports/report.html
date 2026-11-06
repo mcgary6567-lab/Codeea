@@ -3,8 +3,8 @@
 {% block title %}{{ meta.name }}{% endblock %}
 {% block content %}
 {% call ui.page_header(meta.name, meta.description, back='/reports') %}
-  {{ ui.button("XLSX", href='/reports/' ~ meta.key ~ '/export?format=xlsx&' ~ qs, icon="file-spreadsheet", variant="secondary") }}
-  {{ ui.button("CSV", href='/reports/' ~ meta.key ~ '/export?format=csv&' ~ qs, icon="download", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("XLSX", href='/reports/' ~ meta.key ~ '/export?format=xlsx&' ~ qs, icon="file-spreadsheet", variant="secondary") }}{% endif %}
+  {% if not ir_no_export %}{{ ui.button("CSV", href='/reports/' ~ meta.key ~ '/export?format=csv&' ~ qs, icon="download", variant="secondary") }}{% endif %}
 {% endcall %}
 
 <div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

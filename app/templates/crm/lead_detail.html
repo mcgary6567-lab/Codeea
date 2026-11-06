@@ -21,7 +21,8 @@
 <div class="grid gap-6 lg:grid-cols-3">
   <div class="lg:col-span-2 space-y-6">
     {% call ui.card('Lead profile') %}
-      {{ ui.dl([('Contact', lead.phone or '—'), ('Email', lead.email or '—'), ('WhatsApp', lead.whatsapp or '—'),
+      {% set plain = is_admin(user) %}
+      {{ ui.dl([('Contact', ui.masked(lead.phone, '/crm/leads/' ~ lead.id ~ '/reveal/phone', plain)), ('Email', ui.masked(lead.email, '/crm/leads/' ~ lead.id ~ '/reveal/email', plain)), ('WhatsApp', ui.masked(lead.whatsapp, '/crm/leads/' ~ lead.id ~ '/reveal/whatsapp', plain)),
                 ('Student', (lead.student_name or '—') ~ (' (age ' ~ lead.student_age ~ ')' if lead.student_age else '')),
                 ('Students', lead.students_count), ('Course interest', lead.course_interest.name if lead.course_interest else '—'),
                 ('Preferred time', lead.preferred_time or '—'), ('Campaign', lead.campaign.name if lead.campaign else '—'),
@@ -187,7 +188,7 @@
 {% call ui.modal('convert', 'Convert lead to client') %}
 <form method="post" action="/crm/leads/{{ lead.id }}/convert" class="space-y-4">
   <p class="text-sm text-slate-600 dark:text-slate-300">This creates the client record, a family portal login and {{ lead.students_count }} student record(s) from the lead data — no re-entry. The lead is marked <b>won</b>, its conversation moves to the client and any referral is marked signed-up.</p>
-  {{ ui.input('email', 'Portal email', lead.email or '', type='email', help='Leave blank to generate a placeholder login') }}
+  {{ ui.input('email', 'Portal email', (lead.email or '') if is_admin(user) else (lead.email|mask if lead.email else ''), type='email', help='Leave blank to generate a placeholder login') }}
   {{ ui.select('relationship', 'Relationship to student', ['father','mother','guardian','self'], 'father', placeholder=None) }}
   {{ ui.button('Convert now', icon='user-plus', variant='success') }}
 </form>

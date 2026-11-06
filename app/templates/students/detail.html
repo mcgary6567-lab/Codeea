@@ -41,7 +41,7 @@
         </div>
         <div class="min-w-0 flex-1">
       {{ ui.dl([('Client Name', (s.client.client_code ~ ' - ' ~ s.client.full_name) if s.client else '—'), ('Status', s.status|label('student')),
-                ('Reg. Date', s.join_date|date), ('Email', s.email or '—'), ('Gender', s.gender|titleize), ('Trial Days', s.trial_days),
+                ('Reg. Date', s.join_date|date), ('Email', ui.masked(s.email, None, is_admin(user))), ('Gender', s.gender|titleize), ('Trial Days', s.trial_days),
                 ('Date Of Birth', s.date_of_birth|date if s.date_of_birth else '—'), ('Age', (s.age|string ~ ' years') if s.age else '—'),
                 ('Legacy Code', s.legacy_code), ('Referred By', s.referred_by), ('Grade', s.grade), ('Drop Date', s.drop_date|date if s.drop_date else None),
                 ('Course', s.course.name if s.course else '—'), ('Division / level', s.level or '—'), ('Language', s.preferred_language), ('Timezone', s.timezone),

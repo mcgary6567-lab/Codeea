@@ -335,14 +335,16 @@ def test_scheduling_a_trial_emits_trial_scheduled_and_confirms_the_demo(s, admin
     trial = crm.create_trial(s, f"Child Trialbook {TAG}", lead=lead, actor=admin_user(s))
     s.commit()
     assert trial.status == "requested"
-    when = datetime(2026, 11, 2, 10, 0)
+    # a booking ahead of today, so the reminder job does not answer for it first as the date ages
+    when = datetime.combine(date.today() + timedelta(days=3), datetime.min.time()).replace(hour=10)
+    booked = when.strftime("%d %b %Y %H:%M")
     r = admin.post(f"/trials/{trial.id}/schedule", data={"scheduled_at": when.isoformat(timespec="minutes")}, follow_redirects=False)
     assert r.status_code == 303, r.status_code
     s.expire_all()
     assert trial.status == "scheduled" and trial.scheduled_at == when
     assert lead.stage == "trial_scheduled"
     ev = events_of(s, "trial.scheduled", "lead", lead.id)
-    assert len(ev) == 1 and ev[0].payload["trial_id"] == trial.id and ev[0].payload["date"] == "02 Nov 2026 10:00"
+    assert len(ev) == 1 and ev[0].payload["trial_id"] == trial.id and ev[0].payload["date"] == booked
     (confirm,) = runs_of(s, "AUTO-005", "lead", lead.id)
     assert confirm.status == "completed"
     assert [e["kind"] for e in confirm.log] == ["add_tag", "remove_tag", "send_whatsapp", "send_email"]
@@ -351,7 +353,7 @@ def test_scheduling_a_trial_emits_trial_scheduled_and_confirms_the_demo(s, admin
     assert not auto.has_tag(s, "lead", lead.id, "status:new-lead")
     msg = (s.query(Message).join(Conversation).filter(Conversation.lead_id == lead.id, Message.direction == "out")
            .order_by(Message.id.desc()).first())
-    assert "02 Nov 2026 10:00" in msg.body, "the confirmation carries the booked date"
+    assert booked in msg.body, "the confirmation carries the booked date"
 
 
 def test_rescheduling_runs_the_confirmation_again(s, admin):

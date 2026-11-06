@@ -8,11 +8,12 @@ import json
 from datetime import datetime, date, timedelta
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from app.core import rbac
+from app.core.security import unmasked
 from app.core.audit import log_action, snapshot
 from app.core.deps import require, csrf_protect
 from app.core.templating import render
@@ -442,6 +443,20 @@ def edit_lead(id: int, request: Request, db: Session = Depends(get_db), user: Us
     return render(request, "crm/lead_form.html", {"user": user, "mode": "edit", "lead": lead, **_lead_form_ctx(db)})
 
 
+@router.get("/leads/{id}/reveal/{field}", include_in_schema=False)
+def lead_reveal(id: int, field: str, request: Request, db: Session = Depends(get_db),
+                user: User = Depends(require("leads.view", "registration.view", any_of=True))):
+    """Audited View of one masked lead contact, as on the Client List (QA change request, 6 Nov 2026)."""
+    from markupsafe import escape
+    lead = _lead(db, id, user)
+    if field not in ("phone", "email", "whatsapp"):
+        raise HTTPException(404)
+    log_action(db, user, "reveal", "crm", entity=lead, description=f"{field.title()} of lead {lead.id} viewed unmasked",
+               rationale="View link", request=request, severity="warning", after={"field": field})
+    db.commit()
+    return HTMLResponse(f'<span class="font-mono text-xs">{escape(getattr(lead, field) or "-")}</span>')
+
+
 @router.post("/leads/{id}/edit", include_in_schema=False)
 async def update_lead(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leads.update"))):
     lead = _lead(db, id, user)
@@ -449,6 +464,8 @@ async def update_lead(id: int, request: Request, db: Session = Depends(get_db), 
     before = snapshot(lead)
     for f in ("full_name", "email", "phone", "whatsapp", "country", "student_name", "preferred_time", "notes"):
         v = (form.get(f) or "").strip()
+        if f in ("email", "phone", "whatsapp"):  # masked on the form and left alone: keep it
+            v = unmasked(v, before.get(f))
         setattr(lead, f, v or None)
     lead.full_name = lead.full_name or before["full_name"]
     lead.student_age = parse_int(form.get("student_age"))
@@ -578,7 +595,7 @@ async def lead_convert(id: int, request: Request, db: Session = Depends(get_db),
     # Converting from the lead record does not require the Verify Leads queue to have passed it.
     # That stays true, but it is said out loud rather than waved through silently.
     was_unverified = (lead.verification_status or "unverified") != "verified"
-    client, pwd = svc.convert_lead_to_client(db, lead, user, {"email": form.get("email"), "relationship": form.get("relationship")}, request=request)
+    client, pwd = svc.convert_lead_to_client(db, lead, user, {"email": unmasked(form.get("email"), lead.email), "relationship": form.get("relationship")}, request=request)
     db.commit()
     msg = f"Client {client.client_code} created from {lead.lead_code}."
     if was_unverified:

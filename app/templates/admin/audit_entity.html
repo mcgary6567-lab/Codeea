@@ -3,7 +3,7 @@
 {% block title %}{{ etype }} #{{ eid }} history{% endblock %}
 {% block content %}
 {% call ui.page_header(etype ~ " #" ~ eid, "Complete audit history for this record — every change, who made it and why", back="/admin/audit") %}
-  {{ ui.button("Export CSV", href="/admin/audit/export.csv?entity_type=" ~ etype ~ "&entity_id=" ~ eid, icon="download", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Export CSV", href="/admin/audit/export.csv?entity_type=" ~ etype ~ "&entity_id=" ~ eid, icon="download", variant="secondary") }}{% endif %}
   {{ ui.button("Filter the log", href="/admin/audit?entity_type=" ~ etype ~ "&entity_id=" ~ eid, icon="filter", variant="secondary") }}
 {% endcall %}
 

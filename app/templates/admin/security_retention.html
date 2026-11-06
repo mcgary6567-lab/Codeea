@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header("Data retention & erasure", "How long each class of personal data is kept, and the right-to-be-forgotten workflow", back="/admin/security") %}
   {{ ui.button("Data masking", href="/admin/security/masking", icon="eye-off", variant="secondary") }}
-  {{ ui.button("Subject access export", href="/admin/security/export", icon="file-archive", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Subject access export", href="/admin/security/export", icon="file-archive", variant="secondary") }}{% endif %}
 {% endcall %}
 
 <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

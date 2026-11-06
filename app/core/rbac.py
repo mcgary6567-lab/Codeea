@@ -270,15 +270,35 @@ def matches_any(patterns: Iterable[str], perm: str) -> bool:
     return module in modules or action in actions
 
 
+# Deleting a record is for Admins only (QA change request, 6 Nov 2026), whatever a role's module wildcard says:
+# the delete buttons disappear (templates ask has_perm) and the routes and API refuse (require). A user clearing
+# their own notifications is not deleting a record.
+PERSONAL_DELETES = {"notifications.delete"}
+
+
+def _granted(user: "User", perm: str) -> bool:
+    if user.denied_permissions and matches_any(user.denied_permissions, perm):
+        return False
+    grants = tuple(user.role.permissions if user.role else ()) + tuple(user.extra_permissions or ())
+    return matches_any(grants, perm)
+
+
+def is_admin(user: "User") -> bool:
+    """The "Admin" of the QA security rules: the superuser, the CEO, and roles that may configure the system.
+    Only they delete, import, export and download, and see sensitive data unmasked."""
+    if user is None or not user.is_active:
+        return False
+    return bool(user.is_superuser or user.role_slug in CEO_ROLES or _granted(user, "settings.configure"))
+
+
 def has_permission(user: "User", perm: str) -> bool:
     if user is None or not user.is_active:
         return False
     if user.is_superuser:
         return True
-    if user.denied_permissions and matches_any(user.denied_permissions, perm):
+    if perm.endswith(".delete") and perm not in PERSONAL_DELETES and not is_admin(user):
         return False
-    grants = tuple(user.role.permissions if user.role else ()) + tuple(user.extra_permissions or ())
-    return matches_any(grants, perm)
+    return _granted(user, perm)
 
 
 def can_read_grievances(user) -> bool:
@@ -295,6 +315,8 @@ def has_explicit_permission(user: "User", perm: str) -> bool:
     superusers still count.
     """
     if user is None or not user.is_active:
+        return False
+    if perm.endswith(".delete") and perm not in PERSONAL_DELETES and not is_admin(user):
         return False
     if user.is_superuser:
         return True

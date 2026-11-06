@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header("Data masking policy", "Which sensitive fields are hidden, who may unmask them and how access is recorded", back="/admin/security") %}
   {{ ui.button("Retention policy", href="/admin/security/retention", icon="calendar-clock", variant="secondary") }}
-  {{ ui.button("Subject access export", href="/admin/security/export", icon="file-archive", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Subject access export", href="/admin/security/export", icon="file-archive", variant="secondary") }}{% endif %}
 {% endcall %}
 
 <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -50,7 +50,7 @@
     are handled from the Security Centre: the export builds a ZIP of every record linked to the client, and anonymisation
     scrubs names, contacts and addresses while keeping the financial history intact for statutory reporting.</p>
     <div class="mt-3 flex gap-2">
-      {{ ui.button('Export', href='/admin/security/export', icon='download', variant='secondary', size='sm') }}
+      {% if not ir_no_export %}{{ ui.button('Export', href='/admin/security/export', icon='download', variant='secondary', size='sm') }}{% endif %}
       {{ ui.button('Anonymise', href='/admin/security/retention', icon='user-x', variant='secondary', size='sm') }}
     </div>
   {% endcall %}

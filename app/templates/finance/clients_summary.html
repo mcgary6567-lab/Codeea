@@ -11,7 +11,7 @@
 <div class="no-print">
 {% call ui.page_header("Clients Financial Summary", "What every family owes, what they have paid and who has run past their balance limit.") %}
   {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
-  {{ ui.button('Export CSV', href='/finance/clients-summary?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/finance/clients-summary?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}{% endif %}
   {{ ui.button('Client List', href='/clients', icon='users', variant='secondary') }}
 {% endcall %}
 

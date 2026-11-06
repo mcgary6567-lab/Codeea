@@ -4,7 +4,7 @@
 {% block content %}
 {% call ui.page_header("Questions Bank", "Questions per book and assessment, with type and marks. Assessments draw their papers from here.", back="/academics/config") %}
   {{ ui.button("Define Assessment", href="/academics/config/assessments", icon="file-check", variant="secondary") }}
-  {% if can_add %}{{ ui.button("CSV Upload", icon="upload", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'csvUpload\')"') }}{% endif %}
+  {% if can_add and is_admin(user) %}{{ ui.button("CSV Upload", icon="upload", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'csvUpload\')"') }}{% endif %}
   {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newQuestion\')"') }}{% endif %}
 {% endcall %}
 

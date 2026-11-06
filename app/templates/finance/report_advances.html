@@ -7,7 +7,7 @@
 <div class="no-print">
 {% call ui.page_header("Approved Advances", "Staff salary advances that are approved or still outstanding, with the instalment plan, what has been recovered and what is left.") %}
   {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
-  {{ ui.button('Export CSV', href='/finance/accounts/reports/approved-advances?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/finance/accounts/reports/approved-advances?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}{% endif %}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
 {{ ui.tabs(report_tabs, report) }}

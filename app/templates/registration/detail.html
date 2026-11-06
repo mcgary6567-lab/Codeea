@@ -47,8 +47,9 @@
     {% endif %}
 
     {% call ui.card('What the family submitted') %}
-      {{ ui.dl([('Parent / guardian', lead.full_name), ('Email', lead.email or '—'), ('Phone', lead.phone or '—'),
-                ('WhatsApp', lead.whatsapp or '—'), ('WhatsApp opt-in', 'Yes' if lead.whatsapp_opt_in else 'No'),
+      {% set plain = is_admin(user) %}
+      {{ ui.dl([('Parent / guardian', lead.full_name), ('Email', ui.masked(lead.email, '/crm/leads/' ~ lead.id ~ '/reveal/email', plain)), ('Phone', ui.masked(lead.phone, '/crm/leads/' ~ lead.id ~ '/reveal/phone', plain)),
+                ('WhatsApp', ui.masked(lead.whatsapp, '/crm/leads/' ~ lead.id ~ '/reveal/whatsapp', plain)), ('WhatsApp opt-in', 'Yes' if lead.whatsapp_opt_in else 'No'),
                 ('Country', lead.country or '—'), ('Timezone', lead.timezone or '—'),
                 ('Students requested', lead.students_count), ('Course interest', lead.course_interest.name if lead.course_interest else '—'),
                 ('Preferred time', lead.preferred_time or '—'), ('Referral code', lead.referral_code or '—'),

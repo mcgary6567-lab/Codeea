@@ -7,7 +7,7 @@
 <div class="no-print">
 {% call ui.page_header("Vendor Payables Aging", "What the college owes, by vendor and by account, aged from the date the liability arose.") %}
   {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
-  {{ ui.button('Export CSV', href='/finance/accounts/reports/vendor-payables?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/finance/accounts/reports/vendor-payables?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}{% endif %}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
 {{ ui.tabs(report_tabs, report) }}

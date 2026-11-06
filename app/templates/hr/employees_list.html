@@ -11,7 +11,7 @@
 {%- endmacro %}
 {% block content %}
 {% call ui.page_header("Employee Record", "Every person on the payroll. Contact details, CNIC and bank account are masked unless you hold employees.update.") %}
-  {{ ui.button("Export CSV", href="/hr/employees/export.csv", icon="download", variant="secondary") }}
+  {% if not ir_no_export %}{{ ui.button("Export CSV", href="/hr/employees/export.csv", icon="download", variant="secondary") }}{% endif %}
   {{ ui.button("My HR page", href="/hr/me", icon="user", variant="secondary") }}
   {% if can_bulk %}{{ ui.button("Apply Bulk Update", icon="list-checks", variant="secondary", attrs="@click=\"document.getElementById('bulk-update').scrollIntoView({behavior:'smooth'})\"") }}{% endif %}
   {% if has_perm(user, 'employees.add') %}{{ ui.button("Create", href="/hr/employees/new", icon="plus") }}{% endif %}

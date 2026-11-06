@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.security import mask
 from app.core import rbac
 from app.core.audit import log_action
 from app.core import scope
@@ -338,11 +339,14 @@ def references(request: Request, page: int = 1, status: str = "", client: str = 
     if dt:
         query = query.filter(func.date(ReferredContact.created_at) <= dt)
     pg = paginate(query.order_by(ReferredContact.id.desc()), page, 25)
+    plain = rbac.is_admin(user)  # referred people's contacts are masked for everyone but Admins
     rows = []
     for r in pg.items:
         rows.append({"id": r.id, "status": r.status, "created_at": r.created_at,
                      "cells": [r.id, r.client.full_name if r.client else "", r.name, _shift(r.client),
-                               r.email, r.contact_no, r.description, (r.reference_type or "").title()]})
+                               r.email if plain else mask(r.email) if r.email else "",
+                               r.contact_no if plain else mask(r.contact_no) if r.contact_no else "",
+                               r.description, (r.reference_type or "").title()]})
     counts = _counts(db, ReferredContact, ReferredContact.status)
     return _render(request, user, db, "references", pg, counts, rows, f, _base("references", f))
 

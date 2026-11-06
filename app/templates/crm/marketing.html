@@ -16,7 +16,7 @@
 {% endmacro %}
 {% block content %}
 {% call ui.page_header('Marketing Analytics', 'Module 34 — attribution, CPL/CAC and revenue by source, campaign, country and offer') %}
-  {{ ui.button('Export CSV', href='/crm/marketing/export?start=' ~ start ~ '&end=' ~ end ~ '&dim=source', icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export CSV', href='/crm/marketing/export?start=' ~ start ~ '&end=' ~ end ~ '&dim=source', icon='download', variant='secondary') }}{% endif %}
   {{ ui.button('Campaigns', href='/crm/campaigns', icon='megaphone', variant='secondary') }}
 {% endcall %}
 

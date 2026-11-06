@@ -3,7 +3,7 @@
 {% block title %}Statement · {{ c.client_code }}{% endblock %}
 {% block content %}
 {% call ui.page_header("Statement — " ~ c.full_name, c.client_code ~ ' · ' ~ c.country ~ ' · ' ~ c.currency, back='/finance/ledger') %}
-  {% if has_perm(user, 'ledger.export') %}{{ ui.button("Export CSV", href="/finance/ledger/" ~ c.id ~ "/export.csv", icon="download", variant="secondary") }}{% endif %}
+  {% if not ir_no_export %}{% if has_perm(user, 'ledger.export') %}{{ ui.button("Export CSV", href="/finance/ledger/" ~ c.id ~ "/export.csv", icon="download", variant="secondary") }}{% endif %}{% endif %}
   {% if has_perm(user, 'ledger.update') %}
   <button type="button" @click="$dispatch('open-modal','adjust')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>Credit / adjustment</button>
   {% endif %}

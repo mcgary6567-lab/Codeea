@@ -3,7 +3,7 @@
 {% block title %}Discount register{% endblock %}
 {% block content %}
 {% call ui.page_header("Weekly discount register", "Every concession grouped by ISO week — count, average percentage and value given away.") %}
-  {% if has_perm(user, 'discounts.export') %}{{ ui.button("Export CSV", href="/finance/discounts/register.csv?weeks=26", icon="download", variant="secondary") }}{% endif %}
+  {% if not ir_no_export %}{% if has_perm(user, 'discounts.export') %}{{ ui.button("Export CSV", href="/finance/discounts/register.csv?weeks=26", icon="download", variant="secondary") }}{% endif %}{% endif %}
 {% endcall %}
 
 {{ ui.tabs([('queue', 'Approval queue', '/finance/discounts'), ('register', 'Weekly register', '/finance/discounts/register'),

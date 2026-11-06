@@ -7,7 +7,7 @@
   {{ ui.button('Attendance Report', href='/hr/attendance/report', icon='bar-chart-3', variant='secondary') }}
   {{ ui.button('Progress Sheet', href='/hr/progress-sheet', icon='clipboard-list', variant='secondary') }}
   {{ ui.button('Leave Assignment', href='/hr/leave-entitlements', icon='calendar-check', variant='secondary') }}
-  {{ ui.button('Export month', href='/hr/attendance/export.csv?month=' ~ month, icon='download', variant='secondary') }}
+  {% if not ir_no_export %}{{ ui.button('Export month', href='/hr/attendance/export.csv?month=' ~ month, icon='download', variant='secondary') }}{% endif %}
   {{ ui.button('View Machine Status', href='/hr/attendance-machines', icon='fingerprint', variant='secondary') }}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
