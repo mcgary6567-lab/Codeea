@@ -1,49 +1,86 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
 {% block title %}Student Attendance Monitoring{% endblock %}
+{# The ERP's Student Attendance Monitoring (QA change request, 6 Nov 2026, Evidence 23): Critical / High / Medium
+   alerts with their reason and attendance badges, Open and Resolved with management remarks, over From / To Date.
+   Critical = more than three absences in a row (services/class_dashboards.attendance_alert). #}
 {% block content %}
-{% call ui.page_header("Student Attendance Monitoring", "Attendance per student between the chosen dates. Students under the threshold, or absent three classes in a row, are flagged and listed first.") %}
+{% call ui.page_header("Student Attendance Monitoring", "Students whose attendance needs follow-up between the chosen dates: Critical is more than three absences in a row.") %}
   {{ ui.button("Class Schedules", href="/classes", icon="calendar-days", variant="secondary") }}
 {% endcall %}
 
-{% call ui.filter_bar('/classes/attendance-monitoring') %}
-  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
-  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
-  <div class="w-56">{{ ui.select('teacher_id', 'Teacher', opts.teachers, teacher_id, placeholder='All teachers') }}</div>
-  <div class="w-48">{{ ui.select('supervisor_id', 'Supervisor', opts.supervisors, supervisor_id, placeholder='All supervisors') }}</div>
-  <div class="w-28">{{ ui.input('threshold', 'Threshold %', threshold, type='number', min=1, max=100) }}</div>
-  <div class="w-36">{{ ui.select('flagged', 'Show', [('1', 'Flagged only')], flagged, placeholder='All students') }}</div>
-  <div class="w-52">{{ ui.input('q', 'Search', q, placeholder='Student or family') }}</div>
-{% endcall %}
-
 {% set t = d.tiles %}
-<div class="mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+<div class="mb-3 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+  {{ ui.stat("Critical", t.critical, color=palette(7), href=base_url|replace('&level=' ~ level ~ '&', '&level=critical&')) }}
+  {{ ui.stat("High", t.high, color=palette(2), href=base_url|replace('&level=' ~ level ~ '&', '&level=high&')) }}
+  {{ ui.stat("Medium", t.medium, color=palette(4), href=base_url|replace('&level=' ~ level ~ '&', '&level=medium&')) }}
+  {{ ui.stat("Total", t.critical + t.high + t.medium, color=palette(3), href=flagged_url) }}
+</div>
+<div class="mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
   {{ ui.stat("Students", t.students, color=palette(0)) }}
-  {{ ui.stat("Flagged", t.flagged, color=palette(2), href=flagged_url) }}
   {{ ui.stat("Attendance %", t.rate, color=palette(1)) }}
-  {{ ui.stat("Present", t.present, color=palette(3)) }}
-  {{ ui.stat("Absent", t.absent, color=palette(4)) }}
+  {{ ui.stat("Present", t.present, color=palette(6)) }}
+  {{ ui.stat("Absent", t.absent, color=palette(8)) }}
   {{ ui.stat("On Leave", t.leave, color=palette(5)) }}
 </div>
 
-{{ ui.table_start(['Student', 'Family', 'Teacher', 'Classes', 'Present', 'Absent', 'Leave', 'Missed by teacher', 'Cancelled / moved', 'Attendance %', 'Absent in a row', 'Last attended', 'Flag']) }}
+{% call ui.filter_bar('/classes/attendance-monitoring', 'Filters') %}
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-48">{{ ui.select('supervisor_id', 'Manager', opts.supervisors, supervisor_id, placeholder='All managers') }}</div>
+  <div class="w-56">{{ ui.select('teacher_id', 'Teacher', opts.teachers, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', [('morning', 'Morning'), ('night', 'Night')], shift, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('level', 'Alert Level', alert_levels, level, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('flagged', 'Show', [('1', 'Alerts only')], flagged, placeholder='All students') }}</div>
+  <div class="w-28">{{ ui.input('threshold', 'Threshold %', threshold, type='number', min=1, max=100) }}</div>
+  <div class="w-52">{{ ui.input('q', 'Search', q, placeholder='Student or family') }}</div>
+{% endcall %}
+
+{{ ui.tabs([('attendance', 'Student Attendance', base_url|replace('&tab=' ~ tab, '&tab=attendance')),
+            ('resolved', 'Resolved', base_url|replace('&tab=' ~ tab, '&tab=resolved'))], tab) }}
+
+{{ ui.table_start(['ID', 'Family', 'Student Name', 'Teacher', 'Alert Level', 'Alert Reason', 'Status', 'Attendance Badges',
+                   'Classes', 'Present', 'Absent', 'Leave', 'Attendance %', 'Last attended', 'Management Remarks', '']) }}
 {% for r in page.items %}
-<tr>
-  <td class="px-3 py-1.5"><a class="text-brand-700 hover:underline" href="/students/{{ r.student.id }}">{{ r.student.student_code }} - {{ r.student.full_name }}</a></td>
-  <td class="px-3 py-1.5">{{ r.client.full_name if r.client else '—' }}</td>
-  <td class="px-3 py-1.5">{{ r.teacher.full_name if r.teacher else '—' }}</td>
+<tr class="align-top">
+  <td class="px-3 py-1.5 font-mono text-xs">{{ r.student.student_code }}</td>
+  <td class="px-3 py-1.5 text-xs">{% if r.client %}{{ r.client.client_code }} - {{ r.client.full_name }}{% else %}—{% endif %}</td>
+  <td class="px-3 py-1.5"><a class="text-brand-700 hover:underline" href="/classes/student-report/{{ r.student.id }}?date_from={{ date_from }}&date_to={{ date_to }}">{{ r.student.full_name }}</a></td>
+  <td class="px-3 py-1.5 text-xs">{{ r.teacher.full_name if r.teacher else '—' }}</td>
+  <td class="px-3 py-1.5">{% if r.level == 'critical' %}<span class="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Critical</span>
+    {% elif r.level == 'high' %}<span class="rounded bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase text-orange-700">High</span>
+    {% elif r.level == 'medium' %}<span class="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">Medium</span>
+    {% else %}<span class="text-xs text-slate-400">—</span>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.reason or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs font-semibold">{{ r.alert_status|upper if r.alert_status else '—' }}</td>
+  <td class="px-3 py-1.5"><div class="grid w-max grid-cols-10 gap-0.5">{% for b in r.badges %}<span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold
+    {{ 'bg-emerald-100 text-emerald-700' if b == 'P' else ('bg-rose-100 text-rose-700' if b == 'A' else 'bg-amber-100 text-amber-700') }}">{{ b }}</span>{% endfor %}</div></td>
   <td class="px-3 py-1.5 text-right">{{ r.scheduled }}</td>
   <td class="px-3 py-1.5 text-right">{{ r.present }}</td>
   <td class="px-3 py-1.5 text-right {{ 'font-semibold text-rose-600' if r.absent }}">{{ r.absent }}</td>
   <td class="px-3 py-1.5 text-right">{{ r.leave }}</td>
-  <td class="px-3 py-1.5 text-right">{{ r.missed }}</td>
-  <td class="px-3 py-1.5 text-right">{{ r.cancelled }}</td>
   <td class="px-3 py-1.5 text-right font-semibold {{ 'text-rose-600' if r.flagged }}">{{ r.rate }}</td>
-  <td class="px-3 py-1.5 text-right">{{ r.streak }}</td>
-  <td class="px-3 py-1.5">{{ r.last_attended.strftime('%d %b %Y') if r.last_attended else '—' }}</td>
-  <td class="px-3 py-1.5">{% if r.flagged %}{{ ui.badge('flagged', 'Needs follow-up') }}{% else %}{{ ui.badge('ok', 'OK') }}{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.last_attended.strftime('%d %b %Y') if r.last_attended else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs max-w-[16rem]">{{ r.note.remarks if r.note and r.note.remarks else '—' }}</td>
+  <td class="px-3 py-1.5 text-right whitespace-nowrap">
+    {% if can_follow_up and (r.level or r.note) %}
+    <details class="relative inline-block text-left">
+      <summary class="cursor-pointer list-none rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">Follow up</summary>
+      <form method="post" action="/classes/attendance-monitoring/{{ r.student.id }}/alert" class="absolute right-0 z-20 mt-1 w-72 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-left shadow-lg">
+        <input type="hidden" name="back" value="{{ base_url }}">
+        {{ ui.textarea('remarks', 'Management Remarks', r.note.remarks if r.note else '', rows=3) }}
+        <div class="flex flex-wrap gap-2">
+          <button name="action" value="save" class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">Save remarks</button>
+          {% if r.resolved %}<button name="action" value="reopen" class="rounded bg-amber-500 px-2 py-1 text-xs font-semibold text-white">Reopen</button>
+          {% else %}<button name="action" value="resolve" class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white">Resolve</button>{% endif %}
+        </div>
+      </form>
+    </details>
+    {% endif %}
+  </td>
 </tr>
-{% else %}{{ ui.empty('No classes between these dates.', 13) }}{% endfor %}
+{% else %}{{ ui.empty('No resolved alerts between these dates.' if tab == 'resolved' else 'No classes between these dates.', 16) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% endblock %}

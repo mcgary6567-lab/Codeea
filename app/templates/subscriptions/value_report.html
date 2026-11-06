@@ -9,33 +9,63 @@
 {% if last_regenerated %}<div class="mb-3 text-xs text-slate-500">Last regenerated {{ last_regenerated.created_at|datetime }} by {{ last_regenerated.actor_name }}</div>{% endif %}
 
 <div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-  {{ ui.stat("Running Subscriptions", rows|length, color=palette(0)) }}
+  {{ ui.stat("Running Subscriptions" if not status else "Subscriptions", rows|length, color=palette(0)) }}
   {{ ui.stat("Monthly Value", total_value|money, color=palette(3), hint=base) }}
   {{ ui.stat("Teacher Cost", total_cost|money, color=palette(6), hint=base) }}
   {{ ui.stat("Margin", total_margin|money, color=palette(2) if total_margin >= 0 else palette(7), hint=base) }}
 </div>
 
-{{ ui.tabs([('primary','Primary','/subscriptions/value-report?report=primary'),('employee','Employee Wise Summary','/subscriptions/value-report?report=employee'),('shift','Shift Wise Profit Report','/subscriptions/value-report?report=shift')], report) }}
+{% call ui.filter_bar('/subscriptions/value-report') %}
+  <input type="hidden" name="report" value="{{ report }}">
+  <div class="w-72">{{ ui.select('slot_id', 'Session', slot_options, slot_id, placeholder='All sessions') }}</div>
+  <div class="w-44">{{ ui.select('course_id', 'Course', course_options, course_id, placeholder='All courses') }}</div>
+  <div class="w-52">{{ ui.select('client_id', 'Client', client_options, client_id, placeholder='All clients') }}</div>
+  <div class="w-52">{{ ui.select('student_id', 'Student', student_options, student_id, placeholder='All students') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-36">{{ ui.select('language', 'Language', language_options, language, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', status_options, status, placeholder='Running') }}</div>
+{% endcall %}
+
+{{ ui.tabs([('primary','Primary','/subscriptions/value-report?report=primary&' ~ filters),('employee','Employee Wise Summary','/subscriptions/value-report?report=employee&' ~ filters),('shift','Shift Wise Profit Report','/subscriptions/value-report?report=shift&' ~ filters)], report) }}
 
 {% if report == 'primary' %}
-{{ ui.table_start(['Subscription ID','Client','Student','Teacher','Course','Status','Currency','Price','Rate','Value (' ~ base ~ ')','Teacher Cost (' ~ base ~ ')','Margin'], compact=True) }}
+{# the old ERP's columns, in its order (QA change request, 6 Nov 2026, Evidence 16-17) #}
+{{ ui.table_start(['ID','Shift','Manager','Teacher','Client','Student','Reg. Date','Course','Currency','Currency Rate','Total Amount',
+                   'Discount','Disc in %','Net Amount','Net Amount Local','Subscription Cost','Subscription Profit','Status','Package',
+                   'Session','Remarks','Status Remarks','Country','Language','Next Due Date'], compact=True) }}
 {% for s in rows %}
+{% set total_amt = (s.list_price|float) if s.list_price and s.list_price|float > 0 else (s.price|float) %}
+{% set disc = [total_amt - s.price|float, 0]|max %}
+{% set manager = s.supervisor or (s.teacher.supervisor if s.teacher else None) %}
 <tr>
   <td class="px-3 py-1.5 font-mono text-xs"><a href="/subscriptions/{{ s.id }}" class="text-brand-700 hover:underline">{{ s.subscription_code }}</a></td>
-  <td class="px-3 py-1.5 text-xs">{{ s.client.full_name if s.client else '—' }}</td>
-  <td class="px-3 py-1.5 text-xs">{{ s.student.full_name if s.student else '—' }}</td>
-  <td class="px-3 py-1.5 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ (s.client.shift if s.client else '')|titleize or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ manager.full_name if manager else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{% if s.teacher %}{{ s.teacher.teacher_code }}-{{ s.teacher.full_name }}{% else %}—{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{% if s.client %}{{ s.client.client_code }}-{{ s.client.full_name }}{% else %}—{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{% if s.student %}{{ s.student.student_code }}-{{ s.student.full_name }}{% else %}—{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.start_date|date }}</td>
   <td class="px-3 py-1.5 text-xs">{{ s.course.name if s.course else '—' }}</td>
-  <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('subscription')) }}</td>
   <td class="px-3 py-1.5 text-xs">{{ s.currency }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ rates.get(s.currency, '—') }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ total_amt|money }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ disc|money }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ ((100 * disc / total_amt)|round(2)) if total_amt else 0 }}</td>
   <td class="px-3 py-1.5 text-right text-xs">{{ s.price|money }}</td>
-  <td class="px-3 py-1.5 text-right text-xs">{{ ((s.price_in_base or 0)|float / (s.price|float)) | round(4) if s.price and s.price|float > 0 else '—' }}</td>
   <td class="px-3 py-1.5 text-right text-xs">{{ s.price_in_base|money }}</td>
   <td class="px-3 py-1.5 text-right text-xs">{{ s.teacher_cost_base|money }}</td>
   <td class="px-3 py-1.5 text-right text-xs {{ 'text-rose-600' if (s.price_in_base|float - s.teacher_cost_base|float) < 0 else 'text-emerald-700' }}">{{ (s.price_in_base|float - s.teacher_cost_base|float)|money }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('subscription')) }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.package.name if s.package else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.slot.label if s.slot else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ s.remarks or '' }}">{{ s.remarks or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ s.cancel_reason or '' }}">{{ s.cancel_reason or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.client.country if s.client else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.language or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.next_billing_date|date if s.next_billing_date else '—' }}</td>
 </tr>
-{% else %}{{ ui.empty('No running subscriptions.', 12) }}{% endfor %}
-<tr class="bg-[#f1f6fc] font-semibold"><td class="px-3 py-1.5" colspan="9">Total</td><td class="px-3 py-1.5 text-right text-xs">{{ total_value|money }}</td><td class="px-3 py-1.5 text-right text-xs">{{ total_cost|money }}</td><td class="px-3 py-1.5 text-right text-xs">{{ total_margin|money }}</td></tr>
+{% else %}{{ ui.empty('No subscriptions match these filters.', 25) }}{% endfor %}
+<tr class="bg-[#f1f6fc] font-semibold"><td class="px-3 py-1.5" colspan="14">Total ({{ base }})</td><td class="px-3 py-1.5 text-right text-xs">{{ total_value|money }}</td><td class="px-3 py-1.5 text-right text-xs">{{ total_cost|money }}</td><td class="px-3 py-1.5 text-right text-xs">{{ total_margin|money }}</td><td colspan="8"></td></tr>
 {{ ui.table_end() }}
 
 {% elif report == 'employee' %}

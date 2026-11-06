@@ -25,6 +25,8 @@
   <div class="w-52">{{ ui.select('student_id', 'Student', student_options, student_id, placeholder='All students') }}</div>
   <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
   <div class="w-36">{{ ui.select('status', 'Status', status_options, status, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
 {% endcall %}
 
 {{ ui.tabs([('primary', 'Primary', base_url|replace('report=' ~ report, 'report=primary')),

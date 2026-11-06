@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Student Progress Report · {{ s.full_name }}{% endblock %}
+{# The ERP's Student Progress Report (student-detail-print), opened from a student's name on Class Schedules
+   (QA change request, 6 Nov 2026, Evidence 20 and 24): From / To Date, attendance, subscriptions and class activity. #}
+{% block content %}
+{% call ui.page_header("Student Progress Report", s.student_code ~ " · " ~ date_from|date ~ " - " ~ date_to|date, back="/classes?date_from=" ~ date_from ~ "&date_to=" ~ date_to) %}
+  <button type="button" onclick="window.print()" class="no-print inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50"><i data-lucide="printer" class="h-4 w-4"></i>Print</button>
+{% endcall %}
+
+<form method="get" class="no-print mb-4 flex flex-wrap items-end gap-2 rounded-md border border-slate-200 bg-white p-2.5 oqc-filters">
+  <div class="w-40">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  {{ ui.button('Search', icon='search', size='sm') }}
+</form>
+
+<div class="mb-4 rounded-md border border-slate-200 bg-white p-4">
+  <div class="flex flex-wrap items-start gap-4">
+    <div class="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-brand-700"><i data-lucide="graduation-cap" class="h-8 w-8"></i></div>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2"><h2 class="text-xl font-semibold text-slate-900">{{ s.full_name }}</h2>{{ ui.badge(s.status, s.status|label('student')) }}</div>
+      <dl class="mt-2 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+        <div><dt class="inline font-semibold">Student ID :</dt> <dd class="inline">{{ s.student_code }}</dd></div>
+        <div><dt class="inline font-semibold">Client ID :</dt> <dd class="inline">{{ s.client.client_code if s.client else '—' }}</dd></div>
+        <div><dt class="inline font-semibold">Reg Date :</dt> <dd class="inline">{{ s.join_date|date }}</dd></div>
+        <div><dt class="inline font-semibold">Teacher :</dt> <dd class="inline">{% if s.teacher %}{{ s.teacher.teacher_code }}-{{ s.teacher.full_name }}{% else %}—{% endif %}</dd></div>
+        <div><dt class="inline font-semibold">Course :</dt> <dd class="inline">{{ s.course.name if s.course else '—' }}</dd></div>
+        <div><dt class="inline font-semibold">Family :</dt> <dd class="inline">{{ s.client.full_name if s.client else '—' }}</dd></div>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<h3 class="rounded-t-md bg-slate-800 px-3 py-2 text-sm font-semibold text-white">Attendance Summary</h3>
+<div class="mb-4 grid grid-cols-2 gap-2 rounded-b-md border border-slate-200 bg-white p-3 sm:grid-cols-5">
+  {% for label, key, cls in [('Present', 'present', 'bg-emerald-600'), ('Absent', 'absent', 'bg-rose-600'), ('Leave', 'leave', 'bg-orange-500'),
+                             ('Missed', 'missed', 'bg-blue-600'), ('Total', 'total', 'bg-slate-800')] %}
+  <div class="rounded-md {{ cls }} px-3 py-2 text-center text-white"><div class="text-sm font-semibold">{{ label }}</div><div class="text-lg font-bold">{{ summary[key] }}</div></div>
+  {% endfor %}
+</div>
+
+<h3 class="rounded-t-md bg-slate-800 px-3 py-2 text-sm font-semibold text-white">Last 30 Days Attendance</h3>
+<div class="mb-4 flex flex-wrap gap-1 rounded-b-md border border-slate-200 bg-white p-3">
+  {% for c in last30 %}
+  {% set b = {'done': 'P', 'absent': 'A', 'leave': 'L', 'missed': 'M'}[c.status] %}
+  <span title="{{ c.date|date }} · {{ c.status|label('class') }}" class="inline-flex h-7 w-7 items-center justify-center rounded text-xs font-bold
+    {{ {'P': 'bg-emerald-100 text-emerald-700', 'A': 'bg-rose-100 text-rose-700', 'L': 'bg-amber-100 text-amber-700', 'M': 'bg-blue-100 text-blue-700'}[b] }}">{{ b }}</span>
+  {% else %}<span class="text-sm text-slate-500">No marked classes in the last 30 days of this range.</span>{% endfor %}
+</div>
+
+<h3 class="rounded-t-md bg-slate-800 px-3 py-2 text-sm font-semibold text-white">Subscriptions</h3>
+<div class="mb-4 overflow-x-auto rounded-b-md border border-slate-200 bg-white">
+<table class="min-w-full text-sm">
+  <thead class="bg-slate-50 text-xs text-slate-600"><tr>{% for h in ['Subscription', 'Course', 'Teacher', 'Session', 'Days', 'Status', 'Reg. Date', 'Next Due Date', 'Amount'] %}<th class="px-3 py-2 text-left">{{ h }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for sub in subscriptions %}
+  <tr class="border-t border-slate-100">
+    <td class="px-3 py-1.5 font-mono text-xs">{% if has_perm(user, 'subscriptions.view') %}<a class="text-brand-700 hover:underline" href="/subscriptions/{{ sub.id }}">{{ sub.subscription_code }}</a>{% else %}{{ sub.subscription_code }}{% endif %}</td>
+    <td class="px-3 py-1.5 text-xs">{{ sub.course.name if sub.course else '—' }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ sub.teacher.full_name if sub.teacher else '—' }}</td>
+    <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ sub.slot.label if sub.slot else '—' }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ sub.sessions_per_week }} / week</td>
+    <td class="px-3 py-1.5">{{ ui.badge(sub.status, sub.status|label('subscription')) }}</td>
+    <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ sub.start_date|date }}</td>
+    <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ sub.next_billing_date|date if sub.next_billing_date else '—' }}</td>
+    <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ sub.price|money(sub.currency) }}</td>
+  </tr>
+  {% else %}<tr><td colspan="9" class="px-3 py-4 text-center text-slate-500">No subscriptions.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h3 class="rounded-t-md bg-slate-800 px-3 py-2 text-sm font-semibold text-white">Evaluations</h3>
+<div class="mb-4 overflow-x-auto rounded-b-md border border-slate-200 bg-white">
+<table class="min-w-full text-sm">
+  <thead class="bg-slate-50 text-xs text-slate-600"><tr>{% for h in ['Date', 'Title', 'Marks', '%', 'Status', 'Remarks'] %}<th class="px-3 py-2 text-left">{{ h }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for ev in evaluations %}
+  <tr class="border-t border-slate-100">
+    <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ ev.date|date }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ ev.stage or ev.evaluation_type|titleize }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ ev.score if ev.score is not none else '—' }} / {{ ev.max_score }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ ((100 * ev.score / ev.max_score)|round(1)) if ev.score is not none and ev.max_score else '—' }}</td>
+    <td class="px-3 py-1.5">{{ ui.badge(ev.result, ev.result|titleize) }}</td>
+    <td class="px-3 py-1.5 text-xs text-slate-600">{{ ev.teacher_comment or '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="px-3 py-4 text-center text-slate-500">No evaluations in this range.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h3 class="rounded-t-md bg-slate-800 px-3 py-2 text-sm font-semibold text-white">Class History (PST)</h3>
+<div class="overflow-x-auto rounded-b-md border border-slate-200 bg-white">
+<table class="min-w-full text-sm">
+  <thead class="bg-slate-50 text-xs text-slate-600"><tr>{% for h in ['Class Date', 'Session', 'Teacher', 'Teacher Available Time', 'Start Time', 'End Time', 'Duration (Minutes)', 'Status'] %}<th class="px-3 py-2 text-left">{{ h }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for c in sessions %}
+  <tr class="border-t border-slate-100">
+    <td class="px-3 py-1.5 text-xs whitespace-nowrap"><a class="hover:underline" href="/classes/{{ c.id }}">{{ c.date|date }}</a></td>
+    <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.slot.label if c.slot else (c.start_time|time) }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ c.teacher.full_name if c.teacher else '—' }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ c.teacher_available_at|orgtime }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ c.teacher_joined_at|orgtime }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ c.teacher_left_at|orgtime }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ c.actual_duration_minutes if c.actual_duration_minutes is not none else '—' }}</td>
+    <td class="px-3 py-1.5">{{ ui.badge(c.status, c.status|label('class')) }}</td>
+  </tr>
+  {% for a in activities.get(c.id, []) %}
+  <tr class="bg-slate-50/60"><td></td><td colspan="7" class="px-3 py-1 text-xs"><b>Class Activity :</b> {% if a.page_no %}page {{ a.page_no }} {% endif %}{{ a.remarks or '' }}</td></tr>
+  {% endfor %}
+  {% else %}<tr><td colspan="8" class="px-3 py-4 text-center text-slate-500">No classes in this range.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

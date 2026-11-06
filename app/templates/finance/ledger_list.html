@@ -14,8 +14,12 @@
   {{ ui.stat("Overdue invoices", totals.overdue, icon="alarm-clock", color="orange", href="/finance/invoices?status=overdue") }}
 </div>
 
+{# the ERP's Client Ledger: choose the Account and dates, Search opens its Ledger Report (Print there) #}
 {% call ui.filter_bar('/finance/ledger') %}
-  <div class="w-72">{{ ui.input('q', 'Search families', q, placeholder='Name, code or email') }}</div>
+  <div class="w-80">{{ ui.select('client_id', 'Account', clients, None, placeholder='Choose a family to open its ledger') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-64">{{ ui.input('q', 'Search families', q, placeholder='Name, code or email') }}</div>
 {% endcall %}
 
 {{ ui.table_start(['Code', 'Family', 'Country', 'Currency', 'Balance', 'Credit available', 'Last payment', 'Overdue', '']) }}

@@ -60,6 +60,29 @@
       form.querySelectorAll('.is-busy').forEach(function (b) { b.disabled = false; b.classList.remove('is-busy'); });
     });
   });
+  // Search Options bars: every filled filter gets a small "x" that empties it without reloading the page, as the
+  // ERP's lookups do (QA change request, 6 Nov 2026). Search then runs with whatever is left.
+  function clearable(form) {
+    form.querySelectorAll('select, input').forEach(function (el) {
+      if (el.type === 'hidden' || el.type === 'checkbox' || el.type === 'radio' || el.multiple || el.dataset.clearable) return;
+      var wrap = el.parentNode;
+      el.dataset.clearable = '1';
+      wrap.classList.add('oqc-clear-wrap');
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'oqc-clear'; b.textContent = '×';
+      var lbl = el.id && form.querySelector('label[for="' + el.id + '"]');
+      b.setAttribute('aria-label', 'Clear ' + (lbl ? lbl.textContent.replace('*', '').trim() : (el.name || 'field')));
+      el.insertAdjacentElement('afterend', b);
+      function sync() { b.classList.toggle('is-on', !!el.value); }
+      b.addEventListener('click', function () {
+        if (el.tagName === 'SELECT') { var blank = el.querySelector('option[value=""]'); el.value = blank ? '' : el.options[0] && el.options[0].value; }
+        else { el.value = ''; }
+        el.dispatchEvent(new Event('change', { bubbles: true })); sync(); el.focus();
+      });
+      el.addEventListener('change', sync); el.addEventListener('input', sync); sync();
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function () { document.querySelectorAll('form.oqc-filters').forEach(clearable); });
   // Exports and downloads are for Admins (the server refuses them anyway: main.DataDownloadGuardMiddleware); for
   // everyone else the Export CSV / XLSX links on pages are taken away so nobody clicks into an "Access denied".
   document.addEventListener('DOMContentLoaded', function () {

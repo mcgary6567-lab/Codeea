@@ -38,22 +38,29 @@
 
 <form method="post" action="/classes/bulk-status" x-data="{ n: 0 }">
 <input type="hidden" name="back" value="{{ base_url }}">
-{{ ui.table_start(['', 'Date', 'Session', 'Student', 'Client', 'Teacher', 'Course', 'Method', 'Status', 'Done By', 'Duration', 'Activity', ''], compact=True) }}
+{# the ERP's Class Schedule columns (QA change request, 6 Nov 2026, Evidence 20), then the New ERP's own #}
+{{ ui.table_start(['', 'Session', 'Client', 'Student', 'Shift', 'Course', 'Teacher', 'Work Date', 'Available At', 'Class Started Time',
+                   'Class Ended Time', 'Late Minutes', 'Duration', 'Method', 'Status', 'Done By', 'Activity', ''], compact=True) }}
 {% for c in page.items %}
 <tr>
   <td class="px-2 py-1.5">{% if has_perm(user, 'classes.update') %}<input type="checkbox" name="session_ids" value="{{ c.id }}" aria-label="Select row {{ c.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
-  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.date|date }}</td>
   <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.slot.label if c.slot else (c.start_time|time ~ ' - ' ~ (c.end_time|time)) }}</td>
-  <td class="px-3 py-1.5"><a href="/classes/{{ c.id }}" class="font-medium hover:text-brand-700">{{ c.student.full_name if c.student else '-' }}</a>
+  <td class="px-3 py-1.5 text-xs">{% if c.student and c.student.client and not has_perm(user, 'clients.view') %}{{ c.student.client.client_code }}-{{ c.student.client.full_name }}{% elif c.student and c.student.client %}<a href="/clients/{{ c.student.client_id }}" class="hover:text-brand-700">{{ c.student.client.client_code }}-{{ c.student.client.full_name }}</a>{% else %}-{% endif %}</td>
+  <td class="px-3 py-1.5">{% if c.student %}<a href="/classes/student-report/{{ c.student_id }}?date_from={{ date_from }}&date_to={{ date_to }}" class="font-medium text-brand-700 hover:underline" title="Student Progress Report">{{ c.student.student_code }}-{{ c.student.full_name }}</a>{% else %}-{% endif %}
     {% if c.is_trial %}<span class="ml-1 rounded bg-sky-50 px-1 text-[10px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-600/20">Trial</span>{% endif %}</td>
-  <td class="px-3 py-1.5 text-xs">{% if c.student and c.student.client and not has_perm(user, 'clients.view') %}{{ c.student.client.full_name }}{% elif c.student and c.student.client %}<a href="/clients/{{ c.student.client_id }}" class="hover:text-brand-700">{{ c.student.client.full_name }}</a>{% else %}-{% endif %}</td>
-  <td class="px-3 py-1.5 text-xs">{{ c.teacher.full_name if c.teacher else '-' }}
-    {% if c.arrangement_id or c.substitute_for_teacher_id %}<span class="ml-1 rounded bg-amber-50 px-1 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">Arr.</span>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ (c.student.client.shift if c.student and c.student.client else '')|titleize or '-' }}</td>
   <td class="px-3 py-1.5 text-xs">{{ c.course.name if c.course else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs">{% if c.teacher %}{{ c.teacher.teacher_code }} - {{ c.teacher.full_name }}{% else %}-{% endif %}
+    {% if c.arrangement_id or c.substitute_for_teacher_id %}<span class="ml-1 rounded bg-amber-50 px-1 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">Arr.</span>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.date|date }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.teacher_available_at|orgtime }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.teacher_joined_at|orgtime }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.teacher_left_at|orgtime }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ c.teacher_late_minutes or 0 }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ (c.actual_duration_minutes ~ '/' ~ c.duration_minutes) if c.actual_duration_minutes else (c.duration_minutes ~ ' min') }}</td>
   <td class="px-3 py-1.5 text-xs">{% if c.subscription and c.subscription.course_method == 'group' %}Group Class{% else %}One on One{% endif %}</td>
   <td class="px-3 py-1.5">{{ ui.badge(c.status, c.status|label('class')) }}</td>
   <td class="px-3 py-1.5 text-xs">{{ teacher_names.get(c.done_by_teacher_id) or (c.teacher.full_name if c.status == 'done' and c.teacher else '-') }}</td>
-  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ (c.actual_duration_minutes ~ '/' ~ c.duration_minutes) if c.actual_duration_minutes else (c.duration_minutes ~ ' min') }}</td>
   <td class="px-3 py-1.5 text-xs">{% if c.activity_updated_at %}<span class="text-emerald-700">{{ c.activity_updated_at|date }}</span>{% elif c.status == 'done' %}<span class="font-semibold text-rose-600">No Activity</span>{% else %}-{% endif %}</td>
   <td class="px-3 py-1.5 text-right whitespace-nowrap">
     {{ ui.button('Open', href='/classes/' ~ c.id, size='sm', variant='ghost') }}
@@ -62,7 +69,7 @@
     {% if c.status in ('pending','available','started') %}{{ ui.button('Room', href='/classroom/' ~ c.id, size='sm', variant='secondary', icon='video') }}{% endif %}
   </td>
 </tr>
-{% else %}{{ ui.empty('No classes match these filters.', 13, 'video-off') }}{% endfor %}
+{% else %}{{ ui.empty('No classes match these filters.', 18, 'video-off') }}{% endfor %}
 {{ ui.table_end() }}
 
 {% if has_perm(user, 'classes.update') %}

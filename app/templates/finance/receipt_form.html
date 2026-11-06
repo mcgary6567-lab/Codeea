@@ -18,6 +18,10 @@
     {{ ui.input('receipt_date', 'Receipt Date', today_d, type='date', required=True) }}
     <div class="sm:col-span-2">{{ ui.select('client_id', 'Client', clients, client_id, required=True, attrs='x-model="client" @change="pick()"') }}</div>
     {{ ui.select('currency', 'Currency', currencies, required=True, attrs='x-model="currency" @change="setRate()"') }}
+    <div>
+      <label for="f_currency_rate" class="mb-1 block text-xs font-semibold text-slate-600">Currency Rate</label>
+      <input id="f_currency_rate" name="currency_rate" type="number" step="0.0001" min="0" x-model="rate" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+    </div>
     {{ ui.input('amount', 'Total Amount', type='number', step='0.01', required=True, attrs='x-model="amount"') }}
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">L.c Amount ({{ base }})</label>

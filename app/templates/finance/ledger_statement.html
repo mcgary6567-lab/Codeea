@@ -1,46 +1,66 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Statement · {{ c.client_code }}{% endblock %}
+{% block title %}Client Ledger · {{ c.client_code }}{% endblock %}
 {% block content %}
-{% call ui.page_header("Statement — " ~ c.full_name, c.client_code ~ ' · ' ~ c.country ~ ' · ' ~ c.currency, back='/finance/ledger') %}
+{% call ui.page_header("Client Ledger — " ~ c.full_name, c.client_code ~ ' · ' ~ c.country ~ ' · ' ~ c.currency, back='/finance/ledger') %}
+  <button type="button" onclick="window.print()" class="no-print inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm hover:bg-slate-50"><i data-lucide="printer" class="h-4 w-4"></i>Print</button>
   {% if not ir_no_export %}{% if has_perm(user, 'ledger.export') %}{{ ui.button("Export CSV", href="/finance/ledger/" ~ c.id ~ "/export.csv", icon="download", variant="secondary") }}{% endif %}{% endif %}
   {% if has_perm(user, 'ledger.update') %}
   <button type="button" @click="$dispatch('open-modal','adjust')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>Credit / adjustment</button>
   {% endif %}
 {% endcall %}
 
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+<div class="no-print grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
   {{ ui.stat("Balance due", balance|money(c.currency), icon="scale", color=('rose' if balance > 0 else 'emerald')) }}
   {{ ui.stat("Credit available", credit|money(c.currency), icon="gift", color="violet") }}
   {{ ui.stat("Entries", all_count, icon="list", color="slate") }}
   {{ ui.stat("Subscriptions", subscriptions|length, icon="repeat", color="brand", href="/finance/subscriptions?q=" ~ c.client_code) }}
 </div>
 
-{% call ui.filter_bar('/finance/ledger/' ~ c.id) %}
+<div class="no-print">
+{% call ui.filter_bar('/finance/ledger') %}
+  <div class="w-80">{{ ui.select('client_id', 'Account', clients, c.id, placeholder=None) }}</div>
+  <div class="w-40">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
   <div class="w-44">{{ ui.select('entry_type', 'Entry type', types, entry_type, placeholder='All types') }}</div>
-  <div class="w-40">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
-  <div class="w-40">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
 {% endcall %}
+</div>
 
 <div class="grid gap-5 lg:grid-cols-4">
   <div class="lg:col-span-3">
-    {{ ui.table_start(['Date', 'Type', 'Description', 'Debit', 'Credit', 'Running balance']) }}
-    {% for e in entries %}
-    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-      <td class="px-4 py-2 text-xs whitespace-nowrap">{{ e.entry_date|date }}</td>
-      <td class="px-4 py-2">{{ ui.badge('overdue' if e.entry_type == 'refund' else ('paid' if e.entry_type == 'payment' else ('approved' if e.entry_type == 'credit' else 'draft')), e.entry_type|titleize) }}</td>
-      <td class="px-4 py-2 text-sm">{{ e.description }}
-        {% if e.reference_type == 'invoice' %}<a href="/finance/invoices/{{ e.reference_id }}" class="ml-1 text-xs text-brand-600 hover:underline">view</a>
-        {% elif e.reference_type == 'payment' %}<a href="/finance/payments/{{ e.reference_id }}" class="ml-1 text-xs text-brand-600 hover:underline">view</a>{% endif %}</td>
-      <td class="px-4 py-2 text-right text-rose-600">{{ e.debit|money if e.debit|float else '' }}</td>
-      <td class="px-4 py-2 text-right text-emerald-600">{{ e.credit|money if e.credit|float else '' }}</td>
-      <td class="px-4 py-2 text-right font-semibold">{{ e.balance_after|money(e.currency) }}</td>
-    </tr>
-    {% else %}{{ ui.empty('No ledger entries for this filter.', 6) }}{% endfor %}
-    {{ ui.table_end() }}
+    {# the ERP's printable Ledger Report: Srl, Date, Transaction Type, Description, Amount, Balance with the
+       Previous Balance, Total and In Words (services/billing.ledger_report) #}
+    <div class="print-area rounded-md border border-slate-300 bg-white p-4">
+      <div class="mb-3 text-center">
+        <div class="text-2xl font-bold text-brand-700">ONLINE QURAN COLLEGE</div>
+        <div class="mt-1 text-base font-semibold text-slate-900">Ledger Report</div>
+        <div class="text-xs text-slate-600">{{ c.client_code }} - {{ c.full_name }} · From: {{ report.date_from|date if report.date_from else '' }} To: {{ report.date_to|date if report.date_to else '' }}</div>
+      </div>
+      <table class="w-full border-collapse text-[12px]">
+        <thead><tr class="[&>th]:border [&>th]:border-slate-400 [&>th]:px-2 [&>th]:py-1">
+          <th class="w-12">Srl.</th><th>Date</th><th>Transaction Type</th><th>Description</th><th class="text-right">Amount</th><th class="text-right">Balance</th></tr></thead>
+        <tbody class="[&>tr>td]:border [&>tr>td]:border-slate-300 [&>tr>td]:px-2 [&>tr>td]:py-1">
+          <tr class="font-semibold"><td colspan="5">Previous Balance</td><td class="text-right">{{ report.previous_balance|money(report.currency) }}</td></tr>
+          {% for r in report.rows %}
+          <tr>
+            <td class="text-center">{{ r.srl }}</td>
+            <td class="whitespace-nowrap">{{ r.date|date }}</td>
+            <td>{{ r.type|titleize }}</td>
+            <td>{{ r.description }}
+              {% if r.entry.reference_type == 'invoice' %}<a href="/finance/invoices/{{ r.entry.reference_id }}" class="no-print ml-1 text-brand-600 hover:underline">view</a>
+              {% elif r.entry.reference_type == 'payment' %}<a href="/finance/payments/{{ r.entry.reference_id }}" class="no-print ml-1 text-brand-600 hover:underline">view</a>{% endif %}</td>
+            <td class="text-right {{ 'text-rose-600' if r.amount > 0 else 'text-emerald-700' }}">{{ r.amount|money }}</td>
+            <td class="text-right font-semibold">{{ r.balance|money }}</td>
+          </tr>
+          {% else %}<tr><td colspan="6" class="py-4 text-center text-slate-500">No ledger entries for this filter.</td></tr>{% endfor %}
+          <tr class="font-semibold"><td colspan="5" class="text-right">Total</td><td class="text-right">{{ report.closing_balance|money(report.currency) }}</td></tr>
+          <tr><td colspan="6" class="text-right"><b>In Words :</b> {{ report.in_words }}</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <div class="space-y-5">
+  <div class="no-print space-y-5">
     {% call ui.card("Recent invoices") %}
     <ul class="space-y-2 text-xs">
       {% for i in invoices %}

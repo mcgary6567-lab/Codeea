@@ -79,18 +79,26 @@
 
 {% call ui.modal('singleinv', 'Create Single Invoice', size='lg') %}
 <form method="post" action="/finance/invoices/new" class="space-y-4"
-      x-data="{ subs: {{ subs_by_client|tojson_safe }}, clientId: '', lines: [{t:'', a:''}], get options(){ return this.subs[this.clientId] || [] } }">
+      x-data="{ subs: {{ subs_by_client|tojson_safe }}, rates: {{ invoice_rates|tojson_safe }}, clientId: '', picked: [], lines: [{t:'', a:''}],
+                get options(){ return this.subs[this.clientId] || [] },
+                get chosen(){ const ids = this.picked.map(String); return this.options.filter(s => !ids.length || ids.includes(String(s.id))) },
+                get currency(){ return this.chosen.length ? this.chosen[0].currency : '' },
+                get additions(){ return this.lines.reduce((t, l) => t + (parseFloat(l.a) || 0), 0) },
+                get total(){ return this.chosen.reduce((t, s) => t + s.list, 0) + this.additions },
+                get discount(){ return this.chosen.reduce((t, s) => t + Math.max(s.list - s.net, 0), 0) },
+                get net(){ return this.total - this.discount },
+                money(v){ return (v || 0).toFixed(2) } }">
   <div class="grid gap-3 sm:grid-cols-2">
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">Client <span class="text-rose-500">*</span></label>
-      <select aria-label="Client" name="client_id" required x-model="clientId" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+      <select aria-label="Client" name="client_id" required x-model="clientId" @change="$nextTick(() => picked = options.map(s => String(s.id)))" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
         <option value="">— Select —</option>
         {% for v, l in client_options %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
       </select>
     </div>
     <div>
       <label class="mb-1 block text-xs font-semibold text-slate-600">Subscription(s) <span class="text-rose-500">*</span></label>
-      <select aria-label="Subscription(s)" name="subscription_ids" multiple size="4" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+      <select aria-label="Subscription(s)" name="subscription_ids" multiple size="4" x-model="picked" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
         <template x-for="s in options" :key="s.id"><option :value="s.id" x-text="s.label" selected></option></template>
       </select>
       <p class="mt-1 text-[11px] text-slate-500" x-show="clientId && !options.length">This family has no billable subscription.</p>
@@ -115,7 +123,16 @@
     </template>
     {% if not addition_types %}<p class="text-[11px] text-slate-500">No addition types defined yet (Academic Configuration → Invoice Addition List).</p>{% endif %}
   </div>
-  {{ ui.textarea('remarks', 'Remarks', '', rows=2, placeholder='Shown on the invoice footer') }}
+  {# the ERP form's amount fields: worked out from the subscriptions and additions chosen above (discounts come from
+     approved discount requests and scholarships, never typed here; tax is not charged on tuition) #}
+  <div class="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3">
+    {% for label, expr in [('Currency', 'currency'), ('Currency Rate', "rates[currency] ?? ''"), ('Total Amount', 'money(total)'),
+                           ('Discount Amount', 'money(discount)'), ('Tax Amount', "'0.00'"), ('Net Amount', 'money(net)')] %}
+    <div><label class="mb-1 block text-xs font-semibold text-slate-600" for="inv_{{ loop.index }}">{{ label }}</label>
+      <input id="inv_{{ loop.index }}" readonly :value="{{ expr }}" class="w-full rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"></div>
+    {% endfor %}
+  </div>
+  {{ ui.textarea('remarks', 'Description', '', rows=2, placeholder='Shown on the invoice footer') }}
   {{ ui.button('Create invoice', icon='receipt') }}
 </form>
 {% endcall %}

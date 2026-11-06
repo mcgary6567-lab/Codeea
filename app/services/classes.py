@@ -64,10 +64,13 @@ def generate_sessions(db: Session, schedule: Schedule, start: date, end: date) -
     return created
 
 
-def generate_all_sessions(db: Session, days_ahead: int = 14) -> int:
+def generate_all_sessions(db: Session, days_ahead: int = 14, shift: Optional[str] = None) -> int:
+    """Materialise sessions for every active schedule; ``shift`` (morning | night) limits it to that shift's schedules."""
     today = date.today()
     n = 0
     for sch in db.query(Schedule).filter(Schedule.status == "active"):
+        if shift and schedule_shift(sch) != shift:
+            continue
         n += len(generate_sessions(db, sch, today, today + timedelta(days=days_ahead)))
     return n
 
@@ -327,6 +330,61 @@ def status_grid(db: Session, day: date, teacher_ids: Optional[list[int]] = None,
     counts = {st: sum(1 for s in rows if s.status == st) for st in SESSION_STATUSES}
     counts["total"] = len(rows)
     return {"columns": columns, "rows": grid_rows, "counts": counts, "day": day}
+
+
+STATUS_SUMMARY_COLUMNS = [("pending", "Pending"), ("done", "Done"), ("missed", "Missed"), ("absent", "Absent Students"),
+                          ("leave", "On Leave Students"), ("no_activity", "No Activity"), ("late_available", "Late Available"),
+                          ("duration15", "Duration 15"), ("duration20", "Duration 20"), ("duration25", "Duration 25"),
+                          ("duration35", "Duration 35")]
+
+
+def status_summary(db: Session, date_from: date, date_to: date, teacher_ids: Optional[list[int]] = None,
+                   category: Optional[str] = None, slot_id: Optional[int] = None) -> dict:
+    """The ERP's Class Status Summary (QA change request, 6 Nov 2026): one row per employee over a date range with
+    Pending, Done, Missed, Absent / On Leave students, No Activity, Late Available, and the done classes bucketed by
+    their actual length (Duration 15 = under 15 min, 20 = 15-19, 25 = 20-24, 35 = 25-34), as its highlight rules."""
+    from app.models.people import Employee
+    q = db.query(ClassSession).filter(ClassSession.date >= date_from, ClassSession.date <= date_to)
+    if teacher_ids is not None:
+        q = q.filter(ClassSession.teacher_id.in_(teacher_ids or [-1]))
+    if slot_id:
+        q = q.filter(ClassSession.slot_id == slot_id)
+    if category:
+        q = q.filter(ClassSession.duration_minutes == (45 if category.startswith("45") else 30))
+    sessions = q.all()
+    rows: dict[int, dict] = {}
+    for s in sessions:
+        r = rows.setdefault(s.teacher_id, {"teacher": s.teacher, **{k: 0 for k, _ in STATUS_SUMMARY_COLUMNS}, "total": 0})
+        r["total"] += 1
+        if s.status in ("pending", "available", "started"):
+            r["pending"] += 1
+        elif s.status in ("done", "missed", "absent", "leave"):
+            r[s.status] += 1
+        if s.status == "done" and s.activity_updated_at is None:
+            r["no_activity"] += 1
+        if s.teacher_available_at and s.teacher_available_at + timedelta(hours=5) > s.scheduled_start + timedelta(minutes=1):
+            r["late_available"] += 1
+        hl = duration_highlight(s.actual_duration_minutes if s.status == "done" else None)
+        if hl:
+            r[hl["key"]] += 1
+    order = {e.id: e.sort_no or 0 for e in db.query(Employee).filter(Employee.is_teacher.is_(True))}
+
+    def sort_key(r):
+        t = r["teacher"]
+        return (order.get(t.employee_id, 999) if t and t.employee_id else 999, t.full_name if t else "")
+
+    counts = {st: sum(1 for s in sessions if s.status == st) for st in SESSION_STATUSES}
+    counts["total"] = len(sessions)
+    return {"rows": sorted(rows.values(), key=sort_key), "counts": counts, "columns": STATUS_SUMMARY_COLUMNS,
+            "date_from": date_from, "date_to": date_to}
+
+
+def schedule_shift(sch: Schedule) -> str:
+    """morning | night: the schedule's shift group, else the family's shift."""
+    if getattr(sch, "shift", None) is not None and sch.shift.group in ("morning", "night"):
+        return sch.shift.group
+    client = sch.student.client if sch.student else None
+    return client.shift if client and client.shift in ("morning", "night") else "night"
 
 
 def schedule_summary(db: Session, category: Optional[str] = None, teacher_ids: Optional[list[int]] = None) -> dict:

@@ -28,9 +28,9 @@
   <span class="font-medium">Legend:</span>
   {% for key, label in report.kinds %}
   <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-4 rounded-sm border
-    {% if key == 'regular' %}border-sky-300 bg-sky-200{% elif key == 'trial' %}border-rose-300 bg-rose-200{% elif key == 'group' %}border-teal-300 bg-teal-200{% else %}border-amber-300 bg-amber-200{% endif %}"></span>{{ label }}</span>
+    {% if key == 'regular' %}border-sky-400 bg-sky-200{% elif key == 'trial' %}border-rose-400 bg-rose-200{% elif key == 'group' %}border-violet-400 bg-violet-200{% else %}border-yellow-400 bg-yellow-200{% endif %}"></span>{{ label }}</span>
   {% endfor %}
-  <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-4 rounded-sm border border-slate-200 bg-white"></span>Free session</span>
+  <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-4 rounded-sm border border-teal-400 bg-teal-200"></span>Free Session</span>
 </div>
 </div>
 
@@ -46,6 +46,7 @@
       {% for col in report.columns %}<th class="border border-slate-300 px-1 py-2 text-center text-[11px] font-bold text-slate-800 whitespace-nowrap" style="min-width: 6.75rem">{{ col.start_time.strftime('%I:%M %p') }}</th>{% endfor %}
       <th class="border border-slate-300 px-1.5 py-2 text-center text-[11px] font-bold text-slate-800 whitespace-nowrap">Busy</th>
       <th class="border border-slate-300 px-1.5 py-2 text-center text-[11px] font-bold text-slate-800 whitespace-nowrap">Free</th>
+      <th class="border border-slate-300 px-1.5 py-2 text-center text-[11px] font-bold text-slate-800 whitespace-nowrap">Free/Total</th>
     </tr>
   </thead>
   <tbody>
@@ -55,10 +56,10 @@
     <td class="sticky left-8 z-10 bg-[#e35a4e] px-2 py-2 font-semibold text-white whitespace-nowrap" title="{{ row.schedules }} active schedule(s)">
       {{ row.code }} -<br>{{ row.teacher.full_name }}</td>
     {% for cell in row.cells %}
-    <td class="p-0.5 {{ 'bg-[#f8fafc]' if not cell.entries }}">
+    <td class="p-0.5 {{ 'bg-teal-100' if not cell.entries }}" {% if not cell.entries %}title="Free Session"{% endif %}>
       {% for e in cell.entries %}
       <div class="mb-0.5 rounded-sm border px-1 py-0.5 leading-tight last:mb-0
-        {% if e.kind == 'regular' %}border-sky-300 bg-sky-200 text-sky-950{% elif e.kind == 'trial' %}border-rose-300 bg-rose-200 text-rose-950{% elif e.kind == 'group' %}border-teal-300 bg-teal-200 text-teal-950{% else %}border-amber-300 bg-amber-200 text-amber-950{% endif %}"
+        {% if e.kind == 'regular' %}border-sky-400 bg-sky-200 text-sky-950{% elif e.kind == 'trial' %}border-rose-400 bg-rose-200 text-rose-950{% elif e.kind == 'group' %}border-violet-400 bg-violet-200 text-violet-950{% else %}border-yellow-400 bg-yellow-200 text-yellow-950{% endif %}"
         title="{{ e.student_code }} {{ e.student_name }} · {{ e.client_name }} · {{ e.start.strftime('%I:%M %p') }} · {% for d in e.days %}{{ day_names[d] }}{{ ' ' if not loop.last }}{% endfor %}">
         <a href="/students/{{ e.schedule.student_id }}" class="block break-words font-medium hover:underline" style="max-width: 6.5rem">{{ e.student_code }}-{{ e.student_name }}</a>
         <span class="block break-words text-[10px] opacity-80" style="max-width: 6.5rem">{{ e.client_name or '—' }}</span>
@@ -68,13 +69,14 @@
     {% endfor %}
     <td class="px-1.5 py-2 text-center font-semibold">{{ row.busy }}</td>
     <td class="px-1.5 py-2 text-center text-emerald-700">{{ row.free }}</td>
+    <td class="px-1.5 py-2 text-center font-semibold">{{ row.free }}/{{ row.busy + row.free }}</td>
   </tr>
   {% else %}
-  <tr><td colspan="{{ report.columns|length + 4 }}" class="border border-slate-200 px-4 py-10 text-center text-slate-400">
+  <tr><td colspan="{{ report.columns|length + 5 }}" class="border border-slate-200 px-4 py-10 text-center text-slate-400">
     <i data-lucide="table" class="mx-auto mb-2 h-7 w-7 opacity-50"></i>No teachers match these filters.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
-<p class="mt-2 text-xs text-slate-500">{{ report.slot_count }} session(s) of {{ report.category }} shown. A coloured block is one active schedule; the first line is the student, the second the family. Busy counts sessions with at least one schedule.</p>
+<p class="mt-2 text-xs text-slate-500">{{ report.slot_count }} session(s) of {{ report.category }} shown. A coloured block is one active schedule (blue Regular, pink Trial, violet Group Class, yellow Freeze); the first line is the student, the second the family. A teal cell is a Free Session. Busy counts sessions with at least one schedule.</p>
 {% endblock %}

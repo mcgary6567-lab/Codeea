@@ -325,3 +325,17 @@ class SafeguardingFlag(Base, PKMixin, TimestampMixin):
 
     teacher = relationship("Teacher")
     student = relationship("Student")
+
+
+class StudentAttendanceAlert(Base, PKMixin, TimestampMixin):
+    """Management's follow-up on a student flagged by Student Attendance Monitoring (the ERP's Status and
+    Management Remarks columns, and its Resolved tab). The alert level itself is worked out from the classes."""
+    __tablename__ = "student_attendance_alerts"
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), unique=True)
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open | resolved
+    remarks: Mapped[Optional[str]] = mapped_column(Text)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    resolved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    student = relationship("Student")

@@ -42,13 +42,23 @@ def _already_reminded(db: Session, kind: str, session_id: int, user_id: int | No
 
 
 # ----------------------------------------------------------------------------- jobs
-def generate_sessions_job(db: Session) -> str:
-    """Once a day: materialise the next 14 days of class sessions for every active schedule."""
-    if _ran_today(db, "job_generate_sessions_last_run"):
-        return "already generated today"
-    n = class_svc.generate_all_sessions(db, SESSION_HORIZON_DAYS)
-    _mark_ran(db, "job_generate_sessions_last_run", {"created": n})
-    return f"{n} sessions generated"
+# The ERP generates day-shift classes at 12:00 AM and night-shift classes at 12:00 PM, Pakistan time (QA change
+# request, 6 Nov 2026). Each shift runs once a day from its hour on; the horizon stays 14 days ahead.
+SHIFT_GENERATION_HOURS = {"morning": 0, "night": 12}
+
+
+def generate_sessions_job(db: Session, now: datetime | None = None) -> str:
+    org_now = (now or datetime.utcnow()) + timedelta(hours=5)  # Asia/Karachi
+    done = []
+    for shift, hour in SHIFT_GENERATION_HOURS.items():
+        key = f"job_generate_sessions_{shift}_last_run"
+        if org_now.hour < hour or sched_svc.setting_value(db, key, None, field="date") == org_now.date().isoformat():
+            continue
+        n = class_svc.generate_all_sessions(db, SESSION_HORIZON_DAYS, shift=shift)
+        sched_svc.set_setting(db, key, {"date": org_now.date().isoformat(), "at": datetime.utcnow().isoformat(), "created": n},
+                              group="jobs", description=f"Last {shift}-shift class generation")
+        done.append(f"{shift}: {n}")
+    return ("sessions generated - " + ", ".join(done)) if done else "nothing due"
 
 
 def class_reminders_job(db: Session) -> str:
@@ -200,7 +210,7 @@ def unverified_teacher_gate_job(db: Session) -> str:
 
 
 JOBS = [
-    ("classes.generate_sessions", generate_sessions_job, 180),
+    ("classes.generate_sessions", generate_sessions_job, 15),
     ("classes.reminders", class_reminders_job, 5),
     ("classes.auto_missed", auto_mark_missed_job, 10),
     ("classes.leave_reminders", leave_reminders_job, 120),

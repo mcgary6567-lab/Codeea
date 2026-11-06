@@ -96,3 +96,11 @@
 @media (prefers-reduced-motion:reduce){.oqc-sb,.oqc-sb .sb-chev{transition:none}}
 .sb-rail .oqc-sb .sb-grp.is-current>.sb-grp-btn{background:var(--sb-brand-soft);box-shadow:inset 3px 0 0 var(--sb-brand)}
 .sb-rail .oqc-sb .sb-grp-flat .sb-item.is-active::before{display:none}
+/* Filter bars (macros.filter_bar): a clear button inside every filled field, like the ERP's lookup "x" (app.js). */
+.oqc-clear-wrap{position:relative}
+.oqc-clear{position:absolute;bottom:.3rem;right:.35rem;display:none;width:1.15rem;height:1.15rem;align-items:center;justify-content:center;border-radius:9999px;background:#e2e8f0;color:#475569;font-size:.8rem;line-height:1;cursor:pointer}
+.oqc-clear:hover{background:#cbd5e1;color:#0f172a}
+.oqc-clear.is-on{display:inline-flex}
+.oqc-clear-wrap select{padding-right:3.1rem}
+.oqc-clear-wrap select+.oqc-clear{right:1.7rem}
+.oqc-clear-wrap input{padding-right:1.8rem}

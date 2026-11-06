@@ -525,10 +525,11 @@ def _invoice_form_context(db: Session) -> dict:
     for s in subs:
         by_client.setdefault(str(s.client_id), []).append({
             "id": s.id, "label": f"{s.subscription_code} — {s.student.full_name if s.student else ''} — "
-                                 f"{s.currency} {float(s.price or 0):,.2f}", "currency": s.currency})
+                                 f"{s.currency} {float(s.price or 0):,.2f}", "currency": s.currency,
+            "list": float(s.list_price or 0) or float(s.price or 0), "net": float(s.price or 0)})
     types = db.query(InvoiceAdditionType).filter(InvoiceAdditionType.status == "active").order_by(InvoiceAdditionType.description).all()
     return {"client_options": [(c.id, f"{c.client_code} — {c.full_name} ({c.currency})") for c in clients],
-            "subs_by_client": by_client,
+            "subs_by_client": by_client, "invoice_rates": {c.code: float(c.rate_to_base) for c in db.query(Currency).all()},
             "addition_types": [(t.id, f"{t.description} ({t.addition_type})") for t in types],
             "rep_options": _rep_options(db)}
 

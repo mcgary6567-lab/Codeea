@@ -126,6 +126,14 @@ def fmt_time(value: Any) -> str:
     return value.strftime("%H:%M") if hasattr(value, "strftime") else str(value)[:5]
 
 
+def org_time(value: Any) -> str:
+    """A UTC timestamp (teacher available / joined / left) as Pakistan clock time, the ERP's 07:59AM."""
+    if not value or not hasattr(value, "strftime"):
+        return "—"
+    from datetime import timedelta
+    return (value + timedelta(hours=5)).strftime("%I:%M%p")
+
+
 def titleize(value: Any) -> str:
     return str(value or "").replace("_", " ").title()
 
@@ -135,7 +143,7 @@ def tojson_safe(value: Any) -> str:
 
 
 templates.env.filters.update({
-    "date": fmt_date, "datetime": fmt_datetime, "time": fmt_time, "money": money, "titleize": titleize,
+    "date": fmt_date, "datetime": fmt_datetime, "time": fmt_time, "orgtime": org_time, "money": money, "titleize": titleize,
     "badge": badge_class, "status_color": status_color, "mask": mask, "ago": humanize_delta, "tojson_safe": tojson_safe,
     "pct": pct, "label": label,
 })

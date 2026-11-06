@@ -421,18 +421,23 @@ async def update_reschedule_status(request: Request, db: Session = Depends(get_d
 
 # ----------------------------------------------------------------------------- Class Status Summary (3.6)
 @router.get("/classes/status-summary", include_in_schema=False)
-def status_summary(request: Request, date: str = "", employee_id: int | None = None, session_category: str = "",
-                   slot_id: int | None = None, db: Session = Depends(get_db), user: User = Depends(require("classes.view"))):
+def status_summary(request: Request, date: str = "", date_from: str = "", date_to: str = "", employee_id: int | None = None,
+                   session_category: str = "", slot_id: int | None = None, db: Session = Depends(get_db),
+                   user: User = Depends(require("classes.view"))):
+    """The ERP's Class Status Summary: employee-wise counts over From / To Date (``date`` still opens one day)."""
     from datetime import date as _date
-    day = parse_date(date, _date.today())
+    df = parse_date(date_from) or parse_date(date) or _date.today()
+    dt = parse_date(date_to) or parse_date(date) or df
+    if dt < df:
+        df, dt = dt, df
     teacher_ids = svc.scoped_teacher_ids(db, user)
     if employee_id:
         teacher_ids = [employee_id] if (teacher_ids is None or employee_id in teacher_ids) else [-1]
-    grid = class_svc.status_grid(db, day, teacher_ids, session_category or None, slot_id)
+    summary = class_svc.status_summary(db, df, dt, teacher_ids, session_category or None, slot_id)
     return render(request, "classes/status_summary.html", {
-        "user": user, "grid": grid, "day": day, "employee_id": employee_id, "session_category": session_category,
-        "slot_id": slot_id, "highlights": class_svc.DURATION_HIGHLIGHTS,
-        "base_url": f"/classes/status-summary?date={day}&employee_id={employee_id or ''}&session_category={session_category}&slot_id={slot_id or ''}",
+        "user": user, "summary": summary, "date_from": df, "date_to": dt, "employee_id": employee_id,
+        "session_category": session_category, "slot_id": slot_id,
+        "base_url": f"/classes/status-summary?date_from={df}&date_to={dt}&employee_id={employee_id or ''}&session_category={session_category}&slot_id={slot_id or ''}",
         **_erp_filters(db, user)})
 
 
@@ -537,23 +542,40 @@ def schedule_summary(request: Request, employee_id: int | None = None, session_c
 @router.get("/classes/attendance-monitoring", include_in_schema=False)
 def attendance_monitoring(request: Request, page: int = 1, date_from: str = "", date_to: str = "",
                           teacher_id: int | None = None, supervisor_id: int | None = None, threshold: str = "75",
-                          flagged: str = "", q: str = "",
+                          flagged: str = "", q: str = "", level: str = "", shift: str = "", tab: str = "attendance",
                           db: Session = Depends(get_db), user: User = Depends(require("classes.view"))):
-    """The ERP's Student Attendance Monitoring: attendance per student over a window, weakest first."""
+    """The ERP's Student Attendance Monitoring: alert level (Critical = more than three absences in a row), alert
+    reason, attendance badges, Open / Resolved with management remarks, over From / To Date."""
     from app.core.utils import ROWS_OVERRIDE, Page
+    from app.models.scheduling import StudentAttendanceAlert
     from app.services import class_dashboards as cd
 
     limit = max(1, min(100, parse_int(threshold) or 75))
+    level = level if level in dict(cd.ALERT_LEVELS) else ""
     data = cd.student_attendance(db, date_from=parse_date(date_from), date_to=parse_date(date_to),
                                  teacher_id=teacher_id, supervisor_id=supervisor_id, threshold=limit,
-                                 flagged_only=flagged == "1", q=q, scope=svc.scoped_teacher_ids(db, user))
+                                 flagged_only=flagged == "1" or tab == "resolved", q=q, scope=svc.scoped_teacher_ids(db, user),
+                                 level=level, shift=shift if shift in ("morning", "night") else "")
+    notes = {n.student_id: n for n in db.query(StudentAttendanceAlert).filter(
+        StudentAttendanceAlert.student_id.in_([r["student"].id for r in data["rows"]] or [-1]))}
+    for r in data["rows"]:
+        n = notes.get(r["student"].id)
+        r["note"] = n
+        # resolved holds until the student is absent again after it was resolved
+        r["resolved"] = bool(n and n.status == "resolved" and n.resolved_at and
+                             (r["last_absence"] is None or n.resolved_at.date() >= r["last_absence"]))
+        r["alert_status"] = "resolved" if r["resolved"] else ("open" if r["level"] else "")
+    tab = tab if tab in ("attendance", "resolved") else "attendance"
+    data["rows"] = [r for r in data["rows"] if r["resolved"] == (tab == "resolved")]
+    for lv in ("critical", "high", "medium"):  # the tiles count the alerts on this tab (open, or resolved)
+        data["tiles"][lv] = sum(1 for r in data["rows"] if r["level"] == lv)
     per, page = ROWS_OVERRIDE.get() or 50, max(1, page)
     rows = data["rows"]
     pg = Page(rows[(page - 1) * per:page * per], len(rows), page, per)
     f = data["filters"]
     base = (f"/classes/attendance-monitoring?date_from={f['date_from']}&date_to={f['date_to']}"
             f"&teacher_id={teacher_id or ''}&supervisor_id={supervisor_id or ''}&threshold={limit}"
-            f"&flagged={flagged}&q={q}")
+            f"&flagged={flagged}&q={q}&level={level}&shift={shift}&tab={tab}")
     flagged_url = base.replace(f"&flagged={flagged}&", "&flagged=1&")
     opts = cd.options(db)
     scope = svc.scoped_teacher_ids(db, user)
@@ -562,7 +584,93 @@ def attendance_monitoring(request: Request, page: int = 1, date_from: str = "", 
     return render(request, "classes/attendance_monitoring.html", {
         "user": user, "d": data, "page": pg, "opts": opts, "date_from": f["date_from"].isoformat(),
         "date_to": f["date_to"].isoformat(), "teacher_id": teacher_id, "supervisor_id": supervisor_id,
-        "threshold": limit, "flagged": flagged, "q": q, "base_url": base, "flagged_url": flagged_url})
+        "threshold": limit, "flagged": flagged, "q": q, "base_url": base, "flagged_url": flagged_url,
+        "level": level, "shift": shift, "tab": tab, "alert_levels": cd.ALERT_LEVELS,
+        "can_follow_up": rbac.has_permission(user, "classes.update")})
+
+
+@router.post("/classes/attendance-monitoring/{student_id}/alert", include_in_schema=False)
+async def attendance_alert_update(student_id: int, request: Request, db: Session = Depends(get_db),
+                                  user: User = Depends(require("classes.update"))):
+    """Management remarks on a flagged student, and Resolve / Reopen (the ERP's Status column and Resolved tab)."""
+    from datetime import datetime as _dt
+    from app.models.people import Student
+    from app.models.scheduling import StudentAttendanceAlert
+    st = db.get(Student, student_id)
+    if not st:
+        raise HTTPException(404)
+    scope_ids = svc.scoped_teacher_ids(db, user)
+    if scope_ids is not None and st.teacher_id not in scope_ids:
+        raise HTTPException(403)
+    form = await request.form()
+    action = form.get("action") or "save"
+    remarks = (form.get("remarks") or "").strip()
+    back = form.get("back") or "/classes/attendance-monitoring"
+    if not back.startswith("/classes/attendance-monitoring") or "//" in back:
+        back = "/classes/attendance-monitoring"
+    if action == "resolve" and not remarks:
+        return redirect(back, "Write the management remarks before resolving.", "error")
+    note = db.query(StudentAttendanceAlert).filter(StudentAttendanceAlert.student_id == st.id).first()
+    if note is None:
+        note = StudentAttendanceAlert(student_id=st.id, status="open")
+        db.add(note)
+    before = {"status": note.status, "remarks": note.remarks}
+    if remarks:
+        note.remarks = remarks[:2000]
+    if action == "resolve":
+        note.status, note.resolved_at, note.resolved_by_id = "resolved", _dt.utcnow(), user.id
+    elif action == "reopen":
+        note.status, note.resolved_at = "open", None
+    note.updated_by_id = user.id
+    db.flush()
+    log_action(db, user, "update", "classes", entity=note, description=f"Attendance alert for {st.student_code}: {action}",
+               before=before, after={"status": note.status, "remarks": note.remarks}, request=request)
+    db.commit()
+    return redirect(back, {"resolve": "Alert resolved.", "reopen": "Alert reopened."}.get(action, "Remarks saved."))
+
+
+# ----------------------------------------------------------------------------- Student Progress Report
+@router.get("/classes/student-report/{student_id}", include_in_schema=False)
+def student_progress_report(student_id: int, request: Request, date_from: str = "", date_to: str = "",
+                            db: Session = Depends(get_db), user: User = Depends(require("classes.view"))):
+    """The ERP's Student Progress Report that a student's name opens from Class Schedules: who the student is, the
+    attendance summary and last 30 days, evaluations, the subscriptions, and every class with its activity."""
+    from collections import Counter
+    from datetime import date as _date, timedelta as _td
+    from app.models.academic import Evaluation
+    from app.models.erp import ClassActivity
+    from app.models.finance import Subscription
+    from app.models.people import Student
+    st = db.get(Student, student_id)
+    if not st:
+        raise HTTPException(404)
+    today = _date.today()
+    dt = parse_date(date_to) or today
+    df = parse_date(date_from) or (dt - _td(days=29))
+    if dt < df:
+        df, dt = dt, df
+    q = db.query(ClassSession).filter(ClassSession.student_id == st.id, ClassSession.date >= df, ClassSession.date <= dt)
+    scope_ids = svc.scoped_teacher_ids(db, user)
+    if scope_ids is not None:
+        q = q.filter(ClassSession.teacher_id.in_(scope_ids or [-1]))
+        if st.teacher_id not in scope_ids and not q.count():
+            raise HTTPException(403)
+    sessions = q.order_by(ClassSession.date, ClassSession.start_time).all()
+    c = Counter(s.status for s in sessions)
+    summary = {"present": c["done"], "absent": c["absent"], "leave": c["leave"], "missed": c["missed"],
+               "total": c["done"] + c["absent"] + c["leave"] + c["missed"]}
+    last30 = (db.query(ClassSession).filter(ClassSession.student_id == st.id, ClassSession.date > dt - _td(days=30),
+                                            ClassSession.date <= dt, ClassSession.status.in_(("done", "absent", "leave", "missed")))
+              .order_by(ClassSession.date, ClassSession.start_time).all())
+    acts: dict[int, list] = {}
+    for a in db.query(ClassActivity).filter(ClassActivity.session_id.in_([s.id for s in sessions] or [-1])).order_by(ClassActivity.id):
+        acts.setdefault(a.session_id, []).append(a)
+    evaluations = (db.query(Evaluation).filter(Evaluation.student_id == st.id, Evaluation.date >= df, Evaluation.date <= dt)
+                   .order_by(Evaluation.date).all())
+    subs = db.query(Subscription).filter(Subscription.student_id == st.id).order_by(Subscription.start_date.desc()).all()
+    return render(request, "classes/student_report.html", {
+        "user": user, "s": st, "date_from": df, "date_to": dt, "sessions": sessions, "summary": summary,
+        "last30": last30, "activities": acts, "evaluations": evaluations, "subscriptions": subs})
 
 
 # ----------------------------------------------------------------------------- detail

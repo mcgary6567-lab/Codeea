@@ -289,10 +289,51 @@ def daily_performance(db: Session, day: Optional[date] = None, department: str =
 
 
 # ============================================================================ Student Attendance Monitoring
+ALERT_RANK = {"critical": 0, "high": 1, "medium": 2}
+ALERT_LEVELS = [("critical", "Critical"), ("high", "High"), ("medium", "Medium")]
+
+
+def attendance_alert(items: list, threshold: int = 75) -> dict:
+    """The ERP's alert on a student's attendance, newest classes first (QA change request, 6 Nov 2026):
+
+    Critical - more than three absences in a row; High - half or more of the last 10 classes absent;
+    Medium - three absences in the last 10, three leaves in a row, or attendance under ``threshold``.
+    ``badges`` are the last 30 marked classes, oldest first: P present, A absent, L leave."""
+    marked = [s for s in sorted(items, key=lambda x: (x.date, x.start_time), reverse=True) if s.status in ("done", "absent", "leave")]
+
+    def run(status):
+        n = 0
+        for s in marked:
+            if s.status != status:
+                break
+            n += 1
+        return n
+    abs_run, leave_run = run("absent"), run("leave")
+    last10 = marked[:10]
+    abs10 = sum(1 for s in last10 if s.status == "absent")
+    present = sum(1 for s in items if s.status == "done")
+    absent = sum(1 for s in items if s.status == "absent")
+    rate = round(100 * present / (present + absent), 1) if present + absent else 100.0
+    level, reason = None, ""
+    if abs_run > 3:
+        level, reason = "critical", f"{abs_run} consecutive absences"
+    elif last10 and abs10 * 2 >= len(last10) and abs10 >= 3:
+        level, reason = "high", f"{abs10} absences in last {len(last10)} classes"
+    elif abs10 >= 3:
+        level, reason = "medium", f"{abs10} absences in last {len(last10)} classes"
+    elif leave_run >= 3:
+        level, reason = "medium", f"{leave_run} consecutive leaves"
+    elif present + absent and rate < threshold:
+        level, reason = "medium", f"attendance {rate:g}% (under {threshold}%)"
+    letters = {"done": "P", "absent": "A", "leave": "L"}
+    return {"level": level, "reason": reason, "badges": [letters[s.status] for s in reversed(marked[:30])],
+            "last_absence": next((s.date for s in marked if s.status == "absent"), None)}
+
+
 def student_attendance(db: Session, date_from: Optional[date] = None, date_to: Optional[date] = None,
                        teacher_id: Optional[int] = None, supervisor_id: Optional[int] = None,
                        threshold: int = 75, flagged_only: bool = False, q: str = "",
-                       scope: Optional[list[int]] = None) -> dict:
+                       scope: Optional[list[int]] = None, level: str = "", shift: str = "") -> dict:
     """One row per student with classes in the window: present, absent, on leave, missed by the teacher, the
     attendance rate, the current run of absences and the last class attended. A student is flagged when the
     rate is under ``threshold`` or the latest three due classes were all absences. ``scope`` limits the rows to
@@ -321,6 +362,7 @@ def student_attendance(db: Session, date_from: Optional[date] = None, date_to: O
             continue
         c = Counter(s.status for s in items)
         present, absent = c["done"], c["absent"]
+        alert = attendance_alert(items, threshold)
         streak = 0
         for s in sorted(items, key=lambda x: (x.date, x.start_time), reverse=True):
             if s.status in ("absent",):
@@ -329,20 +371,27 @@ def student_attendance(db: Session, date_from: Optional[date] = None, date_to: O
                 break
         last = max((s.date for s in items if s.status == "done"), default=None)
         rate = _pct(present, present + absent)
-        flagged = (present + absent > 0 and rate < threshold) or streak >= 3
+        flagged = alert["level"] is not None
         if flagged_only and not flagged:
+            continue
+        if level and alert["level"] != level:
+            continue
+        if shift and (client.shift if client else "") != shift:
             continue
         t = teachers.get(st.teacher_id) if st.teacher_id else None
         out.append({"student": st, "client": client, "teacher": t, "scheduled": len(items),
                     "present": present, "absent": absent, "leave": c["leave"], "missed": c["missed"],
                     "cancelled": c["cancelled"] + c["rescheduled"], "rate": rate, "streak": streak,
-                    "last_attended": last, "flagged": flagged})
-    out.sort(key=lambda r: (not r["flagged"], r["rate"], -r["streak"], r["student"].full_name))
+                    "last_attended": last, "flagged": flagged, **alert})
+    out.sort(key=lambda r: (ALERT_RANK.get(r["level"], 9), r["rate"], -r["streak"], r["student"].full_name))
     marked = sum(r["present"] + r["absent"] for r in out)
     return {
         "filters": {"date_from": start, "date_to": end, "threshold": threshold},
         "rows": out,
         "tiles": {"students": len(out), "flagged": sum(1 for r in out if r["flagged"]),
+                  "critical": sum(1 for r in out if r["level"] == "critical"),
+                  "high": sum(1 for r in out if r["level"] == "high"),
+                  "medium": sum(1 for r in out if r["level"] == "medium"),
                   "present": sum(r["present"] for r in out), "absent": sum(r["absent"] for r in out),
                   "leave": sum(r["leave"] for r in out),
                   "rate": _pct(sum(r["present"] for r in out), marked)},

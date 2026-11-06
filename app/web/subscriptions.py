@@ -273,11 +273,19 @@ def allocation(request: Request, teacher_id: int | None = None, course_id: int |
 
 # ----------------------------------------------------------------------------- Value report
 @router.get("/value-report", include_in_schema=False)
-def value_report(request: Request, report: str = "primary", db: Session = Depends(get_db), user: User = Depends(require("subscriptions.view"))):
-    rows = (db.query(Subscription).filter(Subscription.status.in_(sched.RUNNING_SUBSCRIPTION_STATUSES),
-                                          scope.teacher_filter(Subscription.teacher_id, scope.teachers(db, user)))
-            .order_by(Subscription.teacher_id, Subscription.id).all())
+def value_report(request: Request, report: str = "primary", slot_id: int | None = None, course_id: int | None = None,
+                 client_id: int | None = None, student_id: int | None = None, teacher_id: int | None = None,
+                 language: str = "", status: str = "", db: Session = Depends(get_db), user: User = Depends(require("subscriptions.view"))):
+    """The ERP's All Subscriptions Value Report: its Session / Course / Client / Student / Teacher / Language / Status
+    filters (any one is enough; no status = the running subscriptions) and its columns, under the New ERP tiles."""
+    from app.services import billing
+    q = _query(db, slot_id=slot_id, course_id=course_id, client_id=client_id, student_id=student_id, teacher_id=teacher_id,
+               language=language, status=status, user=user)
+    if not status:
+        q = q.filter(Subscription.status.in_(sched.RUNNING_SUBSCRIPTION_STATUSES))
+    rows = q.order_by(Subscription.teacher_id, Subscription.id).all()
     base = _base(db)
+    rates = {cur: round(float(billing.get_rate(db, cur)), 4) for cur in {s.currency for s in rows}}
     total_value = round(sum(float(s.price_in_base or 0) for s in rows), 2)
     total_cost = round(sum(float(s.teacher_cost_base or 0) for s in rows), 2)
     shifts: dict[str, dict] = {"morning": {"shift": "Morning", "subs": 0, "revenue": 0.0, "cost": 0.0},
@@ -294,8 +302,12 @@ def value_report(request: Request, report: str = "primary", db: Session = Depend
         v["margin_pct"] = round(100 * v["profit"] / v["revenue"], 1) if v["revenue"] else 0.0
     last = (db.query(AuditEvent).filter(AuditEvent.module == "subscriptions", AuditEvent.action == "recompute")
             .order_by(AuditEvent.created_at.desc()).first())
+    filters = (f"slot_id={slot_id or ''}&course_id={course_id or ''}&client_id={client_id or ''}&student_id={student_id or ''}"
+               f"&teacher_id={teacher_id or ''}&language={language}&status={status}")
     return render(request, "subscriptions/value_report.html", {
         "user": user, "report": report if report in ("primary", "employee", "shift") else "primary", "rows": rows, "base": base,
+        "rates": rates, "filters": filters, "slot_id": slot_id, "course_id": course_id, "client_id": client_id,
+        "student_id": student_id, "teacher_id": teacher_id, "language": language, "status": status, **_options(db),
         "total_value": total_value, "total_cost": total_cost, "total_margin": round(total_value - total_cost, 2),
         "employees": _employee_summary(db, rows), "shifts": list(shifts.values()), "last_regenerated": last})
 
@@ -378,10 +390,11 @@ def cancelled(request: Request, page: int = 1, date_from: str = "", date_to: str
 @router.get("", include_in_schema=False)
 def list_subscriptions(request: Request, page: int = 1, sub_id: str = "", slot_id: int | None = None, course_id: int | None = None,
                        language: str = "", client_id: int | None = None, student_id: int | None = None, teacher_id: int | None = None,
-                       status: str = "", report: str = "primary", db: Session = Depends(get_db),
+                       status: str = "", date_from: str = "", date_to: str = "", report: str = "primary", db: Session = Depends(get_db),
                        user: User = Depends(require("subscriptions.view"))):
+    # From / To Date: the Reg. Date (start) of the subscription, alone or with any other filter
     q = _query(db, sub_id=sub_id, slot_id=slot_id, course_id=course_id, language=language, client_id=client_id, student_id=student_id,
-               teacher_id=teacher_id, status=status, user=user)
+               teacher_id=teacher_id, status=status, date_from=parse_date(date_from), date_to=parse_date(date_to), user=user)
     report = report if report in ("primary", "employee", "followups") else "primary"
     today = date.today()
     if report == "followups":
@@ -391,10 +404,11 @@ def list_subscriptions(request: Request, page: int = 1, sub_id: str = "", slot_i
     employees = _employee_summary(db, q.all()) if report == "employee" else []
     pg = paginate(q, page, 40) if report != "employee" else None
     base_url = (f"/subscriptions?sub_id={sub_id}&slot_id={slot_id or ''}&course_id={course_id or ''}&language={language}&client_id={client_id or ''}"
-                f"&student_id={student_id or ''}&teacher_id={teacher_id or ''}&status={status}&report={report}")
+                f"&student_id={student_id or ''}&teacher_id={teacher_id or ''}&status={status}&date_from={date_from}&date_to={date_to}&report={report}")
     return render(request, "subscriptions/list.html", {
         "user": user, "page": pg, "tiles": _tiles(db), "sub_id": sub_id, "slot_id": slot_id, "course_id": course_id, "language": language,
         "client_id": client_id, "student_id": student_id, "teacher_id": teacher_id, "status": status, "report": report,
+        "date_from": date_from, "date_to": date_to,
         "employees": employees, "base": _base(db), "base_url": base_url, "today": today, **_options(db)})
 
 

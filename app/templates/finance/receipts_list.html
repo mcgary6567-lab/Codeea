@@ -13,12 +13,15 @@
   {% endif %}
 {% endcall %}
 
-<div class="grid gap-3 sm:grid-cols-3 xl:grid-cols-5 mb-5">
+<div class="grid gap-3 sm:grid-cols-4 xl:grid-cols-8 mb-5">
   {{ ui.stat("Confirmed", stats.tile_confirmed, color=palette(0), href="/finance/receipts?status=confirmed") }}
   {{ ui.stat("Over All Pending", stats.tile_pending, color=palette(1), href="/finance/receipts?status=pending") }}
   {{ ui.stat("Cancelled", stats.tile_cancelled, color=palette(2), href="/finance/receipts?status=cancelled") }}
   {{ ui.stat("Failed", stats.tile_failed, color=palette(7), href="/finance/receipts?status=failed") }}
   {{ ui.stat("Refunded", stats.tile_refunded, color=palette(9), href="/finance/receipts?status=refunded") }}
+  {{ ui.stat("Unreconciled", stats.unreconciled, color=palette(4)) }}
+  {{ ui.stat("Received This Month (" ~ stats.base ~ ")", stats.month_total|money, color=palette(3)) }}
+  {{ ui.stat("Total Received This Month", stats.count_month, color=palette(6), hint="receipts") }}
 </div>
 <div class="mb-4 flex flex-wrap gap-2 text-xs text-slate-600">
   <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Received this month <b class="text-emerald-600">{{ stats.month_total|money(stats.base) }}</b> over {{ stats.count_month }} receipts</span>
