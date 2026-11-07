@@ -89,7 +89,7 @@ def _csv_response(filename: str, headers: list[str], rows: list[list]) -> Stream
 
 # ============================================================================= LEADS (Module 3)
 @router.get("/leads", include_in_schema=False)
-def leads_board(request: Request, view: str = "kanban", page: int = 1, q: str = "", stage: str = "", source: str = "", campaign: str = "",
+def leads_board(request: Request, view: str = "list", page: int = 1, q: str = "", stage: str = "", source: str = "", campaign: str = "",
                 assigned: str = "", generator: str = "", country: str = "", min_score: str = "", start: str = "", end: str = "",
                 db: Session = Depends(get_db), user: User = Depends(require("leads.view"))):
     base = scope_leads(db.query(Lead), user)
@@ -124,8 +124,15 @@ def leads_board(request: Request, view: str = "kanban", page: int = 1, q: str = 
           f"&country={country}&min_score={min_score}&start={start}&end={end}")
     ctx["base_url"] = "/crm/leads" + qs
     if view == "list":
+        # the ERP's Leads List is this list (the board is the New ERP's own second view)
         listing = base.filter(Lead.stage == stage) if stage else base
         ctx["page"] = paginate(listing.order_by(Lead.created_at.desc()), page, 30)
+        ecodes = _employee_codes(db)
+        ctx["erp"] = {}
+        for l in ctx["page"].items:
+            ref = l.generator or l.assigned_to
+            ctx["erp"][l.id] = {"shift": _lead_shift(l),
+                                "referred_by": (f"{ecodes[ref.id]} - {ref.full_name}" if ref and ref.id in ecodes else (ref.full_name if ref else ""))}
     else:
         columns = []
         for s in LEAD_STAGES:

@@ -74,8 +74,12 @@ class Subscription(Base, PKMixin, TimestampMixin):
     supervisor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     books: Mapped[list] = mapped_column(JSON, default=list)  # course book ids chosen at creation
     follow_up_date: Mapped[Optional[date]] = mapped_column(Date, index=True)  # "Coming Follow Ups"
+    # the ERP's Update Subscription form: Status Remarks and Referred By
+    status_remarks: Mapped[Optional[str]] = mapped_column(String(300))
+    referred_by_client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"))
 
-    client = relationship("Client")
+    client = relationship("Client", foreign_keys=[client_id])
+    referred_by = relationship("Client", foreign_keys=[referred_by_client_id])
     student = relationship("Student")
     package = relationship("Package")
     course = relationship("Course")
@@ -83,6 +87,19 @@ class Subscription(Base, PKMixin, TimestampMixin):
     scholarship = relationship("Scholarship", foreign_keys=[scholarship_id])
     slot = relationship("SessionSlot")
     supervisor = relationship("User", foreign_keys=[supervisor_id])
+
+
+class SubscriptionBook(Base, PKMixin, TimestampMixin):
+    """A book on a subscription, as the ERP's Books grid on Update Subscription: where the student starts in it
+    (Starting Point), the order it opens in (Open Sequence) and whether it is still being read."""
+    __tablename__ = "subscription_books"
+    subscription_id: Mapped[int] = mapped_column(ForeignKey("subscriptions.id", ondelete="CASCADE"), index=True)
+    book_id: Mapped[int] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"))
+    starting_point: Mapped[Optional[str]] = mapped_column(String(100))
+    open_sequence: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active | completed | in-active
+
+    book = relationship("Book")
 
 
 class DiscountRequest(Base, PKMixin, TimestampMixin):

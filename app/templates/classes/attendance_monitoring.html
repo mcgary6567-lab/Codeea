@@ -41,7 +41,7 @@
             ('resolved', 'Resolved', base_url|replace('&tab=' ~ tab, '&tab=resolved'))], tab) }}
 
 {{ ui.table_start(['ID', 'Family', 'Student Name', 'Teacher', 'Alert Level', 'Alert Reason', 'Status', 'Attendance Badges',
-                   'Classes', 'Present', 'Absent', 'Leave', 'Attendance %', 'Last attended', 'Management Remarks', '']) }}
+                   'Classes', 'Present', 'Absent', 'Leave', 'Attendance %', 'Last attended', 'Management Remarks', 'Alert Date', '']) }}
 {% for r in page.items %}
 <tr class="align-top">
   <td class="px-3 py-1.5 font-mono text-xs">{{ r.student.student_code }}</td>
@@ -63,6 +63,7 @@
   <td class="px-3 py-1.5 text-right font-semibold {{ 'text-rose-600' if r.flagged }}">{{ r.rate }}</td>
   <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.last_attended.strftime('%d %b %Y') if r.last_attended else '—' }}</td>
   <td class="px-3 py-1.5 text-xs max-w-[16rem]">{{ r.note.remarks if r.note and r.note.remarks else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.last_absence|date if r.level and r.last_absence else '—' }}</td>
   <td class="px-3 py-1.5 text-right whitespace-nowrap">
     {% if can_follow_up and (r.level or r.note) %}
     <details class="relative inline-block text-left">
@@ -80,7 +81,7 @@
     {% endif %}
   </td>
 </tr>
-{% else %}{{ ui.empty('No resolved alerts between these dates.' if tab == 'resolved' else 'No classes between these dates.', 16) }}{% endfor %}
+{% else %}{{ ui.empty('No resolved alerts between these dates.' if tab == 'resolved' else 'No classes between these dates.', 17) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% endblock %}

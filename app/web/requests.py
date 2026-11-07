@@ -70,7 +70,9 @@ KINDS = {
                    "headers": ["ID", "Client", "Name", "Shift", "Email", "Contact No", "Description", "Reference Type"]},
     "complaints": {"title": "Complaints", "icon": "life-buoy",
                    "subtitle": "Complaints raised by families. Approving publishes the company response and resolves the case.",
-                   "headers": ["ID", "Client", "Shift", "Complaint Type", "Title", "Description", "Company Response"]},
+                   "headers": ["ID", "Client", "Shift", "Complaint Type", "Title", "Description", "Company Response"],
+                   # after Status and Created At, as the ERP has them: the case's actions (tasks on it) and a way in
+                   "extra_headers": ["Overdue Actions", "Total Actions", "Take Action"]},
 }
 
 
@@ -392,11 +394,19 @@ def complaints(request: Request, page: int = 1, status: str = "", client: str = 
     if dt:
         query = query.filter(func.date(Case.created_at) <= dt)
     pg = paginate(query.order_by(Case.id.desc()), page, 25)
+    from datetime import date as _date
+    from app.models.ops import Task
+    actions: dict[int, list] = {}
+    for t in db.query(Task).filter(Task.entity_type == "Case", Task.entity_id.in_([k.id for k in pg.items] or [-1])):
+        actions.setdefault(t.entity_id, []).append(t)
     rows = []
     for k in pg.items:
+        acts = actions.get(k.id, [])
+        overdue = sum(1 for t in acts if t.due_date and t.due_date < _date.today() and t.status not in ("done", "cancelled"))
         rows.append({"id": k.id, "status": k.approval_status, "created_at": k.created_at, "link": f"/cases/{k.id}",
                      "cells": [k.case_number, k.client.full_name if k.client else "", _shift(k.client),
-                               k.complaint_type or "", k.title, k.description, k.company_response]})
+                               k.complaint_type or "", k.title, k.description, k.company_response],
+                     "extra": [overdue, len(acts)], "action_link": f"/cases/{k.id}#actions"})
     counts = _counts(db, Case, Case.approval_status, Case.case_type == "complaint")
     return _render(request, user, db, "complaints", pg, counts, rows, f, _base("complaints", f))
 

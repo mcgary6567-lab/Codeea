@@ -16,21 +16,27 @@
   <div class="w-40">{{ ui.select('active', 'Active', [('yes','Active'),('no','Disabled')], active, placeholder='All') }}</div>
 {% endcall %}
 {% if stats.without_login %}<p class="mb-2 text-xs text-slate-500">{{ stats.without_login }} client(s) have no portal login yet — create one from the Client Form.</p>{% endif %}
-{{ ui.table_start(['Client', 'Username / Email', 'Last Login', 'Active', 'Must change password', '']) }}
+{# the ERP's Clients Users List columns: the portal links are the pages a family opens after signing in #}
+{{ ui.table_start(['User Name', 'First Name', 'Status', 'Shift', 'Locked', 'Phone', 'Online Payment Link', 'Meeting Link', 'Feedback Link', 'Last Login', '']) }}
+{% set plain = is_admin(user) %}
 {% for c in page.items %}
 <tr class="hover:bg-slate-50">
-  <td class="px-4 py-2"><a href="/clients/{{ c.id }}" class="font-medium hover:text-brand-600">{{ c.full_name }}</a> <span class="font-mono text-xs text-slate-400">{{ c.client_code }}</span>
-    <div class="text-xs text-slate-500">{{ ui.badge(c.status, c.status|label('client')) }}</div></td>
-  <td class="px-4 py-2 text-xs"><div class="font-mono">{{ c.user.username }}</div><div class="text-slate-500">{{ c.user.email }}</div></td>
-  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.user.last_login_at|datetime if c.user.last_login_at else 'Never' }}{% if c.user.last_login_ip %}<div class="text-slate-400">{{ c.user.last_login_ip }}</div>{% endif %}</td>
-  <td class="px-4 py-2">{{ ui.badge('active' if c.user.is_active else 'inactive', 'Yes' if c.user.is_active else 'No') }}</td>
-  <td class="px-4 py-2 text-xs">{{ 'Yes' if c.user.must_change_password else 'No' }}</td>
-  <td class="px-4 py-2 text-right whitespace-nowrap">
+  <td class="px-3 py-2 font-mono text-xs">{{ c.user.username }}</td>
+  <td class="px-3 py-2"><a href="/clients/{{ c.id }}" class="font-medium hover:text-brand-600">{{ c.full_name }}</a> <span class="font-mono text-xs text-slate-400">{{ c.client_code }}</span></td>
+  <td class="px-3 py-2">{{ ui.badge(c.status, c.status|label('client')) }}</td>
+  <td class="px-3 py-2 text-xs">{{ (c.shift or '')|titleize or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ 'No' if c.user.is_active else 'Yes' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ ui.contact(c.phone, '/clients/' ~ c.id ~ '/reveal/phone', plain) }}</td>
+  <td class="px-3 py-2 text-xs"><a class="text-brand-700 hover:underline" href="/portal/billing/pay" title="Opens for the family after they sign in">/portal/billing/pay</a></td>
+  <td class="px-3 py-2 text-xs"><a class="text-brand-700 hover:underline" href="/portal/schedule" title="Opens for the family after they sign in">/portal/schedule</a></td>
+  <td class="px-3 py-2 text-xs"><a class="text-brand-700 hover:underline" href="/portal/feedback" title="Opens for the family after they sign in">/portal/feedback</a></td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ c.user.last_login_at|datetime if c.user.last_login_at else 'Never' }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if can_update %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reset-portal-password', 'Reset password', icon='key-round', variant='secondary', message='Reset the portal password? A new temporary password is shown once.', size='sm') }}{% endif %}
     {{ ui.button('Open', href='/clients/' ~ c.id, variant='ghost', size='sm', icon='arrow-right') }}
   </td>
 </tr>
-{% else %}{{ ui.empty('No client users match.', 6) }}{% endfor %}
+{% else %}{{ ui.empty('No client users match.', 11) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% endblock %}

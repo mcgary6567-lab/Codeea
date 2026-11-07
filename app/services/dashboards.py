@@ -452,12 +452,52 @@ PERFORMANCE_PANELS = [
 ]
 
 
+# The ERP's Daily Performance Dashboard: its 35 panels in its order (the Monthly panels plus the day-to-day ones).
+DAILY_PANELS = [
+    ("dropped", "Dropped Subscriptions", "academics", "count"),
+    ("freeze", "Freeze Subscriptions", "academics", "count"),
+    ("completed", "Completed Subscriptions", "academics", "count"),
+    ("new_trials", "New Trials", "academics", "count"),
+    ("regular", "Regular Subscriptions", "academics", "count"),
+    ("missed_classes", "Missed Classes", "academics", "count"),
+    ("on_leave_students", "On leave Students", "academics", "count"),
+    ("short_classes", "20 Mints Classes", "academics", "count"),
+    ("no_activity", "NO Activity update", "academics", "count"),
+    ("leave_requests", "Leaves Applied", "academics", "count"),
+    ("class_queries", "Class Queries", "academics", "count"),
+    ("pending_leads", "Pending Leads", "marketing", "count"),
+    ("lead_to_trial", "Converted (Lead -> Trial)", "marketing", "count"),
+    ("trial_to_dropped", "Converted (Trial -> Dropped)", "marketing", "count"),
+    ("trial_to_regular", "Converted (Trial -> Regular)", "marketing", "count"),
+    ("invoices_nos", "Invoices (NOs)", "billing", "count"),
+    ("invoices_amount", "Invoices (Amount)", "billing", "amount"),
+    ("receipts_nos", "Confirmed Receipts (NOs)", "billing", "count"),
+    ("receipts_confirmed", "Confirmed Receipts (Amount)", "billing", "amount"),
+    ("pending_receipts_nos", "Pending Receipts (NOs)", "billing", "count"),
+    ("pending_receipts_amount", "Pending Receipts (Amount)", "billing", "amount"),
+    ("ledger_additions", "Ledger Additions", "billing", "amount"),
+    ("absent_teachers", "Absent Teachers", "hr", "count"),
+    ("late_coming", "Late Coming", "hr", "count"),
+    ("new_enrollment", "New Enrollment", "academics", "count"),
+    ("inactive_employees", "In-active Employees", "hr", "count"),
+    ("change_requests", "Change Request", "academics", "count"),
+    ("complaints", "Complaints", "academics", "count"),
+    ("leave_requests", "Leave Request", "academics", "count"),
+    ("employee_requests", "Employee Request", "hr", "count"),
+    ("violations", "Violations", "hr", "count"),
+    ("bonus", "Bonus", "hr", "amount"),
+    ("advances", "Advances", "hr", "amount"),
+    ("duration_shortage", "Duration Shortage", "hr", "count"),
+    ("absent_supervisors", "Absent Supervisors", "hr", "count"),
+]
+
+
 def _in(d: Optional[date], start: date, end: date) -> bool:
     d = _as_date(d)
     return bool(d and start <= d <= end)
 
 
-def monthly_performance(db: Session, start: Optional[date] = None, end: Optional[date] = None,
+def monthly_performance(db: Session, start: Optional[date] = None, end: Optional[date] = None, panel_list: Optional[list] = None,
                         employee_ids: Optional[Sequence[int]] = None, department: str = "all") -> dict:
     """ERP "Monthly Performance Dashboard": one count-or-amount card plus a weekly mini bar for each metric."""
     from app.models.erp import LedgerAddition, TeacherChangeRequest, TimeChangeRequest
@@ -586,9 +626,32 @@ def monthly_performance(db: Session, start: Optional[date] = None, end: Optional
     data["advances"] = [(_as_date(a.created_at), _f(a.amount)) for a in db.query(SalaryAdvance).all()
                         if _in(a.created_at, start, end) and keep_employee(a.employee_id)]
 
+    # the Daily Performance Dashboard's own panels
+    data["new_trials"] = [(_as_date(t.created_at), 1) for t in trials if _in(t.created_at, start, end) and keep_teacher(t.teacher_id)]
+    from app.models.erp import ClassQuery
+    data["class_queries"] = [(_as_date(q.created_at), 1) for q in db.query(ClassQuery).all()
+                             if _in(q.created_at, start, end) and keep_teacher(q.teacher_id)]
+    data["pending_leads"] = [(_as_date(l.created_at), 1) for l in generated if (l.stage or "new") in ("new", "contacted")]
+    live_invoices = [i for i in invoices if (i.status or "") not in ("cancelled", "void")]
+    data["invoices_nos"] = [(i.issue_date, 1) for i in live_invoices]
+    data["invoices_amount"] = [(i.issue_date, _to_base(rates, i.total, i.currency)) for i in live_invoices]
+    in_window = [p for p in payments if _in(p.receipt_date or p.received_at, start, end)]
+    data["receipts_nos"] = [((p.receipt_date or _as_date(p.received_at)), 1) for p in in_window if (p.status or "") in ("confirmed", "completed")]
+    pending_pay = [p for p in in_window if (p.status or "") == "pending"]
+    data["pending_receipts_nos"] = [((p.receipt_date or _as_date(p.received_at)), 1) for p in pending_pay]
+    data["pending_receipts_amount"] = [((p.receipt_date or _as_date(p.received_at)), _f(p.amount_in_base)) for p in pending_pay]
+    from app.models.people import HRAttendance
+    staff = {e.id: e for e in employees}
+    marks = [a for a in db.query(HRAttendance).filter(HRAttendance.date >= start, HRAttendance.date <= end).all() if keep_employee(a.employee_id)]
+    data["absent_teachers"] = [(a.date, 1) for a in marks if a.status == "absent" and staff.get(a.employee_id) and staff[a.employee_id].is_teacher]
+    data["late_coming"] = [(a.date, 1) for a in marks if a.status == "late" or (a.late_minutes or 0) > 0]
+    data["duration_shortage"] = [(a.date, 1) for a in marks if a.status == "half_day"]
+    data["absent_supervisors"] = [(a.date, 1) for a in marks if a.status == "absent" and staff.get(a.employee_id)
+                                  and "supervisor" in (staff[a.employee_id].designation or "").lower()]
+
     weeks = _weeks_between(start, end)
     panels = []
-    for key, label, dept, kind in PERFORMANCE_PANELS:
+    for key, label, dept, kind in (panel_list or PERFORMANCE_PANELS):
         if department != "all" and dept != department:
             continue
         pairs = data.get(key, [])

@@ -13,31 +13,37 @@
   {{ ui.stat("Avg lead score", stats.avg_score, icon="gauge", color="indigo", hint=stats.students|string ~ ' students requested') }}
 </div>
 {% call ui.filter_bar('/registrations') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-44">{{ ui.select('stage', 'Status', stages, stage, placeholder='All') }}</div>
   <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Parent, child, code, phone, email') }}</div>
-  <div class="w-44">{{ ui.select('stage', 'Stage', stages, stage, placeholder='All stages') }}</div>
   <div class="w-40">{{ ui.select('dup', 'Duplicates', [('yes','Only duplicates')], dup, placeholder='All') }}</div>
 {% endcall %}
-{{ ui.table_start(['Code', 'Parent', 'Students', 'Country', 'Preferred time', 'Score', 'Referral', 'Stage', 'Received', '']) }}
+{# the ERP's Online Registration columns; State, City, Street Address, Skype and Zip Code are not asked on our form #}
+{{ ui.table_start(['Reg ID', 'Guardian Name', 'Mobile No', 'Whatsapp No', 'Country', 'State', 'City', 'Street Address', 'Skype',
+                   'Email', 'Zip Code', 'Referred By', 'How Came To Us', 'Extra Query', 'Status', ''], compact=True) }}
+{% set plain = is_admin(user) %}
 {% for l in page.items %}
 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/registrations/{{ l.id }}">{{ l.lead_code }}</a></td>
-  <td class="px-4 py-2"><div class="font-medium text-slate-900 dark:text-white">{{ l.full_name }}</div>
-    <div class="text-xs text-slate-500">{{ l.phone|mask }} · {{ l.email|mask }}</div>
+  <td class="px-3 py-1.5 font-mono text-xs font-semibold text-brand-700"><a href="/registrations/{{ l.id }}">{{ l.lead_code }}</a></td>
+  <td class="px-3 py-1.5"><div class="font-medium text-slate-900 dark:text-white">{{ l.full_name }}</div>
     {% if l.is_duplicate_of_id %}<span class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><i data-lucide="copy" class="h-3 w-3"></i>possible duplicate</span>{% endif %}</td>
-  <td class="px-4 py-2 text-xs">{{ l.student_name or '—' }}{% if (l.students_count or 1) > 1 %} <span class="text-slate-400">+{{ l.students_count - 1 }}</span>{% endif %}
-    <div class="text-slate-500">{{ l.course_interest.name if l.course_interest else 'course TBD' }}</div></td>
-  <td class="px-4 py-2 text-xs">{{ l.country or '—' }}<div class="text-slate-500">{{ l.timezone or '' }}</div></td>
-  <td class="px-4 py-2 text-xs">{{ l.preferred_time or '—' }}</td>
-  <td class="px-4 py-2"><span class="font-bold {{ 'text-emerald-600' if (l.score or 0) >= 70 else ('text-amber-600' if (l.score or 0) >= 40 else 'text-slate-500') }}">{{ l.score or 0 }}</span></td>
-  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ l.referral_code or '—' }}</td>
-  <td class="px-4 py-2">{{ ui.badge(l.stage) }}</td>
-  <td class="px-4 py-2 text-xs text-slate-500">{{ l.created_at|ago }}</td>
-  <td class="px-4 py-2 text-right whitespace-nowrap">
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ ui.masked(l.phone, '/crm/leads/' ~ l.id ~ '/reveal/phone', plain) }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ ui.masked(l.whatsapp, '/crm/leads/' ~ l.id ~ '/reveal/whatsapp', plain) }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ l.country or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-300">—</td><td class="px-3 py-1.5 text-xs text-slate-300">—</td><td class="px-3 py-1.5 text-xs text-slate-300">—</td><td class="px-3 py-1.5 text-xs text-slate-300">—</td>
+  <td class="px-3 py-1.5 text-xs">{{ ui.masked(l.email, '/crm/leads/' ~ l.id ~ '/reveal/email', plain) }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-300">—</td>
+  <td class="px-3 py-1.5 font-mono text-xs text-slate-500">{{ l.referral_code or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ l.source.name if l.source else 'Website' }}</td>
+  <td class="px-3 py-1.5 text-xs"><div class="max-w-[14rem] truncate" title="{{ l.notes or '' }}">{{ l.notes or (l.student_name ~ (' · ' ~ l.course_interest.name if l.course_interest else '') if l.student_name else '—') }}</div></td>
+  <td class="px-3 py-1.5">{{ ui.badge(l.stage, l.stage|label('registration')) }}</td>
+  <td class="px-3 py-1.5 text-right whitespace-nowrap">
     {% if l.converted_client_id %}{{ ui.button('Client', href='/clients/' ~ l.converted_client_id, variant='ghost', size='sm', icon='user') }}
     {% else %}{{ ui.button('Review', href='/registrations/' ~ l.id, variant='ghost', size='sm', icon='arrow-right') }}{% endif %}
   </td>
 </tr>
-{% else %}{{ ui.empty('No website registrations yet. Share the public form at /register.', 10) }}{% endfor %}
+{% else %}{{ ui.empty('No website registrations yet. Share the public form at /register.', 16) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% endblock %}

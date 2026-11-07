@@ -179,6 +179,8 @@ class Evaluation(Base, PKMixin, TimestampMixin):
     due_date: Mapped[Optional[date]] = mapped_column(Date)  # pending evaluations = past due without a score
     # Evidence (docs/STUDENT_JOURNEY.md): what was asked and answered is in ``answers``; these record the judgement.
     stage: Mapped[Optional[str]] = mapped_column(String(150))  # the student's academic stage when assessed
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime)  # the ERP's Start Time / End Time of the test
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
     strengths: Mapped[Optional[str]] = mapped_column(Text)
     weaknesses: Mapped[Optional[str]] = mapped_column(Text)
     recommendations: Mapped[Optional[str]] = mapped_column(Text)

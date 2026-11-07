@@ -23,7 +23,7 @@
   <div class="w-36">{{ ui.input('date_to', 'Registered to', date_to, type='date') }}</div>
 {% endcall %}
 <p class="mb-2 text-xs text-slate-500">{{ page.total }} client(s) · showing {{ page.start }}–{{ page.end }}</p>
-{{ ui.table_start(['ID', 'Client Name', 'Status', 'Registration Date', 'Students', 'Currency', 'Balance', 'Fee Recurrence', 'Email', 'Cell', 'WhatsApp', 'State', 'Shift Name', 'Referred By', 'Status Remarks', 'Billing Representative', '']) }}
+{{ ui.table_start(['ID', 'Client Name', 'Status', 'Registration Date', 'Students', 'Currency', 'Balance', 'Fee Recurrence', 'Email', 'Cell', 'WhatsApp', 'State', 'Shift Name', 'Referred By', 'Status Remarks', 'Billing Representative', 'Academic Manager', '']) }}
 {% for c in page.items %}
 <tr class="hover:bg-slate-50">
   <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700"><a href="/clients/{{ c.id }}">{{ c.client_code }}</a></td>
@@ -43,9 +43,10 @@
   <td class="px-4 py-2 text-xs">{% if c.referred_by %}<a href="/clients/{{ c.referred_by.id }}" class="hover:text-brand-600">{{ c.referred_by.full_name }}</a>{% else %}—{% endif %}</td>
   <td class="px-4 py-2 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ c.status_remarks or '' }}">{{ c.status_remarks or '—' }}</td>
   <td class="px-4 py-2 text-xs">{{ c.billing_rep.full_name if c.billing_rep else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.academic_manager.full_name if c.academic_manager else '—' }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">{{ ui.button('Open', href='/clients/' ~ c.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
 </tr>
-{% else %}{{ ui.empty('No clients match these filters.', 17) }}{% endfor %}
+{% else %}{{ ui.empty('No clients match these filters.', 18) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% endblock %}

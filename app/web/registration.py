@@ -228,8 +228,8 @@ async def register_submit(request: Request, db: Session = Depends(get_db)):
 
 # --------------------------------------------------------------------------- admin desk
 @router.get("/registrations", include_in_schema=False)
-def registrations(request: Request, page: int = 1, q: str = "", stage: str = "", dup: str = "",
-                  db: Session = Depends(get_db), user: User = Depends(require("registration.view"))):
+def registrations(request: Request, page: int = 1, q: str = "", stage: str = "", dup: str = "", date_from: str = "",
+                  date_to: str = "", db: Session = Depends(get_db), user: User = Depends(require("registration.view"))):
     src = db.query(LeadSource).filter(func.lower(LeadSource.name) == "website").first()
     query = db.query(Lead).filter(Lead.source_id == (src.id if src else -1))
     if q:
@@ -240,6 +240,13 @@ def registrations(request: Request, page: int = 1, q: str = "", stage: str = "",
         query = query.filter(Lead.stage == stage)
     if dup == "yes":
         query = query.filter(Lead.is_duplicate_of_id.isnot(None))
+    from datetime import datetime as _dt
+    from app.core.utils import parse_date
+    d1, d2 = parse_date(date_from), parse_date(date_to)  # the ERP's From / To Date
+    if d1:
+        query = query.filter(Lead.created_at >= _dt.combine(d1, _dt.min.time()))
+    if d2:
+        query = query.filter(Lead.created_at <= _dt.combine(d2, _dt.max.time()))
     pg = paginate(query.order_by(Lead.created_at.desc()), page, 25)
     base_q = db.query(Lead).filter(Lead.source_id == (src.id if src else -1))
     all_rows = base_q.all()
@@ -249,7 +256,8 @@ def registrations(request: Request, page: int = 1, q: str = "", stage: str = "",
              "students": sum(l.students_count or 1 for l in all_rows),
              "avg_score": round(sum(l.score or 0 for l in all_rows) / len(all_rows), 1) if all_rows else 0}
     return render(request, "registration/list.html", {"user": user, "page": pg, "q": q, "stage": stage, "dup": dup,
-                                                      "stats": stats, "base_url": f"/registrations?q={q}&stage={stage}&dup={dup}",
+                                                      "date_from": date_from, "date_to": date_to,
+                                                      "stats": stats, "base_url": f"/registrations?q={q}&stage={stage}&dup={dup}&date_from={date_from}&date_to={date_to}",
                                                       "stages": LEAD_STAGES,
                                                       "can_convert": True})
 

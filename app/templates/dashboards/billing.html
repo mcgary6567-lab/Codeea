@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
 {% block title %}Billing Management Dashboard{% endblock %}
+{# The ERP's Billing Management Dashboard, region by region: Over All Business Volume, Clients Receivables, the
+   confirmed invoices, Month wise Payroll, the Regular / Cancelled Subscriptions flow charts and their month bars. #}
 {% block content %}
-{% call ui.page_header("Billing Management Dashboard", "Business volume, family receivables, confirmed invoices and payroll.") %}
+{% call ui.page_header("Billing Management Dashboard", "") %}
   {{ ui.button("Invoice List", href="/finance/invoices", icon="file-text", variant="secondary") }}
   {{ ui.button("Receipts", href="/finance/receipts", icon="badge-check", variant="secondary") }}
 {% endcall %}
@@ -15,56 +17,62 @@
   <div class="w-32">{{ ui.select('shift', 'Shift', opts.shifts, shift, placeholder='All') }}</div>
 {% endcall %}
 
-<div class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-  {{ ui.stat("Regular Subscriptions", d.volume.count, color=palette(0), hint="families in view: " ~ d.clients) }}
-  {{ ui.stat("Monthly Business Volume", d.volume.monthly_base|money(d.base), color=palette(1)) }}
-  {{ ui.stat("Invoices Confirmed", d.invoices.confirmed_base|money(d.base), color=palette(2), hint=d.invoices.confirmed_count ~ " invoices") }}
-  {{ ui.stat("Month Payroll Amount", d.payroll.total_net|money(d.payroll.currency), color=palette(3), hint="last 3 months") }}
-</div>
-
+{% set head = "bg-[#309fdb] px-3 py-2 text-[15px] font-semibold text-white" %}
+{% set th = "border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-semibold text-slate-700" %}
+{% set td = "border border-slate-200 px-3 py-1.5 text-center text-xs" %}
 <div class="grid gap-4 lg:grid-cols-3">
-  {% call ui.card("Over All Business Volume", "Regular subscriptions in " ~ d.base) %}
-  {{ ui.dl([('Regular subscriptions', d.volume.count),
-            ('Monthly volume', d.volume.monthly_base|money(d.base)),
-            ('Annualised volume', d.volume.annual_base|money(d.base)),
-            ('Average per subscription', d.volume.avg_base|money(d.base))]) }}
-  {% endcall %}
+  <div class="space-y-4">
+    <div class="flex items-center gap-3 rounded-sm border border-slate-200 bg-white p-3 shadow-sm">
+      <span class="inline-flex h-10 w-10 items-center justify-center rounded bg-[#309fdb] text-white"><i data-lucide="briefcase-business" class="h-5 w-5"></i></span>
+      <div>
+        <div class="text-[15px] font-semibold text-slate-900">Over All Business Volume</div>
+        <div class="text-xs text-slate-600">Total Regular Subscriptions : {{ d.volume.count }}</div>
+        <div class="text-xs text-slate-600">Volume : {{ d.volume.monthly_base|money }} <span class="text-slate-400">({{ d.base }} a month)</span></div>
+      </div>
+    </div>
 
-  {% call ui.card("Clients Receivables", "Ledger balance in " ~ d.base) %}
-  {{ ui.dl([('Opening (before ' ~ d.filters.date_from.strftime('%d %b %Y') ~ ')', d.receivables.opening|money(d.base)),
-            ('Closing (to ' ~ d.filters.date_to.strftime('%d %b %Y') ~ ')', d.receivables.closing|money(d.base)),
-            ('Difference', d.receivables.difference|money(d.base))]) }}
-  <div class="mt-3 text-xs {{ 'text-rose-600' if d.receivables.difference > 0 else 'text-emerald-600' }}">
-    {% if d.receivables.difference > 0 %}Receivables grew over the period.{% elif d.receivables.difference < 0 %}Receivables reduced over the period.{% else %}No movement in the period.{% endif %}
+    <div class="overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm">
+      <div class="{{ head }}">Clients Receivables</div>
+      <div class="space-y-3 p-3">
+        <table class="w-full border-collapse"><thead><tr><th class="{{ th }}">Opening</th><th class="{{ th }}">Closing</th><th class="{{ th }}">Difference</th></tr></thead>
+          <tbody><tr><td class="{{ td }}">{{ d.receivables.opening|money }}</td><td class="{{ td }}">{{ d.receivables.closing|money }}</td><td class="{{ td }}">{{ d.receivables.difference|money }}</td></tr></tbody></table>
+        <table class="w-full border-collapse"><thead><tr><th class="{{ th }}">Status</th><th class="{{ th }}">Total</th><th class="{{ th }}">Value</th></tr></thead>
+          <tbody>
+            <tr><td class="{{ td }}"><a class="hover:underline" href="/finance/invoices?status=confirmed&date_from={{ date_from }}&date_to={{ date_to }}">Invoices - Confirmed</a></td><td class="{{ td }}">{{ d.invoices.confirmed_count }}</td><td class="{{ td }}">{{ d.invoices.confirmed_base|money }}</td></tr>
+            <tr><td class="{{ td }}">Invoices - All (net of cancelled)</td><td class="{{ td }}">{{ d.invoices.all_count }}</td><td class="{{ td }}">{{ d.invoices.all_base|money }}</td></tr>
+            <tr><td class="{{ td }}">Paid against them</td><td class="{{ td }}">—</td><td class="{{ td }}">{{ d.invoices.paid_base|money }}</td></tr>
+          </tbody></table>
+        <table class="w-full border-collapse"><thead><tr><th class="{{ th }}">Month</th><th class="{{ th }}">Payroll Amount</th></tr></thead>
+          <tbody>
+            {% for r in d.payroll.rows %}<tr><td class="{{ td }}">{{ r.period[:4] }}-{{ r.label[:3] }}</td><td class="{{ td }}">{{ r.net|money }}{% if r.status == 'not run' %} <span class="text-slate-400">(not run)</span>{% endif %}</td></tr>
+            {% else %}<tr><td colspan="2" class="{{ td }} text-slate-400">No data to display</td></tr>{% endfor %}
+          </tbody></table>
+        <p class="text-[11px] text-slate-500">Amounts in {{ d.base }}. Receivables are the families' ledger balances on the From and To dates.</p>
+      </div>
+    </div>
   </div>
-  {% endcall %}
 
-  {% call ui.card("Invoices", "Raised between the selected dates") %}
-  {{ ui.dl([('Confirmed value', d.invoices.confirmed_base|money(d.base)),
-            ('Confirmed count', d.invoices.confirmed_count),
-            ('All invoices (net of cancelled)', d.invoices.all_base|money(d.base)),
-            ('Paid against them', d.invoices.paid_base|money(d.base))]) }}
-  {% endcall %}
-</div>
-
-<div class="mt-4 grid gap-4 lg:grid-cols-3">
-  {% call ui.card("Month Payroll Amount", "Last three payroll runs") %}
-  {{ ui.table_start(['Period', 'Status', 'Gross', 'Net'], compact=True) }}
-  {% for r in d.payroll.rows %}
-  <tr>
-    <td class="px-3 py-1.5 font-medium text-slate-700">{{ r.label }}</td>
-    <td class="px-3 py-1.5">{{ ui.badge(r.status) }}</td>
-    <td class="px-3 py-1.5 text-right">{{ r.gross|money(r.currency) }}</td>
-    <td class="px-3 py-1.5 text-right font-semibold">{{ r.net|money(r.currency) }}</td>
-  </tr>
-  {% else %}{{ ui.empty('No payroll runs yet.', 4) }}{% endfor %}
-  {{ ui.table_end() }}
-  {% endcall %}
-
-  <div class="lg:col-span-2">
-  {% call ui.card("Regular / Cancelled Subscriptions flow", "New regular subscriptions against cancellations") %}
-    {{ ui.chart('bdFlow', 300) }}
-  {% endcall %}
+  <div class="space-y-4 lg:col-span-2">
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm">
+        <div class="{{ head }}">Regular Subscriptions Flow Chart</div>
+        <div class="p-3">{% if d.flow.regular.data|sum %}{{ ui.chart('bdRegFlow', 260) }}{% else %}<p class="py-24 text-center text-sm text-slate-400">No data to display</p>{% endif %}</div>
+      </div>
+      <div class="overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm">
+        <div class="{{ head }}">Cancelled Subscriptions Flow Chart</div>
+        <div class="p-3">{% if d.flow.cancelled.data|sum %}{{ ui.chart('bdCanFlow', 260) }}{% else %}<p class="py-24 text-center text-sm text-slate-400">No data to display</p>{% endif %}</div>
+      </div>
+    </div>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="rounded-sm border border-slate-200 bg-white p-3 shadow-sm">
+        <div class="mb-2 text-[15px] font-semibold text-slate-800">Regular Subscriptions</div>
+        {{ ui.chart('bdRegBars', 280) }}
+      </div>
+      <div class="rounded-sm border border-slate-200 bg-white p-3 shadow-sm">
+        <div class="mb-2 text-[15px] font-semibold text-slate-800">Cancelled Subscriptions</div>
+        {{ ui.chart('bdCanBars', 280) }}
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -72,10 +80,17 @@
 {% block scripts %}
 <script>
 (function () {
-  OQC.line('bdFlow', {{ d.flow.labels|tojson }}, [
-    {label: 'Regular', data: {{ d.flow.regular.data|tojson }}, borderColor: '#33b479', backgroundColor: '#33b47922'},
-    {label: 'Cancelled', data: {{ d.flow.cancelled.data|tojson }}, borderColor: '#e35a4e', backgroundColor: '#e35a4e22'}
-  ]);
+  var labels = {{ d.flow.labels|tojson }}, reg = {{ d.flow.regular.data|tojson }}, can = {{ d.flow.cancelled.data|tojson }};
+  function running(a) { var t = 0; return a.map(function (v) { t += v; return t; }); }
+  // the flow charts: the running total month by month; the bars: each month's own count, labelled as in the ERP
+  if (document.getElementById('bdRegFlow')) OQC.line('bdRegFlow', labels, [{label: 'Regular (running total)', data: running(reg), borderColor: '#309fdb', backgroundColor: '#309fdb22'}]);
+  if (document.getElementById('bdCanFlow')) OQC.line('bdCanFlow', labels, [{label: 'Cancelled (running total)', data: running(can), borderColor: '#e35a4e', backgroundColor: '#e35a4e22'}]);
+  var barOpts = {plugins: {legend: {display: false}, tooltip: {enabled: true}}, animation: {onComplete: function () {
+    var c = this.ctx; c.font = '11px Inter, sans-serif'; c.fillStyle = '#334155'; c.textAlign = 'center';
+    this.data.datasets.forEach(function (ds, i) { this.getDatasetMeta(i).data.forEach(function (bar, j) { if (ds.data[j]) c.fillText(ds.data[j], bar.x, bar.y - 4); }); }, this);
+  }}};
+  OQC.bar('bdRegBars', labels, [{label: 'Regular', data: reg, backgroundColor: '#309fdb'}], barOpts);
+  OQC.bar('bdCanBars', labels, [{label: 'Cancelled', data: can, backgroundColor: '#309fdb'}], barOpts);
 })();
 </script>
 {% endblock %}

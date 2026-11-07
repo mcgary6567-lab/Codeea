@@ -25,7 +25,7 @@
 </div>
 {% endif %}
 
-{{ ui.tabs([('kanban','Kanban board','/crm/leads?view=kanban'), ('list','List & filters','/crm/leads?view=list')], view) }}
+{{ ui.tabs([('list','Leads List','/crm/leads?view=list'), ('kanban','Kanban board','/crm/leads?view=kanban')], view) }}
 
 {% call ui.filter_bar('/crm/leads') %}
   <input type="hidden" name="view" value="{{ view }}">
@@ -42,22 +42,31 @@
 {% endcall %}
 
 {% if view == 'list' %}
-{{ ui.table_start(['Lead','Contact','Source / campaign','Stage','Score','Owner','Next follow-up','']) }}
+{# the ERP's Leads List columns; State, City, Street Address, Skype and Zip Code are not held on a lead here #}
+{{ ui.table_start(['ID', 'Guardian Name', 'Mobile No', 'Whatsapp No', 'Shift', 'Referred By', 'Country', 'State', 'City', 'Street Address',
+                   'Skype', 'Email', 'Zip Code', 'How Came To Us', 'Extra Query', 'Followup Date', 'Created At', 'Status', ''], compact=True) }}
+{% set plain = is_admin(user) %}
 {% for l in page.items %}
+{% set e = erp.get(l.id, {}) %}
 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-  <td class="px-4 py-2">
-    <a href="/crm/leads/{{ l.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ l.full_name }}</a>
-    <div class="font-mono text-[11px] text-slate-400">{{ l.lead_code }}{% if l.is_duplicate_of_id %} · <span class="text-amber-600">duplicate</span>{% endif %}</div>
-  </td>
-  <td class="px-4 py-2 text-xs text-slate-500">{{ ui.masked(l.phone or l.email, '/crm/leads/' ~ l.id ~ '/reveal/' ~ ('phone' if l.phone else 'email'), is_admin(user)) }}<div>{{ l.country or '' }}</div></td>
-  <td class="px-4 py-2 text-xs">{{ l.source.name if l.source else '—' }}<div class="text-slate-400">{{ l.campaign.name if l.campaign else '' }}</div></td>
-  <td class="px-4 py-2">{{ ui.badge(l.stage, l.stage|label('registration')) }}</td>
-  <td class="px-4 py-2 w-32">{{ ui.progress(l.score, 'brand' if l.score >= 70 else ('amber' if l.score >= 45 else 'slate'), label=l.score ~ '/100') }}</td>
-  <td class="px-4 py-2 text-xs">{{ l.assigned_to.full_name if l.assigned_to else '—' }}</td>
-  <td class="px-4 py-2 text-xs {{ 'text-rose-600 font-medium' if l.next_follow_up and l.next_follow_up < utcnow() and l.stage not in ('won','lost') }}">{{ l.next_follow_up|datetime if l.next_follow_up else '—' }}</td>
-  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/crm/leads/' ~ l.id, variant='ghost', size='sm') }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs"><a href="/crm/leads/{{ l.id }}" class="text-brand-700 hover:underline">{{ l.lead_code }}</a>{% if l.is_duplicate_of_id %} <span class="text-amber-600">dup.</span>{% endif %}</td>
+  <td class="px-3 py-1.5"><a href="/crm/leads/{{ l.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ l.full_name }}</a></td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ ui.masked(l.phone, '/crm/leads/' ~ l.id ~ '/reveal/phone', plain) }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ ui.masked(l.whatsapp, '/crm/leads/' ~ l.id ~ '/reveal/whatsapp', plain) }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ e.shift or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ e.referred_by or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ l.country or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-300">—</td><td class="px-3 py-1.5 text-xs text-slate-300">—</td><td class="px-3 py-1.5 text-xs text-slate-300">—</td><td class="px-3 py-1.5 text-xs text-slate-300">—</td>
+  <td class="px-3 py-1.5 text-xs">{{ ui.masked(l.email, '/crm/leads/' ~ l.id ~ '/reveal/email', plain) }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-300">—</td>
+  <td class="px-3 py-1.5 text-xs">{{ l.source.name if l.source else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs"><div class="max-w-[14rem] truncate" title="{{ l.notes or '' }}">{{ l.notes or '—' }}</div></td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap {{ 'text-rose-600 font-medium' if l.next_follow_up and l.next_follow_up < utcnow() and l.stage not in ('won','lost') }}">{{ l.next_follow_up|date if l.next_follow_up else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ l.created_at|date }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(l.stage, l.stage|label('registration')) }}</td>
+  <td class="px-3 py-1.5 text-right">{{ ui.button('Open', href='/crm/leads/' ~ l.id, variant='ghost', size='sm') }}</td>
 </tr>
-{% else %}{{ ui.empty('No leads match these filters.', 8) }}{% endfor %}
+{% else %}{{ ui.empty('No leads match these filters.', 19) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% else %}

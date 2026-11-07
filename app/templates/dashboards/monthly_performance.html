@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Monthly Performance Dashboard{% endblock %}
+{% block title %}{{ page_title or "Monthly Performance Dashboard" }}{% endblock %}
 {% block content %}
-{% call ui.page_header("Monthly Performance Dashboard", "Academics, marketing, billing and HR activity for the selected window.") %}
+{% set page_url = page_url or "/dashboards/monthly-performance" %}
+{% call ui.page_header(page_title or "Monthly Performance Dashboard", "Academics, marketing, billing and HR activity for the selected window.") %}
   {{ ui.button("Financial Summary", href="/dashboards/financial-summary", icon="pie-chart", variant="secondary") }}
   {{ ui.button("Monthly Insights", href="/dashboards/monthly-insights", icon="trending-up", variant="secondary") }}
 {% endcall %}
 
-<form method="get" action="/dashboards/monthly-performance" class="mb-4 rounded-md border border-slate-200 bg-white p-2.5">
+<form method="get" action="{{ page_url }}" class="mb-4 rounded-md border border-slate-200 bg-white p-2.5">
   <div class="flex flex-wrap items-end gap-2">
     <div class="w-36">{{ ui.input('start', 'Start Date', start, type='date') }}</div>
     <div class="w-36">{{ ui.input('end', 'End Date', end, type='date') }}</div>
@@ -22,16 +23,16 @@
     </div>
     <input type="hidden" name="department" value="{{ department }}">
     <button class="inline-flex items-center gap-1 rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"><i data-lucide="search" class="h-3.5 w-3.5"></i>Go</button>
-    <a href="/dashboards/monthly-performance" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+    <a href="{{ page_url }}" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Reset</a>
   </div>
 </form>
 
 {% set base_q = 'start=' ~ start ~ '&end=' ~ end %}
-{{ ui.tabs([('all', 'Show All', '/dashboards/monthly-performance?' ~ base_q ~ '&department=all'),
-            ('academics', 'Academics', '/dashboards/monthly-performance?' ~ base_q ~ '&department=academics'),
-            ('marketing', 'Marketing', '/dashboards/monthly-performance?' ~ base_q ~ '&department=marketing'),
-            ('billing', 'Billing', '/dashboards/monthly-performance?' ~ base_q ~ '&department=billing'),
-            ('hr', 'HR', '/dashboards/monthly-performance?' ~ base_q ~ '&department=hr')], department) }}
+{{ ui.tabs([('all', 'Show All', page_url ~ '?' ~ base_q ~ '&department=all'),
+            ('academics', 'Academics', page_url ~ '?' ~ base_q ~ '&department=academics'),
+            ('marketing', 'Marketing', page_url ~ '?' ~ base_q ~ '&department=marketing'),
+            ('billing', 'Billing', page_url ~ '?' ~ base_q ~ '&department=billing'),
+            ('hr', 'HR', page_url ~ '?' ~ base_q ~ '&department=hr')], department) }}
 
 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
   {% for p in d.panels %}

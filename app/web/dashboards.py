@@ -162,15 +162,17 @@ def supervisors(request: Request, date_from: str = "", date_to: str = "", superv
 
 
 @router.get("/daily-performance", include_in_schema=False)
-def daily_performance(request: Request, day: str = "", department: str = "all",
+def daily_performance(request: Request, start: str = "", end: str = "", day: str = "", department: str = "all",
+                      employee_ids: list[str] = Query(default=[]),
                       db: Session = Depends(get_db), user: User = Depends(require("dashboards.view"))):
-    from app.services import class_dashboards as cd
-
-    data = cd.daily_performance(db, day=parse_date(day), department=department)
-    from app.core import scope
-    sc = scope.teachers(db, user)
-    if sc is not None:
-        data["teachers"] = [r for r in data["teachers"] if r["teacher_id"] in sc]
-    return render(request, "dashboards/daily_performance.html", {
-        "user": user, "d": data, "opts": cd.options(db), "day": data["day"].isoformat(),
-        "department": data["department"]})
+    """The ERP's Daily Performance Dashboard: Start / End Date (today by default), Employees, and its 35 panels."""
+    from datetime import date as _date
+    today = _date.today()
+    s = parse_date(start) or parse_date(day) or today
+    e = parse_date(end) or parse_date(day) or s
+    ids = [i for i in (parse_int(x) for x in employee_ids) if i]
+    data = svc.monthly_performance(db, start=s, end=e, employee_ids=ids, department=department, panel_list=svc.DAILY_PANELS)
+    return render(request, "dashboards/monthly_performance.html", {
+        "user": user, "d": data, "opts": svc.options(db), "start": s.isoformat(), "end": e.isoformat(),
+        "employee_ids": ids, "department": data["filters"]["department"],
+        "page_title": "Daily Performance Dashboard", "page_url": "/dashboards/daily-performance"})

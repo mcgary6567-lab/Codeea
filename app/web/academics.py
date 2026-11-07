@@ -16,7 +16,7 @@ from app.core import rbac
 from app.core.audit import log_action, snapshot
 from app.core.deps import csrf_protect, get_current_user, get_user_context, require, PermissionDenied, UserContext
 from app.core.templating import render
-from app.core.utils import paginate, parse_bool, parse_date, parse_float, parse_int, redirect
+from app.core.utils import paginate, parse_bool, parse_date, parse_float, parse_int, redirect, parse_datetime
 from app.database import get_db
 from app.models.academic import (StudentRecommendation, Book, Certificate, Chapter, Course, CurriculumVersion, Division, DorSchedule,
                                  Evaluation, Lesson, LessonAnnotation, LessonPlan, MonthlyTest, Package,
@@ -856,6 +856,7 @@ async def evaluation_create(request: Request, db: Session = Depends(get_db),
                     assessment_id=assessment.id if assessment else None,
                     is_manual=parse_bool(form.get("is_manual")),
                     due_date=parse_date(form.get("due_date")),
+                    start_time=parse_datetime(form.get("start_time")), end_time=parse_datetime(form.get("end_time")),
                     reviewed_by_id=user.id if form.get("academic_comment") else None)
     db.add(ev)
     db.flush()

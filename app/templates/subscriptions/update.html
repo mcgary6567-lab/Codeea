@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Update Subscription · {{ s.subscription_code }}{% endblock %}
+{# The ERP's Update Subscription dialog (opened from an ID on All Subscriptions): the Show All / Update Subscription /
+   Books / Subscription status log tabs, its fields in its order, and Cancel / Change Log / Apply Changes. #}
+{% block content %}
+{% set cur_status = {'active': 'regular', 'frozen': 'freeze', 'expired': 'completed'}.get(s.status, s.status) %}
+{% set fld = "w-full rounded border border-slate-300 bg-slate-50 px-2.5 pb-1.5 pt-5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20" %}
+{% set lbl = "pointer-events-none absolute left-2.5 top-1 text-[11px] text-slate-500" %}
+{% set req = "before:absolute before:left-0 before:top-0 before:h-0 before:w-0 before:border-l-[7px] before:border-t-[7px] before:border-l-transparent before:border-t-rose-600" %}
+
+<div class="mx-auto max-w-5xl rounded-md border border-slate-200 bg-white shadow-sm">
+  <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+    <div>
+      <h1 class="text-lg font-semibold text-slate-900">Update Subscription</h1>
+      <p class="text-xs text-slate-500">{{ s.subscription_code }} · {{ s.student.student_code if s.student }} {{ s.student.full_name if s.student }} · {{ s.client.full_name if s.client }}</p>
+    </div>
+    <a href="/subscriptions" class="rounded border border-slate-300 p-1 text-slate-500 hover:bg-slate-50" aria-label="Close" title="Close"><i data-lucide="x" class="h-4 w-4"></i></a>
+  </div>
+
+  <div class="flex flex-wrap gap-1 border-b border-slate-200 px-5 pt-2 text-sm">
+    {% for key, label in tabs %}
+    <a href="/subscriptions/{{ s.id }}/edit?tab={{ key }}" class="rounded-t px-3 py-2 {{ 'border-b-2 border-brand-600 font-semibold text-brand-700' if tab == key else 'text-slate-600 hover:text-slate-900' }}"{% if tab == key %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+    <a href="/subscriptions/{{ s.id }}" class="ml-auto self-center text-xs text-brand-700 hover:underline">Classes &amp; detail</a>
+  </div>
+
+  {% if tab in ('all', 'update') %}
+  <form id="updForm" method="post" action="/subscriptions/{{ s.id }}/edit" class="p-5"
+        x-data="{ cat: '{{ s.session_category or '30 Minutes' }}', slots: {{ slot_options_all|tojson_safe }} }">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <h2 class="mb-3 text-[15px] font-semibold text-slate-800">Update Subscription</h2>
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div class="relative {{ req }}"><label for="u_language" class="{{ lbl }}">Language</label>
+        <select id="u_language" name="language" class="{{ fld }}">{% for l in language_options %}<option {{ 'selected' if l == s.language }}>{{ l }}</option>{% endfor %}</select></div>
+      <fieldset class="relative rounded border border-slate-300 bg-slate-50 px-2.5 pb-1.5 pt-5 {{ req }}">
+        <legend class="absolute left-2.5 top-1 text-[11px] text-slate-500">Days <span class="text-rose-600">*</span></legend>
+        <div class="flex flex-wrap gap-x-2.5 gap-y-1 text-xs">
+          {% for d in [6, 0, 1, 2, 3, 4, 5] %}
+          <label class="inline-flex items-center gap-1"><input type="checkbox" name="day_{{ d }}" value="1" {{ 'checked' if d in (s.days_of_week or [])|map('int')|list }} class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600">{{ day_names[d] }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="relative {{ req }}"><label for="u_method" class="{{ lbl }}">Course Method</label>
+        <select id="u_method" name="course_method" class="{{ fld }}">{% for v, l in method_options %}<option value="{{ v }}" {{ 'selected' if v == s.course_method }}>{{ l }}</option>{% endfor %}</select></div>
+
+      <div class="relative"><label for="u_gender" class="{{ lbl }}">Gender</label>
+        <select id="u_gender" name="gender" class="{{ fld }}">{% for v, l in genders %}<option value="{{ v }}" {{ 'selected' if s.student and s.student.gender == v }}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="relative {{ req }}"><label for="u_cat" class="{{ lbl }}">Session</label>
+        <select id="u_cat" x-model="cat" class="{{ fld }}">{% for c in category_options %}<option>{{ c }}</option>{% endfor %}</select></div>
+      <div class="relative {{ req }}"><label for="u_slot" class="{{ lbl }}">Session Time</label>
+        <select id="u_slot" name="slot_id" class="{{ fld }}">
+          <template x-for="sl in slots.filter(x => x[2] === cat)" :key="sl[0]"><option :value="sl[0]" x-text="sl[1]" :selected="sl[0] == {{ s.slot_id or 0 }}"></option></template>
+        </select></div>
+
+      <div class="relative {{ req }}"><label for="u_course" class="{{ lbl }}">Course</label>
+        <select id="u_course" name="course_id" class="{{ fld }}">{% for v, l in course_options %}<option value="{{ v }}" {{ 'selected' if v == s.course_id }}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="relative"><label for="u_grade" class="{{ lbl }}">Grade</label>
+        <select id="u_grade" name="grade" class="{{ fld }}"><option value=""></option>{% for g in grades %}<option {{ 'selected' if s.student and s.student.grade == g }}>{{ g }}</option>{% endfor %}</select></div>
+      <div class="relative {{ req }}"><label for="u_status" class="{{ lbl }}">Status</label>
+        <select id="u_status" name="status" class="{{ fld }}">{% for v, l in status_options %}<option value="{{ v }}" {{ 'selected' if v == cur_status }}>{{ l }}</option>{% endfor %}</select></div>
+
+      <div class="relative {{ req }}"><label for="u_teacher" class="{{ lbl }}">Teacher</label>
+        <select id="u_teacher" name="teacher_id" class="{{ fld }}">
+          {% if s.teacher and s.teacher_id not in teacher_options|map('first')|list %}<option value="{{ s.teacher_id }}" selected>{{ s.teacher.teacher_code }}-{{ s.teacher.full_name }}</option>{% endif %}
+          {% for v, l in teacher_options %}<option value="{{ v }}" {{ 'selected' if v == s.teacher_id }}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="relative"><label for="u_share" class="{{ lbl }}">Teacher Share</label>
+        <input id="u_share" readonly value="{{ s.teacher_cost_base|money if s.teacher_cost_base else '' }}" class="{{ fld }} text-slate-600" title="The teacher's monthly cost for this subscription ({{ 'PKR' }})"></div>
+      <div class="relative"><label for="u_ref" class="{{ lbl }}">Referred By</label>
+        <select id="u_ref" name="referred_by_client_id" class="{{ fld }}"><option value=""></option>{% for v, l in client_options %}<option value="{{ v }}" {{ 'selected' if v == s.referred_by_client_id }}>{{ l }}</option>{% endfor %}</select></div>
+
+      <div class="relative {{ req }}"><label for="u_package" class="{{ lbl }}">Package</label>
+        <select id="u_package" name="package_id" class="{{ fld }}"><option value=""></option>{% for v, l in package_options %}<option value="{{ v }}" {{ 'selected' if v == s.package_id }}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="relative {{ req }}"><label for="u_due" class="{{ lbl }}">Next Due Date</label>
+        <input id="u_due" type="date" name="next_billing_date" value="{{ s.next_billing_date or '' }}" class="{{ fld }}"></div>
+      <div class="relative"><label for="u_follow" class="{{ lbl }}">Follow Up Date</label>
+        <input id="u_follow" type="date" name="follow_up_date" value="{{ s.follow_up_date or '' }}" class="{{ fld }}"></div>
+
+      <div class="relative sm:col-span-3"><label for="u_remarks" class="{{ lbl }}">Remarks</label>
+        <input id="u_remarks" name="remarks" value="{{ s.remarks or '' }}" class="{{ fld }}"></div>
+      <div class="relative sm:col-span-3"><label for="u_sremarks" class="{{ lbl }}">Status Remarks</label>
+        <textarea id="u_sremarks" name="status_remarks" rows="2" class="{{ fld }}" placeholder="Required to freeze or cancel; used as the reason for a teacher or time change">{{ s.status_remarks or '' }}</textarea></div>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if tab in ('all', 'books') %}
+  <div class="border-t border-slate-200 p-5">
+    <h2 class="mb-3 text-[15px] font-semibold text-slate-800">Books</h2>
+    <form method="post" action="/subscriptions/{{ s.id }}/books">
+      <div class="overflow-x-auto rounded border border-slate-200">
+      <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-600"><tr>{% for h in ['Book', 'Starting Point', 'Open Sequence', 'Status', 'History'] %}<th class="px-3 py-2 text-left">{{ h }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for b in books %}
+        <tr class="border-t border-slate-100">
+          <td class="px-3 py-1.5">{{ b.book.title if b.book else '—' }}</td>
+          <td class="px-3 py-1.5"><input name="sp_{{ b.id }}" value="{{ b.starting_point or '' }}" aria-label="Starting point of {{ b.book.title if b.book }}" class="w-40 rounded border border-slate-300 px-2 py-1 text-sm" {{ 'disabled' if not can_update }}></td>
+          <td class="px-3 py-1.5"><input type="number" min="1" name="seq_{{ b.id }}" value="{{ b.open_sequence }}" aria-label="Open sequence" class="w-20 rounded border border-slate-300 px-2 py-1 text-sm" {{ 'disabled' if not can_update }}></td>
+          <td class="px-3 py-1.5"><select name="st_{{ b.id }}" aria-label="Status" class="rounded border border-slate-300 px-2 py-1 text-sm" {{ 'disabled' if not can_update }}>{% for v, l in book_statuses %}<option value="{{ v }}" {{ 'selected' if v == b.status }}>{{ l }}</option>{% endfor %}</select></td>
+          <td class="px-3 py-1.5 text-xs text-slate-500">added {{ b.created_at|date }}{% if b.updated_at and b.updated_at != b.created_at %} · changed {{ b.updated_at|date }}{% endif %}</td>
+        </tr>
+        {% else %}<tr><td colspan="5" class="px-3 py-6 text-center text-slate-400">No data found</td></tr>{% endfor %}
+        {% if can_update and course_books %}
+        <tr class="border-t border-slate-200 bg-slate-50/60">
+          <td class="px-3 py-1.5"><select name="new_book_id" aria-label="Add a book" class="rounded border border-slate-300 px-2 py-1 text-sm"><option value="">+ Add Row (book)</option>{% for bk in course_books %}<option value="{{ bk.id }}">{{ bk.title }}</option>{% endfor %}</select></td>
+          <td class="px-3 py-1.5"><input name="new_starting_point" aria-label="Starting point of the new book" class="w-40 rounded border border-slate-300 px-2 py-1 text-sm"></td>
+          <td colspan="3"></td>
+        </tr>
+        {% endif %}
+        </tbody>
+      </table>
+      </div>
+      {% if can_update %}<div class="mt-2 flex justify-end">{{ ui.button('Save Books', icon='save', size='sm', variant='secondary') }}</div>{% endif %}
+    </form>
+  </div>
+  {% endif %}
+
+  {% if tab in ('all', 'log') %}
+  <div class="border-t border-slate-200 p-5">
+    <h2 class="mb-3 text-[15px] font-semibold text-slate-800">Subscription status log</h2>
+    <div class="overflow-x-auto rounded border border-slate-200">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 text-xs text-slate-600"><tr>{% for h in ['Date', 'Changed By', 'Change', 'Reason'] %}<th class="px-3 py-2 text-left">{{ h }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for e in status_log %}
+      <tr class="border-t border-slate-100">
+        <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ e.created_at|datetime }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ e.actor_name or '—' }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ e.description }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-500">{{ e.rationale or '—' }}</td>
+      </tr>
+      {% else %}<tr><td colspan="4" class="px-3 py-6 text-center text-slate-400">No data found</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-3">
+    <a href="/subscriptions" class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cancel</a>
+    <div class="flex gap-2">
+      {% if has_perm(user, 'audit.view') %}<a href="/admin/audit/entity/Subscription/{{ s.id }}" class="rounded bg-amber-400 px-3 py-1.5 text-sm font-semibold text-slate-900 hover:bg-amber-500">Change Log</a>{% endif %}
+      {% if can_update and tab in ('all', 'update') %}<button form="updForm" class="rounded bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700">Apply Changes</button>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

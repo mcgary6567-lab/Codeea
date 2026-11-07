@@ -31,7 +31,7 @@
 <form method="post" action="/requests/{{ kind }}/change-status">
   <input type="hidden" name="back" value="{{ base_url }}{{ '&page=' ~ page.page if page.page and page.page > 1 }}">
   <p class="mb-2 text-xs text-slate-500">{{ page.total }} request(s) - showing {{ page.start }}-{{ page.end }}</p>
-  {{ ui.table_start([''] + meta.headers + ['Status', 'Created At']) }}
+  {{ ui.table_start([''] + meta.headers + ['Status', 'Created At'] + (meta.extra_headers or [])) }}
   {% for r in rows %}
   <tr>
     <td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ r.id }}" aria-label="Select row {{ r.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>
@@ -40,8 +40,12 @@
     {% endfor %}
     <td class="px-3 py-2">{{ ui.badge(r.status, r.status|label('request')) }}</td>
     <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.created_at|datetime }}</td>
+    {% if meta.extra_headers %}
+    {% for v in r.extra or [] %}<td class="px-3 py-2 text-center text-xs {{ 'font-semibold text-rose-600' if loop.first and v }}">{{ v }}</td>{% endfor %}
+    <td class="px-3 py-2 text-xs">{% if r.action_link %}<a href="{{ r.action_link }}" class="rounded border border-brand-300 px-2 py-0.5 font-semibold text-brand-700 hover:bg-brand-50">Take Action</a>{% endif %}</td>
+    {% endif %}
   </tr>
-  {% else %}{{ ui.empty('No requests match these filters.', meta.headers|length + 3) }}{% endfor %}
+  {% else %}{{ ui.empty('No requests match these filters.', meta.headers|length + 3 + (meta.extra_headers or [])|length) }}{% endfor %}
   {{ ui.table_end() }}
   {{ ui.pagination(page, base_url) }}
 

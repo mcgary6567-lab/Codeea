@@ -341,7 +341,8 @@ def three_tasks(session, boss, report):
 
 
 def test_my_tasks_tab(manager, three_tasks):
-    body = manager.get("/hr/me/tasks?tab=my").text
+    # searched by this run's tag: earlier runs leave tasks behind, which can push this one onto page 2
+    body = manager.get(f"/hr/me/tasks?tab=my&q={TAG}").text
     assert three_tasks["mine"].title in body
     assert three_tasks["assigned"].title not in body
     assert three_tasks["others"].title not in body
@@ -362,7 +363,7 @@ def test_others_tasks_tab(manager, three_tasks):
 
 
 def test_the_erp_columns_are_there(manager, session, three_tasks, report):
-    body = manager.get("/hr/me/tasks?tab=my").text
+    body = manager.get(f"/hr/me/tasks?tab=my&q={TAG}").text
     for header in ["Task Title", "Assigned To", "Assigned At", "Collaborators", "Due Date", "Comments", "Status"]:
         assert header in body
     collaborator = session.get(User, report.user_id)

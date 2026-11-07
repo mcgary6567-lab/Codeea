@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.core import rbac
 from app.core.audit import log_action
 from app.core import scope
 from app.core.deps import csrf_protect, require
@@ -26,7 +27,7 @@ from app.database import get_db
 from app.models.academic import Book, Course, Package
 from app.models.core import AuditEvent, User
 from app.models.erp import SessionSlot
-from app.models.finance import Currency, Subscription
+from app.models.finance import Currency, Subscription, SubscriptionBook
 from app.models.people import Client, Student, Teacher
 from app.models.scheduling import ClassSession
 from app.services import scheduling as sched
@@ -436,6 +437,151 @@ def subscription_detail(id: int, request: Request, db: Session = Depends(get_db)
         "days_label": sched.day_label(s.days_of_week), "day_names": DAY_NAMES})
 
 
+# ----------------------------------------------------------------------------- Update Subscription (the ERP's form)
+UPDATE_TABS = [("all", "Show All"), ("update", "Update Subscription"), ("books", "Books"), ("log", "Subscription status log")]
+BOOK_STATUSES = [("active", "Active"), ("completed", "Completed"), ("in-active", "In-Active")]
+GENDERS = [("male", "Male"), ("female", "Female")]
+
+
+def _book_rows(db: Session, s: Subscription) -> list[SubscriptionBook]:
+    """The Books grid; a subscription saved before the grid existed shows its chosen books as rows."""
+    rows = db.query(SubscriptionBook).filter(SubscriptionBook.subscription_id == s.id).order_by(SubscriptionBook.open_sequence, SubscriptionBook.id).all()
+    if not rows and s.books:
+        for seq, bid in enumerate([int(b) for b in s.books if str(b).isdigit()], start=1):
+            if db.get(Book, bid):
+                db.add(SubscriptionBook(subscription_id=s.id, book_id=bid, open_sequence=seq, status="active"))
+        db.flush()
+        rows = db.query(SubscriptionBook).filter(SubscriptionBook.subscription_id == s.id).order_by(SubscriptionBook.open_sequence).all()
+    return rows
+
+
+@router.get("/{id}/edit", include_in_schema=False)
+def update_subscription(id: int, request: Request, tab: str = "all", db: Session = Depends(get_db),
+                        user: User = Depends(require("subscriptions.view"))):
+    """The ERP's Update Subscription: Show All / Update Subscription / Books / Subscription status log tabs."""
+    s = _get(db, id, user)
+    books = _book_rows(db, s)
+    db.commit()
+    status_log = (db.query(AuditEvent).filter(AuditEvent.entity_type == "Subscription", AuditEvent.entity_id == s.id,
+                                              AuditEvent.action.in_(("status_change", "freeze", "update", "create", "cancel", "assign", "schedule_change")))
+                  .order_by(AuditEvent.created_at.desc()).limit(50).all())
+    course_books = (db.query(Book).filter(Book.course_id == s.course_id).order_by(Book.order).all() if s.course_id else [])
+    return render(request, "subscriptions/update.html", {
+        "user": user, "s": s, "tab": tab if tab in dict(UPDATE_TABS) else "all", "tabs": UPDATE_TABS, "books": books,
+        "course_books": course_books, "book_statuses": BOOK_STATUSES, "status_log": status_log, "genders": GENDERS,
+        "grades": [g for g in GRADES if g], "day_names": DAY_NAMES, "can_update": rbac.has_permission(user, "subscriptions.update"),
+        "teacher_options": [(t.id, f"{t.teacher_code}-{t.full_name}") for t in db.query(Teacher).filter(
+            Teacher.status == "active", Teacher.is_verified.is_(True)).order_by(Teacher.full_name)],
+        "slot_options_all": [(sl.id, sl.label, sl.category) for sl in db.query(SessionSlot).filter(SessionSlot.status == "active").order_by(SessionSlot.sort_no)],
+        **_options(db)})
+
+
+@router.post("/{id}/edit", include_in_schema=False)
+async def update_subscription_save(id: int, request: Request, db: Session = Depends(get_db),
+                                   user: User = Depends(require("subscriptions.update"))):
+    """Apply Changes on Update Subscription. Teacher, session time, days and status go through the same steps as their
+    own buttons (classes regenerated, freeze / cancel / complete rules, audit); the other fields are saved as typed."""
+    from app.services import billing
+    s = _get(db, id, user)
+    form = await request.form()
+    back = f"/subscriptions/{s.id}/edit?tab={form.get('tab') or 'update'}"
+    remarks = (form.get("status_remarks") or "").strip()
+    reason = remarks or "Updated on Update Subscription"
+    before = {"language": s.language, "course_method": s.course_method, "course_id": s.course_id, "package_id": s.package_id,
+              "next_billing_date": str(s.next_billing_date), "follow_up_date": str(s.follow_up_date), "remarks": s.remarks,
+              "status_remarks": s.status_remarks, "referred_by_client_id": s.referred_by_client_id}
+    # teacher, then session time / days: their own checks and the class regeneration
+    teacher_id = parse_int(form.get("teacher_id"))
+    if teacher_id and teacher_id != s.teacher_id:
+        error = _apply_teacher(db, user, s, db.get(Teacher, teacher_id), reason, "other", request)
+        if error:
+            return redirect(back, error, "error")
+    slot_id = parse_int(form.get("slot_id"))
+    days = _read_days(form)
+    if (slot_id and slot_id != s.slot_id) or (days and sorted(days) != sorted(int(d) for d in (s.days_of_week or []))):
+        error = _apply_slot(db, user, s, db.get(SessionSlot, slot_id or s.slot_id or 0), days or [int(d) for d in (s.days_of_week or [])],
+                            reason, "schedule_change", request)
+        if error:
+            return redirect(back, error, "error")
+    # the plain fields
+    s.language = form.get("language") or s.language
+    s.course_method = form.get("course_method") or s.course_method
+    s.course_id = parse_int(form.get("course_id")) or s.course_id
+    s.package_id = parse_int(form.get("package_id")) or s.package_id
+    s.next_billing_date = parse_date(form.get("next_billing_date")) or s.next_billing_date
+    s.follow_up_date = parse_date(form.get("follow_up_date"))
+    s.remarks = (form.get("remarks") or "").strip() or None
+    s.status_remarks = remarks[:300] or None
+    s.referred_by_client_id = parse_int(form.get("referred_by_client_id"))
+    if s.student:
+        s.student.gender = form.get("gender") or s.student.gender
+        s.student.grade = (form.get("grade") or "").strip() or s.student.grade
+    # status, with the rules of its own buttons
+    new = (form.get("status") or "").strip()
+    old = s.status
+    if new and new not in sched.status_values(old) and new != old:
+        if new in ("cancelled", "freeze") and not remarks:
+            return redirect(back, "Write the Status Remarks: a reason is required to freeze or cancel.", "error")
+        if new == "cancelled":
+            try:
+                billing.cancel_subscription(db, s, user, reason)
+            except ValueError as exc:
+                return redirect(back, str(exc), "error")
+            sched.end_subscription_schedule(db, user, s, "ended", reason, request=request)
+        elif new == "freeze":
+            if s.status not in sched.RUNNING_SUBSCRIPTION_STATUSES:
+                return redirect(back, f"A {s.status} subscription cannot be frozen.", "error")
+            s.status, s.freeze_start = "freeze", date.today()
+            if s.student:
+                s.student.status = "frozen"
+            sched.end_subscription_schedule(db, user, s, "paused", reason, request=request)
+        elif new == "completed":
+            s.status, s.completion_date = "completed", date.today()
+            s.end_date, s.auto_renew = s.completion_date, False
+            if s.student and s.student.status in ("active", "trial"):
+                s.student.status = "graduated"
+            sched.end_subscription_schedule(db, user, s, "ended", reason, request=request)
+        elif new in ("regular", "trial"):
+            if old in ("cancelled", "completed", "expired"):
+                return redirect(back, f"A {old} subscription cannot be reopened here; create a new subscription.", "error")
+            s.status = new
+            if old in ("freeze", "frozen"):
+                s.freeze_start = s.freeze_end = None
+                if s.student:
+                    s.student.status = "active"
+                sched.sync_subscription_schedule(db, user, s, reason=reason, request=request)
+        log_action(db, user, "status_change", "subscriptions", entity=s, description=f"{s.subscription_code} status {old} -> {s.status}",
+                   rationale=reason, before={"status": old}, after={"status": s.status}, request=request, consequential=True)
+    log_action(db, user, "update", "subscriptions", entity=s, description=f"{s.subscription_code} updated on Update Subscription",
+               before=before, after={k: str(getattr(s, k)) for k in before}, request=request)
+    db.commit()
+    return redirect(back, "Subscription updated.")
+
+
+@router.post("/{id}/books", include_in_schema=False)
+async def update_subscription_books(id: int, request: Request, db: Session = Depends(get_db),
+                                    user: User = Depends(require("subscriptions.update"))):
+    """The Books grid: each row's Starting Point, Open Sequence and Status, and Add Row for another course book."""
+    s = _get(db, id, user)
+    form = await request.form()
+    for row in _book_rows(db, s):
+        if form.get(f"sp_{row.id}") is not None:
+            row.starting_point = (form.get(f"sp_{row.id}") or "").strip()[:100] or None
+            row.open_sequence = parse_int(form.get(f"seq_{row.id}")) or row.open_sequence
+            st = form.get(f"st_{row.id}") or row.status
+            row.status = st if st in dict(BOOK_STATUSES) else row.status
+    new_book = parse_int(form.get("new_book_id"))
+    if new_book and db.get(Book, new_book):
+        n = db.query(SubscriptionBook).filter(SubscriptionBook.subscription_id == s.id).count()
+        db.add(SubscriptionBook(subscription_id=s.id, book_id=new_book, open_sequence=n + 1, status="active",
+                                starting_point=(form.get("new_starting_point") or "").strip()[:100] or None))
+    db.flush()
+    s.books = [r.book_id for r in _book_rows(db, s) if r.status == "active"]  # the subscription's chosen books stay in step
+    log_action(db, user, "update", "subscriptions", entity=s, description=f"{s.subscription_code} books updated", request=request)
+    db.commit()
+    return redirect(f"/subscriptions/{s.id}/edit?tab=books", "Books saved.")
+
+
 @router.get("/{id}/day-wise", include_in_schema=False)
 def subscription_day_wise(id: int, request: Request, month: str = "", db: Session = Depends(get_db),
                           user: User = Depends(require("subscriptions.view"))):
@@ -581,22 +727,19 @@ async def set_follow_up(id: int, request: Request, db: Session = Depends(get_db)
     return redirect(f"/subscriptions/{s.id}", "Follow-up date saved.")
 
 
-@router.post("/{id}/change-teacher", include_in_schema=False)
-async def change_teacher(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
-    s = _get(db, id, user)
-    form = await request.form()
-    reason = _reason(form)
-    teacher = db.get(Teacher, parse_int(form.get("teacher_id"))) if form.get("teacher_id") else None
+def _apply_teacher(db: Session, user: User, s: Subscription, teacher: Teacher | None, reason: str, reason_category: str,
+                   request: Request) -> str | None:
+    """Move a subscription to another verified teacher and regenerate its classes; returns an error message or None."""
     if not teacher or not teacher.is_verified:
-        return redirect(f"/subscriptions/{s.id}", "Choose a verified teacher.", "error")
+        return "Choose a verified teacher."
     if not reason:
-        return redirect(f"/subscriptions/{s.id}", "A reason is required to change the teacher.", "error")
+        return "A reason is required to change the teacher."
     if teacher.id == s.teacher_id:
-        return redirect(f"/subscriptions/{s.id}", "That teacher already holds this subscription.", "error")
+        return "That teacher already holds this subscription."
     old = s.teacher
     sch = sched.subscription_schedule(db, s)
     if s.slot and s.days_of_week and sched.teacher_slot_busy(db, teacher.id, [int(d) for d in s.days_of_week], s.slot, exclude_schedule_id=sch.id if sch else None):
-        return redirect(f"/subscriptions/{s.id}", f"{teacher.full_name} already has a class in {s.slot.label} on those days.", "error")
+        return f"{teacher.full_name} already has a class in {s.slot.label} on those days."
     before = {"teacher_id": s.teacher_id}
     previous_student_teacher = s.student.teacher_id if s.student else None
     s.teacher_id = teacher.id
@@ -609,10 +752,10 @@ async def change_teacher(id: int, request: Request, db: Session = Depends(get_db
         sched.sync_subscription_schedule(db, user, s, reason=reason, request=request)
     except ValueError as exc:
         db.rollback()
-        return redirect(f"/subscriptions/{s.id}", str(exc), "error")
+        return str(exc)
     if s.student:
         from app.services import journey
-        journey.record_assignment(db, s.student, teacher.id, user, "teacher_change", reason_category=form.get("reason_category") or "other",
+        journey.record_assignment(db, s.student, teacher.id, user, "teacher_change", reason_category=reason_category or "other",
                                   reason=reason, previous_teacher_id=previous_student_teacher)
     log_action(db, user, "assign", "subscriptions", entity=s, description=f"{s.subscription_code} teacher changed {old.full_name if old else '-'} -> {teacher.full_name}",
                rationale=reason, before=before, after={"teacher_id": teacher.id}, request=request, consequential=True)
@@ -621,26 +764,35 @@ async def change_teacher(id: int, request: Request, db: Session = Depends(get_db
             notify(db, t.user_id, "Teacher change", f"{s.student.full_name if s.student else 'Student'} ({s.subscription_code}) now with {teacher.full_name}. {reason}",
                    event_type="teacher_change", link="/teacher/online-class")
     _notify_parties(db, s, "Teacher changed", f"{s.student.full_name if s.student else 'Your student'} will now study with {teacher.full_name}. {reason}", teacher=False)
+    return None
+
+
+@router.post("/{id}/change-teacher", include_in_schema=False)
+async def change_teacher(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
+    s = _get(db, id, user)
+    form = await request.form()
+    teacher = db.get(Teacher, parse_int(form.get("teacher_id"))) if form.get("teacher_id") else None
+    error = _apply_teacher(db, user, s, teacher, _reason(form), form.get("reason_category") or "other", request)
+    if error:
+        return redirect(f"/subscriptions/{s.id}", error, "error")
     db.commit()
     return redirect(f"/subscriptions/{s.id}", f"Teacher changed to {teacher.full_name}; future classes regenerated.")
 
 
-@router.post("/{id}/change-slot", include_in_schema=False)
-async def change_slot(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
-    s = _get(db, id, user)
-    form = await request.form()
-    reason = _reason(form)
-    slot = db.get(SessionSlot, parse_int(form.get("slot_id"))) if form.get("slot_id") else None
-    days = _read_days(form) or [int(d) for d in (s.days_of_week or [])]
+def _apply_slot(db: Session, user: User, s: Subscription, slot: SessionSlot | None, days: list[int], reason: str,
+                reason_category: str, request: Request) -> str | None:
+    """Move a subscription to another session time and / or days and regenerate its classes; error message or None."""
     if not slot:
-        return redirect(f"/subscriptions/{s.id}", "Choose a session time.", "error")
+        return "Choose a session time."
+    if not days:
+        return "Choose at least one day."
     if not reason:
-        return redirect(f"/subscriptions/{s.id}", "A reason is required to change the session time.", "error")
+        return "A reason is required to change the session time."
     if not s.teacher_id:
-        return redirect(f"/subscriptions/{s.id}", "Assign a teacher first.", "error")
+        return "Assign a teacher first."
     sch = sched.subscription_schedule(db, s)
     if sched.teacher_slot_busy(db, s.teacher_id, days, slot, exclude_schedule_id=sch.id if sch else None):
-        return redirect(f"/subscriptions/{s.id}", f"{s.teacher.full_name if s.teacher else 'The teacher'} already has a class in {slot.label} on those days.", "error")
+        return f"{s.teacher.full_name if s.teacher else 'The teacher'} already has a class in {slot.label} on those days."
     before = {"slot": s.slot.label if s.slot else None, "days": s.days_of_week}
     from app.services import journey
     if s.student:
@@ -654,13 +806,25 @@ async def change_slot(id: int, request: Request, db: Session = Depends(get_db), 
         sched.sync_subscription_schedule(db, user, s, reason=reason, request=request)
     except ValueError as exc:
         db.rollback()
-        return redirect(f"/subscriptions/{s.id}", str(exc), "error")
+        return str(exc)
     if s.student:
         journey.record_assignment(db, s.student, s.student.teacher_id, user, "time_change",
-                                  reason_category=form.get("reason_category") or "schedule_change", reason=reason)
+                                  reason_category=reason_category or "schedule_change", reason=reason)
     log_action(db, user, "schedule_change", "subscriptions", entity=s, description=f"{s.subscription_code} moved to {slot.label} on {sched.day_label(days)}",
                rationale=reason, before=before, after={"slot": slot.label, "days": days}, request=request, consequential=True)
     _notify_parties(db, s, "Class time changed", f"{s.student.full_name if s.student else 'Your student'}'s classes move to {slot.label} PKT on {sched.day_label(days)}. {reason}")
+    return None
+
+
+@router.post("/{id}/change-slot", include_in_schema=False)
+async def change_slot(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("subscriptions.update"))):
+    s = _get(db, id, user)
+    form = await request.form()
+    slot = db.get(SessionSlot, parse_int(form.get("slot_id"))) if form.get("slot_id") else None
+    days = _read_days(form) or [int(d) for d in (s.days_of_week or [])]
+    error = _apply_slot(db, user, s, slot, days, _reason(form), form.get("reason_category") or "schedule_change", request)
+    if error:
+        return redirect(f"/subscriptions/{s.id}", error, "error")
     db.commit()
     return redirect(f"/subscriptions/{s.id}", f"Session changed to {slot.label}; future classes regenerated.")
 
