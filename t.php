@@ -18,7 +18,7 @@ $in  = json_decode($raw, true);
 if (!is_array($in)) { http_response_code(400); exit; }
 
 $EVENTS = array('pv', 'leave', 'buy_gumroad', 'buy_paypal', 'buy_crypto', 'crypto_copy_address',
-                'mql5_pro', 'mql5_free', 'download_zip', 'go_checkout', 'email');
+                'mql5_pro', 'mql5_free', 'download_zip', 'go_checkout', 'email', 'app_open');
 $e = (string)($in['e'] ?? '');
 if (!in_array($e, $EVENTS, true)) { http_response_code(400); exit; }
 

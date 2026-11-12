@@ -35,6 +35,7 @@
     if (/mql5\.com\/.*product\/191087/i.test(href)) return "mql5_pro";
     if (/mql5\.com\/.*product\/184515/i.test(href)) return "mql5_free";
     if (/\/downloads\//i.test(href)) return "download_zip";
+    if (/^https?:\/\/app\.goldscalpers\.com/i.test(href)) return "app_open";
     if (/^(https?:\/\/goldscalpers\.com)?\/checkout(\.html)?([?#].*)?$/i.test(href)) return "go_checkout";
     if (/^mailto:/i.test(href)) return "email";
     return "";
