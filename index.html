@@ -9,15 +9,15 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#F59E0B">
-<title>Prop-Firm XAUUSD Robot for MT5 — Stop Blowing Challenges</title>
-<meta name="description" content="Gold Scalpers EA trades XAUUSD on MT5 on autopilot with prop-firm-grade risk control: daily-loss limits, drawdown guard, disciplined entries. $140 lifetime.">
-<meta name="keywords" content="AI gold trading bot, gold trading bot, forex robot, XAUUSD robot, MT5 trading bot, trading bot that works while you sleep, Gold Scalpers EA, XAUUSD EA, gold trading robot, MT5 Expert Advisor, MetaTrader 5 EA, automated gold trading, EMA crossover EA, gold scalping robot">
+<title>Gold EA for MT5: Prop-Firm-Ready XAUUSD Robot | Gold Scalpers</title>
+<meta name="description" content="Gold Scalpers EA is a gold EA for MT5 that trades XAUUSD on M5 with prop-firm risk control: daily-loss limit, drawdown guard, break-even stop. $140 lifetime.">
+<meta name="keywords" content="gold EA, gold EA MT5, XAUUSD EA, prop firm EA, gold scalping EA, best gold EA, gold trading robot, gold trading bot, XAUUSD robot, MT5 Expert Advisor, Gold Scalpers EA, gold signals app">
 <meta name="author" content="Gold Scalpers">
 <meta name="robots" content="index, follow, max-image-preview:large">
 
 <meta property="og:type" content="product">
-<meta property="og:title" content="Gold Scalpers EA — Prop-Firm-Ready XAUUSD Robot for MT5">
-<meta property="og:description" content="Stop blowing challenges. Gold Scalpers EA runs gold on autopilot with prop-firm-grade risk control — daily-loss limits, drawdown guard and disciplined EMA entries. Built for the rules prop firms demand. 30-day money-back.">
+<meta property="og:title" content="Gold Scalpers EA: Gold EA for MT5, Prop-Firm-Ready XAUUSD Robot">
+<meta property="og:description" content="Stop blowing challenges. Gold Scalpers EA is a gold EA that trades XAUUSD on MT5 on autopilot with prop-firm risk control: daily-loss limits, drawdown guard and a break-even stop. 30-day money-back.">
 <meta property="og:url" content="https://goldscalpers.com/">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
 <meta property="og:image:width" content="2000">
@@ -26,8 +26,8 @@
 <meta property="og:locale" content="en_US">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Gold Scalpers EA — Prop-Firm-Ready XAUUSD Robot for MT5">
-<meta name="twitter:description" content="Stop blowing challenges. Gold Scalpers EA runs gold on autopilot with prop-firm-grade risk control — daily-loss limits, drawdown guard and disciplined EMA entries. Built for the rules prop firms demand. 30-day money-back.">
+<meta name="twitter:title" content="Gold Scalpers EA: Gold EA for MT5, Prop-Firm-Ready XAUUSD Robot">
+<meta name="twitter:description" content="Stop blowing challenges. Gold Scalpers EA is a gold EA that trades XAUUSD on MT5 on autopilot with prop-firm risk control: daily-loss limits, drawdown guard and a break-even stop. 30-day money-back.">
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 
 <link rel="canonical" href="https://goldscalpers.com/">
@@ -80,6 +80,8 @@
   "@type": "WebPage",
   "@id": "https://goldscalpers.com/#webpage",
   "url": "https://goldscalpers.com",
+  "name": "Gold EA for MT5: Prop-Firm-Ready XAUUSD Robot | Gold Scalpers",
+  "description": "Gold Scalpers EA is a gold EA for MT5 that trades XAUUSD on M5 with prop-firm risk control: daily-loss limit, drawdown guard, break-even stop. $140 lifetime.",
   "speakable": {
     "@type": "SpeakableSpecification",
     "cssSelector": ["h1", ".lede", ".faq-q", ".faq-a"]
@@ -710,6 +712,137 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
 @media(max-width:640px){.pb-strip{margin-top:-0.25rem;padding:0 1.2rem}.pb-card{padding:1rem;gap:0.9rem}.pb-tag{font-size:1.05rem}.pb-title{font-size:1rem}.pb-main{flex-basis:calc(100% - 6.5rem)}}
 </style>
   <meta name="google-adsense-account" content="ca-pub-9114456539687234">
+<style id="gs-polish">
+/* ===== 2026-11 polish layer: motion, hover states, small fixes. Loaded after the main styles. ===== */
+:root{--ease:cubic-bezier(.2,.7,.2,1)}
+
+/* fix: the nav buy button inherited the muted link colour */
+.nav-links a.btn-primary,.nav-links a.btn-primary:hover{color:#fff}
+/* plain text links read as part of the site, not browser blue */
+.hero p a,.section p a:not(.btn){color:var(--gold);font-weight:600;text-decoration:underline;text-decoration-color:rgba(217,119,6,.35);text-underline-offset:3px;transition:color .2s,text-decoration-color .2s}
+.hero p a:hover,.section p a:not(.btn):hover{color:#B45309;text-decoration-color:#B45309}
+
+/* scroll progress + nav that tightens once you scroll */
+.gs-progress{position:fixed;left:0;top:0;height:3px;width:100%;z-index:300;pointer-events:none;transform-origin:0 50%;transform:scaleX(0);
+  background:linear-gradient(90deg,#F59E0B,#D97706 55%,#FB923C)}
+.nav{transition:padding .3s var(--ease),box-shadow .3s,background .3s}
+.nav.scrolled{padding:.55rem 0;background:rgba(255,255,255,.9);-webkit-backdrop-filter:saturate(1.5) blur(12px);backdrop-filter:saturate(1.5) blur(12px);box-shadow:0 8px 28px rgba(16,24,40,.09)}
+@media (hover:hover) and (min-width:901px){
+  .nav-links a:not(.btn){position:relative}
+  .nav-links a:not(.btn)::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:2px;border-radius:2px;background:var(--gold);transform:scaleX(0);transform-origin:0 50%;transition:transform .28s var(--ease)}
+  .nav-links a:not(.btn):hover::after{transform:scaleX(1)}
+}
+
+/* hero: soft moving light, staged entrance, tilted screenshot that straightens on hover */
+.hero::after{content:"";position:absolute;z-index:0;pointer-events:none;width:560px;height:560px;right:-120px;top:-160px;border-radius:50%;
+  background:radial-gradient(circle,rgba(245,158,11,.16),rgba(245,158,11,0) 65%);animation:gsDrift 14s ease-in-out infinite alternate}
+@keyframes gsDrift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(-90px,70px,0) scale(1.15)}}
+.hero h1 .accent{background:linear-gradient(90deg,#B45309,#F59E0B 35%,#FBBF24 50%,#F59E0B 65%,#B45309);background-size:220% auto;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:gsShine 6s linear infinite}
+@keyframes gsShine{to{background-position:-220% center}}
+@keyframes gsUp{from{transform:translateY(22px)}to{transform:none}}
+@keyframes gsFadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.hero-inner>div:first-child>.hero-tag{animation:gsFadeUp .6s var(--ease) both}
+.hero-inner>div:first-child>h1{animation:gsUp .7s var(--ease) both}
+.hero-inner>div:first-child>.lede{animation:gsUp .7s var(--ease) .05s both}
+.hero-inner>div:first-child>.hero-cta{animation:gsFadeUp .7s var(--ease) .16s both}
+.hero-inner>div:first-child>.hero-app,.hero-inner>div:first-child>p:not(.lede){animation:gsFadeUp .7s var(--ease) .24s both}
+.hero-inner>div:first-child>.hero-rating{animation:gsFadeUp .7s var(--ease) .32s both}
+.hero-inner>div:first-child>.hero-trust{animation:gsFadeUp .7s var(--ease) .4s both}
+.hero-chart-wrap{animation:gsUp .9s var(--ease) both;transition:transform .6s var(--ease),box-shadow .6s var(--ease);will-change:transform}
+@media (hover:hover) and (min-width:1081px){
+  .hero-chart-wrap{transform:perspective(1600px) rotateY(-5deg) rotateX(2deg)}
+  .hero-chart-wrap:hover{transform:perspective(1600px) rotateY(0) rotateX(0) translateY(-4px);box-shadow:0 34px 80px -24px rgba(16,24,40,.38)}
+}
+.hero-trust span{transition:transform .2s var(--ease),color .2s}
+.hero-trust span:hover{transform:translateY(-2px);color:var(--text)}
+
+/* the app link under the hero buttons */
+.hero-app{display:inline-flex;align-items:center;gap:.6rem;margin-top:1rem;padding:.42rem .95rem .42rem .45rem;border-radius:999px;font-size:.86rem;font-weight:600;
+  color:#1F2937;background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm);text-decoration:none;transition:transform .2s var(--ease),box-shadow .2s,border-color .2s}
+.hero-app:hover{transform:translateY(-2px);border-color:#F3C56B;box-shadow:var(--shadow-md);color:#111827;text-decoration:none}
+.hero-app b{font-size:.68rem;letter-spacing:.08em;color:#fff;background:linear-gradient(135deg,#10B981,#059669);padding:.2rem .55rem;border-radius:999px}
+.hero-app svg{width:15px;height:15px;transition:transform .2s var(--ease)}
+.hero-app:hover svg{transform:translateX(3px)}
+
+/* buttons: light sweep on hover, a calm pulse on the main hero button */
+.btn-primary,.pb-buy{position:relative;overflow:hidden}
+.btn-primary::after,.pb-buy::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;transform:skewX(-20deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.38),transparent);transition:left .6s var(--ease);pointer-events:none}
+.btn-primary:hover::after,.pb-buy:hover::after{left:120%}
+.hero-cta .btn-primary{animation:gsFadeUp .7s var(--ease) .16s both,gsGlow 3.2s ease-in-out 1.4s infinite}
+@keyframes gsGlow{0%,100%{box-shadow:0 2px 8px rgba(217,119,6,.25)}50%{box-shadow:0 2px 8px rgba(217,119,6,.25),0 0 0 9px rgba(245,158,11,.13)}}
+.btn-ghost{transition:transform .2s var(--ease),box-shadow .2s,border-color .2s,background .2s}
+.btn-ghost:hover{transform:translateY(-1px)}
+
+/* cards: lift, icon motion and a spotlight that follows the pointer */
+.feature-card,.stat-card,.step,.pop-card,.price-card,.faq-item{transition:transform .3s var(--ease),box-shadow .3s var(--ease),border-color .3s}
+.feature-card{--mx:50%;--my:0%}
+.feature-card::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s;
+  background:radial-gradient(260px circle at var(--mx) var(--my),rgba(245,158,11,.13),transparent 62%)}
+.feature-card:hover::after{opacity:1}
+.feature-card>*{position:relative;z-index:1}
+.feature-card:hover{transform:translateY(-5px);box-shadow:0 18px 40px -18px rgba(16,24,40,.22)}
+.feature-icon,.stat-icon{transition:transform .35s var(--ease),background .3s,color .3s}
+.feature-card:hover .feature-icon{transform:translateY(-3px) rotate(-6deg) scale(1.08);background:linear-gradient(135deg,#FBBF24,#D97706);color:#fff}
+.stat-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-md)}
+.stat-card:hover .stat-icon{transform:scale(1.12) rotate(6deg)}
+.step:hover{transform:translateY(-5px);box-shadow:var(--shadow-md);border-color:#F3C56B}
+.price-card.featured{animation:gsRing 4s ease-in-out infinite}
+@keyframes gsRing{0%,100%{box-shadow:0 10px 30px -12px rgba(217,119,6,.25)}50%{box-shadow:0 18px 46px -12px rgba(217,119,6,.42)}}
+@media (min-width:1081px){.features-grid>.feature-card:last-child:nth-child(3n+1){grid-column:1/-1}}
+.eyebrow{transition:letter-spacing .4s var(--ease)}
+
+/* reveal on scroll (switched on by the script, so nothing is hidden without it) */
+.js-anim .rv{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease),transform .7s var(--ease);transition-delay:var(--d,0ms)}
+.js-anim .rv.rv-z{transform:scale(.96)}
+.js-anim .rv.in{opacity:1;transform:none}
+
+/* ===== free app section ===== */
+.gsapp{position:relative;overflow:hidden;border-radius:28px;color:#EEF1F5;padding:3rem;display:grid;grid-template-columns:1.15fr .85fr;gap:2.5rem;align-items:center;
+  background:radial-gradient(620px 380px at 88% 30%,rgba(245,166,35,.26),transparent 64%),radial-gradient(520px 360px at 0% 0%,rgba(96,165,250,.14),transparent 60%),linear-gradient(160deg,#171C23,#0C0F13)}
+.gsapp::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.45;
+  background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:40px 40px;
+  -webkit-mask-image:radial-gradient(ellipse 70% 80% at 70% 40%,#000 25%,transparent 75%);mask-image:radial-gradient(ellipse 70% 80% at 70% 40%,#000 25%,transparent 75%)}
+.gsapp>*{position:relative}
+.gsapp-pill{display:inline-flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:700;color:#FFE1A6;background:rgba(245,166,35,.13);border:1px solid rgba(245,166,35,.36);padding:.34rem .8rem;border-radius:999px}
+.gsapp-pill i{width:8px;height:8px;border-radius:50%;background:#34D399;animation:livePulse 2s infinite}
+.gsapp h2{font-size:clamp(1.7rem,3.4vw,2.5rem);line-height:1.12;letter-spacing:-.025em;font-weight:800;color:#fff;margin:1rem 0 .8rem}
+.gsapp h2 span{background:linear-gradient(92deg,#FFD479,#F5A623 60%,#FF8A3D);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gsapp p{color:#C3CAD5;font-size:1.03rem;max-width:520px;margin:0}
+.gsapp ul{list-style:none;margin:1.2rem 0 0;padding:0;display:grid;gap:.55rem}
+.gsapp li{display:flex;gap:.6rem;align-items:flex-start;color:#DCE1E8;font-size:.97rem}
+.gsapp li svg{flex:none;width:18px;height:18px;margin-top:.22rem;color:#34D399}
+.gsapp-cta{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.6rem}
+.gsapp-btn{display:inline-flex;align-items:center;gap:.55rem;font-weight:800;font-size:.98rem;padding:.85rem 1.4rem;border-radius:13px;text-decoration:none;transition:transform .2s var(--ease),box-shadow .2s,background .2s}
+.gsapp-btn.go{color:#1a1204;background:linear-gradient(180deg,#FFC24A,#F5A623);box-shadow:0 12px 30px -12px rgba(245,166,35,.75)}
+.gsapp-btn.go:hover{transform:translateY(-2px);box-shadow:0 18px 38px -12px rgba(245,166,35,.9);color:#1a1204;text-decoration:none}
+.gsapp-btn.alt{color:#fff;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2)}
+.gsapp-btn.alt:hover{background:rgba(255,255,255,.13);transform:translateY(-2px);color:#fff;text-decoration:none}
+.gsapp-btn svg{width:18px;height:18px}
+.gsapp small{display:block;margin-top:.9rem;font-size:.8rem;color:#8E98A6}
+.gsapp-phones{position:relative;height:440px;display:flex;justify-content:center;align-items:center}
+.gsapp-ph{position:absolute;width:200px;aspect-ratio:390/844;border-radius:32px;padding:7px;background:linear-gradient(150deg,#3a404b,#101318 38%,#07090c);
+  box-shadow:0 34px 70px -20px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.07)}
+.gsapp-ph img{width:100%;height:100%;border-radius:26px;object-fit:cover;object-position:top;display:block}
+.gsapp-ph.a{z-index:2;transform:translate(-62px,-8px) rotate(-6deg);animation:gsPhA 7s ease-in-out infinite}
+.gsapp-ph.b{z-index:1;transform:translate(74px,20px) rotate(7deg);animation:gsPhB 8s ease-in-out infinite}
+@keyframes gsPhA{0%,100%{transform:translate(-62px,-8px) rotate(-6deg)}50%{transform:translate(-62px,-20px) rotate(-5deg)}}
+@keyframes gsPhB{0%,100%{transform:translate(74px,20px) rotate(7deg)}50%{transform:translate(74px,32px) rotate(6deg)}}
+@media(max-width:900px){
+  .gsapp{grid-template-columns:1fr;padding:2rem 1.4rem;border-radius:22px;text-align:left}
+  .gsapp-phones{height:380px;order:-1}
+  .gsapp-ph{width:170px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .hero::after,.hero h1 .accent,.hero-cta .btn-primary,.price-card.featured,.gsapp-ph.a,.gsapp-ph.b,.gsapp-pill i{animation:none}
+  .hero-inner>div:first-child>*,.hero-chart-wrap{animation:none}
+  .hero-chart-wrap{transform:none}
+  .js-anim .rv{opacity:1;transform:none;transition:none}
+  .gs-progress{display:none}
+}
+</style>
 </head>
 <body>
 
@@ -749,14 +882,15 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
     <div>
       <div class="hero-tag">
         <span class="pulse-dot"></span>
-        MetaTrader 5 Expert Advisor
+        Gold EA &middot; MetaTrader 5 Expert Advisor
       </div>
-      <h1>Stop Blowing Challenges. Let an MT5 Robot Trade XAUUSD <span class="accent">for You.</span></h1>
+      <h1>Stop Blowing Challenges. Let a Gold&nbsp;EA Trade XAUUSD on&nbsp;MT5 <span class="accent">for&nbsp;You.</span></h1>
       <p class="lede"><strong>Gold Scalpers EA</strong> trades XAUUSD on the M5 chart for you on two triggers you can see on the chart: the <strong>Slope line crossing the 50 EMA</strong>, or the <strong>Slope line changing direction</strong> — each confirmed by ZeroLag MACD. The stop sits at the <strong>last swing beyond the EMA</strong>, then break-even and a step stop tighten it as the trade runs. Prop-firm mode included. No coding, no screen-watching.</p>
       <div class="hero-cta">
         <a href="/checkout" class="btn btn-primary">Get Lifetime – $140 →</a>
         <a href="/results" class="btn btn-ghost">See backtest results →</a>
       </div>
+      <a class="hero-app" href="#app"><b>NEW</b> Free Gold Scalpers AI app for Android &amp; iPhone <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
       <p style="margin:.6rem 0 0;font-size:.85rem;color:var(--text-muted)">Read the <a href="/blog/gold-scalpers-pro-review">honest review</a> (pros, cons and the losing stretch) or the <a href="/blog/gold-scalpers-pro-settings-guide">settings guide</a>.</p>
       <div class="hero-rating">
         <span class="stars" aria-hidden="true">★★★★★</span>
@@ -1176,6 +1310,33 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
 })();
 </script>
 
+<!-- FREE APP -->
+<section class="section" id="app">
+  <div class="section-inner">
+    <div class="gsapp">
+      <div>
+        <span class="gsapp-pill"><i></i> New &middot; Free app for Android &amp; iPhone</span>
+        <h2>Gold signals on your phone with <span>Gold Scalpers AI.</span></h2>
+        <p>Not at your MT5 terminal? The free Gold Scalpers AI app shows a live BUY, SELL or WAIT call for Gold (XAUUSD), USDJPY and GBPJPY, and explains each one.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Entry, stop and three take-profit targets on every setup</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> AI chart analysis: ask a question or send a chart screenshot</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Alerts, market news and the economic calendar in one place</li>
+        </ul>
+        <div class="gsapp-cta">
+          <a class="gsapp-btn go" href="/ai-chart-analysis">Get the free app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <a class="gsapp-btn alt" href="https://app.goldscalpers.com/" target="_blank" rel="noopener">Open it now</a>
+        </div>
+        <small>Free, with no signup. It installs from your browser, so there is no app store. Analysis only, not financial advice.</small>
+      </div>
+      <div class="gsapp-phones" aria-hidden="true">
+        <div class="gsapp-ph b"><img src="/assets/app/app-plan.webp" width="780" height="1688" alt="" loading="lazy" decoding="async"></div>
+        <div class="gsapp-ph a"><img src="/assets/app/app-signals.webp" width="780" height="1688" alt="" loading="lazy" decoding="async"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- STATS -->
 <section class="section">
   <div class="section-inner">
@@ -1217,7 +1378,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
     <p class="section-subtitle" style="margin-left:auto;margin-right:auto">Two months of XAUUSD in MetaTrader 5's Strategy Tester, run on an earlier M15 configuration of the strategy — hypothetical results you can reproduce yourself, risk-free for 30 days.</p>
     <div style="max-width:680px;margin:1.6rem auto 0">
       <a href="/results" aria-label="See the full Gold Scalpers EA backtest results" style="display:block;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(16,24,40,.12);border:1px solid var(--border)">
-        <img src="/assets/backtest-equity.webp?v=bt4" alt="Gold Scalpers EA backtest equity curve — XAUUSD M15, MT5 Strategy Tester, +67.0% with 9.0% max drawdown on a $1,000 account" loading="lazy" decoding="async" style="width:100%;height:auto;display:block">
+        <img src="/assets/backtest-equity.webp?v=bt4" alt="Gold Scalpers EA backtest equity curve — XAUUSD M15, MT5 Strategy Tester, +67.0% with 9.0% max drawdown on a $1,000 account" width="2400" height="1200" loading="lazy" decoding="async" style="width:100%;height:auto;display:block">
       </a>
     </div>
     <div style="margin-top:1.6rem">
@@ -1594,16 +1755,77 @@ document.querySelectorAll('.faq-q').forEach(function (q) {
 });
 </script>
 
+<script>
+/* Polish layer: scroll progress, tighter nav, reveal on scroll, pointer spotlight on feature cards */
+(function () {
+  "use strict";
+  var root = document.documentElement, nav = document.querySelector(".nav");
+  var bar = document.createElement("div"); bar.className = "gs-progress"; document.body.appendChild(bar);
+  var ticking = false;
+  function onScroll() {
+    if (ticking) return; ticking = true;
+    requestAnimationFrame(function () {
+      var y = window.scrollY || 0, max = root.scrollHeight - window.innerHeight;
+      bar.style.transform = "scaleX(" + (max > 0 ? Math.min(1, y / max) : 0) + ")";
+      if (nav) nav.classList.toggle("scrolled", y > 24);
+      ticking = false;
+    });
+  }
+  window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
+
+  var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!calm && "IntersectionObserver" in window) {
+    var cardSel = ".feature-card,.stat-card,.step,.faq-item,.pop-card,.price-card,.ea-shot,.ea-phone,.pb-card,.gsapp";
+    var cards = [].slice.call(document.querySelectorAll(cardSel));
+    var blocks = [].slice.call(document.querySelectorAll(".section .section-inner > *")).filter(function (el) {
+      return !el.matches(cardSel) && !el.querySelector(cardSel) && el.tagName !== "STYLE" && el.tagName !== "SCRIPT";
+    });
+    var all = cards.concat(blocks).filter(function (el) {
+      var r = el.getBoundingClientRect();
+      return el.offsetParent !== null && r.top > window.innerHeight * 0.9;   // leave what is already on screen alone
+    });
+    all.forEach(function (el) {
+      el.classList.add("rv");
+      if (el.matches(".price-card,.gsapp,.pb-card")) el.classList.add("rv-z");
+      var sibs = el.parentNode ? [].slice.call(el.parentNode.children).filter(function (c) { return c.classList.contains("rv") || c === el; }) : [el];
+      var i = sibs.indexOf(el); el.style.setProperty("--d", (Math.max(0, i) % 4) * 80 + "ms");
+    });
+    root.classList.add("js-anim");
+    var io = new IntersectionObserver(function (en) {
+      en.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold: 0.08, rootMargin: "0px 0px -6% 0px" });
+    all.forEach(function (el) { io.observe(el); });
+    // safety net: never leave anything hidden
+    setTimeout(function () { all.forEach(function (el) { var r = el.getBoundingClientRect(); if (r.top < window.innerHeight) el.classList.add("in"); }); }, 1500);
+  }
+
+  if (window.matchMedia && window.matchMedia("(hover:hover)").matches) {
+    document.querySelectorAll(".feature-card").forEach(function (c) {
+      c.addEventListener("pointermove", function (e) {
+        var r = c.getBoundingClientRect();
+        c.style.setProperty("--mx", (e.clientX - r.left) + "px"); c.style.setProperty("--my", (e.clientY - r.top) + "px");
+      });
+    });
+  }
+})();
+</script>
+
 <!--Start of Tawk.to Script-->
 <script type="text/javascript">
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 (function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
+var done=false;
+function load(){
+  if(done) return; done=true;
+  var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+  s1.async=true;
+  s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+  s1.charset='UTF-8';
+  s1.setAttribute('crossorigin','*');
+  s0.parentNode.insertBefore(s1,s0);
+}
+["pointerdown","keydown","touchstart","scroll"].forEach(function(ev){window.addEventListener(ev,load,{once:true,passive:true});});
+window.addEventListener("load",function(){setTimeout(load,6000);});
 })();
 </script>
 <!--End of Tawk.to Script-->
