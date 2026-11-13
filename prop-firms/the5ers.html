@@ -3,40 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gold Scalpers EA for The5ers - Settings to Stay Within the Rules</title>
-<meta name="description" content="How to configure Gold Scalpers EA (MT5, XAUUSD) to respect The5ers's daily-loss, max-drawdown and news rules. Recommended risk settings mapped to each rule.">
+<title>The5ers EA Rules for Gold: A Bought EA Is Not Allowed</title>
+<meta name="description" content="The5ers prohibits any EA whose source code you do not own, so a purchased gold EA cannot be used there. Its program rules for manual gold traders.">
 <link rel="canonical" href="https://goldscalpers.com/prop-firms/the5ers">
-<meta property="og:title" content="Gold Scalpers EA for The5ers - Settings to Stay Within the Rules">
-<meta property="og:description" content="Map Gold Scalpers EA's built-in risk controls to The5ers's challenge rules.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:title" content="The5ers EA Rules for Gold: A Bought EA Is Not Allowed">
+<meta property="og:description" content="The5ers prohibits any EA whose source code you do not own, so a purchased gold EA cannot be used there. Its program rules for manual gold traders.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://goldscalpers.com/prop-firms/the5ers">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../assets/styles.css">
 <style>
-  .pf-wrap{max-width:820px;margin:0 auto;padding:2rem 1.2rem;font-family:-apple-system,Segoe UI,Inter,sans-serif;color:#111827;line-height:1.65}
-  .pf-bar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;
-  padding:.75rem 0 .9rem;border-bottom:1px solid #E5E7EB;margin-bottom:1rem}
-.pf-bar .pf-home{font-weight:700;color:#111827;text-decoration:none;font-size:.95rem}
-.pf-bar .pf-nav{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
-.pf-bar .pf-nav a{font-size:.86rem;color:#6B7280;text-decoration:none}
-.pf-bar .pf-nav a:hover{color:#111827}
-.pf-bar .pf-free{background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;border-radius:999px;
-  font-size:.58rem;font-weight:800;letter-spacing:.06em;padding:.08rem .34rem;margin-left:.28rem}
-.pf-crumb{font-size:.82rem;color:#6B7280;margin-bottom:1rem}.pf-crumb a{color:#D97706;text-decoration:none}
-  .pf-wrap h1{font-size:2rem;line-height:1.15;letter-spacing:-.02em;margin:.2rem 0 .6rem}
-  .pf-wrap h2{font-size:1.3rem;margin:2rem 0 .6rem}.pf-lede{font-size:1.05rem;color:#374151}
-  .pf-table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.92rem}
+  .pf-wrap{max-width:860px;margin:0 auto;padding:2rem 1.2rem;font-family:-apple-system,Segoe UI,Inter,sans-serif;color:#111827;line-height:1.65}
+  .pf-bar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;padding:.75rem 0 .9rem;border-bottom:1px solid #E5E7EB;margin-bottom:1rem}
+  .pf-bar .pf-home{font-weight:700;color:#111827;text-decoration:none;font-size:.95rem}
+  .pf-bar .pf-nav{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+  .pf-bar .pf-nav a{font-size:.86rem;color:#6B7280;text-decoration:none}
+  .pf-bar .pf-nav a:hover{color:#111827}
+  .pf-bar .pf-free{background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;border-radius:999px;font-size:.58rem;font-weight:800;letter-spacing:.06em;padding:.08rem .34rem;margin-left:.28rem}
+  .pf-crumb{font-size:.82rem;color:#6B7280;margin-bottom:1rem}.pf-crumb a{color:#B45309;text-decoration:none}
+  .pf-wrap h1{font-size:2rem;line-height:1.15;letter-spacing:-.02em;margin:.2rem 0 .5rem}
+  .pf-wrap h2{font-size:1.3rem;margin:2.2rem 0 .6rem}
+  .pf-wrap h3{font-size:1.02rem;margin:1.1rem 0 .3rem}
+  .pf-wrap a{color:#B45309}
+  .pf-meta{font-size:.84rem;color:#6B7280;margin:0 0 1rem}
+  .pf-lede{font-size:1.05rem;color:#374151}
+  .pf-verdict{border-radius:12px;padding:1rem 1.15rem;margin:1.3rem 0;border:1px solid;border-left-width:5px}
+  .pf-verdict strong.pf-v{display:block;font-size:1.02rem;margin-bottom:.3rem}
+  .pf-verdict p{margin:0;font-size:.95rem}
+  .pf-verdict.v-yes{background:#F0FDF4;border-color:#86EFAC;border-left-color:#16A34A}.pf-verdict.v-yes .pf-v{color:#166534}
+  .pf-verdict.v-maybe{background:#FFFBEB;border-color:#FDE68A;border-left-color:#D97706}.pf-verdict.v-maybe .pf-v{color:#92400E}
+  .pf-verdict.v-no{background:#FEF2F2;border-color:#FECACA;border-left-color:#DC2626}.pf-verdict.v-no .pf-v{color:#991B1B}
+  .pf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1rem 0}
+  .pf-table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:560px}
   .pf-table th,.pf-table td{text-align:left;padding:.6rem .7rem;border-bottom:1px solid #E5E7EB;vertical-align:top}
-  .pf-table th{background:#FFFBEB;color:#92400E;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
-  .pf-table code{background:#F3F4F6;padding:.1rem .35rem;border-radius:4px;font-size:.86rem}
-  .pf-note{background:#FFFBEB;border:1px solid #FDE68A;border-left:4px solid #D97706;border-radius:10px;padding:1rem 1.1rem;font-size:.9rem;margin:1.4rem 0}
-  .pf-cta{display:inline-block;background:#D97706;color:#fff;text-decoration:none;font-weight:700;padding:.8rem 1.6rem;border-radius:10px;margin:.4rem 0}
-  .pf-faq h3{font-size:1.02rem;margin:1.1rem 0 .3rem}
+  .pf-table th{background:#FFFBEB;color:#92400E;font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
+  .pf-table code,.pf-wrap li code,.pf-wrap p code{background:#F3F4F6;padding:.1rem .35rem;border-radius:4px;font-size:.86rem}
+  .pf-wrap ul{padding-left:1.2rem}.pf-wrap li{margin:.45rem 0}
+  .pf-note{background:#FFFBEB;border:1px solid #FDE68A;border-left:4px solid #D97706;border-radius:10px;padding:1rem 1.1rem;font-size:.92rem;margin:1.4rem 0}
+  .pf-cta{display:inline-block;background:#B45309;color:#fff !important;text-decoration:none;font-weight:700;padding:.8rem 1.6rem;border-radius:10px;margin:.4rem 0}
+  .pf-cta:hover{background:#92400E}
+  .pf-src{font-size:.84rem;color:#4B5563}
+  .pf-firms{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0 0;padding:0;list-style:none}
+  .pf-firms a{display:inline-block;border:1px solid #E5E7EB;border-radius:999px;padding:.3rem .8rem;font-size:.86rem;text-decoration:none;color:#374151}
+  .pf-firms a:hover{border-color:#D97706;color:#B45309}
+  .pf-yes{color:#166534;font-weight:700}.pf-maybe{color:#92400E;font-weight:700}.pf-no{color:#991B1B;font-weight:700}
+  .pf-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.9rem;margin:1rem 0}
+  .pf-card{display:block;border:1px solid #E5E7EB;border-radius:12px;padding:1rem 1.1rem;text-decoration:none;color:#111827 !important;background:#fff;transition:border-color .2s,transform .2s}
+  .pf-card:hover{border-color:#D97706;transform:translateY(-2px)}
+  .pf-card h3{margin:0 0 .3rem;font-size:1.02rem}.pf-card p{margin:0;font-size:.88rem;color:#4B5563}
   .pf-disc{font-size:.8rem;color:#6B7280;border-top:1px solid #E5E7EB;margin-top:2.5rem;padding-top:1rem}
-@media(max-width:560px){.pf-wrap{padding:1.2rem .85rem}.pf-table{table-layout:fixed;font-size:.8rem}.pf-table th,.pf-table td{padding:.45rem .4rem;word-break:break-word;overflow-wrap:anywhere}.pf-table code{white-space:normal;overflow-wrap:anywhere}}</style>
+  @media(max-width:560px){.pf-wrap{padding:1.2rem .85rem}.pf-wrap h1{font-size:1.6rem}.pf-table{font-size:.82rem}}
+</style>
   <meta name="google-adsense-account" content="ca-pub-9114456539687234">
 </head>
 <body>
+
 <main class="pf-wrap">
   <div class="pf-bar">
     <a href="/" class="pf-home">Gold Scalpers</a>
@@ -49,47 +72,59 @@
     </div>
   </div>
   <nav class="pf-crumb"><a href="/">Home</a> &rsaquo; <a href="/prop-firms/">Prop firms</a> &rsaquo; The5ers</nav>
-  <h1>Gold Scalpers EA for The5ers</h1>
-  <p class="pf-lede">The5ers offers instant-funding and high-stakes programs with scaling. Gold Scalpers EA suits its rules-based, capital-preservation style by automating disciplined gold entries.</p>
-  <a class="pf-cta" href="/checkout">Get the EA - $140 (lifetime)</a>
-
-  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>The5ers rules - Gold Scalpers EA settings</h2>
-  <p>Prop evaluations are won by preserving capital. Gold Scalpers EA enforces the same limits automatically, so a breach is far less likely than with manual trading.</p>
-  <table class="pf-table">
-    <tr><th>The5ers rule (verify current values)</th><th>What it means</th><th>Gold Scalpers EA control</th></tr>
-    <tr><td>Max daily loss (typically ~5%)</td><td>Account cannot lose more than the daily cap</td><td><code>daily_loss</code> - set to ~80% of your program's daily cap in account $. EA flattens and pauses for the day when hit.</td></tr>
-    <tr><td>Max overall loss (typically ~10%)</td><td>Account cannot fall below the overall floor</td><td><code>max_dd</code> - set a few % under your program's limit. The drawdown guard closes all and pauses on breach.</td></tr>
-    <tr><td>Profit target</td><td>Reach target without breaking loss rules</td><td><code>daily_profit</code> - optional daily cap to bank gains and avoid giving them back.</td></tr>
-    <tr><td>News restrictions</td><td>Some programs restrict trading around high-impact news</td><td><code>use_news = true</code> - pauses entries within the news window (MT5 calendar).</td></tr>
-    <tr><td>Overtrading / consistency</td><td>Avoid one outlier day carrying the account</td><td><code>max_daily_orders</code> + <code>b_max_open</code> - cap trades/day and open positions.</td></tr>
-  </table>
-
-  <div class="pf-note"><strong>How to set it:</strong> With The5ers' scaling plans, surviving drawdown matters most - the EA's max-drawdown guard and position cap protect the account. Start with <code>use_risk_lots = true</code>, <code>risk_percent</code> = 0.5-1.0, <code>b_max_open</code> = 1, <code>use_news</code> = true, and your <code>daily_loss</code> / <code>max_dd</code> set safely under The5ers's published limits.</div>
-
-  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Why an EA helps with a prop challenge</h2>
-  <p>The most common way traders fail is a single emotional or oversized day. Gold Scalpers EA removes that: fixed-risk sizing, an automatic daily-loss cap and a max-drawdown guard, and no revenge trading. It is a rules-based Slope x 50 EMA system with fixed-risk sizing, and for prop-firm accounts you run it in <strong>single-entry mode</strong> (pyramiding off) - so it never stacks losing positions.</p>
-
-  <h2 class="pf-faq"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>FAQ</h2>
-  <div class="pf-faq">
-    <h3>Can I use Gold Scalpers EA on a The5ers account?</h3>
-    <p>Yes. It runs on any broker's MetaTrader 5, including The5ers's platform. Set the risk inputs to sit inside The5ers's daily-loss and max-drawdown limits.</p>
-    <h3>Does it guarantee I will pass?</h3>
-    <p>No. Trading is high-risk and no EA can guarantee results. The EA helps you trade with discipline and stay within the rules; outcomes still depend on the market. Test on a demo and backtest first.</p>
-  </div>
-
-  <a class="pf-cta" href="/checkout">Get the EA - $140 (lifetime, 30-day money-back)</a>
-  <p class="pf-disc">The5ers is a trademark of its respective owner; Gold Scalpers is not affiliated with or endorsed by The5ers. Prop-firm rules change - always confirm current rules on The5ers's official site. Trading FX and CFDs carries a high level of risk; past performance is not indicative of future results. Information only, not financial advice.</p>
+  <h1>The5ers rules for gold traders: no purchased EAs</h1>
+  <p class="pf-meta">By Gold Scalpers Research Team &middot; Rules checked on The5ers&rsquo;s own pages on <time datetime="2026-11-13">November 13, 2026</time></p>
+  <p class="pf-lede">The5ers is one of the few large firms that still lets you run your own trading robot, but only your own. Its rules shut out every EA you buy, rent or subscribe to. If you trade gold by hand, or you write your own EA, the programs below are worth a look. If you want to run a purchased EA, choose another firm.</p>
+  <div class="pf-verdict v-no"><strong class="pf-v">Purchased EA: not allowed</strong><p>The5ers lists &ldquo;Using an EA from a provider where the trader does not own the source code&rdquo; among its prohibited practices. Gold Scalpers Pro is sold as a compiled file without source code, so <strong>do not run it on a The5ers account</strong>. We would sooner tell you here than have you lose an account over it.</p></div>
+  <h2 id="programs"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>The5ers programs and limits</h2>
+  <div class="pf-scroll"><table class="pf-table">
+    <thead><tr><th>Program</th><th>Target</th><th>Daily loss</th><th>Max loss</th><th>Min days</th><th>Fee</th></tr></thead>
+    <tbody>
+      <tr><td>High Stakes (2-step)</td><td>10% or 8%, then 5%</td><td>5% up to $25k; 4% at $50k and $100k</td><td>10% up to $25k; 8% at $50k and $100k</td><td>3 profitable days per step</td><td>$10k $69, $100k $405</td></tr>
+      <tr><td>Hyper Growth (1-step)</td><td>10%</td><td>3% daily pause (the account is paused, not closed)</td><td>6% below the starting balance</td><td>None</td><td>$5k $260, $10k $450, $20k $850</td></tr>
+      <tr><td>Pro Growth (1-step)</td><td>10%</td><td>3%</td><td>6% below the starting balance</td><td>3 profitable days</td><td>$5k $52, $10k $98, $50k $329</td></tr>
+      <tr><td>Bootcamp (3-step)</td><td>6% per step</td><td>None in the evaluation; 3% pause when funded</td><td>5%; 4% when funded</td><td>None</td><td>$100k: $95, plus $205 on passing</td></tr>
+    </tbody>
+  </table></div>
+  <p class="pf-src">A profitable day on High Stakes means a gain of at least 0.5% of the initial balance. No program has a time limit, but an account expires after 30 days without trading. Sources: <a href="https://the5ers.com/high-stakes/" target="_blank" rel="noopener">High Stakes</a>, <a href="https://the5ers.com/hyper-growth/" target="_blank" rel="noopener">Hyper Growth and Pro Growth</a>, <a href="https://the5ers.com/bootcamp/" target="_blank" rel="noopener">Bootcamp</a>.</p>
+  <h2 id="daily-loss"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How The5ers measures the daily loss</h2>
+  <p>The5ers measures the daily loss from &ldquo;the starting equity of the day OR the starting balance of the day (the highest between them)&rdquo; at MT5 server time. If you carry a floating profit over midnight, the next day&rsquo;s limit is measured from that higher equity, so giving the open profit back counts as a loss for the new day. Note the step down on larger accounts: a $100,000 High Stakes account has a 4% daily limit ($4,000) and an 8% maximum loss ($8,000), not the 5% and 10% most traders assume.</p>
+  <h2 id="ea-rules"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/></svg>What The5ers says about EAs</h2>
+  <ul>
+    <li>The FAQ says you can use an EA as long as it does not copy signals, tick scalp, use latency, reverse or hedge arbitrage, trade at high frequency or use emulators, and the trader must own the source code (<a href="https://the5ers.com/faqs/can-i-use-an-ea-expert-advisor-can-i-set-a-stealth-mode-stop-loss/" target="_blank" rel="noopener">EA FAQ</a>).</li>
+    <li>The prohibited-practices page lists &ldquo;Using an EA from a provider where the trader does not own the source code&rdquo;, and third-party EAs that leave many traders holding the same trades (<a href="https://the5ers.com/faqs/prohibited-trading-practices/" target="_blank" rel="noopener">prohibited practices</a>).</li>
+    <li>The terms and conditions go further: automated software needs prior written approval, and the firm &ldquo;prohibits use of any Automated Trading Software owned or developed by any third party other than the User&rdquo; (<a href="https://the5ers.com/terms-and-conditions/" target="_blank" rel="noopener">terms and conditions</a>).</li>
+    <li>Also prohibited: copy trading with other traders, bulk trading, one-sided bets, over-exposure and excessive server requests. A stealth (hidden) stop-loss is not allowed.</li>
+  </ul>
+  <h2 id="news"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>News and weekend rules</h2>
+  <p><strong>News.</strong> On High Stakes, no order may execute from 2 minutes before to 2 minutes after high-impact news. A pending order that fills inside the window counts, and the profit is removed. Holding a position through the release is allowed. Hyper Growth, Pro Growth and Bootcamp allow news trading except bracket strategies (<a href="https://the5ers.com/faqs/can-i-trade-during-news/" target="_blank" rel="noopener">news rule</a>).</p><p><strong>Holding.</strong> Overnight and weekend positions are allowed on every program.</p>
+  <h2 id="gold"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="18"/></svg>Gold on The5ers</h2>
+  <p>Gold on The5ers: 100 ounces per lot, minimum 0.01 lot, leverage on metals 1:25 in High Stakes and Bootcamp (<a href="https://the5ers.com/faqs/what-is-the-leverage-in-the-high-stakes-program/" target="_blank" rel="noopener">High Stakes leverage</a>). At 1:25 a 1-lot gold position needs margin of 4% of its value, which limits tight-stop scalping on small accounts. Platforms: MT5, cTrader and TradingView; US clients get TradingView only.</p>
+  <h2 id="settings"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Gold Scalpers Pro and The5ers</h2>
+  <p><strong>Gold Scalpers Pro is not for The5ers.</strong> It is delivered as a compiled MT5 file, you do not receive the source code, and other customers run it. That fails the firm&rsquo;s rule on two counts. If you trade gold manually here, these are the pages that help:</p>
+  <ul>
+    <li><a href="/blog/how-to-pass-prop-firm-challenge-xauusd">How to pass a prop firm challenge trading gold</a>: the dollar lines and lot sizes for $10k to $100k accounts, and the losing streak to plan for.</li>
+    <li><a href="/blog/best-time-to-trade-gold">Best time to trade gold</a> and <a href="/blog/xauusd-scalping-strategy">an XAUUSD scalping strategy</a> for the entries.</li>
+    <li>Want to run a purchased EA? <a href="/prop-firms/ftmo">FTMO allows it with conditions</a>, and <a href="/prop-firms/fundednext">FundedNext allows it on accounts under $50,000</a>.</li>
+  </ul>
+  <h2 id="faq"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>FAQ</h2>
+  <h3>Does The5ers allow Expert Advisors?</h3>
+  <p>Only an EA whose source code you own. The5ers prohibits EAs from a provider where the trader does not own the source code, and its terms require prior written approval for automated trading software.</p>
+  <h3>Can I use Gold Scalpers Pro on The5ers?</h3>
+  <p>No. Gold Scalpers Pro is sold as a compiled file without source code, which The5ers prohibits. Use it at a firm that permits purchased EAs.</p>
+  <h3>What is the daily loss limit on a $100k The5ers High Stakes account?</h3>
+  <p>4% of the higher of the day's starting balance or starting equity, and the maximum loss is 8%. Accounts up to $25,000 have 5% and 10%.</p>
+  <h3>Can I trade gold news on The5ers?</h3>
+  <p>On High Stakes no order may execute within 2 minutes of high-impact news, though you may hold through it. Hyper Growth, Pro Growth and Bootcamp allow news trading except bracket strategies.</p>
+  <h2>Other firms</h2>
+  <p>The full method, with lot sizes for $10k to $100k accounts, is in <a href="/blog/how-to-pass-prop-firm-challenge-xauusd">how to pass a prop firm challenge trading gold</a>. Rules at the other firms:</p>
+  <ul class="pf-firms"><li><a href="/prop-firms/ftmo">FTMO</a></li><li><a href="/prop-firms/fundednext">FundedNext</a></li><li><a href="/prop-firms/">All firms compared</a></li></ul>
+  <p class="pf-src" style="margin-top:1.6rem"><strong>Sources on the5ers.com, read November 13, 2026:</strong> <a href="https://the5ers.com/faqs/prohibited-trading-practices/" target="_blank" rel="noopener">Prohibited trading practices</a>, <a href="https://the5ers.com/faqs/can-i-use-an-ea-expert-advisor-can-i-set-a-stealth-mode-stop-loss/" target="_blank" rel="noopener">Can I use an EA?</a>, <a href="https://the5ers.com/terms-and-conditions/" target="_blank" rel="noopener">Terms and conditions</a>, <a href="https://the5ers.com/high-stakes/" target="_blank" rel="noopener">High Stakes</a>, <a href="https://the5ers.com/hyper-growth/" target="_blank" rel="noopener">Hyper Growth and Pro Growth</a>, <a href="https://the5ers.com/bootcamp/" target="_blank" rel="noopener">Bootcamp</a>, <a href="https://the5ers.com/faqs/can-i-trade-during-news/" target="_blank" rel="noopener">News trading</a>.</p>
+  <p class="pf-disc">The5ers is a trademark of its owner; Gold Scalpers is not affiliated with or endorsed by The5ers. The rules on this page were read on the firm&rsquo;s own website on November 13, 2026 and firms change them often, so confirm the current rules there before you buy. Trading foreign exchange and CFDs carries a high level of risk and past performance does not predict future results. Information only, not financial advice.</p>
 </main>
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[
-{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com/"},
-{"@type":"ListItem","position":2,"name":"Prop firms","item":"https://goldscalpers.com/prop-firms/"},
-{"@type":"ListItem","position":3,"name":"The5ers","item":"https://goldscalpers.com/prop-firms/the5ers"}]}
-</script>
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"Can I use Gold Scalpers EA on a The5ers account?","acceptedAnswer":{"@type":"Answer","text":"Yes. It runs on any broker's MetaTrader 5, including The5ers's platform. Set the risk inputs to sit inside The5ers's daily-loss and max-drawdown limits."}},
-{"@type":"Question","name":"Does it guarantee I will pass?","acceptedAnswer":{"@type":"Answer","text":"No. Trading is high-risk and no EA can guarantee results. The EA helps you trade with discipline and stay within the rules; outcomes still depend on the market. Test on a demo and backtest first."}}]}
-</script>
-<script src="/assets/t.js" defer></script>
-</body></html>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"The5ers EA Rules for Gold: A Bought EA Is Not Allowed","description":"The5ers prohibits any EA whose source code you do not own, so a purchased gold EA cannot be used there. Its program rules for manual gold traders.","datePublished":"2026-06-27","dateModified":"2026-11-13","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/prop-firms/the5ers"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com/"},{"@type":"ListItem","position":2,"name":"Prop firms","item":"https://goldscalpers.com/prop-firms/"},{"@type":"ListItem","position":3,"name":"The5ers","item":"https://goldscalpers.com/prop-firms/the5ers"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does The5ers allow Expert Advisors?","acceptedAnswer":{"@type":"Answer","text":"Only an EA whose source code you own. The5ers prohibits EAs from a provider where the trader does not own the source code, and its terms require prior written approval for automated trading software."}},{"@type":"Question","name":"Can I use Gold Scalpers Pro on The5ers?","acceptedAnswer":{"@type":"Answer","text":"No. Gold Scalpers Pro is sold as a compiled file without source code, which The5ers prohibits. Use it at a firm that permits purchased EAs."}},{"@type":"Question","name":"What is the daily loss limit on a $100k The5ers High Stakes account?","acceptedAnswer":{"@type":"Answer","text":"4% of the higher of the day's starting balance or starting equity, and the maximum loss is 8%. Accounts up to $25,000 have 5% and 10%."}},{"@type":"Question","name":"Can I trade gold news on The5ers?","acceptedAnswer":{"@type":"Answer","text":"On High Stakes no order may execute within 2 minutes of high-impact news, though you may hold through it. Hyper Growth, Pro Growth and Bootcamp allow news trading except bracket strategies."}}]}</script>
+<script src="/assets/cookie-consent.js" defer></script><script src="/assets/t.js" defer></script>
+</body>
+</html>
