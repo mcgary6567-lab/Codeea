@@ -82,11 +82,14 @@ RewriteRule ^(.+)$ $1.html [L]
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
   Header always set Strict-Transport-Security "max-age=31536000"
 
-  # Always revalidate HTML so an edit is visible on the next refresh
+  # Browsers always revalidate HTML (edits show on the next refresh); the CDN
+  # edge may keep a copy for 5 minutes (s-maxage) so visitors aren't sent to
+  # the origin on every page view.
+  # (previously: always revalidate HTML so an edit is visible on the next refresh)
   # instead of being pinned for an hour. Images, CSS, JS and fonts keep
   # their long cache lifetimes below.
   <FilesMatch "\.html$">
-    Header set Cache-Control "no-cache, must-revalidate"
+    Header set Cache-Control "public, max-age=0, must-revalidate, s-maxage=300"
   </FilesMatch>
 </IfModule>
 
