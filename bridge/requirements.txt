@@ -1,0 +1,4 @@
+flask==3.0.3
+ccxt==4.4.30
+python-dotenv==1.0.1
+waitress==3.0.0

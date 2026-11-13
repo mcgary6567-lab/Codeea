@@ -1,0 +1,48 @@
+name: Sync site deploy branches
+
+# Keeps the root-level deploy branches (site.prometheus, site.trevolto) in sync
+# with the site.prometheus/ and site.trevolto/ folders on the source branch.
+# Each deploy branch is a single commit whose ROOT is that folder's contents —
+# exactly what Hostinger's Git deploy expects in public_html.
+#
+# Runs automatically whenever either site changes; can also be run manually.
+
+on:
+  push:
+    branches:
+      - claude/crypto-exchanges-tradingview-7xERm
+      - main
+    paths:
+      - "site.prometheus/**"
+      - "site.trevolto/**"
+      - ".github/workflows/sync-sites.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: sync-site-deploy-branches
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Split each site folder to its deploy branch root
+        run: |
+          set -euo pipefail
+          git config user.name "site-sync-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for PREF in site.prometheus site.trevolto; do
+            if git rev-parse -q --verify "HEAD:$PREF" >/dev/null; then
+              TREE=$(git rev-parse "HEAD:$PREF")                       # tree of the folder
+              COMMIT=$(git commit-tree "$TREE" -m "Deploy $PREF from ${GITHUB_SHA::7}")
+              git push --force origin "$COMMIT:refs/heads/$PREF"
+              echo "✓ synced $PREF -> ${COMMIT::7}"
+            else
+              echo "· $PREF not found at HEAD — skipped"
+            fi
+          done
