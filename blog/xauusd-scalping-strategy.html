@@ -24,7 +24,7 @@
 <meta name="twitter:description" content="A complete XAUUSD scalping strategy for MT5: the EMA + RSI setup, exact entry and exit rules, the best sessions to trade gold, a news filter, a worked example, and how to automate it.">
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="../assets/styles.css">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"XAUUSD Scalping Strategy That Actually Works (Full Rules, 2026)","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Person","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com","jobTitle":"Trading Strategy Research"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/xauusd-scalping-strategy"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"XAUUSD Scalping Strategy That Actually Works (Full Rules, 2026)","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/xauusd-scalping-strategy"}}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the best XAUUSD scalping strategy?","acceptedAnswer":{"@type":"Answer","text":"Trade with the short-term trend and enter on a pullback: a rising 50 EMA for direction, RSI dipping toward 40 and turning up for timing, a structural stop, and a 1.2-1.5R target with fixed 1% risk. It only works with strict risk control and a news and session filter."}},{"@type":"Question","name":"What is the best time to scalp gold?","acceptedAnswer":{"@type":"Answer","text":"The London and New York overlap, roughly 13:00 to 17:00 server time, offers the tightest spreads and cleanest trends. Avoid the low-liquidity rollover around 22:00 to 00:00 and stand aside for major news like CPI, NFP and FOMC."}},{"@type":"Question","name":"What timeframe is best for scalping XAUUSD?","acceptedAnswer":{"@type":"Answer","text":"M5 for entries with an M15 or H1 glance for the higher-timeframe trend. M1 works for faster hands but adds noise."}},{"@type":"Question","name":"Can this XAUUSD scalping strategy be automated?","acceptedAnswer":{"@type":"Answer","text":"Yes. The rules are mechanical, which is what an EA executes best. Gold Scalpers EA runs a Slope Direction Line colour-turn gold scalping logic (green = buy, red = sell) with fixed sizing, a stop and target on every trade, and news, session and spread filters."}}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"XAUUSD Scalping Strategy","item":"https://goldscalpers.com/blog/xauusd-scalping-strategy"}]}</script>
   <meta name="google-adsense-account" content="ca-pub-9114456539687234">
@@ -237,12 +237,18 @@
 <script type="text/javascript">
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 (function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
+var done=false;
+function load(){
+  if(done) return; done=true;
+  var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+  s1.async=true;
+  s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+  s1.charset='UTF-8';
+  s1.setAttribute('crossorigin','*');
+  s0.parentNode.insertBefore(s1,s0);
+}
+["pointerdown","keydown","touchstart","scroll"].forEach(function(ev){window.addEventListener(ev,load,{once:true,passive:true});});
+window.addEventListener("load",function(){setTimeout(load,6000);});
 })();
 </script>
 <!--End of Tawk.to Script-->

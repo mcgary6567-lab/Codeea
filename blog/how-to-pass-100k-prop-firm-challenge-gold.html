@@ -26,7 +26,7 @@
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="../assets/styles.css">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":"How to Pass a $100,000 Prop Firm Challenge Trading Gold (XAUUSD)","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Person","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com","jobTitle":"Trading Indicator Research"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/how-to-pass-100k-prop-firm-challenge-gold"},"image":"https://goldscalpers.com/og-image.png"}
+{"@context":"https://schema.org","@type":"Article","headline":"How to Pass a $100,000 Prop Firm Challenge Trading Gold (XAUUSD)","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/how-to-pass-100k-prop-firm-challenge-gold"},"image":"https://goldscalpers.com/og-image.png"}
 </script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How much do you need to make to pass a $100k prop firm challenge?","acceptedAnswer":{"@type":"Answer","text":"A typical $100,000 challenge has a +10% profit target, which is $10,000. You must reach $110,000 in equity without ever losing $5,000 in a single day (the 5% daily-loss limit) or drawing down $10,000 overall (the 10% max-loss limit). The target is fixed in dollars, so the whole game is reaching $10,000 in profit slowly enough that you never breach either loss line."}},{"@type":"Question","name":"What lot size should I use on a $100k gold challenge?","acceptedAnswer":{"@type":"Answer","text":"Size each trade so the stop-loss equals about 1% of the account, or $1,000, on a $100k challenge. For XAUUSD, one standard lot is roughly $100 per $1 of price movement, so a $2 stop risks about $200 per lot and 1% risk means around 5 lots; a $5 stop risks about $500 per lot and 1% means around 2 lots. Always let the stop distance set the lot size, never the other way around."}},{"@type":"Question","name":"How long does it take to pass a $100k challenge on gold?","acceptedAnswer":{"@type":"Answer","text":"At 1% risk per trade and a 1:1.5 reward, a realistic 55% win rate produces roughly +$380 of expectancy per trade, so reaching the $10,000 target takes about 26 net-positive trades. Traded at a few clean setups per session, that is a few weeks, not a single afternoon. Firms give you time on purpose, so use it."}},{"@type":"Question","name":"What is the daily loss limit on a $100k challenge?","acceptedAnswer":{"@type":"Answer","text":"Most $100,000 challenges use a 5% daily-loss limit, which is $5,000. Breaching it fails the account instantly. The safe approach is a personal daily stop at 3%, or $3,000, which is three losing trades at 1% risk, leaving a full $2,000 buffer inside the firm's line."}},{"@type":"Question","name":"Can an EA pass a $100k gold challenge for you?","acceptedAnswer":{"@type":"Answer","text":"An EA cannot guarantee a pass, but Gold Scalpers EA's Prop Firm Mode automatically sizes each trade to 1% of the $100k balance, stops trading at a $3,000 daily loss, flattens on max drawdown, and filters news and the session gap, removing the human errors that fail most $100k challenges."}}]}</script>
 <script type="application/ld+json">
@@ -287,12 +287,18 @@
 <script type="text/javascript">
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 (function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
+var done=false;
+function load(){
+  if(done) return; done=true;
+  var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+  s1.async=true;
+  s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+  s1.charset='UTF-8';
+  s1.setAttribute('crossorigin','*');
+  s0.parentNode.insertBefore(s1,s0);
+}
+["pointerdown","keydown","touchstart","scroll"].forEach(function(ev){window.addEventListener(ev,load,{once:true,passive:true});});
+window.addEventListener("load",function(){setTimeout(load,6000);});
 })();
 </script>
 <!--End of Tawk.to Script-->

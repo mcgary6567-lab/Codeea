@@ -25,7 +25,7 @@
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="../assets/styles.css">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":"Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Person","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com","jobTitle":"Trading Indicator Research"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/triple-rsi-strategy"},"image":"https://goldscalpers.com/og-image.png"}
+{"@context":"https://schema.org","@type":"Article","headline":"Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/triple-rsi-strategy"},"image":"https://goldscalpers.com/og-image.png"}
 </script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"The Triple RSI strategy plots three RSI lines of different lengths — usually 3, 7 and 14 periods — on the same window. A long signal fires when the fast RSI (3) is above the medium RSI (7) and the medium is above the slow RSI (14), meaning short-, medium- and long-term momentum all point up at once. A short is the mirror image. The three-way alignment filters out weak, single-indicator signals."}},{"@type":"Question","name":"Does the Triple RSI strategy really win 90% of the time?","acceptedAnswer":{"@type":"Answer","text":"Not in any way that matters. A 90% win rate is easy to manufacture with a tiny take-profit and a wide or non-existent stop-loss — but the occasional loss then wipes out dozens of small wins. What determines whether a strategy makes money is expectancy (win rate combined with average risk-reward), not win rate alone. A realistic, properly risk-managed Triple RSI setup wins far less than 90% and still makes money because its winners are larger than its losers."}},{"@type":"Question","name":"What are the best settings for the 3-7-14 RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"3, 7 and 14 are the standard lengths. Keep the RSI period the same across instruments and adjust the trade rules instead: on gold (XAUUSD) require the fast RSI to also clear 50, on calmer JPY pairs the plain alignment is enough. Always pair the entry with a structure-based stop-loss and a minimum 1:1.5 risk-reward target."}},{"@type":"Question","name":"What timeframe works best for the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"The 15-minute and 1-hour charts give the cleanest alignments for intraday trading. Faster charts (1-5 minute) produce more Triple RSI crossovers but far more false ones, so they need a higher-timeframe trend filter to stay profitable."}},{"@type":"Question","name":"How do I add a stop-loss to the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"Place the stop just beyond the swing low that formed before your long entry (or the swing high before a short), plus a small buffer. That way the trade is only stopped out if the structure that justified the signal actually breaks, and your position size can be derived from that stop distance for consistent 1% risk."}}]}</script>
 <script type="application/ld+json">
@@ -382,12 +382,18 @@
 <script type="text/javascript">
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 (function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
+var done=false;
+function load(){
+  if(done) return; done=true;
+  var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+  s1.async=true;
+  s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+  s1.charset='UTF-8';
+  s1.setAttribute('crossorigin','*');
+  s0.parentNode.insertBefore(s1,s0);
+}
+["pointerdown","keydown","touchstart","scroll"].forEach(function(ev){window.addEventListener(ev,load,{once:true,passive:true});});
+window.addEventListener("load",function(){setTimeout(load,6000);});
 })();
 </script>
 <!--End of Tawk.to Script-->

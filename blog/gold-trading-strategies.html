@@ -106,6 +106,7 @@
       <span>&#9201; 14 min read</span>
       <span>&#127991; Gold &middot; Strategy</span>
     </div>
+    <div class="article-byline" style="margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem">By Gold Scalpers Research Team</div>
     <p class="article-byline">Most lists of gold strategies describe ideas. This one gives you the rules, the session each strategy needs to work, the cost arithmetic that decides whether it can profit at all, and the lot sizing to trade it &mdash; so you can rule four of them out and commit to one.</p>
   </div>
 </section>
@@ -457,12 +458,18 @@
 <script type="text/javascript">
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 (function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
+var done=false;
+function load(){
+  if(done) return; done=true;
+  var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+  s1.async=true;
+  s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+  s1.charset='UTF-8';
+  s1.setAttribute('crossorigin','*');
+  s0.parentNode.insertBefore(s1,s0);
+}
+["pointerdown","keydown","touchstart","scroll"].forEach(function(ev){window.addEventListener(ev,load,{once:true,passive:true});});
+window.addEventListener("load",function(){setTimeout(load,6000);});
 })();
 </script>
 <!--End of Tawk.to Script-->
