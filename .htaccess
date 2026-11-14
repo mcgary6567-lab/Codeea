@@ -40,6 +40,7 @@ RewriteRule ^stats\.php$ /panel/stats.php [R=301,L]
 # --- Account-size challenge posts were merged into the one gold challenge guide (2026-11-13) ---
 RewriteRule ^blog/(?:amp/)?how-to-pass-(?:10k|25k|50k|100k)-prop-firm-challenge-gold(?:\.html)?/?$ /blog/how-to-pass-prop-firm-challenge-xauusd [R=301,L]
 RewriteRule ^blog/amp/how-to-pass-prop-firm-challenge-xauusd(?:\.html)?/?$ /blog/how-to-pass-prop-firm-challenge-xauusd [R=301,L]
+RewriteRule ^blog/amp/best-mt5-ea-for-prop-firm(?:\.html)?/?$ /blog/best-mt5-ea-for-prop-firm [R=301,L]
 
 # --- /contact is the support page (chat + email) ---
 RewriteRule ^contact/?$ /support [R=301,L]

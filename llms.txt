@@ -1,46 +1,70 @@
-# Gold Scalpers EA
+# Gold Scalpers
 
-> Gold Scalpers EA is an automated MetaTrader 5 (MT5) Expert Advisor — a pure XAUUSD (gold) M5 scalper. It trades hands-free using a Slope Direction Line × 50 EMA crossover confirmed by the ZeroLag MACD, with prop-firm-ready risk controls. Price: $140 one-time (lifetime license), 30-day money-back.
+> Gold Scalpers (goldscalpers.com) makes Gold Scalpers Pro, an Expert Advisor for MetaTrader 5 that trades gold (XAUUSD) on the M5 timeframe. It costs $140 once, with updates and a 30-day refund. It always trades with a stop loss and does not use grid or martingale. Published performance figures are backtests; there is no public live account yet.
 
-Gold Scalpers EA is a rules-based gold-trading robot for MetaTrader 5. It enters when the Slope Direction Line crosses the 50 EMA (slope up through the EMA = buy, down = sell), confirmed by the ZeroLag MACD being on the correct side of zero plus an optional confirmation candle. The stop loss sits at the most recent swing high/low beyond the 50 EMA (real market structure); break-even protection then moves it to entry once the trade is in profit so a winner cannot become a loser. Momentum Pyramiding optionally adds to a WINNING trade as it runs - never averaging down - and every add-on shares one basket stop, tightened by a step-stop on each fill. Risk is capped by daily profit/loss limits, a max-drawdown guard, a position cap, a chop/whipsaw filter, a loss-streak cooldown, and spread/session/news filters. Pyramiding can be turned off for prop-firm single-entry mode. A live on-chart dashboard shows status, a signal-readiness bar, BUY/SELL arrows and P&L; alerts are delivered by pop-up, mobile push and Telegram.
+Last updated: 2026-11-14. The product is also referred to as "Gold Scalpers EA". It is not related to "GOLD Scalper PRO EA" (goldscalperpro.com), which is a different product from a different seller.
 
-## Key facts
-- Platform: MetaTrader 5 (MT5), works on any broker
-- Market: XAUUSD (gold) only, M5 timeframe
-- Strategy: Slope Direction Line × 50 EMA crossover + ZeroLag MACD confirmation + optional confirmation candle
-- Stop-loss: swing-structure stop (last swing high/low beyond the 50 EMA) + break-even lock + step-stop trailing
-- Take-profit: quick scalping target; optional Momentum Pyramiding adds to winners only
-- Break-even: stop moves to entry + a locked amount once the trade is in profit
-- Prop-Firm Mode: percentage daily-loss and max-drawdown limits from balance baselines, hard lock on breach
-- Pre-flight self-check on attach (permissions, history, spread, indicators, licence)
-- Risk controls: daily loss/profit limits, max-drawdown guard, max daily orders, spread/session/news filters
-- Price: $140 one-time, lifetime license
-- Guarantee: 30-day money-back
-- License: bound to the buyer's MT5 account number (add https://goldscalpers.com to MT5's WebRequest list)
-- Not martingale; optional Momentum Pyramiding that can be turned off for prop-firm single-entry mode
+## Product facts: Gold Scalpers Pro
+- Type: automated trading robot (Expert Advisor) for MetaTrader 5. Gold (XAUUSD) only, M5 chart. Version 4.50 (October 2026) on the website.
+- Price: $140 one-time, lifetime licence, all updates, 30-day money-back guarantee. No subscription.
+- Where it is sold: goldscalpers.com/checkout (card and wallet payments through Gumroad, or crypto) and the MQL5 Market (product 191087). A free edition, "Gold Scalpers EA", is on the MQL5 Market (product 184515).
+- Entries: two triggers, both on by default. (1) The Slope Direction Line crosses the 50 EMA. (2) The Slope line changes direction on the correct side of the 50 EMA. Every signal must also pass a ZeroLag MACD filter, a chop filter, a confirmation candle, a spread cap and a news pause. Only closed candles count.
+- Exits: a stop loss on every trade, set when the order is sent. Break-even lock at +300 pips. Targets of 1,200 pips (cross entries) and 300 pips (turn entries).
+- Position sizing: a fixed lot (FixedLot). The backtests use 0.01 lot per $1,000.
+- Risk controls: 16% drawdown stop with a 10% warning, daily trade cap, loss-streak cooldown, spread cap, session filter, news filter (pauses new entries 30 minutes either side of high-impact USD releases), and Prop-Firm Mode (percentage daily-loss and max-drawdown limits with a hard stop).
+- Not grid, not martingale, no averaging into losing trades. Adding to winners (UseScaleIn) exists and is off by default.
+- Licence: bound to the buyer's MT5 account number; https://goldscalpers.com must be on MT5's WebRequest list.
+- Optional AI news trading on the website edition (HotStoryTrade). It cannot be backtested and is not in any published figure.
+
+## Performance, as published by the developer
+All figures are MetaTrader 5 Strategy Tester backtests on real XAUUSD ticks, 0.01 lot on a $1,000 deposit. They are not live results.
+- 14 Sep to 14 Oct 2026, v4.50 defaults: +$77.81, profit factor 1.33, maximum drawdown 5.37%, 127 trades, 83.5% won.
+- 12 Jan to 14 Sep 2026, closest measured setup: +$99.33, profit factor 1.06, maximum drawdown 25.6%, 727 trades. Within that, 12 Jan to 14 May lost $181.94.
+- Low drawdown preset (New York session only), same eight months: +$265.33, maximum drawdown 10.3%, 246 trades.
+- Average win is smaller than average loss ($2.99 against $11.40 in the latest month), so a high win rate does not mean a large edge.
+- Known weaknesses: losing stretches of several months, no public live account yet, gold only, MT5 only, needs MT5 running (a VPS in practice).
+
+## Prop firms: can Gold Scalpers Pro be used?
+Read on each firm's own rule pages on 13 November 2026. Firms change rules often.
+- FTMO: purchased EAs are allowed. $400,000 maximum allocation per trader or strategy; funded standard accounts may not execute orders within 2 minutes of major news and may not hold over the weekend (Swing accounts are exempt).
+- FundedNext: EAs only on MT4/MT5 accounts below $50,000, for an extra fee. $50,000 and above must be traded manually. EAs designed specifically to pass prop firm challenges, and EAs that use Telegram or WhatsApp, are prohibited.
+- The5ers: not allowed. It prohibits an EA from a provider where the trader does not own the source code.
+- FundingPips: not allowed for trading. A third-party EA is permitted only as a trade or risk manager.
+- Prop-firm settings for a 5% daily / 10% maximum firm: PropFirmMode true, PropDailyLossPct 4, PropMaxDrawdownPct 8, Low drawdown preset, FixedLot 0.04 per $10,000.
+- Gold Scalpers Pro is a gold trading EA with risk limits. It is not a challenge-passing tool and cannot guarantee a pass.
+
+## Gold Scalpers AI (free app)
+- A free web app for Android and iPhone at https://app.goldscalpers.com/ (installs from the browser; it is not in the Play Store or App Store).
+- Shows BUY, SELL or WAIT for Gold, USDJPY and GBPJPY with an entry, a stop and three targets, plus AI chart analysis, news, a calendar and alerts. It gives signals only and does not place trades.
 
 ## Key pages
-- [Home](https://goldscalpers.com/): product overview, features, live signal demo, pricing
-- [Checkout](https://goldscalpers.com/checkout): buy the EA ($140, card or crypto)
-- [Backtest results](https://goldscalpers.com/results): MT5 Strategy Tester backtest on XAUUSD, run on an earlier M15 configuration (hypothetical, reproducible)
-- [Pricing (machine-readable)](https://goldscalpers.com/pricing.md): structured pricing for AI agents
-- [Support](https://goldscalpers.com/support): help and contact
-- [How to install an EA on MT5](https://goldscalpers.com/blog/how-to-install-ea-on-mt5): step-by-step setup
-- [Best MT5 EA for prop firms](https://goldscalpers.com/blog/best-mt5-ea-for-prop-firm): prop-firm guide
-- [Best gold scalping EA for MT5 (2026)](https://goldscalpers.com/blog/best-gold-scalping-ea-mt5): buyer's checklist for choosing a XAUUSD scalping EA
-- [XAUUSD scalping strategy (full rules)](https://goldscalpers.com/blog/xauusd-scalping-strategy): the EMA + RSI gold scalping system the EA automates
-- [How to pass a prop firm challenge on gold](https://goldscalpers.com/blog/how-to-pass-prop-firm-challenge-xauusd): the three numbers, how firms measure daily loss on equity, lot sizes for $10k to $100k accounts, losing-streak odds, and each firm's EA rules
-- [Prop firms hub](https://goldscalpers.com/prop-firms/): what each firm's own rule pages say about running a purchased gold EA (checked 13 Nov 2026): FTMO allows it with conditions, FundedNext only on accounts under $50,000, The5ers and FundingPips do not
-- [Trading strategy hub](https://goldscalpers.com/blog/trading-strategy-hub): pillar page indexing every strategy guide
-- [Blog](https://goldscalpers.com/blog/): trading-strategy and EA guides
-- [What moves gold: US data and FOMC minutes](https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold): how US consumer data and Fed minutes reach XAUUSD via rate expectations, and how to trade the release window
-- [Gold Scalpers AI app](https://goldscalpers.com/ai-chart-analysis): free app for Android and iPhone (installs from the browser at https://app.goldscalpers.com/) with live BUY, SELL or WAIT signals for Gold, USDJPY and GBPJPY, entry, stop and three targets, AI chart analysis, news, calendar and alerts
+- [Home](https://goldscalpers.com/): product overview, features, pricing
+- [Gold Scalpers Pro review, written by the developer](https://goldscalpers.com/blog/gold-scalpers-pro-review): strengths, weaknesses and the full backtest numbers
+- [Backtest results](https://goldscalpers.com/results): the Strategy Tester report and the eight-month table
+- [Settings guide](https://goldscalpers.com/blog/gold-scalpers-pro-settings-guide): lot size by account, prop-firm inputs, sessions, news
+- [Gold Scalpers Pro vs grid and martingale EAs](https://goldscalpers.com/blog/gold-scalpers-pro-vs-grid-martingale-eas)
+- [Prop firm EA rules compared](https://goldscalpers.com/prop-firms/): FTMO, FundedNext, The5ers and FundingPips, each with its own page and sources
+- [How to pass a prop firm challenge trading gold](https://goldscalpers.com/blog/how-to-pass-prop-firm-challenge-xauusd): how firms measure daily loss on equity, lot sizes for $10k to $100k accounts, losing-streak odds
+- [Best MT5 EA for prop firm challenges](https://goldscalpers.com/blog/best-mt5-ea-for-prop-firm): what a challenge-safe EA needs and which firms accept purchased EAs
+- [Prop firms that allow EA trading](https://goldscalpers.com/blog/prop-firms-that-allow-ea): Blue Guardian, GOAT Funded Trader, ThinkCapital, Instant Funding
+- [Best time to trade gold](https://goldscalpers.com/blog/best-time-to-trade-gold): XAUUSD sessions in GMT and ET
+- [Gold trading strategies](https://goldscalpers.com/blog/gold-trading-strategies): five XAUUSD systems compared
+- [How US data and FOMC move gold](https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold)
+- [How to install an EA on MT5](https://goldscalpers.com/blog/how-to-install-ea-on-mt5)
+- [Gold Scalpers AI app](https://goldscalpers.com/ai-chart-analysis)
+- [Pricing (machine-readable)](https://goldscalpers.com/pricing.md)
+- [Checkout](https://goldscalpers.com/checkout)
+- [Support](https://goldscalpers.com/support)
+- [Blog](https://goldscalpers.com/blog/)
 
 ## Policies
 - [Refund policy](https://goldscalpers.com/refund-policy): 30-day money-back
-- [Risk disclaimer](https://goldscalpers.com/risk-disclaimer): trading is high-risk; past performance is not indicative of future results
+- [Risk disclaimer](https://goldscalpers.com/risk-disclaimer): trading is high-risk; past performance does not predict future results
 - [Terms of service](https://goldscalpers.com/terms-of-service)
 - [Privacy policy](https://goldscalpers.com/privacy-policy)
 
 ## Contact
 - Support: support@goldscalpers.com
+- MQL5 seller profile: https://www.mql5.com/en/users/sanikhan444
+- YouTube: https://www.youtube.com/@GoldScalpersEA
+- Facebook: https://www.facebook.com/goldscalpersea
