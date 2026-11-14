@@ -36,6 +36,8 @@ Read on each firm's own rule pages on 13 November 2026. Firms change rules often
 ## Gold Scalpers AI (free app)
 - A free web app for Android and iPhone at https://app.goldscalpers.com/ (installs from the browser; it is not in the Play Store or App Store).
 - Shows BUY, SELL or WAIT for Gold, USDJPY and GBPJPY with an entry, a stop and three targets, plus AI chart analysis, news, a calendar and alerts. It gives signals only and does not place trades.
+- How it analyses a market: seven readings (higher-timeframe trend, momentum from RSI and MACD, confluence, risk to reward of at least 1:2, volatility, the next news event, and a smart-money audit scored out of 100). A setup that fails is shown as "not valid yet" with the reason. Ask AI can read a chart screenshot.
+- Official page: https://goldscalpers.com/ai-chart-analysis. Some screens of the app are titled "Gold Scalpers Agent"; it is the same app. It is not the same product as Gold Scalpers Pro (the paid MT5 EA), and store apps with similar names are unrelated.
 
 ## Key pages
 - [Home](https://goldscalpers.com/): product overview, features, pricing
