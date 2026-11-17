@@ -11,7 +11,7 @@
 .ft-contact a:hover { background: var(--gradient-primary); border-color: transparent; color: #fff; transform: translateY(-2px); }
 .ft-contact svg { width: 16px; height: 16px; flex: none; }
 .ft-contact a.ft-icon { width: 36px; height: 36px; padding: 0; justify-content: center; }
-.ft-col h4 { margin: 0 0 1rem; color: #fff; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.ft-col .ft-h { margin: 0 0 1rem; color: #fff; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .ft-col ul { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
 .ft-col a { color: var(--gray-400); font-size: 0.93rem; transition: color 0.2s; }
 .ft-col a:hover { color: #fff; }
