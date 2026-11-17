@@ -38,7 +38,21 @@ Niches NOT accepted: B2B SaaS / enterprise, local services, luxury goods, CBD, g
 - [Contact](https://ihsansoloads.com/contact): Order form, free funnel review request
 - [Blog Index](https://ihsansoloads.com/blog): All articles
 
-## Free tools & buyer guides
+## Lead Agent (software)
+
+Lead Agent is a browser extension sold by Ihsan Solo Ads for $299 one-time (lifetime access, 2 computers). It is an AI lead finder for marketing agencies, internet marketers, list builders and affiliate marketers.
+
+- **Lead sources**: Google Maps (21 countries), LinkedIn and Sales Navigator (people and company searches and profiles the user opens; it never sends LinkedIn messages or connection requests), Yelp, YellowPages, custom directories, CSV import
+- **Enrichment**: emails found on business websites with mail-domain checks, decision-maker finder, website problem audit, activity score from 0 to 100 (recent reviews, owner replies, claimed listing, live website, LinkedIn activity)
+- **Live phone check** (optional, user's own Twilio, Veriphone or NumVerify account): valid number and line type; with Twilio, whether the line is in service
+- **Outreach**: personal cold email campaigns from the user's own Gmail with warm-up, daily caps and one follow-up; AI first line per lead; replies sorted with AI-drafted answers that the user sends
+- **AI comment assistant**: drafts comments for LinkedIn, X, Facebook and Reddit posts in the user's voice; the user presses Post
+- **Autopilot**: daily saved searches, sending, reply checks every 15 minutes, CRM push, daily backup and a morning summary, while the computer and browser are on
+- **Browsers**: Chrome, Edge, Brave, Opera, Vivaldi, Firefox 128+ (Windows, Mac, Linux)
+- **Exports**: CSV/XLSX for Instantly, lemlist, Smartlead, Apollo, HubSpot; push to HubSpot, Pipedrive, GoHighLevel, Google Sheets, webhooks
+- **Privacy**: leads are stored in the user's browser
+- Page: [Lead Agent](https://ihsansoloads.com/lead-agent)
+
 
 - [Free Solo Ads ROI Calculator](https://ihsansoloads.com/free-solo-ads-roi-calculator): Interactive tool — input clicks, opt-in rate, sale price, conversion rate; returns projected subscribers, sales, revenue, EPC, CPL, profit and ROI
 - [11 Best Solo Ads Vendors in 2026 (Ranked)](https://ihsansoloads.com/best-solo-ads-vendors): Side-by-side ranking of Ihsan Solo Ads, Udimi, Petar Damnjanovic, Igor Kheifets, Wayne Crowe, 10DollarSoloAds, TrafficZion, Reliable Soloads, SoloAdsX, ClickFair, Konker
@@ -84,4 +98,3 @@ Niches NOT accepted: B2B SaaS / enterprise, local services, luxury goods, CBD, g
 - [Sitemap](https://ihsansoloads.com/sitemap.xml)
 - Email: support@ihsansoloads.com
 - Facebook: @ihsansoloads
-- YouTube: @ihsansoloads
