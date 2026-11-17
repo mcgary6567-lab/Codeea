@@ -1,0 +1,39 @@
+/* =====================================================
+   Site footer (all pages). Short, three link groups, no video links.
+   Builds on .footer from style.min.css (dark background, gradient top line).
+   ===================================================== */
+.footer.ft { padding: 3.25rem 0 1.25rem; }
+.ft-top { display: grid; grid-template-columns: 1.5fr repeat(3, 1fr); gap: 2.5rem; padding-bottom: 2.25rem; }
+.ft-brand .logo { color: #fff; margin-bottom: 0.85rem; }
+.ft-brand p { max-width: 300px; margin: 0 0 1.25rem; color: var(--gray-400); font-size: 0.93rem; line-height: 1.6; }
+.ft-contact { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.ft-contact a { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--gray-300); font-size: 0.85rem; font-weight: 600; transition: background 0.2s, color 0.2s, transform 0.2s; }
+.ft-contact a:hover { background: var(--gradient-primary); border-color: transparent; color: #fff; transform: translateY(-2px); }
+.ft-contact svg { width: 16px; height: 16px; flex: none; }
+.ft-contact a.ft-icon { width: 36px; height: 36px; padding: 0; justify-content: center; }
+.ft-col h4 { margin: 0 0 1rem; color: #fff; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.ft-col ul { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.ft-col a { color: var(--gray-400); font-size: 0.93rem; transition: color 0.2s; }
+.ft-col a:hover { color: #fff; }
+.ft-new { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: var(--gradient-primary); color: #fff; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; vertical-align: 2px; }
+.ft-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.08); color: var(--gray-500); font-size: 0.85rem; }
+.ft-legal { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+.ft-legal a { color: var(--gray-400); }
+.ft-legal a:hover { color: #fff; }
+.ft-top-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0; border: 0; background: none; color: var(--gray-400); font: inherit; cursor: pointer; }
+.ft-top-btn:hover { color: #fff; }
+.ft-top-btn svg { width: 14px; height: 14px; }
+.ft a:focus-visible, .ft-top-btn:focus-visible { outline: 2px solid var(--primary-light); outline-offset: 3px; border-radius: 4px; }
+
+@media (max-width: 900px) {
+  .ft-top { grid-template-columns: repeat(3, 1fr); gap: 2rem 1.5rem; }
+  .ft-brand { grid-column: 1 / -1; }
+  .ft-brand p { max-width: 480px; }
+}
+@media (max-width: 520px) {
+  .footer.ft { padding-top: 2.5rem; }
+  .ft-top { grid-template-columns: 1fr 1fr; }
+  .ft-col:last-child { grid-column: 1 / -1; }
+  .ft-col:last-child ul { grid-template-columns: 1fr 1fr; }
+  .ft-bottom { flex-direction: column; align-items: flex-start; }
+}
