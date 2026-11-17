@@ -44,6 +44,15 @@
 .la-float small { display: block; color: var(--gray-500); font-size: 0.75rem; }
 @keyframes la-bob { 50% { transform: translateY(-8px); } }
 
+/* "Works in" browser logos in the hero */
+.la-browsers { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.la-browsers-label, .la-browsers-os { color: rgba(255, 255, 255, 0.7); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.04em; }
+.la-browsers-label { text-transform: uppercase; }
+.la-browsers ul { display: flex; gap: 0.5rem; }
+.la-browsers li { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: var(--white); box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.45); transition: transform 0.2s; }
+.la-browsers li:hover { transform: translateY(-3px); }
+.la-b { width: 24px; height: 24px; }
+
 /* Source strip under the hero */
 .la-strip { padding: 1.4rem 0; background: var(--white); border-bottom: 1px solid var(--gray-200); }
 .la-strip .container { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
