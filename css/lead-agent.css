@@ -1,0 +1,100 @@
+/* =====================================================
+   Lead Agent sales page — additions to style.min.css.
+   Uses the site's own colours, fonts, spacing and radius tokens.
+   ===================================================== */
+
+/* Product screenshots in a soft device frame */
+.la-shot {
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 30px 60px -20px rgba(15, 23, 42, 0.55), 0 0 0 6px rgba(255, 255, 255, 0.04);
+  background: #0b1110;
+}
+.la-shot img { width: 100%; height: auto; display: block; }
+.la-shot.light { border-color: var(--gray-200); box-shadow: var(--shadow-xl); background: var(--white); }
+.la-caption { font-size: 0.85rem; color: var(--gray-500); text-align: center; margin-top: 0.75rem; }
+
+/* Hero: two overlapping phone-width screenshots */
+.la-hero-shots { position: relative; width: 100%; max-width: 460px; margin: 0 auto; aspect-ratio: 460 / 560; }
+.la-hero-shots .la-shot { position: absolute; width: 62%; }
+.la-hero-shots .la-shot:first-child { left: 0; top: 0; transform: rotate(-3deg); }
+.la-hero-shots .la-shot:last-child { right: 0; bottom: 0; transform: rotate(3deg); }
+.la-price-note { color: rgba(255, 255, 255, 0.75); font-size: 0.95rem; margin-top: -1.5rem; margin-bottom: 2rem; }
+.la-price-note strong { color: var(--white); }
+
+/* How it works */
+.la-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; counter-reset: step; }
+.la-step { position: relative; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1.75rem 1.5rem 1.5rem; }
+.la-step::before {
+  counter-increment: step; content: counter(step);
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin-bottom: 1rem;
+  border-radius: 50%; background: var(--gradient-primary); color: var(--white); font-family: var(--font-display); font-weight: 800;
+}
+.la-step h3 { font-size: 1.15rem; margin-bottom: 0.5rem; }
+.la-step p { font-size: 0.95rem; }
+
+/* Feature rows: text beside a screenshot */
+.la-row { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 4rem; align-items: center; }
+.la-row + .la-row { margin-top: 5rem; }
+.la-row.flip > :first-child { order: 2; }
+.la-row .la-shot { max-width: 360px; margin: 0 auto; }
+.la-row h3 { font-size: clamp(1.4rem, 2.4vw, 1.9rem); margin-bottom: 1rem; }
+.la-list { display: grid; gap: 0.7rem; margin-top: 1.25rem; }
+.la-list li { display: flex; gap: 0.65rem; align-items: flex-start; color: var(--gray-700); }
+.la-list li svg { flex: none; margin-top: 0.2rem; color: var(--success); }
+.la-list li strong { color: var(--dark); }
+.la-tag { display: inline-block; padding: 0.15rem 0.55rem; border-radius: var(--radius-sm); background: var(--gray-100); color: var(--primary-dark); font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; }
+
+/* Wide screenshot (pipeline board) */
+.la-wide { max-width: 1000px; margin: 0 auto; }
+
+/* Honest comparison */
+.la-compare-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--gray-200); background: var(--white); }
+.la-compare { width: 100%; border-collapse: collapse; min-width: 640px; }
+.la-compare th, .la-compare td { padding: 1rem 1.25rem; text-align: left; border-bottom: 1px solid var(--gray-200); vertical-align: top; }
+.la-compare thead th { font-family: var(--font-display); color: var(--dark); background: var(--gray-50); }
+.la-compare tbody th { font-weight: 600; color: var(--gray-700); width: 26%; }
+.la-compare td { color: var(--gray-600); }
+.la-compare td.la-us { color: var(--dark); font-weight: 600; background: rgba(79, 70, 229, 0.04); }
+.la-compare tr:last-child th, .la-compare tr:last-child td { border-bottom: 0; }
+
+/* Single pricing card */
+.la-price-wrap { max-width: 520px; margin: 0 auto; }
+.la-price-wrap .pricing-card { text-align: left; }
+.la-price-wrap .price { display: flex; align-items: baseline; gap: 0.5rem; }
+.la-price-wrap .features { columns: 1; }
+.la-price-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; justify-content: center; margin-top: 1.25rem; color: var(--gray-600); font-size: 0.9rem; }
+.la-price-meta span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.la-price-meta svg { color: var(--success); }
+
+/* "What you need" panel */
+.la-needs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+.la-needs .card h3 { font-size: 1.15rem; margin-bottom: 0.75rem; }
+.la-needs .card ul { display: grid; gap: 0.5rem; }
+.la-needs .card li { color: var(--gray-700); padding-left: 1.2rem; position: relative; }
+.la-needs .card li::before { content: ''; position: absolute; left: 0; top: 0.65em; width: 6px; height: 6px; border-radius: 50%; background: var(--primary-light); }
+
+/* Sticky buy bar on phones */
+.la-buybar { display: none; }
+
+@media (max-width: 1024px) {
+  .la-steps { grid-template-columns: repeat(2, 1fr); }
+  .la-row, .la-row.flip { grid-template-columns: 1fr; gap: 2.5rem; }
+  .la-row.flip > :first-child { order: 0; }
+}
+@media (max-width: 768px) {
+  .la-steps, .la-needs { grid-template-columns: 1fr; }
+  .la-hero-shots { max-width: 360px; margin-top: 1rem; }
+  .la-buybar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; gap: 0.75rem; align-items: center; justify-content: space-between;
+    padding: 0.75rem max(1rem, env(safe-area-inset-right)) calc(0.75rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(12px); border-top: 1px solid var(--gray-200); box-shadow: 0 -8px 20px -10px rgba(15, 23, 42, 0.2);
+  }
+  .la-buybar .price { font-family: var(--font-display); font-weight: 800; color: var(--dark); line-height: 1.1; }
+  .la-buybar .price small { display: block; font-family: var(--font-sans); font-weight: 500; font-size: 0.75rem; color: var(--gray-500); }
+  body.la-page { padding-bottom: 76px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .la-hero-shots .la-shot { transform: none !important; }
+}
