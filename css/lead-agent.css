@@ -30,7 +30,9 @@
 .la-shot.light { border-color: var(--gray-200); box-shadow: var(--shadow-xl); background: var(--white); }
 
 /* Hero */
-.la-hero h1 { font-size: clamp(2rem, 4.4vw, 3.4rem); text-wrap: balance; }
+.la-hero h1 { font-size: clamp(1.9rem, 3.8vw, 3.1rem); line-height: 1.12; text-wrap: balance; }
+.la-h1-2 { display: block; margin-top: 0.35em; font-size: 0.72em; line-height: 1.2; color: rgba(255, 255, 255, 0.92); }
+.la-hero .hero-visual { width: 100%; }
 .la-hero-points { display: flex; flex-wrap: wrap; gap: 0.6rem 1.4rem; margin-top: 1.75rem; color: rgba(255, 255, 255, 0.85); font-size: 0.95rem; }
 .la-hero-points li { display: inline-flex; align-items: center; gap: 0.45rem; }
 .la-hero-points .i { color: #34D399; }
@@ -178,10 +180,12 @@
 .la-buybar { display: none; }
 
 @media (max-width: 1024px) {
+  /* Phones/tablets: text and buy button first, then the screenshots */
+  .la-hero .hero-visual { order: 1; max-width: 420px; margin: 0 auto; }
   .la-aud, .la-src { grid-template-columns: repeat(2, 1fr); }
   .la-feat { grid-template-columns: repeat(3, 1fr); }
   .la-active, .la-buy, .la-panel { grid-template-columns: 1fr; gap: 2.5rem; }
-  .la-buy .la-card { max-width: 480px; width: 100%; margin: 0 auto; }
+  .la-buy .la-card { max-width: 480px; width: 100%; margin: 0 auto; order: -1; }
   .la-day { grid-template-columns: repeat(2, 1fr); }
   .la-day::before { display: none; }
   .la-day li:last-child { grid-column: 1 / -1; }
@@ -189,6 +193,15 @@
   .la-ai-main { grid-row: auto; }
 }
 @media (max-width: 560px) {
+  /* Shorter page on phones: compact feature tiles (icon + title + one short line) */
+  .la-feat-item { display: grid; grid-template-columns: auto 1fr; column-gap: 0.6rem; align-items: center; padding: 0.8rem; }
+  .la-feat-item .la-ic { width: 32px; height: 32px; border-radius: 9px; }
+  .la-feat-item .la-ic .i { width: 17px; height: 17px; }
+  .la-feat-item h3 { margin: 0; font-size: 0.88rem; line-height: 1.25; }
+  .la-feat-item p { grid-column: 1 / -1; margin-top: 0.45rem; font-size: 0.78rem; line-height: 1.4; }
+  .la-tight .section-header { margin-bottom: 1.75rem; }
+  .la-tight .section-header h2 { font-size: 1.6rem; }
+  .la-tight .section-header p { font-size: 0.98rem; }
   .la-day { grid-template-columns: 1fr; gap: 0.75rem; }
   .la-day li { display: grid; grid-template-columns: auto 1fr; column-gap: 0.9rem; padding: 1rem; }
   .la-day .la-time { grid-column: 1 / -1; margin-bottom: 0.6rem; }
@@ -208,8 +221,19 @@
   .la-aud .la-ic, .la-src .la-ic { width: 38px; height: 38px; }
   .la-feat { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
   .la-feat-item { padding: 1rem; }
-  .la-hero-shots { max-width: 340px; margin-top: 1rem; }
-  .la-float { left: 0; }
+  .la-hero-shots { max-width: 330px; margin-top: 0.5rem; }
+  .la-float { left: -2%; bottom: 6%; gap: 0.55rem; padding: 0.55rem 0.8rem; border-radius: 12px; }
+  .la-float .i { width: 28px; height: 28px; padding: 6px; }
+  .la-float b { font-size: 0.9rem; }
+  .la-float small { font-size: 0.68rem; white-space: nowrap; }
+  .la-hero .lead { font-size: 1.02rem; line-height: 1.6; }
+  .la-hero .hero-cta { gap: 0.6rem; }
+  .la-hero-points { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem 0.75rem; margin-top: 1.25rem; font-size: 0.86rem; }
+  .la-browsers { gap: 0.6rem 0.75rem; margin-top: 1.1rem; padding-top: 1rem; }
+  .la-browsers ul { gap: 0.4rem; }
+  .la-browsers li { width: 36px; height: 36px; border-radius: 10px; }
+  .la-b { width: 21px; height: 21px; }
+  .la-browsers-os { flex-basis: 100%; }
   .la-strip .container { gap: 0.75rem; }
   .la-strip-list li { font-size: 0.82rem; padding: 0.35rem 0.7rem; }
   .la-tablist { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
