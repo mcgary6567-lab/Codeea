@@ -63,6 +63,7 @@ Lead Agent is a browser extension sold by Ihsan Solo Ads for $299 one-time (life
 ## Articles (educational resources)
 
 - [What Are Solo Ads? The Complete Beginner's Guide](https://ihsansoloads.com/blog/what-are-solo-ads): Definition, mechanics, pricing, who it's for
+- [How Much Do Solo Ads Cost in 2026?](https://ihsansoloads.com/blog/solo-ads-cost): Real per-click prices, cost per subscriber math, hidden costs, first-test budget
 - [How to Calculate Solo Ad ROI](https://ihsansoloads.com/blog/solo-ad-roi): The five-number formula and worked examples
 - [9 Squeeze Page Tweaks That Doubled Our Opt-In Rate](https://ihsansoloads.com/blog/squeeze-page-conversion): Specific page-level changes proven to convert cold solo traffic
 - [7 Red Flags That Reveal a Bad Solo Ad Vendor](https://ihsansoloads.com/blog/spot-bad-solo-ad-vendors): Vetting checklist for buyers
