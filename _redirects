@@ -1,0 +1,21 @@
+# Netlify redirects file
+# Clean URLs are handled by Netlify's "Pretty URLs" post-processing feature
+# (enabled by default), so .html → no-extension works automatically.
+# This file just covers explicit cases.
+
+# Send any legacy .html request to the clean URL
+/index.html              /             301
+/about.html              /about        301
+/services.html           /services     301
+/contact.html            /contact      301
+/blog.html               /blog         301
+/testimonials.html       /testimonials 301
+/free-solo-ads-roi-calculator.html  /free-solo-ads-roi-calculator  301
+/best-solo-ads-vendors.html         /best-solo-ads-vendors         301
+/udimi-alternative.html             /udimi-alternative             301
+/petar-solo-ads-alternative.html    /petar-solo-ads-alternative    301
+/solo-ads-industry-stats.html       /solo-ads-industry-stats       301
+/privacy.html            /privacy      301
+/terms.html              /terms        301
+/refunds.html            /refunds      301
+/blog/*.html             /blog/:splat  301!

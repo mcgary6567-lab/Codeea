@@ -1,0 +1,16 @@
+{
+  "name": "Ihsan Solo Ads",
+  "short_name": "Ihsan Solo Ads",
+  "description": "Premium Tier-1 solo ad email traffic for affiliate marketers and list builders.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "images/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# robots.txt for ihsansoloads.com
+# Allow all reputable crawlers including AI search engines
+
+User-agent: *
+Allow: /
+
+# Explicit allow for AI search crawlers (GEO / AI SEO)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+# Sitemap location
+Sitemap: https://ihsansoloads.com/sitemap.xml

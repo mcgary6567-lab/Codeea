@@ -1,0 +1,97 @@
+# =====================================================
+# Ihsan Solo Ads — Apache config
+# Clean URLs (no .html), HTTPS, security headers, caching
+# Drop this file in the site root on any Apache host (cPanel, shared hosting).
+# =====================================================
+
+RewriteEngine On
+
+# 1. Force HTTPS (uncomment when SSL is active)
+# RewriteCond %{HTTPS} !=on
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# 2. Force non-www (uncomment if you want bare-domain canonical)
+# RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+# RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+# 3. Redirect requests with .html to the clean URL (preserve search engine equity)
+RewriteCond %{THE_REQUEST} ^GET\s/+([^?\s]+?)\.html[\s?] [NC]
+RewriteRule ^ /%1 [R=301,L]
+
+# 4. Redirect index requests to the bare directory
+RewriteRule ^index/?$ / [R=301,L]
+RewriteRule ^(.+)/index/?$ /$1/ [R=301,L]
+
+# 5a. Resolve dir-vs-file conflict: if /blog/ (or any path with trailing slash)
+#     has a matching .html file, redirect to the no-slash form so rule 5b can serve it.
+#     This is what fixes the 403 on /blog when both blog.html AND blog/ exist.
+RewriteCond %{DOCUMENT_ROOT}/$1.html -f
+RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+# 5b. Internally rewrite extensionless requests to .html files.
+#     We removed the !-d condition so the .html file wins over a same-named directory.
+#     The !-f stays to avoid double-rewrites on direct .html requests (rule 3 handles those).
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.+?)/?$ $1.html [L]
+
+# 6. Default index file
+DirectoryIndex index.html
+
+# 7. 404 page (uses the home page as a fallback if you don't create a 404)
+ErrorDocument 404 /
+
+# =====================================================
+# Performance: aggressive caching for static assets
+# =====================================================
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html              "access plus 1 hour"
+  ExpiresByType text/css               "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType image/svg+xml          "access plus 1 month"
+  ExpiresByType image/png              "access plus 1 month"
+  ExpiresByType image/jpeg             "access plus 1 month"
+  ExpiresByType image/webp             "access plus 1 month"
+  ExpiresByType image/x-icon           "access plus 1 year"
+  ExpiresByType font/woff              "access plus 1 year"
+  ExpiresByType font/woff2             "access plus 1 year"
+</IfModule>
+
+# Make sure self-hosted .woff2 fonts serve with the correct MIME type and immutable cache
+<IfModule mod_mime.c>
+  AddType font/woff2 .woff2
+  AddType font/woff  .woff
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(woff2|woff|ttf|otf|eot)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+  <FilesMatch "\.(css|js|svg|png|jpg|jpeg|webp|ico)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript image/svg+xml application/xml font/woff2
+</IfModule>
+
+# =====================================================
+# Security headers
+# =====================================================
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# Block access to dotfiles (.htaccess, .git, etc.)
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+# Block access to the .claude directory (local dev tooling)
+RedirectMatch 404 /\.claude(/.*)?
