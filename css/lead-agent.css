@@ -248,6 +248,13 @@
   .la-buybar .price small { display: block; font-family: var(--font-sans); font-weight: 500; font-size: 0.75rem; color: var(--gray-500); }
   body.la-page { padding-bottom: 76px; }
 }
+@media (max-width: 640px) {
+  /* Phone hero: clear hierarchy - heading, lighter subheading, compact paragraph */
+  .hero.la-hero .hero-content > .badge { font-size: 0.76rem; padding: 0.4rem 0.85rem; margin-bottom: 1.1rem; }
+  .hero.la-hero h1 { font-size: clamp(1.9rem, 8.6vw, 2.35rem); line-height: 1.08; letter-spacing: -0.025em; margin-bottom: 1rem; text-wrap: balance; }
+  .hero.la-hero .la-h1-2 { margin-top: 0.6em; font-size: 0.56em; font-weight: 600; line-height: 1.3; letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.78); text-wrap: pretty; }
+  .hero.la-hero p.lead { font-size: 0.97rem; line-height: 1.62; color: rgba(255, 255, 255, 0.72); margin-bottom: 1.5rem; max-width: 36ch; text-wrap: pretty; }
+}
 @media (prefers-reduced-motion: reduce) {
   .la-hero-shots .la-shot { transform: none !important; }
   .la-float, .la-tabs-on .la-panel:not([hidden]) { animation: none; }
