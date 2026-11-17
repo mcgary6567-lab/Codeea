@@ -89,6 +89,36 @@
 .la-score li .i { width: 0.95em; height: 0.95em; stroke-width: 3; }
 .la-sample { margin: 1rem 0 0; text-align: right; color: var(--gray-400); font-size: 0.75rem; }
 
+/* Autopilot day (dark band) */
+.la-dark { background: var(--gradient-dark); color: rgba(255, 255, 255, 0.85); }
+.la-dark .section-header h2 { color: var(--white); text-wrap: balance; }
+.la-dark .section-header p { color: rgba(255, 255, 255, 0.75); }
+.la-dark .section-header .badge { background: rgba(255, 255, 255, 0.12); color: #C7D2FE; }
+.la-day { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; position: relative; list-style: none; margin: 0; padding: 0; }
+.la-day::before { content: ''; position: absolute; left: 6%; right: 6%; top: 74px; height: 2px; background: linear-gradient(90deg, rgba(129, 140, 248, 0), rgba(129, 140, 248, 0.7), rgba(236, 72, 153, 0.7), rgba(236, 72, 153, 0)); }
+.la-day li { position: relative; padding: 1.25rem; border-radius: var(--radius-lg); background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); backdrop-filter: blur(6px); }
+.la-day .la-time { display: block; margin-bottom: 0.8rem; color: #A5B4FC; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.la-day .la-ic { background: var(--gradient-primary); color: var(--white); box-shadow: 0 8px 20px -6px rgba(124, 58, 237, 0.7); }
+.la-day h3 { color: var(--white); font-size: 1.02rem; margin: 0.9rem 0 0.35rem; }
+.la-day p { color: rgba(255, 255, 255, 0.72); font-size: 0.88rem; line-height: 1.5; margin: 0; }
+.la-day-note { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin: 2rem 0 0; color: rgba(255, 255, 255, 0.65); font-size: 0.9rem; text-align: center; }
+
+/* AI */
+.la-ai { display: grid; grid-template-columns: 1.4fr 1fr; grid-template-rows: repeat(3, auto); gap: 1rem; }
+.la-ai-card { display: grid; grid-template-columns: auto 1fr; column-gap: 1rem; align-items: start; padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--gray-200); background: var(--white); transition: var(--transition); }
+.la-ai-card:hover { border-color: var(--primary-light); box-shadow: var(--shadow-md); }
+.la-ai-card .la-ic { grid-row: span 2; }
+.la-ai-card h3 { font-size: 1.05rem; margin: 0.15rem 0 0.3rem; }
+.la-ai-card p { font-size: 0.92rem; color: var(--gray-600); margin: 0; }
+.la-ai-main { grid-row: 1 / span 3; display: block; padding: 2rem; background: linear-gradient(160deg, rgba(79, 70, 229, 0.07), rgba(236, 72, 153, 0.06)); border-color: rgba(129, 140, 248, 0.45); }
+.la-ai-main .la-ic { width: 52px; height: 52px; background: var(--gradient-primary); color: var(--white); }
+.la-ai-main h3 { font-size: 1.45rem; margin: 1.1rem 0 0.6rem; }
+.la-ai-main p { font-size: 1rem; color: var(--gray-700); }
+.la-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 1.2rem 0; }
+.la-chips li { padding: 0.3rem 0.75rem; border-radius: var(--radius-full); background: var(--white); border: 1px solid var(--gray-200); color: var(--gray-700); font-size: 0.82rem; font-weight: 600; }
+.la-ai-main .la-ai-safe { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.88rem; color: #047857; }
+.la-ai-safe .i { margin-top: 0.15rem; }
+
 /* How it works tabs */
 .la-tablist { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
 .la-tablist [role="tab"] { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1.2rem; border: 1px solid var(--gray-200); border-radius: var(--radius-full); background: var(--white); color: var(--gray-700); font: 600 0.95rem var(--font-sans); cursor: pointer; transition: var(--transition); }
@@ -143,6 +173,19 @@
   .la-feat { grid-template-columns: repeat(3, 1fr); }
   .la-active, .la-buy, .la-panel { grid-template-columns: 1fr; gap: 2.5rem; }
   .la-buy .la-card { max-width: 480px; width: 100%; margin: 0 auto; }
+  .la-day { grid-template-columns: repeat(2, 1fr); }
+  .la-day::before { display: none; }
+  .la-day li:last-child { grid-column: 1 / -1; }
+  .la-ai { grid-template-columns: 1fr; }
+  .la-ai-main { grid-row: auto; }
+}
+@media (max-width: 560px) {
+  .la-day { grid-template-columns: 1fr; gap: 0.75rem; }
+  .la-day li { display: grid; grid-template-columns: auto 1fr; column-gap: 0.9rem; padding: 1rem; }
+  .la-day .la-time { grid-column: 1 / -1; margin-bottom: 0.6rem; }
+  .la-day .la-ic { grid-row: span 2; }
+  .la-day h3 { margin-top: 0; }
+  .la-ai-main { padding: 1.4rem; }
 }
 @media (max-width: 768px) {
   .section.la-tight { padding: 3.25rem 0; }
