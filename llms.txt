@@ -52,6 +52,7 @@ Lead Agent is a browser extension sold by Ihsan Solo Ads for $299 one-time (life
 - **Exports**: CSV/XLSX for Instantly, lemlist, Smartlead, Apollo, HubSpot; push to HubSpot, Pipedrive, GoHighLevel, Google Sheets, webhooks
 - **Privacy**: leads are stored in the user's browser
 - Page: [Lead Agent](https://ihsansoloads.com/lead-agent)
+- Guide: [How to Find Business Leads on Google Maps](https://ihsansoloads.com/blog/find-business-leads-google-maps): Manual step-by-step method and where Lead Agent automates it
 
 
 - [Free Solo Ads ROI Calculator](https://ihsansoloads.com/free-solo-ads-roi-calculator): Interactive tool — input clicks, opt-in rate, sale price, conversion rate; returns projected subscribers, sales, revenue, EPC, CPL, profit and ROI
