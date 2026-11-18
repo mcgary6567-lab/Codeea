@@ -73,11 +73,20 @@ body { padding-top: 36px; }
 @media (max-width: 640px) {
   .header.hx { --hx-nav: 64px; }
   .header.hx.scrolled { --hx-nav: 60px; }
-  .hx .logo { font-size: 1.12rem; }
+  .hx .logo { font-size: 1.12rem; min-height: 44px; }
   .hx .logo-icon { width: 34px; height: 34px; }
   .hx-bar { font-size: 0.8rem; gap: 0.45rem; }
   .hx-bar .hx-long { display: none; }
   .hx-bar .hx-short { display: inline; }
+}
+/* Touch targets: bigger hit areas on phones without changing the look */
+@media (max-width: 768px) {
+  .breadcrumb a, .related-posts a, .read-more { padding-top: 13px; padding-bottom: 13px; }
+  .t-chip { min-height: 44px; }
+}
+@media (max-width: 640px) {
+  body { padding-top: 44px; }
+  .header.hx { --hx-bar: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hx-new::after { animation: none; }

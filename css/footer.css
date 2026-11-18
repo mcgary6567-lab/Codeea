@@ -37,3 +37,12 @@
   .ft-col:last-child ul { grid-template-columns: 1fr 1fr; }
   .ft-bottom { flex-direction: column; align-items: flex-start; }
 }
+/* Touch screens: every footer link gets a full 44px tap area (same look, taller hit box) */
+@media (max-width: 768px) {
+  .ft-col ul { gap: 0; }
+  .ft-col a, .ft-legal a, .ft-top-btn { display: inline-flex; align-items: center; min-height: 44px; }
+  .ft-legal { gap: 0 1.25rem; }
+  .ft-contact a { min-height: 44px; }
+  .ft-contact a.ft-icon { width: 44px; height: 44px; }
+  .ft-brand .logo { min-height: 44px; }
+}
