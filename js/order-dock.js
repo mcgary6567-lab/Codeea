@@ -1,67 +1,83 @@
 /* Phone order dock: a slim bar pinned to the bottom of the screen on phones.
-   Solo-ads pages: "Order now" opens a sheet with the three packages, each a direct Gumroad checkout.
+   Solo-ads pages: "Choose clicks" opens a sheet with one click-volume selector and one pay button
+   that goes straight to that package's Gumroad checkout.
    Lead Agent page: "Buy now" goes straight to the Lead Agent checkout.
    Hidden on wider screens, at the top of the page, while a pricing section or the footer is on screen,
-   and while the menu is open. */
+   and while the menu is open.
+   Prices and clicks live in PKGS below: update them whenever the packages change. */
 (function () {
   'use strict';
   if (window.__orderDock) return; window.__orderDock = 1;
   var G = 'https://goldempire.gumroad.com/l/';
   var PKGS = [
-    { name: 'Starter', clicks: '300', bonus: '≈330', price: '$100', per: '$0.33', slug: 'solo-ads-starter', note: 'Test a new offer' },
-    { name: 'Standard', clicks: '600', bonus: '≈660', price: '$200', per: '$0.33', slug: 'solo-ads-standard', note: 'Most popular', pop: true },
-    { name: 'Premium', clicks: '1,250', bonus: '≈1,375', price: '$300', per: '$0.24', slug: 'solo-ads-premium', note: 'Best price per click' }
+    { name: 'Starter', clicks: 300, label: '300', delivered: '330', price: 100, per: '$0.33', slug: 'solo-ads-starter',
+      fit: 'Test a new offer or page', gets: ['Free email swipe copy', 'Squeeze page review', 'Real-time click tracking'] },
+    { name: 'Standard', clicks: 600, label: '600', delivered: '660', price: 200, per: '$0.33', slug: 'solo-ads-standard',
+      fit: 'Most popular, the one clients re-order', gets: ['Pro copy and funnel review', 'Priority queue placement', 'Geo and device click breakdown'] },
+    { name: 'Premium', clicks: 1250, label: '1,250', delivered: '1,375', price: 300, per: '$0.24', slug: 'solo-ads-premium',
+      fit: 'Lowest price per click, for a proven funnel', gets: ['Premium copy and sales page audit', 'Dedicated account manager', 'Post-campaign optimisation call'] }
   ];
+  var DEFAULT = 1;
   var isLA = /\/lead-agent(\.html)?\/?$/.test(location.pathname);
-  var arrow = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>';
-  var lock = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  var tick = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>';
 
   var css = '' +
     '.od-bar,.od-sheet,.od-back{display:none}' +
     '@media (max-width:768px){' +
-    'body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}' +
-    '.od-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:900;align-items:center;gap:.75rem;padding:.65rem 1rem calc(.65rem + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);-webkit-backdrop-filter:saturate(1.6) blur(12px);backdrop-filter:saturate(1.6) blur(12px);border-top:1px solid #E5E7EB;box-shadow:0 -10px 30px -12px rgba(15,23,42,.25);transform:translateY(110%);transition:transform .28s ease;font-family:inherit}' +
+    'body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}' +
+    '.od-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:900;align-items:center;gap:.75rem;padding:.6rem 1rem calc(.6rem + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);-webkit-backdrop-filter:saturate(1.6) blur(12px);backdrop-filter:saturate(1.6) blur(12px);border-top:1px solid #E2E8F0;transform:translateY(110%);transition:transform .28s ease}' +
     '.od-bar.on{transform:none}' +
-    '.od-txt{flex:1;min-width:0;line-height:1.25}' +
-    '.od-txt b{display:block;font-size:.98rem;color:#0F172A;font-family:var(--font-display,inherit);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-    '.od-txt span{display:block;font-size:.78rem;color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-    '.od-go{flex:0 0 auto;display:inline-flex;align-items:center;gap:.4rem;min-height:48px;padding:0 1.25rem;border:0;border-radius:999px;background:linear-gradient(135deg,#F97316,#F59E0B);color:#fff;font:700 1rem/1 var(--font-display,inherit);text-decoration:none;box-shadow:0 8px 20px -8px rgba(249,115,22,.7);cursor:pointer;-webkit-tap-highlight-color:transparent}' +
-    '.od-go:active{transform:scale(.97)}' +
-    '.od-back{display:block;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.55);opacity:0;pointer-events:none;transition:opacity .25s ease}' +
+    '.od-txt{flex:1;min-width:0;line-height:1.3}' +
+    '.od-txt b{display:block;font:700 .98rem/1.3 var(--font-display,inherit);color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.od-txt span{display:block;font-size:.8rem;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.od-go{flex:0 0 auto;display:inline-flex;align-items:center;min-height:48px;padding:0 1.3rem;border:0;border-radius:12px;background:#4F46E5;color:#fff;font:700 .98rem/1 var(--font-display,inherit);text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+    '.od-go:active{background:#4338CA}' +
+    '.od-bar .od-go:focus-visible,.od-sheet :focus-visible{outline:3px solid #F97316;outline-offset:2px}' +
+    '.od-back{display:block;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.5);opacity:0;pointer-events:none;transition:opacity .25s ease}' +
     '.od-back.on{opacity:1;pointer-events:auto}' +
-    '.od-sheet{display:block;position:fixed;left:0;right:0;bottom:0;z-index:1001;max-height:88vh;overflow-y:auto;overscroll-behavior:contain;background:#fff;border-radius:22px 22px 0 0;padding:.6rem 1rem calc(1rem + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.8,.2,1);box-shadow:0 -20px 50px -20px rgba(15,23,42,.5)}' +
+    '.od-sheet{display:block;position:fixed;left:0;right:0;bottom:0;z-index:1001;max-height:92vh;overflow-y:auto;overscroll-behavior:contain;background:#fff;border-radius:20px 20px 0 0;padding:.55rem 1.25rem calc(1rem + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .32s cubic-bezier(.2,.8,.2,1);color:#0F172A;font-family:var(--font-sans,inherit)}' +
     '.od-sheet.on{transform:none}' +
-    '.od-grab{width:42px;height:5px;border-radius:9px;background:#E5E7EB;margin:0 auto .7rem}' +
-    '.od-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.9rem}' +
-    '.od-head h2{font-size:1.25rem;line-height:1.25;margin:0;color:#0F172A}' +
-    '.od-head p{margin:.25rem 0 0;font-size:.85rem;color:#4B5563}' +
-    '.od-x{flex:0 0 44px;width:44px;height:44px;border:0;border-radius:50%;background:#F3F4F6;color:#111827;font-size:1.4rem;line-height:1;cursor:pointer}' +
-    '.od-pk{position:relative;display:flex;align-items:center;gap:.8rem;padding:.95rem 1rem;margin-bottom:.65rem;border:1.5px solid #E5E7EB;border-radius:16px;color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}' +
-    '.od-pk:active{background:#F9FAFB}' +
-    '.od-pk.pop{border-color:#4F46E5;box-shadow:0 10px 26px -16px rgba(79,70,229,.8)}' +
-    '.od-tag{position:absolute;top:-.6rem;left:1rem;padding:.15rem .55rem;border-radius:999px;background:#4F46E5;color:#fff;font-size:.68rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}' +
-    '.od-info{flex:1;min-width:0}' +
-    '.od-info b{display:block;font-size:1.02rem;color:#0F172A}' +
-    '.od-info span{display:block;font-size:.8rem;color:#4B5563;margin-top:.15rem}' +
-    '.od-buy{flex:0 0 auto;text-align:right}' +
-    '.od-buy b{display:block;font-size:1.3rem;color:#0F172A;font-family:var(--font-display,inherit)}' +
-    '.od-buy span{display:inline-flex;align-items:center;gap:.25rem;margin-top:.2rem;padding:.4rem .75rem;border-radius:999px;background:#4F46E5;color:#fff;font-size:.82rem;font-weight:700}' +
-    '.od-pk:not(.pop) .od-buy span{background:#EEF2FF;color:#4338CA}' +
-    '.od-foot{display:flex;align-items:center;justify-content:center;gap:.35rem;margin:.4rem 0 .2rem;font-size:.8rem;color:#6B7280}' +
-    '.od-more{display:block;text-align:center;padding:.8rem;font-weight:700;color:#4F46E5;text-decoration:none}' +
+    '.od-grab{width:40px;height:5px;border-radius:9px;background:#E2E8F0;margin:0 auto .9rem}' +
+    '.od-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}' +
+    '.od-head h2{font:800 1.4rem/1.2 var(--font-display,inherit);letter-spacing:-.01em;margin:0}' +
+    '.od-head p{margin:.35rem 0 0;font-size:.9rem;line-height:1.45;color:#475569;max-width:30ch}' +
+    '.od-x{flex:0 0 44px;width:44px;height:44px;margin:-.2rem -.4rem 0 0;border:0;border-radius:50%;background:transparent;color:#475569;font-size:1.6rem;line-height:1;cursor:pointer}' +
+    '.od-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:1.25rem 0 0;padding:4px;border:0;border-radius:14px;background:#EEF2FF}' +
+    '.od-pick legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}' +
+    '.od-opt{position:relative}' +
+    '.od-opt input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}' +
+    '.od-opt span{display:block;padding:.7rem .25rem .6rem;border-radius:11px;text-align:center;cursor:pointer;transition:background .18s ease,color .18s ease}' +
+    '.od-opt b{display:block;font:800 1.35rem/1.1 var(--font-display,inherit);font-variant-numeric:tabular-nums;letter-spacing:-.02em}' +
+    '.od-opt i{display:block;font-style:normal;font-size:.8rem;color:#475569;margin-top:.15rem}' +
+    '.od-opt input:checked+span{background:#4F46E5;color:#fff;box-shadow:0 6px 16px -8px rgba(79,70,229,.9)}' +
+    '.od-opt input:checked+span i{color:#E0E7FF}' +
+    '.od-opt input:focus-visible+span{outline:3px solid #F97316;outline-offset:1px}' +
+    '.od-vol{height:6px;margin:.85rem 2px 0;border-radius:6px;background:#E2E8F0;overflow:hidden}' +
+    '.od-vol div{height:100%;width:48%;border-radius:6px;background:#4F46E5;transition:width .35s cubic-bezier(.2,.8,.2,1)}' +
+    '.od-read{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-top:1.1rem}' +
+    '.od-read strong{font:800 1.15rem/1.3 var(--font-display,inherit)}' +
+    '.od-read em{font:600 .95rem/1.3 var(--font-display,inherit);font-style:normal;font-variant-numeric:tabular-nums;color:#4F46E5;white-space:nowrap}' +
+    '.od-fit{margin:.2rem 0 0;font-size:.88rem;color:#475569}' +
+    '.od-gets{list-style:none;margin:1rem 0 0;padding:.9rem 0 0;border-top:1px solid #E2E8F0;display:grid;gap:.55rem}' +
+    '.od-gets li{display:flex;gap:.55rem;align-items:flex-start;font-size:.92rem;line-height:1.4}' +
+    '.od-gets svg{flex:0 0 16px;margin-top:.15rem;color:#16A34A}' +
+    '.od-pay{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;margin-top:1.25rem;border-radius:14px;background:#F97316;color:#fff;font:800 1.08rem/1 var(--font-display,inherit);text-decoration:none;box-shadow:0 10px 24px -12px rgba(249,115,22,.9);-webkit-tap-highlight-color:transparent}' +
+    '.od-pay:active{background:#EA580C}' +
+    '.od-note{margin:.6rem 0 0;text-align:center;font-size:.8rem;color:#475569}' +
+    '.od-more{display:block;margin-top:.35rem;padding:.75rem;text-align:center;font-weight:600;font-size:.9rem;color:#4F46E5;text-decoration:none}' +
     'html.od-lock,html.od-lock body{overflow:hidden}' +
     '}' +
-    '@media (prefers-reduced-motion:reduce){.od-bar,.od-sheet,.od-back{transition:none}}';
+    '@media (prefers-reduced-motion:reduce){.od-bar,.od-sheet,.od-back,.od-vol div,.od-opt span{transition:none}}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
   var bar = document.createElement('div');
   bar.className = 'od-bar'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Quick order');
   if (isLA) {
-    bar.innerHTML = '<div class="od-txt"><b>Lead Agent</b><span>$299 once · lifetime access</span></div>' +
-      '<a class="od-go" href="' + G + 'lead-agent?wanted=true" rel="noopener">Buy now ' + arrow + '</a>';
+    bar.innerHTML = '<div class="od-txt"><b>Lead Agent for $299</b><span>One payment, lifetime access</span></div>' +
+      '<a class="od-go" href="' + G + 'lead-agent?wanted=true" rel="noopener">Buy now</a>';
   } else {
     bar.innerHTML = '<div class="od-txt"><b>Solo ads from $100</b><span>90% Tier-1 human clicks</span></div>' +
-      '<button type="button" class="od-go" aria-haspopup="dialog" aria-controls="od-sheet">Order now ' + arrow + '</button>';
+      '<button type="button" class="od-go" aria-haspopup="dialog" aria-controls="od-sheet">Choose clicks</button>';
   }
   document.body.appendChild(bar);
 
@@ -72,26 +88,49 @@
     sheet.className = 'od-sheet'; sheet.id = 'od-sheet';
     sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-modal', 'true'); sheet.setAttribute('aria-labelledby', 'od-title');
     sheet.setAttribute('aria-hidden', 'true');
-    var rows = PKGS.map(function (p) {
-      return '<a class="od-pk' + (p.pop ? ' pop' : '') + '" href="' + G + p.slug + '?wanted=true" rel="noopener">' +
-        (p.pop ? '<span class="od-tag">Most popular</span>' : '') +
-        '<span class="od-info"><b>' + p.name + ' · ' + p.clicks + ' clicks</b><span>' + p.bonus + ' delivered · ' + p.per + '/click</span></span>' +
-        '<span class="od-buy"><b>' + p.price + '</b><span>Order ' + arrow + '</span></span></a>';
+    var opts = PKGS.map(function (p, i) {
+      return '<label class="od-opt"><input type="radio" name="od-pk" value="' + i + '"' + (i === DEFAULT ? ' checked' : '') + '>' +
+        '<span><b>' + p.label + '</b><i>$' + p.price + '</i></span></label>';
     }).join('');
     sheet.innerHTML = '<div class="od-grab" aria-hidden="true"></div>' +
-      '<div class="od-head"><div><h2 id="od-title">Choose your package</h2><p>Tier-1 human traffic · +10% bonus clicks</p></div>' +
-      '<button type="button" class="od-x" aria-label="Close">&times;</button></div>' + rows +
-      '<div class="od-foot">' + lock + ' Secure checkout by Gumroad</div>' +
-      '<a class="od-more" href="/services#pricing">Compare what each package includes</a>';
+      '<div class="od-head"><div><h2 id="od-title">How many clicks?</h2>' +
+      '<p>Tier-1 subscribers clicking through to your page, plus 10% extra on every run.</p></div>' +
+      '<button type="button" class="od-x" aria-label="Close">&times;</button></div>' +
+      '<fieldset class="od-pick"><legend>Number of clicks</legend>' + opts + '</fieldset>' +
+      '<div class="od-vol" aria-hidden="true"><div></div></div>' +
+      '<div class="od-read"><strong class="od-name"></strong><em class="od-price"></em></div>' +
+      '<p class="od-fit"></p>' +
+      '<ul class="od-gets"></ul>' +
+      '<a class="od-pay" rel="noopener"></a>' +
+      '<p class="od-note">Checkout opens on Gumroad, a secure payment page.</p>' +
+      '<a class="od-more" href="/services#pricing">See everything in each package</a>';
     document.body.appendChild(back); document.body.appendChild(sheet);
+
+    var max = PKGS[PKGS.length - 1].clicks;
+    var render = function (i) {
+      var p = PKGS[i];
+      sheet.querySelector('.od-vol div').style.width = Math.max(14, Math.round(p.clicks / max * 100)) + '%';
+      sheet.querySelector('.od-name').textContent = p.name;
+      sheet.querySelector('.od-price').textContent = p.per + ' a click';
+      sheet.querySelector('.od-fit').textContent = 'About ' + p.delivered + ' clicks delivered. ' + p.fit + '.';
+      sheet.querySelector('.od-gets').innerHTML = p.gets.concat(['30%+ opt-in guarantee']).map(function (g) { return '<li>' + tick + '<span>' + g + '</span></li>'; }).join('');
+      var pay = sheet.querySelector('.od-pay');
+      pay.href = G + p.slug + '?wanted=true';
+      pay.textContent = 'Pay $' + p.price + ' for ' + p.label + ' clicks';
+    };
+    render(DEFAULT);
+    sheet.querySelectorAll('input[name="od-pk"]').forEach(function (r) {
+      r.addEventListener('change', function () { render(+r.value); });
+    });
   }
 
+  function focusables() { return [].slice.call(sheet.querySelectorAll('button, a[href], input:checked')); }
   function openSheet() {
     if (!sheet) return;
     lastFocus = document.activeElement;
     back.classList.add('on'); sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false');
     document.documentElement.classList.add('od-lock');
-    var f = sheet.querySelector('.od-pk'); if (f) f.focus({ preventScroll: true });
+    var c = sheet.querySelector('input:checked'); if (c) c.focus({ preventScroll: true });
   }
   function closeSheet() {
     if (!sheet || !sheet.classList.contains('on')) return;
@@ -104,7 +143,15 @@
     back.addEventListener('click', closeSheet);
     sheet.querySelector('.od-x').addEventListener('click', closeSheet);
     sheet.querySelector('.od-more').addEventListener('click', closeSheet);
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+    document.addEventListener('keydown', function (e) {
+      if (!sheet.classList.contains('on')) return;
+      if (e.key === 'Escape') return closeSheet();
+      if (e.key === 'Tab') {  // keep keyboard focus inside the sheet
+        var f = focusables(), first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
     // drag the sheet down to close it
     var y0 = null;
     sheet.addEventListener('touchstart', function (e) { y0 = sheet.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
@@ -126,13 +173,12 @@
     bar.classList.toggle('on', show);
   }
   if ('IntersectionObserver' in window) {
-    var watch = document.querySelectorAll('#pricing, #buy, .pricing-grid, footer');
     var seen = new Set();
     var io = new IntersectionObserver(function (es) {
       es.forEach(function (e) { if (e.isIntersecting) seen.add(e.target); else seen.delete(e.target); });
       inView = seen.size; update();
     }, { rootMargin: '0px 0px -25% 0px' });
-    watch.forEach(function (el) { io.observe(el); });
+    document.querySelectorAll('#pricing, #buy, .pricing-grid, footer').forEach(function (el) { io.observe(el); });
   }
   if (menu && 'MutationObserver' in window) new MutationObserver(update).observe(menu, { attributes: true, attributeFilter: ['class'] });
   window.addEventListener('scroll', update, { passive: true });
