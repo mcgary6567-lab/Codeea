@@ -89,13 +89,8 @@
 .la-video-go i{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:var(--gradient-primary)}
 .la-video-go svg{width:18px;height:18px;margin-left:3px}
 .la-video.started .la-video-go{display:none}
-.la-chapters{list-style:none;margin:1rem 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem}
-.la-chapters button{min-height:44px;padding:.55rem .95rem;border:1px solid var(--gray-200);border-radius:999px;background:#fff;font:inherit;font-size:.9rem;font-weight:600;color:var(--gray-700);cursor:pointer;display:flex;gap:.45rem;align-items:center;transition:border-color .2s,background .2s}
-.la-chapters button:hover{border-color:var(--primary-light)}
-.la-chapters button small{color:var(--gray-500);font-weight:500;font-variant-numeric:tabular-nums}
-.la-chapters button[aria-current="true"]{border-color:var(--primary);background:#F5F3FF;color:var(--primary-dark,#4338CA)}
-.la-video-note{text-align:center;color:var(--gray-500);font-size:.85rem;margin:.7rem 0 0}
-@media (max-width:640px){.la-video-stage{padding:6px;border-radius:14px}.la-video-go{inset:6px}.la-video-go span{font-size:.92rem;padding:.7rem 1.1rem .7rem .8rem}.la-video-go i{width:38px;height:38px}.la-chapters{gap:.4rem}.la-chapters button{font-size:.84rem;padding:.5rem .75rem}}
+@media (max-width:640px){.la-video-stage{padding:6px;border-radius:14px}.la-video-go{inset:6px}.la-video-go span{font-size:.92rem;padding:.7rem 1.1rem .7rem .8rem}.la-video-go i{width:38px;height:38px}}
+.la-faq .faq-list{max-width:680px;gap:.5rem}.la-faq .faq-item{border-radius:12px}.la-faq .faq-question{padding:.8rem 1.05rem;font-size:.96rem;gap:.8rem;min-height:44px}.la-faq .faq-question .icon{width:24px;height:24px}.la-faq .faq-answer-inner{padding:0 1.05rem 1rem;font-size:.93rem;line-height:1.6}@media (max-width:640px){.la-faq .faq-question{padding:.75rem .9rem;font-size:.93rem}.la-faq .faq-answer-inner{padding:0 .9rem .9rem}}
 </style></head>
 <body class="la-page">
 
@@ -240,21 +235,7 @@
         </video>
         <button type="button" class="la-video-go" aria-label="Play the 1-minute demo, with sound"><span><i><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></i>Watch the demo · 1:00 · sound on</span></button>
       </div>
-      <ol class="la-chapters" aria-label="Jump to a part of the demo">
-        <li><button type="button" data-t="1.5">Search <small>0:01</small></button></li>
-        <li><button type="button" data-t="5.2">Qualify <small>0:05</small></button></li>
-        <li><button type="button" data-t="8.9">Find emails <small>0:08</small></button></li>
-        <li><button type="button" data-t="11.3">Run <small>0:11</small></button></li>
-        <li><button type="button" data-t="20.7">LinkedIn <small>0:20</small></button></li>
-        <li><button type="button" data-t="24.2">Leads <small>0:24</small></button></li>
-        <li><button type="button" data-t="30.3">Pipeline &amp; map <small>0:30</small></button></li>
-        <li><button type="button" data-t="34.7">Write email <small>0:34</small></button></li>
-        <li><button type="button" data-t="40.9">Send <small>0:40</small></button></li>
-        <li><button type="button" data-t="49.4">Comments <small>0:49</small></button></li>
-      </ol>
-      <p class="la-video-note">Sample businesses on test pages, so nothing real is contacted or sent. Sped up so it fits in a minute.</p>
     </div>
-    <div class="la-cta-row reveal"><a href="https://goldempire.gumroad.com/l/lead-agent?wanted=true" rel="noopener" class="btn btn-accent btn-lg js-buy">Get Lifetime Access <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>14-day money-back guarantee.</p></div>
   </div>
 </section>
 
@@ -382,68 +363,7 @@
   </div>
 </section>
 
-<!-- How it works (tabs) -->
-<section class="section la-tight la-alt" id="how">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="badge">How it works</span>
-      <h2>From search to booked meeting in four steps</h2>
-    </div>
-    <div class="la-tabs reveal" data-tabs>
-      <div class="la-tablist" role="tablist" aria-label="How Lead Agent works">
-        <button role="tab" id="t-find" aria-controls="p-find" aria-selected="true"><svg class="i"><use href="#i-search"/></svg><span>1. Find</span></button>
-        <button role="tab" id="t-qualify" aria-controls="p-qualify" aria-selected="false" tabindex="-1"><svg class="i"><use href="#i-filter"/></svg><span>2. Qualify</span></button>
-        <button role="tab" id="t-email" aria-controls="p-email" aria-selected="false" tabindex="-1"><svg class="i"><use href="#i-send"/></svg><span>3. Email</span></button>
-        <button role="tab" id="t-track" aria-controls="p-track" aria-selected="false" tabindex="-1"><svg class="i"><use href="#i-board"/></svg><span>4. Track</span></button>
-      </div>
-      <div class="la-panel" role="tabpanel" id="p-find" aria-labelledby="t-find">
-        <div>
-          <h3>Search like a customer would</h3>
-          <p>Type "dentists in Austin", pick a ready-made list for what you sell, or open a LinkedIn search. Press Start and Lead Agent opens each listing and saves it.</p>
-          <ul class="la-checks">
-            <li><svg class="i"><use href="#i-check"/></svg> Ready-made searches for agencies and freelancers</li>
-            <li><svg class="i"><use href="#i-check"/></svg> Save searches and run them every day</li>
-            <li><svg class="i"><use href="#i-check"/></svg> One-click capture of the page you're on</li>
-          </ul>
-        </div>
-        <div class="la-shot light"><picture><source type="image/webp" srcset="images/lead-agent/search-640.webp"><img src="images/lead-agent/search.jpg" alt="Choosing a ready-made agency search in Lead Agent" width="400" height="780" loading="lazy" decoding="async"></picture></div>
-      </div>
-      <div class="la-panel" role="tabpanel" id="p-qualify" aria-labelledby="t-qualify">
-        <div>
-          <h3>Emails, phones and website problems, found for you</h3>
-          <p>Lead Agent scans each website for email addresses, checks the domain can receive mail, and lists what's wrong with the site.</p>
-          <ul class="la-checks">
-            <li><svg class="i"><use href="#i-check"/></svg> No website, not mobile-friendly, no HTTPS, slow</li>
-            <li><svg class="i"><use href="#i-check"/></svg> Filters: has email, min rating, min activity, site problems</li>
-            <li><svg class="i"><use href="#i-check"/></svg> Duplicates merged by website and phone</li>
-          </ul>
-        </div>
-        <div class="la-shot light"><picture><source type="image/webp" srcset="images/lead-agent/leads-640.webp"><img src="images/lead-agent/leads.jpg" alt="Lead cards with email, phone and website problems" width="400" height="780" loading="lazy" decoding="async"></picture></div>
-      </div>
-      <div class="la-panel" role="tabpanel" id="p-email" aria-labelledby="t-email">
-        <div>
-          <h3>Send from your own email. No API, no paid tool.</h3>
-          <p>Campaigns go out from the email account you already use, personal or business. No API keys, no Instantly or lemlist subscription. Write one message; each lead gets their own version, mentioning the problem found on their site, sent a few a day inside the hours you choose.</p>
-          <ul class="la-checks">
-            <li><svg class="i"><use href="#i-check"/></svg> Gmail, Google Workspace, Outlook, Microsoft 365, Yahoo, AOL, Zoho, Proton, Fastmail</li>
-            <li><svg class="i"><use href="#i-check"/></svg> Warm-up, daily cap and random gaps</li>
-            <li><svg class="i"><use href="#i-check"/></svg> A/B subject lines and one polite follow-up</li>
-            <li><svg class="i"><use href="#i-check"/></svg> Optional AI first line with your own Claude or Gemini key</li>
-          </ul>
-        </div>
-        <div class="la-shot light"><picture><source type="image/webp" srcset="images/lead-agent/message-640.webp"><img src="images/lead-agent/message.jpg" alt="Writing a campaign message with the {site_issue} placeholder" width="400" height="780" loading="lazy" decoding="async"></picture></div>
-      </div>
-      <div class="la-panel la-panel-wide" role="tabpanel" id="p-track" aria-labelledby="t-track">
-        <div>
-          <h3>Replies sorted, deals tracked</h3>
-          <p>Replies, bounces and unsubscribes are read from your inbox and sorted. Interested leads move along the pipeline; you drag them to Won.</p>
-        </div>
-        <div class="la-shot light"><picture><source type="image/webp" srcset="images/lead-agent/pipeline-960.webp 960w, images/lead-agent/pipeline-1600.webp 1600w" sizes="(max-width: 1024px) 100vw, 980px"><img src="images/lead-agent/pipeline.jpg" alt="Pipeline board with New, Emailed, Interested and Meeting booked columns" width="1280" height="640" loading="lazy" decoding="async"></picture></div>
-      </div>
-    </div>
-    <div class="la-cta-row reveal"><a href="https://goldempire.gumroad.com/l/lead-agent?wanted=true" rel="noopener" class="btn btn-accent btn-lg js-buy">Get Lifetime Access <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>No API, no paid email tool. Sends from your own inbox.</p></div>
-  </div>
-</section>
+
 
 <!-- Everything included -->
 <section class="section la-tight">
@@ -513,15 +433,15 @@
 </section>
 
 <!-- FAQ -->
-<section class="section la-tight">
+<section class="section la-tight la-faq">
   <div class="container">
     <div class="section-header reveal">
       <span class="badge">Questions</span>
       <h2>Before you buy</h2>
     </div>
     <div class="faq-list">
-      <div class="faq-item open">
-        <button class="faq-question" aria-expanded="true">Is it a subscription?<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">Is it a subscription?<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span></button>
         <div class="faq-answer"><div class="faq-answer-inner">No. You pay $299 once and get lifetime access to every feature, with no limit on searches or leads.</div></div>
       </div>
       <div class="faq-item">
@@ -577,32 +497,7 @@
   <a href="https://goldempire.gumroad.com/l/lead-agent?wanted=true" rel="noopener" class="btn btn-accent btn-sm js-buy">Get Lifetime Access</a>
 </div>
 
-<script>
-// Tabs for "How it works" (all panels stay visible without JavaScript).
-(function () {
-  var box = document.querySelector('[data-tabs]');
-  if (!box) return;
-  var tabs = [].slice.call(box.querySelectorAll('[role="tab"]'));
-  var show = function (t, focus) {
-    tabs.forEach(function (x) {
-      var on = x === t;
-      x.setAttribute('aria-selected', on);
-      x.tabIndex = on ? 0 : -1;
-      document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
-    });
-    if (focus) t.focus();
-  };
-  box.classList.add('la-tabs-on');
-  tabs.forEach(function (t, i) {
-    t.addEventListener('click', function () { show(t); });
-    t.addEventListener('keydown', function (e) {
-      var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-      if (d) { e.preventDefault(); show(tabs[(i + d + tabs.length) % tabs.length], true); }
-    });
-  });
-  show(tabs[0]);
-})();
-</script>
+
 
 <footer class="footer ft">
   <div class="container">
