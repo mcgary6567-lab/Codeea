@@ -563,6 +563,6 @@
   v.addEventListener('timeupdate',function(){ var cur=null; ch.forEach(function(b){ if(v.currentTime>=+b.dataset.t-.2) cur=b; }); ch.forEach(function(b){ b.setAttribute('aria-current',b===cur?'true':'false'); }); });
   if('IntersectionObserver' in window){ new IntersectionObserver(function(es){ if(!es[0].isIntersecting&&!v.paused) v.pause(); },{threshold:.15}).observe(d); }
 })();
-</script><script src="/js/order-dock.js?v=2026111802" defer></script>
+</script><script src="/js/order-dock.js?v=2026111803" defer></script>
 </body>
 </html>

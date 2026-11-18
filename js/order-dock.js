@@ -22,7 +22,7 @@
   var tick = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>';
 
   var css = '' +
-    '.od-bar,.od-sheet,.od-back{display:none}' +
+    '.od-bar,.od-sheet,.od-back,.od-inline{display:none}' +
     '@media (max-width:768px){' +
     'body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}' +
     '.od-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:900;align-items:center;gap:.75rem;padding:.6rem 1rem calc(.6rem + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);-webkit-backdrop-filter:saturate(1.6) blur(12px);backdrop-filter:saturate(1.6) blur(12px);border-top:1px solid #E2E8F0;transform:translateY(110%);transition:transform .28s ease}' +
@@ -66,6 +66,12 @@
     '.od-note{margin:.6rem 0 0;text-align:center;font-size:.8rem;color:#475569}' +
     '.od-more{display:block;margin-top:.35rem;padding:.75rem;text-align:center;font-weight:600;font-size:.9rem;color:#4F46E5;text-decoration:none}' +
     'html.od-lock,html.od-lock body{overflow:hidden}' +
+    '.od-inline{display:block;max-width:480px;margin:0 auto;padding:1.25rem 1.25rem 1rem;background:#fff;border:1px solid #E2E8F0;border-radius:18px;color:#0F172A;text-align:left}' +
+    '.od-inline .od-q{margin:0;color:#0F172A;font:800 1.25rem/1.25 var(--font-display,inherit)}' +
+    '.od-inline .od-pick{margin-top:.9rem}' +
+    '.od-cmp{width:100%;border:0;background:none;cursor:pointer;font-family:inherit}' +
+    '.od-has-inline .pricing-grid{display:none}' +
+    '.od-has-inline.od-show-grid .pricing-grid{display:grid;margin-top:1.5rem}' +
     '}' +
     '@media (prefers-reduced-motion:reduce){.od-bar,.od-sheet,.od-back,.od-vol div,.od-opt span{transition:none}}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
@@ -81,6 +87,59 @@
   }
   document.body.appendChild(bar);
 
+  // one click-volume picker; used in the phone sheet and inline in the pricing sections
+  var max = PKGS[PKGS.length - 1].clicks;
+  function pickerHTML(name, more) {
+    var opts = PKGS.map(function (p, i) {
+      return '<label class="od-opt"><input type="radio" name="' + name + '" value="' + i + '"' + (i === DEFAULT ? ' checked' : '') + '>' +
+        '<span><b>' + p.label + '</b><i>$' + p.price + '</i></span></label>';
+    }).join('');
+    return '<fieldset class="od-pick"><legend>Number of clicks</legend>' + opts + '</fieldset>' +
+      '<div class="od-vol" aria-hidden="true"><div></div></div>' +
+      '<div class="od-read"><strong class="od-name"></strong><em class="od-price"></em></div>' +
+      '<p class="od-fit"></p>' +
+      '<ul class="od-gets"></ul>' +
+      '<a class="od-pay" rel="noopener"></a>' +
+      '<p class="od-note">Checkout opens on Gumroad, a secure payment page.</p>' + more;
+  }
+  function wirePicker(root) {
+    function render(i) {
+      var p = PKGS[i];
+      root.querySelector('.od-vol div').style.width = Math.max(14, Math.round(p.clicks / max * 100)) + '%';
+      root.querySelector('.od-name').textContent = p.name;
+      root.querySelector('.od-price').textContent = p.per + ' a click';
+      root.querySelector('.od-fit').textContent = 'About ' + p.delivered + ' clicks delivered. ' + p.fit + '.';
+      root.querySelector('.od-gets').innerHTML = ['90% from the US, UK, Canada and Australia'].concat(p.gets, ['30%+ opt-in guarantee'])
+        .map(function (g) { return '<li>' + tick + '<span>' + g + '</span></li>'; }).join('');
+      var pay = root.querySelector('.od-pay');
+      pay.href = G + p.slug + '?wanted=true';
+      pay.textContent = 'Pay $' + p.price + ' for ' + p.label + ' clicks';
+    }
+    root.querySelectorAll('.od-opt input').forEach(function (r) { r.addEventListener('change', function () { render(+r.value); }); });
+    render(DEFAULT);
+  }
+
+  // inline picker in the solo-ads pricing section (home + services), phones only; the cards stay one tap away
+  var grid = !isLA && document.querySelector('#pricing .pricing-grid');
+  if (grid && grid.querySelector('a[href*="gumroad.com/l/solo-ads-"]')) {
+    var inl = document.createElement('div');
+    inl.className = 'od-inline'; inl.id = 'od-inline';
+    inl.innerHTML = '<p class="od-q" id="od-q">How many clicks?</p>' +
+      pickerHTML('od-pk-inline', '<button type="button" class="od-more od-cmp" aria-expanded="false" aria-controls="od-grid">Compare all three packages</button>');
+    inl.querySelector('.od-pick').setAttribute('aria-labelledby', 'od-q');
+    grid.id = grid.id || 'od-grid';
+    grid.parentNode.insertBefore(inl, grid);
+    grid.parentNode.classList.add('od-has-inline');
+    wirePicker(inl);
+    var cmp = inl.querySelector('.od-cmp');
+    cmp.addEventListener('click', function () {
+      var open = grid.parentNode.classList.toggle('od-show-grid');
+      cmp.setAttribute('aria-expanded', open);
+      cmp.textContent = open ? 'Hide the package comparison' : 'Compare all three packages';
+      if (open) grid.querySelectorAll('.reveal').forEach(function (e) { e.classList.add('visible'); });
+    });
+  }
+
   var sheet, back, lastFocus;
   if (!isLA) {
     back = document.createElement('div'); back.className = 'od-back';
@@ -88,40 +147,13 @@
     sheet.className = 'od-sheet'; sheet.id = 'od-sheet';
     sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-modal', 'true'); sheet.setAttribute('aria-labelledby', 'od-title');
     sheet.setAttribute('aria-hidden', 'true');
-    var opts = PKGS.map(function (p, i) {
-      return '<label class="od-opt"><input type="radio" name="od-pk" value="' + i + '"' + (i === DEFAULT ? ' checked' : '') + '>' +
-        '<span><b>' + p.label + '</b><i>$' + p.price + '</i></span></label>';
-    }).join('');
     sheet.innerHTML = '<div class="od-grab" aria-hidden="true"></div>' +
       '<div class="od-head"><div><h2 id="od-title">How many clicks?</h2>' +
       '<p>Tier-1 subscribers clicking through to your page, plus 10% extra on every run.</p></div>' +
       '<button type="button" class="od-x" aria-label="Close">&times;</button></div>' +
-      '<fieldset class="od-pick"><legend>Number of clicks</legend>' + opts + '</fieldset>' +
-      '<div class="od-vol" aria-hidden="true"><div></div></div>' +
-      '<div class="od-read"><strong class="od-name"></strong><em class="od-price"></em></div>' +
-      '<p class="od-fit"></p>' +
-      '<ul class="od-gets"></ul>' +
-      '<a class="od-pay" rel="noopener"></a>' +
-      '<p class="od-note">Checkout opens on Gumroad, a secure payment page.</p>' +
-      '<a class="od-more" href="/services#pricing">See everything in each package</a>';
+      pickerHTML('od-pk', '<a class="od-more" href="' + (grid ? '#pricing' : '/services#pricing') + '">See everything in each package</a>');
     document.body.appendChild(back); document.body.appendChild(sheet);
-
-    var max = PKGS[PKGS.length - 1].clicks;
-    var render = function (i) {
-      var p = PKGS[i];
-      sheet.querySelector('.od-vol div').style.width = Math.max(14, Math.round(p.clicks / max * 100)) + '%';
-      sheet.querySelector('.od-name').textContent = p.name;
-      sheet.querySelector('.od-price').textContent = p.per + ' a click';
-      sheet.querySelector('.od-fit').textContent = 'About ' + p.delivered + ' clicks delivered. ' + p.fit + '.';
-      sheet.querySelector('.od-gets').innerHTML = p.gets.concat(['30%+ opt-in guarantee']).map(function (g) { return '<li>' + tick + '<span>' + g + '</span></li>'; }).join('');
-      var pay = sheet.querySelector('.od-pay');
-      pay.href = G + p.slug + '?wanted=true';
-      pay.textContent = 'Pay $' + p.price + ' for ' + p.label + ' clicks';
-    };
-    render(DEFAULT);
-    sheet.querySelectorAll('input[name="od-pk"]').forEach(function (r) {
-      r.addEventListener('change', function () { render(+r.value); });
-    });
+    wirePicker(sheet);
   }
 
   function focusables() { return [].slice.call(sheet.querySelectorAll('button, a[href], input:checked')); }
@@ -142,7 +174,11 @@
     bar.querySelector('.od-go').addEventListener('click', openSheet);
     back.addEventListener('click', closeSheet);
     sheet.querySelector('.od-x').addEventListener('click', closeSheet);
-    sheet.querySelector('.od-more').addEventListener('click', closeSheet);
+    sheet.querySelector('.od-more').addEventListener('click', function () {
+      closeSheet();
+      var c = document.querySelector('.od-cmp');  // on home/services, open the comparison under the picker
+      if (c && c.getAttribute('aria-expanded') !== 'true') c.click();
+    });
     document.addEventListener('keydown', function (e) {
       if (!sheet.classList.contains('on')) return;
       if (e.key === 'Escape') return closeSheet();
@@ -178,7 +214,7 @@
       es.forEach(function (e) { if (e.isIntersecting) seen.add(e.target); else seen.delete(e.target); });
       inView = seen.size; update();
     }, { rootMargin: '0px 0px -25% 0px' });
-    document.querySelectorAll('#pricing, #buy, .pricing-grid, footer').forEach(function (el) { io.observe(el); });
+    document.querySelectorAll('#pricing, #buy, .pricing-grid, .od-inline, footer').forEach(function (el) { io.observe(el); });
   }
   if (menu && 'MutationObserver' in window) new MutationObserver(update).observe(menu, { attributes: true, attributeFilter: ['class'] });
   window.addEventListener('scroll', update, { passive: true });
