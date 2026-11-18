@@ -248,6 +248,11 @@
   .la-buybar .price small { display: block; font-family: var(--font-sans); font-weight: 500; font-size: 0.75rem; color: var(--gray-500); }
   body.la-page { padding-bottom: 76px; }
 }
+@media (min-width: 1025px) {
+  /* Desktop: the text column is tall, so pin the screenshots to the top instead of the middle */
+  .la-hero .container { align-items: start; }
+  .la-hero .hero-visual { align-self: start; margin-top: 1.5rem; }
+}
 @media (max-width: 640px) {
   /* Phone hero: clear hierarchy - heading, lighter subheading, compact paragraph */
   .hero.la-hero .hero-content > .badge { font-size: 0.76rem; padding: 0.4rem 0.85rem; margin-bottom: 1.1rem; }
