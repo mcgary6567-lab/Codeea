@@ -93,7 +93,8 @@
 .la-faq .faq-list{max-width:680px;gap:.5rem}.la-faq .faq-item{border-radius:12px}.la-faq .faq-question{padding:.8rem 1.05rem;font-size:.96rem;gap:.8rem;min-height:44px}.la-faq .faq-question .icon{width:24px;height:24px}.la-faq .faq-answer-inner{padding:0 1.05rem 1rem;font-size:.93rem;line-height:1.6}@media (max-width:640px){.la-faq .faq-question{padding:.75rem .9rem;font-size:.93rem}.la-faq .faq-answer-inner{padding:0 .9rem .9rem}}
 .hero.la-hero .hero-content > .badge{max-width:100%;white-space:normal;text-align:left}
 @media (max-width:640px){.la-hero .hero-cta .btn{white-space:normal;font-size:1rem;padding-left:1rem;padding-right:1rem;max-width:100%}}
-</style></head>
+</style><link rel="stylesheet" href="/css/mobile.css?v=2026111801">
+</head>
 <body class="la-page">
 
 <!-- Icon set (used with <use href="#i-…">) -->
@@ -562,5 +563,6 @@
   v.addEventListener('timeupdate',function(){ var cur=null; ch.forEach(function(b){ if(v.currentTime>=+b.dataset.t-.2) cur=b; }); ch.forEach(function(b){ b.setAttribute('aria-current',b===cur?'true':'false'); }); });
   if('IntersectionObserver' in window){ new IntersectionObserver(function(es){ if(!es[0].isIntersecting&&!v.paused) v.pause(); },{threshold:.15}).observe(d); }
 })();
-</script></body>
+</script><script src="/js/order-dock.js?v=2026111801" defer></script>
+</body>
 </html>
