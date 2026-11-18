@@ -45,7 +45,7 @@ Lead Agent is a browser extension sold by Ihsan Solo Ads for $299 one-time (life
 - **Lead sources**: Google Maps (21 countries), LinkedIn and Sales Navigator (people and company searches and profiles the user opens; it never sends LinkedIn messages or connection requests), Yelp, YellowPages, custom directories, CSV import
 - **Enrichment**: emails found on business websites with mail-domain checks, decision-maker finder, website problem audit, activity score from 0 to 100 (recent reviews, owner replies, claimed listing, live website, LinkedIn activity)
 - **Live phone check** (optional, user's own Twilio, Veriphone or NumVerify account): valid number and line type; with Twilio, whether the line is in service
-- **Outreach**: personal cold email campaigns from the user's own Gmail with warm-up, daily caps and one follow-up; AI first line per lead; replies sorted with AI-drafted answers that the user sends
+- **Outreach**: personal cold email campaigns from the user's own personal or business email account (Gmail, Google Workspace, Outlook, Microsoft 365, Yahoo, AOL, Zoho, Proton, Fastmail), with no API key or paid email platform needed, with warm-up, daily caps and one follow-up; AI first line per lead; replies sorted with AI-drafted answers that the user sends
 - **AI comment assistant**: drafts comments for LinkedIn, X, Facebook and Reddit posts in the user's voice; the user presses Post
 - **Autopilot**: daily saved searches, sending, reply checks every 15 minutes, CRM push, daily backup and a morning summary, while the computer and browser are on
 - **Browsers**: Chrome, Edge, Brave, Opera, Vivaldi, Firefox 128+ (Windows, Mac, Linux)
