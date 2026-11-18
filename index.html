@@ -521,15 +521,23 @@ table.price-compare {
         <!-- Orbiting dots / clicks -->
         <g>
           <circle r="240" cx="300" cy="250" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3 6"/>
-          <circle r="8" fill="url(#g1)">
-            <animateMotion dur="6s" repeatCount="indefinite" path="M 300,10 a 240,240 0 1,1 -0.1,0 z"/>
-          </circle>
-          <circle r="6" fill="#FB923C">
-            <animateMotion dur="6s" begin="-2s" repeatCount="indefinite" path="M 300,10 a 240,240 0 1,1 -0.1,0 z"/>
-          </circle>
-          <circle r="6" fill="#EC4899">
-            <animateMotion dur="6s" begin="-4s" repeatCount="indefinite" path="M 300,10 a 240,240 0 1,1 -0.1,0 z"/>
-          </circle>
+          <!-- Emails travelling around the orbit -->
+          <g>
+            <rect x="-14" y="-10" width="28" height="20" rx="4" fill="url(#g1)"/>
+            <path d="M-11,-6 L0,2 L11,-6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <animateMotion dur="9s" repeatCount="indefinite" path="M 300,10 a 240,240 0 1,1 -0.1,0 z"/>
+          </g>
+          <g>
+            <rect x="-12" y="-8.5" width="24" height="17" rx="3.5" fill="#fff" stroke="#818CF8" stroke-width="1.5"/>
+            <path d="M-9,-5 L0,1.5 L9,-5" fill="none" stroke="#4F46E5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <animateMotion dur="9s" begin="-3s" repeatCount="indefinite" path="M 300,10 a 240,240 0 1,1 -0.1,0 z"/>
+          </g>
+          <g>
+            <rect x="-12" y="-8.5" width="24" height="17" rx="3.5" fill="#EC4899"/>
+            <path d="M-9,-5 L0,1.5 L9,-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="11" cy="-8" r="4.5" fill="#22C55E" stroke="#fff" stroke-width="1.5"/>
+            <animateMotion dur="9s" begin="-6s" repeatCount="indefinite" path="M 300,10 a 240,240 0 1,1 -0.1,0 z"/>
+          </g>
         </g>
 
         <!-- Click cursor -->
