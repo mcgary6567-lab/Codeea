@@ -407,6 +407,11 @@ table.price-compare {
   .pc-savings-number { font-size: 1.25rem; }
   .pc-savings-number strong { font-size: 1.6rem; }
 }
+/* Hero art: sit at the top next to the headline on desktop, not halfway down */
+@media (min-width: 1025px) {
+  .hero > .container { align-items: start; }
+  .hero .hero-visual { align-self: start; margin-top: 0.5rem; }
+}
 </style>
 </head>
 <body>
@@ -547,6 +552,25 @@ table.price-compare {
           </circle>
           <text x="490" y="226" text-anchor="middle" font-size="14" fill="#fff" font-weight="700" font-family="Inter">$</text>
           <text x="490" y="260" text-anchor="middle" font-size="13" fill="#fff" font-weight="600" font-family="Inter">Sale</text>
+        </g>
+
+        <!-- Tracking -->
+        <g>
+          <circle cx="165" cy="92" r="21" fill="#4F46E5">
+            <animate attributeName="r" values="21;24;21" dur="3s" repeatCount="indefinite"/>
+          </circle>
+          <path d="M155 101 v-7 M162 101 v-12 M169 101 v-9 M176 101 v-16" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+          <text x="165" y="134" text-anchor="middle" font-size="13" fill="#fff" font-weight="600" font-family="Inter">Tracking</text>
+        </g>
+
+        <!-- Tier-1 clicks -->
+        <g>
+          <circle cx="440" cy="412" r="21" fill="#F97316">
+            <animate attributeName="r" values="21;24;21" dur="2.7s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="440" cy="412" r="10" fill="none" stroke="#fff" stroke-width="2.4"/>
+          <path d="M430 412 h20 M440 402 c-5 6 -5 14 0 20 M440 402 c5 6 5 14 0 20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+          <text x="440" y="454" text-anchor="middle" font-size="13" fill="#fff" font-weight="600" font-family="Inter">Tier-1 Clicks</text>
         </g>
       </svg>
     </div>
