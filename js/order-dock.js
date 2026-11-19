@@ -1,7 +1,8 @@
 /* Phone order dock: a slim bar pinned to the bottom of the screen on phones.
    Solo-ads pages: "Choose clicks" opens a sheet with one click-volume selector and one pay button
    that goes straight to that package's Gumroad checkout.
-   Lead Agent page: "Buy now" goes straight to the Lead Agent checkout.
+   Lead Agent page: "Buy now" goes straight to the Lead Agent checkout, and #buy gets the same order panel
+   (no selector, one price) with the full card behind "See every feature".
    Hidden on wider screens, at the top of the page, while a pricing section or the footer is on screen,
    and while the menu is open.
    Prices and clicks live in PKGS below: update them whenever the packages change. */
@@ -70,8 +71,14 @@
     '.od-inline .od-q{margin:0;color:#0F172A;font:800 1.25rem/1.25 var(--font-display,inherit)}' +
     '.od-inline .od-pick{margin-top:.9rem}' +
     '.od-cmp{width:100%;border:0;background:none;cursor:pointer;font-family:inherit}' +
-    '.od-has-inline .pricing-grid{display:none}' +
-    '.od-has-inline.od-show-grid .pricing-grid{display:grid;margin-top:1.5rem}' +
+    '.od-has-inline:not(.od-show-grid) .od-target{display:none}' +
+    '.od-has-inline.od-show-grid .pricing-grid{margin-top:1.5rem}' +
+    '.od-la{width:100%;order:-1}' +
+    '.od-la .od-read{margin-top:0}' +
+    '.od-la .od-read strong{font-size:1.35rem}' +
+    '.od-la .od-read em{font:800 1.35rem/1.3 var(--font-display,inherit)}' +
+    '.od-la .od-read em small{font:600 .8rem/1 var(--font-sans,inherit);color:#475569;margin-left:.3rem}' +
+    '.la-buybar{display:none!important}' +
     '}' +
     '@media (prefers-reduced-motion:reduce){.od-bar,.od-sheet,.od-back,.od-vol div,.od-opt span{transition:none}}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
@@ -128,6 +135,7 @@
       pickerHTML('od-pk-inline', '<button type="button" class="od-more od-cmp" aria-expanded="false" aria-controls="od-grid">Compare all three packages</button>');
     inl.querySelector('.od-pick').setAttribute('aria-labelledby', 'od-q');
     grid.id = grid.id || 'od-grid';
+    grid.classList.add('od-target');
     grid.parentNode.insertBefore(inl, grid);
     grid.parentNode.classList.add('od-has-inline');
     wirePicker(inl);
@@ -137,6 +145,32 @@
       cmp.setAttribute('aria-expanded', open);
       cmp.textContent = open ? 'Hide the package comparison' : 'Compare all three packages';
       if (open) grid.querySelectorAll('.reveal').forEach(function (e) { e.classList.add('visible'); });
+    });
+  }
+
+  // Lead Agent: one price, so the same order panel without the selector; the full card stays one tap away
+  var laCard = isLA && document.querySelector('#buy .la-card');
+  if (laCard) {
+    var LA_GETS = ['Google Maps, LinkedIn, Yelp, YellowPages, any directory', 'Email finder, website audit, activity score',
+      'Live phone check: active numbers only', 'Cold email from your own account, with follow-ups', 'Autopilot: daily searches, sending and summaries',
+      '2 computers, Windows, Mac and Linux'];
+    var la = document.createElement('div');
+    la.className = 'od-inline od-la'; la.id = 'od-inline';
+    laCard.id = laCard.id || 'od-la-card';
+    la.innerHTML = '<div class="od-read"><strong>Lead Agent</strong><em>$299<small>one-time</small></em></div>' +
+      '<p class="od-fit">Lifetime access to every feature. No monthly fee, no limit on searches or leads.</p>' +
+      '<ul class="od-gets">' + LA_GETS.map(function (g) { return '<li>' + tick + '<span>' + g + '</span></li>'; }).join('') + '</ul>' +
+      '<a class="od-pay" href="' + G + 'lead-agent?wanted=true" rel="noopener">Pay $299 for lifetime access</a>' +
+      '<p class="od-note">Checkout opens on Gumroad, a secure payment page. 14-day money-back guarantee.</p>' +
+      '<button type="button" class="od-more od-cmp" aria-expanded="false" aria-controls="' + laCard.id + '">See every feature</button>';
+    laCard.classList.add('od-target');
+    laCard.parentNode.insertBefore(la, laCard);
+    laCard.parentNode.classList.add('od-has-inline');
+    var laBtn = la.querySelector('.od-cmp');
+    laBtn.addEventListener('click', function () {
+      var open = laCard.parentNode.classList.toggle('od-show-grid');
+      laBtn.setAttribute('aria-expanded', open);
+      laBtn.textContent = open ? 'Hide the feature list' : 'See every feature';
     });
   }
 
