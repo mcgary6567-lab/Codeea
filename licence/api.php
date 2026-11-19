@@ -55,8 +55,9 @@ function default_store(): array {
             'defaultMaxDevices' => 2,
             'passDays' => 7,
             'activationsOpen' => true,
+            'emailActivation' => true,
             'requireEmailMatch' => false,
-            'messageTemplate' => "Hi {name},\n\nThank you for buying {product}! Your licence key:\n\n{key}\n\nOpen Lead Agent, enter your name, email and this key, and press Activate. The key works on {devices} computers.\n\nAny questions, just reply to this email.\n\n{seller}",
+            'messageTemplate' => "Hi {name},\n\nThank you for buying {product}!\n\nInstall it, open it, and enter your name and this email address: {email}. It activates in a few seconds and works on {devices} computers.\n\nIf you ever need it, your licence key is: {key}\n\nAny questions, just reply to this email.\n\n{seller}",
         ],
         'rate' => [],
         'stats' => ['daily' => []],
@@ -73,6 +74,11 @@ function with_store(callable $fn) {
     $store = $raw ? json_decode($raw, true) : null;
     if (!is_array($store)) $store = default_store();
     $store['settings'] = array_merge(default_store()['settings'], $store['settings'] ?? []);
+    // The first message template asked buyers to paste the key; swap it for the email one if unchanged.
+    if (strpos((string) $store['settings']['messageTemplate'], "Open Lead Agent, enter your name, email and this key, and press Activate.") !== false
+        && strpos((string) $store['settings']['messageTemplate'], 'Your licence key:') !== false) {
+        $store['settings']['messageTemplate'] = default_store()['settings']['messageTemplate'];
+    }
     $save = false;
     try {
         $result = $fn($store, $save);
@@ -229,9 +235,23 @@ function lic_status(array $lic): string {
 }
 
 // ---------------------------------------------------------------- public API (Lead Agent)
-function api_activate(): void {
+/** The paid buyer's licence for an email: one that is on and has room for this computer (or already has it). */
+function licence_for_email(array $s, string $email, string $device): string {
+    $fallback = '';
+    foreach ($s['licences'] as $k => $l) {
+        if (($l['email'] ?? '') !== $email || !empty($l['revoked'])) continue;
+        if (!empty($l['expiresAt']) && now_ms() >= (int) $l['expiresAt']) { $fallback = $fallback ?: $k; continue; }
+        foreach ($l['devices'] as $d) if ($d['id'] === $device) return $k;
+        if (count($l['devices']) < (int) $l['maxDevices']) return $k;
+        $fallback = $k; // full: gives the "limit reached" answer below
+    }
+    return $fallback;
+}
+
+/** POST api/activate {key, name, email, device, label} — or api/claim without a key: the email must be a paid buyer's. */
+function api_activate(bool $claim = false): void {
     $b = body();
-    $res = with_store(function (&$s, &$save) use ($b) {
+    $res = with_store(function (&$s, &$save) use ($b, $claim) {
         $save = true;
         if (too_many($s, 'key', FAIL_LIMIT, 3600000)) return ['fail', 'slow_down', 'Too many attempts. Try again in an hour.'];
         if (empty($s['settings']['activationsOpen'])) return ['fail', 'closed', 'New activations are paused right now. Please contact the seller.'];
@@ -240,6 +260,11 @@ function api_activate(): void {
         $name = clean_text($b['name'] ?? '', 80); $email = clean_email($b['email'] ?? '');
         if ($name === '') return ['fail', 'need_name', 'Enter your name.'];
         if ($email === '') return ['fail', 'need_email', 'Enter a valid email address.'];
+        if ($claim) {
+            if (empty($s['settings']['emailActivation'])) return ['fail', 'email_off', 'Enter the licence key you received after buying.'];
+            $key = licence_for_email($s, $email, $device);
+            if (!$key) { count_fail($s, 'key'); return ['fail', 'not_buyer', "We could not find a purchase for $email. Use the email address you paid with, or enter your licence key."]; }
+        }
         if (!$key || !isset($s['licences'][$key])) { count_fail($s, 'key'); return ['fail', 'invalid', 'This licence key was not found. Check it and try again.']; }
         $lic = &$s['licences'][$key];
         if (!empty($lic['revoked'])) return ['fail', 'revoked', 'This licence key has been switched off. Contact the seller.'];
@@ -270,7 +295,7 @@ function api_activate(): void {
     });
     if ($res[0] === 'fail') fail_out($res[1], $res[2], $res[1] === 'slow_down' ? 429 : ($res[1] === 'bad_request' ? 400 : 200));
     [, $lic, $device, $settings, $new, $name, $email, $label] = $res;
-    if ($new) log_event('activated', ['key' => $lic['key'], 'name' => $name, 'email' => $email, 'computer' => $label]);
+    if ($new) log_event('activated', ['key' => $lic['key'], 'name' => $name, 'email' => $email, 'computer' => $label, 'how' => $claim ? 'email' : 'key']);
     ok_out(issue_pass($lic, $device, $settings));
 }
 
@@ -433,26 +458,48 @@ function admin_licences(): void {
     ok_out(['licences' => $list, 'settings' => $s['settings']]);
 }
 
+/**
+ * New licences. Either one per paid buyer email (emails: "a@x.com\nb@y.com" or "Name <a@x.com>"),
+ * or {count} keys (count 1 may carry a name and email).
+ */
 function admin_create(): void {
     $b = body();
-    $count = max(1, min((int) ($b['count'] ?? 1), 200));
-    $made = with_store(function (&$s, &$save) use ($b, $count) {
-        $out = []; $now = now_ms();
+    $buyers = [];
+    if (!empty($b['emails'])) {
+        foreach (preg_split('/[\r\n,;]+/', (string) $b['emails']) as $line) {
+            $line = trim($line); if ($line === '') continue;
+            $name = ''; $email = $line;
+            if (preg_match('/^(.*?)<([^>]+)>$/', $line, $m)) { $name = trim($m[1], " \t\"'"); $email = $m[2]; }
+            $e = clean_email($email);
+            if ($e === '') { $buyers[] = ['bad' => $line]; continue; }
+            $buyers[$e] = ['name' => clean_text($name, 80), 'email' => $e];
+        }
+        if (!$buyers) fail_out('bad_request', 'Enter at least one email address.');
+        if (count($buyers) > 500) fail_out('bad_request', 'Add at most 500 emails at once.');
+    }
+    $count = $buyers ? count($buyers) : max(1, min((int) ($b['count'] ?? 1), 200));
+    $res = with_store(function (&$s, &$save) use ($b, $count, $buyers) {
+        $out = []; $skipped = []; $bad = []; $now = now_ms();
         $max = (int) ($b['maxDevices'] ?? 0) ?: (int) $s['settings']['defaultMaxDevices'];
         $expires = !empty($b['expiresAt']) ? (int) $b['expiresAt'] : 0;
-        for ($n = 0; $n < $count; $n++) {
+        $list = $buyers ?: array_fill(0, $count, ['name' => $count === 1 ? clean_text($b['name'] ?? '', 80) : '', 'email' => $count === 1 ? clean_email($b['email'] ?? '') : '']);
+        $have = [];
+        foreach ($s['licences'] as $l) if (($l['email'] ?? '') !== '' && empty($l['revoked'])) $have[$l['email']] = true;
+        foreach ($list as $who) {
+            if (isset($who['bad'])) { $bad[] = $who['bad']; continue; }
+            if ($buyers && isset($have[$who['email']])) { $skipped[] = $who['email']; continue; }
             do { $key = new_key(); } while (isset($s['licences'][$key]));
-            $s['licences'][$key] = ['key' => $key, 'name' => $count === 1 ? clean_text($b['name'] ?? '', 80) : '', 'email' => $count === 1 ? clean_email($b['email'] ?? '') : '',
+            $s['licences'][$key] = ['key' => $key, 'name' => $who['name'], 'email' => $who['email'],
                 'note' => clean_text($b['note'] ?? '', 300), 'maxDevices' => max(1, min($max, 50)), 'expiresAt' => $expires ?: null,
                 'devices' => [], 'revoked' => false, 'createdAt' => $now, 'updatedAt' => $now, 'activatedAt' => null];
             bump_daily($s, 'created');
             $out[] = lic_public($s['licences'][$key]);
         }
-        $save = true;
-        return $out;
+        $save = (bool) $out;
+        return ['made' => $out, 'skipped' => $skipped, 'bad' => $bad];
     });
-    foreach ($made as $l) log_event('created', ['key' => $l['key'], 'name' => $l['name'], 'email' => $l['email']]);
-    ok_out(['licences' => $made]);
+    foreach ($res['made'] as $l) log_event('created', ['key' => $l['key'], 'name' => $l['name'], 'email' => $l['email']]);
+    ok_out(['licences' => $res['made'], 'skipped' => $res['skipped'], 'invalid' => $res['bad']]);
 }
 
 function admin_licence_action(string $key, string $action): void {
@@ -512,6 +559,7 @@ function admin_settings(): void {
         if (isset($b['defaultMaxDevices'])) $st['defaultMaxDevices'] = max(1, min((int) $b['defaultMaxDevices'], 50));
         if (isset($b['passDays'])) $st['passDays'] = max(1, min((int) $b['passDays'], 30));
         if (isset($b['activationsOpen'])) $st['activationsOpen'] = (bool) $b['activationsOpen'];
+        if (isset($b['emailActivation'])) $st['emailActivation'] = (bool) $b['emailActivation'];
         if (isset($b['requireEmailMatch'])) $st['requireEmailMatch'] = (bool) $b['requireEmailMatch'];
         if (isset($b['messageTemplate'])) $st['messageTemplate'] = mb_substr((string) $b['messageTemplate'], 0, 3000);
         $save = true;
@@ -575,10 +623,12 @@ $parts = $route === '' ? [] : explode('/', $route);
 try {
     if ($route === 'health') ok_out(['service' => 'lead-agent-licence', 'time' => now_ms(), 'ready' => is_file(key_file())]);
     if ($route === 'public-key') { $k = public_jwk(); $k ? ok_out(['publicKey' => $k]) : fail_out('not_set_up', 'Finish setup in the admin panel first.', 404); }
-    if (in_array($route, ['activate', 'check', 'release'], true)) {
+    if (in_array($route, ['activate', 'claim', 'check', 'release'], true)) {
         if ($method !== 'POST') fail_out('bad_request', 'Use POST.', 405);
         if (!is_file(key_file())) fail_out('not_set_up', 'The licence server is not set up yet.', 500);
-        $route === 'activate' ? api_activate() : ($route === 'check' ? api_check() : api_release());
+        if ($route === 'activate') api_activate();
+        if ($route === 'claim') api_activate(true);
+        $route === 'check' ? api_check() : api_release();
     }
     if (($parts[0] ?? '') === 'admin') {
         // Admin answers are for this site only.

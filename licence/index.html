@@ -7,7 +7,7 @@
 <title>Licence Admin · Lead Agent</title>
 <link rel="icon" href="/images/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="admin.css?v=2026111801">
+<link rel="stylesheet" href="admin.css?v=2026111901">
 </head>
 <body>
 <div id="boot" class="boot"><div class="spinner"></div></div>
@@ -60,7 +60,7 @@
       <h1 id="view-title">Dashboard</h1>
       <div class="top-actions">
         <span id="open-pill" class="pill"></span>
-        <button class="btn primary" id="new-key-top"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>New key</button>
+        <button class="btn primary" id="new-key-top"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>Add buyer</button>
       </div>
     </header>
 
@@ -93,7 +93,7 @@
         <a class="btn ghost" href="api/admin/export">Export CSV</a>
       </div>
       <div class="card flush"><div class="table-wrap"><table class="table" id="key-table"><thead><tr><th>Key</th><th>Buyer</th><th>Status</th><th>Computers</th><th>Created</th><th>Last seen</th><th></th></tr></thead><tbody></tbody></table></div>
-        <p class="empty" id="key-empty" hidden>No licence keys yet. Press <b>New key</b> to make one.</p></div>
+        <p class="empty" id="key-empty" hidden>No licence keys yet. Press <b>Add buyer</b> to add one.</p></div>
     </section>
 
     <!-- Users -->
@@ -121,6 +121,7 @@
         <label>Computers per key (default)<input name="defaultMaxDevices" type="number" min="1" max="50"></label>
         <label>Works offline for (days)<input name="passDays" type="number" min="1" max="30"><span class="hint">How long Lead Agent keeps working without reaching this server. A switched-off key stops within this time.</span></label>
         <label class="switch"><input type="checkbox" name="activationsOpen"><span></span>Allow new activations</label>
+        <label class="switch"><input type="checkbox" name="emailActivation"><span></span>Paid buyers can activate with their email only (no key needed)</label>
         <label class="switch"><input type="checkbox" name="requireEmailMatch"><span></span>Buyer must use the email saved on the key</label>
         <h2>Message sent with a new key</h2>
         <label class="full">Template<textarea name="messageTemplate" rows="9"></textarea><span class="hint">Placeholders: {name} {email} {key} {devices} {product} {seller} {support}</span></label>
@@ -153,6 +154,6 @@
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-card" id="modal-card"></div></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
-<script src="admin.js?v=2026111801"></script>
+<script src="admin.js?v=2026111901"></script>
 </body>
 </html>

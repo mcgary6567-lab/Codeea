@@ -46,7 +46,7 @@
     gear: '<svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7zm7.43-2.53a7.8 7.8 0 0 0 0-1.94l2.11-1.65-2-3.46-2.49 1a7.3 7.3 0 0 0-1.68-.98L15 3.29h-4l-.38 2.65a7.3 7.3 0 0 0-1.68.98l-2.49-1-2 3.46 2.11 1.65a7.8 7.8 0 0 0 0 1.94l-2.11 1.65 2 3.46 2.49-1c.52.4 1.08.73 1.68.98L11 20.71h4l.38-2.65c.6-.25 1.16-.58 1.68-.98l2.49 1 2-3.46z"/></svg>',
   };
   const EVENT = {
-    activated: ['ok', 'user', (e) => `<b>${esc(e.name || 'Someone')}</b> (${esc(e.email || '')}) activated <span class="mono">${esc(e.key)}</span> on ${esc(e.computer || 'a computer')}`],
+    activated: ['ok', 'user', (e) => `<b>${esc(e.name || 'Someone')}</b> (${esc(e.email || '')}) activated ${e.how === 'email' ? 'with their email' : `<span class="mono">${esc(e.key)}</span>`} on ${esc(e.computer || 'a computer')}`],
     created: ['', 'key', (e) => `Key <span class="mono">${esc(e.key)}</span> created${e.name || e.email ? ` for <b>${esc(e.name || e.email)}</b>` : ''}`],
     revoke: ['bad', 'off', (e) => `Key <span class="mono">${esc(e.key)}</span> switched off`],
     restore: ['ok', 'check', (e) => `Key <span class="mono">${esc(e.key)}</span> switched back on`],
@@ -249,7 +249,7 @@
       <td>${l.lastSeen ? ago(l.lastSeen) : '<span class="muted">–</span>'}</td>
       <td><button class="btn small ghost" data-open="${esc(l.key)}">Open</button></td></tr>`).join('');
     $('#key-empty').hidden = rows.length > 0;
-    if (!state.licences.length) $('#key-empty').innerHTML = 'No licence keys yet. Press <b>New key</b> to make one.';
+    if (!state.licences.length) $('#key-empty').innerHTML = 'No licence keys yet. Press <b>Add buyer</b> to add one.';
     else if (!rows.length) $('#key-empty').textContent = 'No keys match this search.';
   }
   $('#key-search').addEventListener('input', drawKeys);
@@ -261,31 +261,53 @@
 
   async function newKey() {
     const st = state.settings;
-    const p = openModal(`<h2>New licence key</h2><p class="muted">Make a key for a buyer, then send it with the ready-made message.</p>
+    const p = openModal(`<h2>Add a paid buyer</h2><p class="muted">Once added, the buyer opens Lead Agent, types their name and this email, and it activates in a few seconds.</p>
+      <div class="chips" id="new-mode" style="margin-top:14px"><button type="button" data-m="one" class="on">One buyer</button><button type="button" data-m="many">Paste many emails</button><button type="button" data-m="blank">Blank keys</button></div>
       <form id="new-form">
-        <div class="row"><label>Buyer name<input name="name" placeholder="optional"></label><label>Buyer email<input name="email" type="email" placeholder="optional"></label></div>
+        <div class="row" data-for="one"><label>Buyer name<input name="name" placeholder="optional"></label><label>Buyer email<input name="email" type="email" placeholder="the email they paid with"></label></div>
+        <label data-for="many" hidden>Buyer emails<textarea name="emails" rows="6" placeholder="one per line, e.g.&#10;jane@company.com&#10;Mike Lee &lt;mike@agency.com&gt;"></textarea><span class="hint">Emails that already have a licence are skipped.</span></label>
+        <label data-for="blank" hidden>How many keys<input name="count" type="number" min="1" max="200" value="5"><span class="hint">Keys with no email, for resellers or bundles. Buyers activate these with the key.</span></label>
         <label>Note<input name="note" placeholder="e.g. paid via PayPal, order #1042"></label>
         <div class="row"><label>Computers<input name="maxDevices" type="number" min="1" max="50" value="${esc(st.defaultMaxDevices || 2)}"></label><label>Expires<input name="expires" type="date"><span class="hint">Leave empty for lifetime</span></label></div>
-        <label>How many keys<input name="count" type="number" min="1" max="200" value="1"><span class="hint">More than 1 makes blank keys for resellers or bundles.</span></label>
-        <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary" type="submit">Create key</button></div>
+        <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary" type="submit" id="new-go">Add buyer</button></div>
       </form>`);
+    let mode = 'one';
+    $('#new-mode').addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      mode = b.dataset.m;
+      $$('#new-mode button').forEach((x) => x.classList.toggle('on', x === b));
+      $$('#new-form [data-for]').forEach((el) => { el.hidden = el.dataset.for !== mode; });
+      $('#new-go').textContent = { one: 'Add buyer', many: 'Add buyers', blank: 'Create keys' }[mode];
+    });
     $('#new-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = new FormData(e.target);
       const exp = f.get('expires') ? new Date(`${f.get('expires')}T23:59:59`).getTime() : null;
+      const common = { note: f.get('note'), maxDevices: Number(f.get('maxDevices')), expiresAt: exp };
+      const body = mode === 'one' ? { ...common, name: f.get('name'), email: f.get('email'), count: 1 }
+        : mode === 'many' ? { ...common, emails: f.get('emails') } : { ...common, count: Number(f.get('count')) };
+      if (mode === 'one' && !String(f.get('email') || '').trim()) { toast('Enter the email the buyer paid with', true); return; }
       e.submitter.disabled = true;
       try {
-        const r = await api('licences', { method: 'POST', body: { name: f.get('name'), email: f.get('email'), note: f.get('note'), maxDevices: Number(f.get('maxDevices')), expiresAt: exp, count: Number(f.get('count')) } });
-        closeModal(true); showCreated(r.licences);
+        const r = await api('licences', { method: 'POST', body });
+        closeModal(true); showCreated(r.licences, r, mode);
         if (state.view === 'keys') renderKeys(); else if (state.view === 'dashboard') renderDashboard();
       } catch (err) { toast(err.message, true); e.submitter.disabled = false; }
     });
     return p;
   }
-  function showCreated(list) {
+  function showCreated(list, r = {}, mode = 'one') {
+    if (mode === 'many') {
+      const extra = [r.skipped?.length ? `${r.skipped.length} already had a licence: ${r.skipped.map(esc).join(', ')}` : '', r.invalid?.length ? `${r.invalid.length} not valid: ${r.invalid.map(esc).join(', ')}` : ''].filter(Boolean);
+      openModal(`<h2>${list.length} buyer${list.length === 1 ? '' : 's'} added</h2><p class="muted">They can activate now with their name and email.</p>
+        ${extra.length ? `<div class="msg-box">${extra.join('<br>')}</div>` : ''}
+        <div class="keylist">${list.map((l) => `<div class="who"><b>${esc(l.email)}</b><small>${esc(l.key)}</small></div>`).join('')}</div>
+        <div class="modal-foot"><button class="btn primary" data-close>Done</button></div>`);
+      return;
+    }
     if (list.length === 1) {
       const l = list[0]; const msg = fillTemplate(l);
-      openModal(`<h2>Key created</h2><p class="muted">Send this to ${esc(l.name || l.email || 'the buyer')} with the Lead Agent zip.</p>
+      openModal(`<h2>${l.email ? 'Buyer added' : 'Key created'}</h2><p class="muted">${l.email ? `${esc(l.email)} can activate now with their name and email. Send them the Lead Agent zip with this message.` : 'Send this key to the buyer with the Lead Agent zip.'}</p>
         <div style="margin:14px 0">${copyBtn(l.key)}</div>
         <div class="msg-box" id="msg-text">${esc(msg)}</div>
         <div class="modal-foot"><button class="btn" data-close>Done</button><button class="btn primary" data-copy="${esc(msg)}" data-copy-label="Message copied">Copy message</button></div>`);
