@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Licence Admin · Lead Agent</title>
+<link rel="icon" href="/images/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="admin.css?v=2026111801">
+</head>
+<body>
+<div id="boot" class="boot"><div class="spinner"></div></div>
+
+<!-- Setup (first visit only) and login -->
+<main id="auth" class="auth" hidden>
+  <div class="auth-card">
+    <div class="brand"><span class="logo">L</span><div><b>Lead Agent</b><small>Licence admin</small></div></div>
+    <form id="setup-form" hidden>
+      <h1>Create your admin account</h1>
+      <p class="muted">This runs once. It creates your login and the private signing key for licences. The key is made on this server and never leaves it.</p>
+      <label>Your name<input name="name" autocomplete="name" required></label>
+      <label>Email<input name="email" type="email" autocomplete="email" required></label>
+      <label>Password<input name="password" type="password" autocomplete="new-password" required></label>
+      <label>Repeat password<input name="password2" type="password" autocomplete="new-password" required></label>
+      <p class="hint">At least 10 characters, with letters and numbers.</p>
+      <button class="btn primary wide" type="submit">Create account</button>
+      <p class="form-msg" role="status"></p>
+    </form>
+    <form id="login-form" hidden>
+      <h1>Welcome back</h1>
+      <p class="muted">Log in to manage licence keys.</p>
+      <label>Email<input name="email" type="email" autocomplete="username" required></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary wide" type="submit">Log in</button>
+      <p class="form-msg" role="status"></p>
+    </form>
+  </div>
+</main>
+
+<!-- The app -->
+<div id="app" class="app" hidden>
+  <aside class="side" id="side">
+    <div class="brand"><span class="logo">L</span><div><b id="product-name">Lead Agent</b><small>Licence admin</small></div></div>
+    <nav>
+      <a href="#dashboard" data-view="dashboard"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/></svg>Dashboard</a>
+      <a href="#keys" data-view="keys"><svg viewBox="0 0 24 24"><path d="M7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm5.65-4A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4z"/></svg>Licence keys</a>
+      <a href="#users" data-view="users"><svg viewBox="0 0 24 24"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05A4.2 4.2 0 0 1 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Users</a>
+      <a href="#activity" data-view="activity"><svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.9 3.9L9 12H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8z"/></svg>Activity</a>
+      <a href="#settings" data-view="settings"><svg viewBox="0 0 24 24"><path d="M19.14 12.94a7.5 7.5 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7 7 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.84a.5.5 0 0 0-.49.42l-.36 2.54a7 7 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.39 1.05.71 1.63.94l.36 2.54c.05.24.25.42.49.42h3.84c.24 0 .45-.18.49-.42l.36-2.54a7 7 0 0 0 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>Settings</a>
+    </nav>
+    <div class="side-foot">
+      <div class="me"><span class="avatar" id="me-avatar">A</span><div><b id="me-name"></b><small id="me-email"></small></div></div>
+      <button class="btn ghost small wide" id="logout">Log out</button>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <button class="icon-btn menu" id="menu" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+      <h1 id="view-title">Dashboard</h1>
+      <div class="top-actions">
+        <span id="open-pill" class="pill"></span>
+        <button class="btn primary" id="new-key-top"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>New key</button>
+      </div>
+    </header>
+
+    <!-- Dashboard -->
+    <section class="view" data-view="dashboard">
+      <div class="kpis" id="kpis"></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-head"><h2>Activations · last 30 days</h2><div class="legend"><i class="c1"></i>Activations <i class="c2"></i>Keys created</div></div>
+          <div id="chart" class="chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Browsers</h2></div>
+          <div id="browsers"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Latest activity</h2><a href="#activity" class="link">See all</a></div>
+        <ul class="feed" id="dash-feed"></ul>
+      </div>
+    </section>
+
+    <!-- Licence keys -->
+    <section class="view" data-view="keys" hidden>
+      <div class="toolbar">
+        <div class="search"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 5L20.5 19zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg><input id="key-search" placeholder="Search key, name, email or note"></div>
+        <div class="chips" id="key-filter">
+          <button data-f="all" class="on">All</button><button data-f="active">Active</button><button data-f="unused">Not used yet</button><button data-f="revoked">Switched off</button><button data-f="expired">Expired</button>
+        </div>
+        <a class="btn ghost" href="api/admin/export">Export CSV</a>
+      </div>
+      <div class="card flush"><div class="table-wrap"><table class="table" id="key-table"><thead><tr><th>Key</th><th>Buyer</th><th>Status</th><th>Computers</th><th>Created</th><th>Last seen</th><th></th></tr></thead><tbody></tbody></table></div>
+        <p class="empty" id="key-empty" hidden>No licence keys yet. Press <b>New key</b> to make one.</p></div>
+    </section>
+
+    <!-- Users -->
+    <section class="view" data-view="users" hidden>
+      <div class="toolbar">
+        <div class="search"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 5L20.5 19zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg><input id="user-search" placeholder="Search name, email, key or computer"></div>
+      </div>
+      <div class="card flush"><div class="table-wrap"><table class="table" id="user-table"><thead><tr><th>User</th><th>Licence key</th><th>Computer</th><th>Activated</th><th>Last seen</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+        <p class="empty" id="user-empty" hidden>Nobody has activated Lead Agent yet. When a buyer enters their name, email and key, they appear here.</p></div>
+    </section>
+
+    <!-- Activity -->
+    <section class="view" data-view="activity" hidden>
+      <div class="card"><ul class="feed" id="act-feed"></ul></div>
+    </section>
+
+    <!-- Settings -->
+    <section class="view" data-view="settings" hidden>
+      <form class="card form-grid" id="settings-form">
+        <h2>Product and seller</h2>
+        <label>Product name<input name="productName"></label>
+        <label>Your business name<input name="sellerName"></label>
+        <label>Support email<input name="supportEmail" type="email"></label>
+        <h2>Licences</h2>
+        <label>Computers per key (default)<input name="defaultMaxDevices" type="number" min="1" max="50"></label>
+        <label>Works offline for (days)<input name="passDays" type="number" min="1" max="30"><span class="hint">How long Lead Agent keeps working without reaching this server. A switched-off key stops within this time.</span></label>
+        <label class="switch"><input type="checkbox" name="activationsOpen"><span></span>Allow new activations</label>
+        <label class="switch"><input type="checkbox" name="requireEmailMatch"><span></span>Buyer must use the email saved on the key</label>
+        <h2>Message sent with a new key</h2>
+        <label class="full">Template<textarea name="messageTemplate" rows="9"></textarea><span class="hint">Placeholders: {name} {email} {key} {devices} {product} {seller} {support}</span></label>
+        <div class="full"><button class="btn primary" type="submit">Save settings</button></div>
+      </form>
+      <form class="card form-grid" id="password-form">
+        <h2>Your login</h2>
+        <label>Current password<input name="current" type="password" autocomplete="current-password" required></label>
+        <label>New password<input name="password" type="password" autocomplete="new-password" minlength="10" required></label>
+        <div class="full"><button class="btn" type="submit">Change password</button> <span class="form-msg" role="status"></span></div>
+      </form>
+      <div class="card">
+        <h2>For the extension build</h2>
+        <p class="muted">Lead Agent checks every licence with this public key. It is safe to share; the private key stays on this server.</p>
+        <pre class="code" id="pubkey"></pre>
+        <p class="muted small" id="server-info"></p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Drawer: one licence -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog" aria-labelledby="d-key">
+  <header><div><small class="muted">Licence key</small><h2 id="d-key" class="mono"></h2></div><button class="icon-btn" id="d-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></header>
+  <div class="drawer-body" id="d-body"></div>
+</aside>
+
+<!-- Modal -->
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-card" id="modal-card"></div></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="admin.js?v=2026111801"></script>
+</body>
+</html>
