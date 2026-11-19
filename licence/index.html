@@ -121,7 +121,8 @@
         <label>Computers per key (default)<input name="defaultMaxDevices" type="number" min="1" max="50"></label>
         <label>Works offline for (days)<input name="passDays" type="number" min="1" max="30"><span class="hint">How long Lead Agent keeps working without reaching this server. A switched-off key stops within this time.</span></label>
         <label class="switch"><input type="checkbox" name="activationsOpen"><span></span>Allow new activations</label>
-        <label class="switch"><input type="checkbox" name="emailActivation"><span></span>Paid buyers can activate with their email only (no key needed)</label>
+        <label class="switch"><input type="checkbox" name="emailActivation"><span></span>Buyers can activate with their name and email only (no key needed)</label>
+        <label class="switch"><input type="checkbox" name="autoIssue"><span></span>Give a licence automatically to any new email (buyers pay before they can download). Off = only emails you add.</label>
         <label class="switch"><input type="checkbox" name="requireEmailMatch"><span></span>Buyer must use the email saved on the key</label>
         <h2>Message sent with a new key</h2>
         <label class="full">Template<textarea name="messageTemplate" rows="9"></textarea><span class="hint">Placeholders: {name} {email} {key} {devices} {product} {seller} {support}</span></label>
@@ -154,6 +155,6 @@
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-card" id="modal-card"></div></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
-<script src="admin.js?v=2026111901"></script>
+<script src="admin.js?v=2026111902"></script>
 </body>
 </html>

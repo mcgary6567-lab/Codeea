@@ -20,6 +20,7 @@ ini_set('display_errors', '0');
 const KEY_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // Crockford: no I, L, O, U
 const FAIL_LIMIT = 30;           // wrong keys or passwords per IP per hour
 const LOGIN_FAIL_LIMIT = 8;      // wrong admin passwords per IP per 15 minutes
+const AUTO_ISSUE_LIMIT = 5;      // licences created automatically per IP per day
 const SESSION_HOURS = 12;
 
 // ---------------------------------------------------------------- storage
@@ -56,6 +57,7 @@ function default_store(): array {
             'passDays' => 7,
             'activationsOpen' => true,
             'emailActivation' => true,
+            'autoIssue' => true,
             'requireEmailMatch' => false,
             'messageTemplate' => "Hi {name},\n\nThank you for buying {product}!\n\nInstall it, open it, and enter your name and this email address: {email}. It activates in a few seconds and works on {devices} computers.\n\nIf you ever need it, your licence key is: {key}\n\nAny questions, just reply to this email.\n\n{seller}",
         ],
@@ -260,9 +262,23 @@ function api_activate(bool $claim = false): void {
         $name = clean_text($b['name'] ?? '', 80); $email = clean_email($b['email'] ?? '');
         if ($name === '') return ['fail', 'need_name', 'Enter your name.'];
         if ($email === '') return ['fail', 'need_email', 'Enter a valid email address.'];
+        $auto = false;
         if ($claim) {
             if (empty($s['settings']['emailActivation'])) return ['fail', 'email_off', 'Enter the licence key you received after buying.'];
             $key = licence_for_email($s, $email, $device);
+            if (!$key && !empty($s['settings']['autoIssue'])) {
+                // Buyers pay before they can download, so a new email gets its own licence at once.
+                // A cap per network stops one person from making licences in bulk.
+                if (too_many($s, 'auto', AUTO_ISSUE_LIMIT, 86400000)) return ['fail', 'slow_down', 'Too many new activations from this network today. Please contact the seller.'];
+                count_fail($s, 'auto');
+                $now = now_ms();
+                do { $key = new_key(); } while (isset($s['licences'][$key]));
+                $s['licences'][$key] = ['key' => $key, 'name' => $name, 'email' => $email, 'note' => 'Created automatically when they activated',
+                    'maxDevices' => max(1, min((int) $s['settings']['defaultMaxDevices'], 50)), 'expiresAt' => null, 'devices' => [], 'revoked' => false,
+                    'createdAt' => $now, 'updatedAt' => $now, 'activatedAt' => null, 'auto' => true];
+                bump_daily($s, 'created');
+                $auto = true;
+            }
             if (!$key) { count_fail($s, 'key'); return ['fail', 'not_buyer', "We could not find a purchase for $email. Use the email address you paid with, or enter your licence key."]; }
         }
         if (!$key || !isset($s['licences'][$key])) { count_fail($s, 'key'); return ['fail', 'invalid', 'This licence key was not found. Check it and try again.']; }
@@ -291,10 +307,11 @@ function api_activate(bool $claim = false): void {
         if ($lic['email'] === '') $lic['email'] = $email;
         if (empty($lic['activatedAt'])) $lic['activatedAt'] = $now;
         $lic['updatedAt'] = $now;
-        return ['ok', $lic, $device, $s['settings'], $new, $name, $email, $label];
+        return ['ok', $lic, $device, $s['settings'], $new, $name, $email, $label, $auto];
     });
     if ($res[0] === 'fail') fail_out($res[1], $res[2], $res[1] === 'slow_down' ? 429 : ($res[1] === 'bad_request' ? 400 : 200));
-    [, $lic, $device, $settings, $new, $name, $email, $label] = $res;
+    [, $lic, $device, $settings, $new, $name, $email, $label, $auto] = $res;
+    if ($auto) log_event('created', ['key' => $lic['key'], 'name' => $name, 'email' => $email, 'auto' => true]);
     if ($new) log_event('activated', ['key' => $lic['key'], 'name' => $name, 'email' => $email, 'computer' => $label, 'how' => $claim ? 'email' : 'key']);
     ok_out(issue_pass($lic, $device, $settings));
 }
@@ -560,6 +577,7 @@ function admin_settings(): void {
         if (isset($b['passDays'])) $st['passDays'] = max(1, min((int) $b['passDays'], 30));
         if (isset($b['activationsOpen'])) $st['activationsOpen'] = (bool) $b['activationsOpen'];
         if (isset($b['emailActivation'])) $st['emailActivation'] = (bool) $b['emailActivation'];
+        if (isset($b['autoIssue'])) $st['autoIssue'] = (bool) $b['autoIssue'];
         if (isset($b['requireEmailMatch'])) $st['requireEmailMatch'] = (bool) $b['requireEmailMatch'];
         if (isset($b['messageTemplate'])) $st['messageTemplate'] = mb_substr((string) $b['messageTemplate'], 0, 3000);
         $save = true;

@@ -47,7 +47,8 @@
   };
   const EVENT = {
     activated: ['ok', 'user', (e) => `<b>${esc(e.name || 'Someone')}</b> (${esc(e.email || '')}) activated ${e.how === 'email' ? 'with their email' : `<span class="mono">${esc(e.key)}</span>`} on ${esc(e.computer || 'a computer')}`],
-    created: ['', 'key', (e) => `Key <span class="mono">${esc(e.key)}</span> created${e.name || e.email ? ` for <b>${esc(e.name || e.email)}</b>` : ''}`],
+    created: ['', 'key', (e) => (e.auto ? `New licence <span class="mono">${esc(e.key)}</span> created automatically for <b>${esc(e.name || '')}</b> (${esc(e.email || '')})`
+      : `Key <span class="mono">${esc(e.key)}</span> created${e.name || e.email ? ` for <b>${esc(e.name || e.email)}</b>` : ''}`)],
     revoke: ['bad', 'off', (e) => `Key <span class="mono">${esc(e.key)}</span> switched off`],
     restore: ['ok', 'check', (e) => `Key <span class="mono">${esc(e.key)}</span> switched back on`],
     release: ['warn', 'pc', (e) => `A computer was released from <span class="mono">${esc(e.key)}</span>`],
