@@ -58,6 +58,7 @@ function default_store(): array {
             'activationsOpen' => true,
             'emailActivation' => true,
             'autoIssue' => true,
+            'blockDisposable' => true,
             'requireEmailMatch' => false,
             'messageTemplate' => "Hi {name},\n\nThank you for buying {product}!\n\nInstall it, open it, and enter your name and this email address: {email}. It activates in a few seconds and works on {devices} computers.\n\nIf you ever need it, your licence key is: {key}\n\nAny questions, just reply to this email.\n\n{seller}",
         ],
@@ -76,6 +77,8 @@ function with_store(callable $fn) {
     $store = $raw ? json_decode($raw, true) : null;
     if (!is_array($store)) $store = default_store();
     $store['settings'] = array_merge(default_store()['settings'], $store['settings'] ?? []);
+    if (!isset($store['blocked']) || !is_array($store['blocked'])) $store['blocked'] = [];
+    $GLOBALS['__blocked'] = $store['blocked'];
     // The first message template asked buyers to paste the key; swap it for the email one if unchanged.
     if (strpos((string) $store['settings']['messageTemplate'], "Open Lead Agent, enter your name, email and this key, and press Activate.") !== false
         && strpos((string) $store['settings']['messageTemplate'], 'Your licence key:') !== false) {
@@ -230,7 +233,22 @@ function issue_pass(array $lic, string $device, array $settings): array {
         'licensedTo' => $lic['name'] ?: ($lic['email'] ?: '')];
 }
 
+// Throwaway inbox services: they get no automatic licence (setting "blockDisposable").
+const DISPOSABLE_DOMAINS = ['mailinator.com', 'guerrillamail.com', 'guerrillamail.net', 'sharklasers.com', 'grr.la', '10minutemail.com', '10minutemail.net',
+    'temp-mail.org', 'tempmail.com', 'tempmail.net', 'tempmailo.com', 'temp-mail.io', 'yopmail.com', 'yopmail.net', 'trashmail.com', 'trashmail.de', 'getnada.com',
+    'nada.email', 'maildrop.cc', 'dispostable.com', 'throwawaymail.com', 'fakeinbox.com', 'mintemail.com', 'mohmal.com', 'emailondeck.com', 'burnermail.io',
+    'mailnesia.com', 'mytemp.email', 'tempinbox.com', 'spamgourmet.com', 'mailcatch.com', 'moakt.com', 'tmail.ws', 'tmpmail.org', 'tmpmail.net', 'emailfake.com',
+    'luxusmail.org', 'inboxkitten.com', 'mail.tm', 'internxt.com', 'dropmail.me', 'fexpost.com', 'linshiyouxiang.net', 'mailpoof.com', 'spambox.us', 'wegwerfmail.de'];
+
+function email_domain(string $e): string { $p = strrpos($e, '@'); return $p === false ? '' : strtolower(substr($e, $p + 1)); }
+/** Blocked: the address itself, or its whole domain ("@domain.com"). */
+function is_blocked_email(array $blocked, string $email): bool {
+    $e = strtolower($email);
+    return $e !== '' && (isset($blocked[$e]) || isset($blocked['@' . email_domain($e)]));
+}
+
 function lic_status(array $lic): string {
+    if (!empty($lic['email']) && is_blocked_email($GLOBALS['__blocked'] ?? [], (string) $lic['email'])) return 'blocked';
     if (!empty($lic['revoked'])) return 'revoked';
     if (!empty($lic['expiresAt']) && now_ms() >= (int) $lic['expiresAt']) return 'expired';
     return count($lic['devices']) ? 'active' : 'unused';
@@ -262,10 +280,15 @@ function api_activate(bool $claim = false): void {
         $name = clean_text($b['name'] ?? '', 80); $email = clean_email($b['email'] ?? '');
         if ($name === '') return ['fail', 'need_name', 'Enter your name.'];
         if ($email === '') return ['fail', 'need_email', 'Enter a valid email address.'];
+        if (is_blocked_email($s['blocked'] ?? [], $email)) return ['fail', 'blocked', "This email address can't be used to activate Lead Agent. Please contact the seller."];
         $auto = false;
         if ($claim) {
             if (empty($s['settings']['emailActivation'])) return ['fail', 'email_off', 'Enter the licence key you received after buying.'];
             $key = licence_for_email($s, $email, $device);
+            if (!$key && !empty($s['settings']['autoIssue']) && !empty($s['settings']['blockDisposable']) && in_array(email_domain($email), DISPOSABLE_DOMAINS, true)) {
+                count_fail($s, 'key');
+                return ['fail', 'disposable', 'Please use your real email address. Temporary email addresses cannot be used.'];
+            }
             if (!$key && !empty($s['settings']['autoIssue'])) {
                 // Buyers pay before they can download, so a new email gets its own licence at once.
                 // A cap per network stops one person from making licences in bulk.
@@ -445,7 +468,7 @@ function lic_public(array $l): array {
 
 function admin_overview(): void {
     $s = read_store(); $now = now_ms();
-    $counts = ['total' => 0, 'active' => 0, 'unused' => 0, 'revoked' => 0, 'expired' => 0, 'computers' => 0, 'online7' => 0, 'online1' => 0, 'users' => 0];
+    $counts = ['total' => 0, 'active' => 0, 'unused' => 0, 'revoked' => 0, 'expired' => 0, 'blocked' => 0, 'computers' => 0, 'online7' => 0, 'online1' => 0, 'users' => 0];
     $users = [];
     foreach ($s['licences'] as $l) {
         $counts['total']++; $counts[lic_status($l)]++;
@@ -465,7 +488,13 @@ function admin_overview(): void {
     $browsers = [];
     foreach ($s['licences'] as $l) foreach ($l['devices'] as $d) { $b = explode(' on ', (string) $d['label'])[0] ?: 'Other'; $browsers[$b] = ($browsers[$b] ?? 0) + 1; }
     arsort($browsers);
-    ok_out(['counts' => $counts, 'series' => $series, 'browsers' => $browsers, 'events' => read_events(12), 'activationsOpen' => !empty($s['settings']['activationsOpen'])]);
+    $rows = user_rows($s);
+    $counts['newUsers7'] = count(array_filter($rows, fn($r) => $now - $r['createdAt'] < 7 * 86400000));
+    $counts['newUsers1'] = count(array_filter($rows, fn($r) => $now - $r['createdAt'] < 86400000));
+    $counts['users'] = count($rows);
+    usort($rows, fn($a, $b) => $b['createdAt'] <=> $a['createdAt']);
+    ok_out(['counts' => $counts, 'series' => $series, 'browsers' => $browsers, 'events' => read_events(12), 'newest' => array_slice($rows, 0, 6),
+        'activationsOpen' => !empty($s['settings']['activationsOpen']), 'autoIssue' => !empty($s['settings']['autoIssue'])]);
 }
 
 function admin_licences(): void {
@@ -500,8 +529,8 @@ function admin_create(): void {
         $max = (int) ($b['maxDevices'] ?? 0) ?: (int) $s['settings']['defaultMaxDevices'];
         $expires = !empty($b['expiresAt']) ? (int) $b['expiresAt'] : 0;
         $list = $buyers ?: array_fill(0, $count, ['name' => $count === 1 ? clean_text($b['name'] ?? '', 80) : '', 'email' => $count === 1 ? clean_email($b['email'] ?? '') : '']);
-        $have = [];
-        foreach ($s['licences'] as $l) if (($l['email'] ?? '') !== '' && empty($l['revoked'])) $have[$l['email']] = true;
+        $have = email_map($s); // one licence per email
+        if (!$buyers && $count === 1 && $list[0]['email'] !== '' && isset($have[$list[0]['email']])) return ['exists' => $have[$list[0]['email']], 'email' => $list[0]['email']];
         foreach ($list as $who) {
             if (isset($who['bad'])) { $bad[] = $who['bad']; continue; }
             if ($buyers && isset($have[$who['email']])) { $skipped[] = $who['email']; continue; }
@@ -515,6 +544,7 @@ function admin_create(): void {
         $save = (bool) $out;
         return ['made' => $out, 'skipped' => $skipped, 'bad' => $bad];
     });
+    if (isset($res['exists'])) fail_out('exists', "{$res['email']} already has a licence ({$res['exists']}). Each email can have one licence: open it under Users to change it.");
     foreach ($res['made'] as $l) log_event('created', ['key' => $l['key'], 'name' => $l['name'], 'email' => $l['email']]);
     ok_out(['licences' => $res['made'], 'skipped' => $res['skipped'], 'invalid' => $res['bad']]);
 }
@@ -533,7 +563,12 @@ function admin_licence_action(string $key, string $action): void {
             case 'release-all': $l['devices'] = []; break;
             case 'edit':
                 if (array_key_exists('name', $b)) $l['name'] = clean_text($b['name'], 80);
-                if (array_key_exists('email', $b)) $l['email'] = clean_email($b['email']);
+                if (array_key_exists('email', $b)) {
+                    $ne = clean_email($b['email']);
+                    $owner = $ne !== '' ? (email_map($s)[$ne] ?? '') : '';
+                    if ($owner !== '' && $owner !== $key) return ['error' => "$ne already has a licence ($owner). Each email can have one licence."];
+                    $l['email'] = $ne;
+                }
                 if (array_key_exists('note', $b)) $l['note'] = clean_text($b['note'], 300);
                 if (array_key_exists('maxDevices', $b)) $l['maxDevices'] = max(1, min((int) $b['maxDevices'], 50));
                 if (array_key_exists('expiresAt', $b)) $l['expiresAt'] = $b['expiresAt'] ? (int) $b['expiresAt'] : null;
@@ -551,14 +586,184 @@ function admin_licence_action(string $key, string $action): void {
     ok_out($res);
 }
 
-function admin_users(): void {
-    $s = read_store(); $out = [];
-    foreach ($s['licences'] as $l) foreach ($l['devices'] as $d) {
-        $out[] = ['key' => $l['key'], 'status' => lic_status($l), 'userName' => $d['userName'] ?? '', 'userEmail' => $d['userEmail'] ?? '', 'computer' => $d['label'] ?? '',
-            'device' => $d['id'], 'firstSeen' => $d['firstSeen'] ?? 0, 'lastSeen' => $d['lastSeen'] ?? 0, 'buyer' => $l['name'], 'buyerEmail' => $l['email']];
+// ---------------------------------------------------------------- users (one per email)
+/** email => licence key, for every licence that has an email. */
+function email_map(array $s): array {
+    $m = [];
+    foreach ($s['licences'] as $k => $l) if (($l['email'] ?? '') !== '') $m[strtolower($l['email'])] = $k;
+    return $m;
+}
+/** The email a licence belongs to: its own, or the first person who activated it. */
+function lic_owner(array $l): string {
+    $e = strtolower((string) ($l['email'] ?? ''));
+    if ($e === '') foreach ($l['devices'] as $d) if (!empty($d['userEmail'])) { $e = strtolower($d['userEmail']); break; }
+    return $e;
+}
+function keys_for_email(array $s, string $email): array {
+    return array_values(array_filter(array_keys($s['licences']), fn($k) => lic_owner($s['licences'][$k]) === $email));
+}
+function user_rows(array $s): array {
+    $u = [];
+    foreach ($s['licences'] as $l) {
+        $email = lic_owner($l);
+        if ($email === '') continue;
+        if (!isset($u[$email])) $u[$email] = ['email' => $email, 'name' => '', 'keys' => [], 'computers' => 0, 'maxComputers' => 0, 'firstSeen' => 0, 'lastSeen' => 0,
+            'createdAt' => PHP_INT_MAX, 'auto' => false, 'statuses' => [], 'browsers' => [], 'note' => ''];
+        $r = &$u[$email];
+        $r['keys'][] = $l['key'];
+        $r['maxComputers'] += (int) $l['maxDevices'];
+        $r['computers'] += count($l['devices']);
+        $r['createdAt'] = min($r['createdAt'], (int) ($l['createdAt'] ?? 0));
+        if (!empty($l['auto'])) $r['auto'] = true;
+        if ($r['name'] === '' && !empty($l['name'])) $r['name'] = $l['name'];
+        if ($r['note'] === '' && !empty($l['note'])) $r['note'] = $l['note'];
+        $r['statuses'][] = lic_status($l);
+        foreach ($l['devices'] as $d) {
+            $f = (int) ($d['firstSeen'] ?? 0);
+            $r['firstSeen'] = $r['firstSeen'] ? min($r['firstSeen'], $f) : $f;
+            $r['lastSeen'] = max($r['lastSeen'], (int) ($d['lastSeen'] ?? 0));
+            if ($r['name'] === '' && !empty($d['userName'])) $r['name'] = $d['userName'];
+            $r['browsers'][] = (string) ($d['label'] ?? '');
+        }
+        unset($r);
     }
-    usort($out, fn($a, $b) => $b['lastSeen'] <=> $a['lastSeen']);
-    ok_out(['users' => $out]);
+    foreach ($u as &$r) {
+        $st = $r['statuses'];
+        $r['status'] = in_array('blocked', $st, true) ? 'blocked' : (in_array('active', $st, true) ? 'active'
+            : (count(array_filter($st, fn($x) => $x === 'revoked')) === count($st) ? 'revoked' : (in_array('expired', $st, true) ? 'expired' : 'unused')));
+        $r['browsers'] = array_values(array_unique(array_filter($r['browsers'])));
+        unset($r['statuses']);
+    }
+    unset($r);
+    return array_values($u);
+}
+
+function admin_users(): void {
+    $s = read_store();
+    $rows = user_rows($s);
+    usort($rows, fn($a, $b) => max($b['lastSeen'], $b['createdAt']) <=> max($a['lastSeen'], $a['createdAt']));
+    ok_out(['users' => $rows]);
+}
+
+/** Apply one user action to every licence of an email (inside the store lock). */
+function apply_user_action(array &$s, string $email, string $action, array $b): ?string {
+    $keys = keys_for_email($s, $email);
+    if (!$keys && !in_array($action, ['block', 'unblock'], true)) return 'User not found.';
+    foreach ($keys as $k) {
+        $l = &$s['licences'][$k];
+        switch ($action) {
+            case 'pause': case 'block': $l['revoked'] = true; break;
+            case 'resume': case 'unblock': $l['revoked'] = false; break;
+            case 'release': $l['devices'] = []; break;
+            case 'delete': break;
+            case 'edit':
+                if (array_key_exists('name', $b)) $l['name'] = clean_text($b['name'], 80);
+                if (array_key_exists('note', $b)) $l['note'] = clean_text($b['note'], 300);
+                if (array_key_exists('maxDevices', $b)) $l['maxDevices'] = max(1, min((int) $b['maxDevices'], 50));
+                break;
+            default: return 'Unknown action.';
+        }
+        $l['updatedAt'] = now_ms();
+        unset($l);
+        if ($action === 'delete') unset($s['licences'][$k]);
+    }
+    if ($action === 'block') $s['blocked'][$email] = ['at' => now_ms(), 'note' => clean_text($b['note'] ?? '', 200)];
+    if ($action === 'unblock') unset($s['blocked'][$email]);
+    $GLOBALS['__blocked'] = $s['blocked'];
+    return null;
+}
+
+function admin_user(string $raw, string $action): void {
+    $email = clean_email(rawurldecode($raw));
+    if ($email === '') fail_out('invalid', 'User not found.', 404);
+    $b = body();
+    if ($action === 'get') {
+        $s = read_store();
+        $keys = keys_for_email($s, $email);
+        $row = array_values(array_filter(user_rows($s), fn($r) => $r['email'] === $email))[0] ?? null;
+        if (!$row) fail_out('invalid', 'User not found.', 404);
+        $events = array_values(array_filter(read_events(3000), fn($e) => strtolower($e['email'] ?? '') === $email || in_array($e['key'] ?? '', $keys, true)));
+        ok_out(['user' => $row, 'licences' => array_map(fn($k) => lic_public($s['licences'][$k]), $keys), 'events' => array_slice($events, 0, 60),
+            'blocked' => is_blocked_email($s['blocked'] ?? [], $email)]);
+    }
+    $err = with_store(function (&$s, &$save) use ($email, $action, $b) {
+        $e = apply_user_action($s, $email, $action, $b);
+        if (!$e) $save = true;
+        return $e;
+    });
+    if ($err) fail_out('bad_request', $err, $err === 'User not found.' ? 404 : 400);
+    log_event("user_$action", ['email' => $email]);
+    ok_out();
+}
+
+/** POST admin/bulk {action, emails: [...]} or {action, keys: [...]}. */
+function admin_bulk(): void {
+    $b = body();
+    $action = (string) ($b['action'] ?? '');
+    $emails = array_values(array_filter(array_map('clean_email', (array) ($b['emails'] ?? []))));
+    $keys = array_values(array_filter(array_map('key_id', (array) ($b['keys'] ?? []))));
+    if (!$emails && !$keys) fail_out('bad_request', 'Nothing selected.');
+    if (count($emails) + count($keys) > 1000) fail_out('bad_request', 'Select at most 1000 at once.');
+    $done = with_store(function (&$s, &$save) use ($action, $emails, $keys, $b) {
+        $n = 0;
+        foreach ($emails as $e) if (!apply_user_action($s, $e, $action, $b)) $n++;
+        foreach ($keys as $k) {
+            if (!isset($s['licences'][$k])) continue;
+            $l = &$s['licences'][$k];
+            if ($action === 'pause') $l['revoked'] = true;
+            elseif ($action === 'resume') $l['revoked'] = false;
+            elseif ($action === 'release') $l['devices'] = [];
+            elseif ($action !== 'delete') { unset($l); continue; }
+            $l['updatedAt'] = now_ms();
+            unset($l);
+            if ($action === 'delete') unset($s['licences'][$k]);
+            $n++;
+        }
+        $save = $n > 0;
+        return $n;
+    });
+    log_event("bulk_$action", ['count' => $done, 'what' => $emails ? 'users' : 'keys']);
+    ok_out(['done' => $done]);
+}
+
+/** GET admin/blocked; POST {add: "x@y.com" | "@domain.com" | "domain.com", note} or {remove}. */
+function admin_blocked(): void {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        $s = read_store(); $out = [];
+        foreach ($s['blocked'] as $k => $v) $out[] = ['entry' => $k, 'at' => $v['at'] ?? 0, 'note' => $v['note'] ?? ''];
+        usort($out, fn($a, $b) => $b['at'] <=> $a['at']);
+        ok_out(['blocked' => $out]);
+    }
+    $b = body();
+    $norm = function ($v) {
+        $v = strtolower(trim((string) $v));
+        if ($v === '') return '';
+        if (strpos($v, '@') > 0) return clean_email($v);
+        $d = ltrim($v, '@');
+        return preg_match('/^[a-z0-9.-]+\.[a-z]{2,}$/', $d) ? '@' . $d : '';
+    };
+    if (isset($b['remove'])) {
+        $e = $norm($b['remove']);
+        with_store(function (&$s, &$save) use ($e) { unset($s['blocked'][$e]); $save = true; });
+        log_event('unblocked', ['email' => $e]);
+        ok_out();
+    }
+    $e = $norm($b['add'] ?? '');
+    if ($e === '') fail_out('bad_request', 'Enter an email address (name@company.com) or a domain (company.com).');
+    $paused = with_store(function (&$s, &$save) use ($e, $b) {
+        $s['blocked'][$e] = ['at' => now_ms(), 'note' => clean_text($b['note'] ?? '', 200)];
+        $GLOBALS['__blocked'] = $s['blocked'];
+        $n = 0;
+        foreach ($s['licences'] as &$l) {
+            $o = lic_owner($l);
+            if ($o !== '' && is_blocked_email([$e => 1], $o) && empty($l['revoked'])) { $l['revoked'] = true; $l['updatedAt'] = now_ms(); $n++; }
+        }
+        unset($l);
+        $save = true;
+        return $n;
+    });
+    log_event('blocked', ['email' => $e, 'paused' => $paused]);
+    ok_out(['entry' => $e, 'paused' => $paused]);
 }
 
 function admin_events(): void { ok_out(['events' => read_events(min(2000, max(10, (int) ($_GET['limit'] ?? 300))))]); }
@@ -578,6 +783,7 @@ function admin_settings(): void {
         if (isset($b['activationsOpen'])) $st['activationsOpen'] = (bool) $b['activationsOpen'];
         if (isset($b['emailActivation'])) $st['emailActivation'] = (bool) $b['emailActivation'];
         if (isset($b['autoIssue'])) $st['autoIssue'] = (bool) $b['autoIssue'];
+        if (isset($b['blockDisposable'])) $st['blockDisposable'] = (bool) $b['blockDisposable'];
         if (isset($b['requireEmailMatch'])) $st['requireEmailMatch'] = (bool) $b['requireEmailMatch'];
         if (isset($b['messageTemplate'])) $st['messageTemplate'] = mb_substr((string) $b['messageTemplate'], 0, 3000);
         $save = true;
@@ -605,6 +811,22 @@ function admin_password(): void {
 
 function admin_export(): void {
     $s = read_store();
+    $cell = fn($v) => preg_match('/^[=+\-@]/', (string) $v) ? "'" . $v : $v; // no formulas in spreadsheets
+    if (($_GET['type'] ?? '') === 'users') {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="lead-agent-users-' . gmdate('Y-m-d') . '.csv"');
+        header('Cache-Control: no-store');
+        $o = fopen('php://output', 'w');
+        fputcsv($o, ['Name', 'Email', 'Status', 'Licence keys', 'Computers', 'Computers allowed', 'Browsers', 'Signed up', 'First activated', 'Last seen', 'How', 'Note']);
+        $label = ['revoked' => 'paused', 'unused' => 'not activated'];
+        foreach (user_rows($s) as $r) {
+            fputcsv($o, array_map($cell, [$r['name'], $r['email'], $label[$r['status']] ?? $r['status'], implode(' ', $r['keys']), $r['computers'], $r['maxComputers'],
+                implode('; ', $r['browsers']), gmdate('Y-m-d', (int) ($r['createdAt'] / 1000)), $r['firstSeen'] ? gmdate('Y-m-d', (int) ($r['firstSeen'] / 1000)) : '',
+                $r['lastSeen'] ? gmdate('Y-m-d H:i', (int) ($r['lastSeen'] / 1000)) : '', $r['auto'] ? 'automatic' : 'added by admin', $r['note']]));
+        }
+        fclose($o);
+        exit;
+    }
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="lead-agent-licences-' . gmdate('Y-m-d') . '.csv"');
     header('Cache-Control: no-store');
@@ -661,7 +883,10 @@ try {
         if ($a === 'overview') admin_overview();
         if ($a === 'licences' && !isset($parts[2])) { $method === 'POST' ? admin_create() : admin_licences(); }
         if ($a === 'licences' && isset($parts[2])) admin_licence_action($parts[2], $parts[3] ?? 'get');
-        if ($a === 'users') admin_users();
+        if ($a === 'users' && !isset($parts[2])) admin_users();
+        if ($a === 'users' && isset($parts[2])) admin_user($parts[2], $parts[3] ?? 'get');
+        if ($a === 'bulk' && $method === 'POST') admin_bulk();
+        if ($a === 'blocked') admin_blocked();
         if ($a === 'events') admin_events();
         if ($a === 'settings') admin_settings();
         if ($a === 'password' && $method === 'POST') admin_password();

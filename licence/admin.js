@@ -6,7 +6,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const state = { csrf: null, admin: null, licences: [], settings: {}, users: [], filter: 'all', view: 'dashboard' };
+  const state = { csrf: null, admin: null, licences: [], settings: {}, users: [], filter: 'all', userFilter: 'all', userSort: 'recent', view: 'dashboard', selKeys: new Set(), selUsers: new Set() };
 
   // ---------- api ----------
   async function api(path, { method = 'GET', body } = {}) {
@@ -33,8 +33,16 @@
     const d = Math.round(h / 24); if (d < 31) return `${d} day${d > 1 ? 's' : ''} ago`;
     return fmtDate(t);
   }
-  const STATUS = { active: 'Active', unused: 'Not used yet', revoked: 'Switched off', expired: 'Expired' };
+  const STATUS = { active: 'Active', unused: 'Not activated', revoked: 'Paused', expired: 'Expired', blocked: 'Blocked' };
   const badge = (s) => `<span class="badge ${s}">${STATUS[s] || s}</span>`;
+  const HUES = [235, 262, 290, 322, 200, 172, 18, 340];
+  const avatar = (u, big = false) => {
+    const t = (u.name || u.email || '?').trim();
+    const ini = t.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase() || '?';
+    let h = 0; for (const ch of String(u.email || t)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const hue = HUES[h % HUES.length];
+    return `<span class="av${big ? ' big' : ''}" style="background:hsl(${hue} 70% 94%);color:hsl(${hue} 55% 38%)">${esc(ini)}</span>`;
+  };
   const ICON = {
     key: '<svg viewBox="0 0 24 24"><path d="M7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm5.65-4A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4z"/></svg>',
     check: '<svg viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
@@ -44,13 +52,35 @@
     clock: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 11h-5v-2h3V6h2z"/></svg>',
     copy: '<svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11z"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7zm7.43-2.53a7.8 7.8 0 0 0 0-1.94l2.11-1.65-2-3.46-2.49 1a7.3 7.3 0 0 0-1.68-.98L15 3.29h-4l-.38 2.65a7.3 7.3 0 0 0-1.68.98l-2.49-1-2 3.46 2.11 1.65a7.8 7.8 0 0 0 0 1.94l-2.11 1.65 2 3.46 2.49-1c.52.4 1.08.73 1.68.98L11 20.71h4l.38-2.65c.6-.25 1.16-.58 1.68-.98l2.49 1 2-3.46z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>',
+    play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg>',
+    ban: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 0 1-6.32-12.9L16.9 18.32A7.95 7.95 0 0 1 12 20zm6.32-3.1L7.1 5.68A8 8 0 0 1 18.32 16.9z"/></svg>',
+    more: '<svg viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+    mail: '<svg viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5z"/></svg>',
+    bolt: '<svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>',
+    download: '<svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5zm7-18-5.5 5.5 1.41 1.41L11 5.83V16h2V5.83l3.09 3.08 1.41-1.41z" transform="rotate(180 12 11)"/></svg>',
   };
+  const who = (e) => `<b>${esc(e.email || '')}</b>`;
   const EVENT = {
     activated: ['ok', 'user', (e) => `<b>${esc(e.name || 'Someone')}</b> (${esc(e.email || '')}) activated ${e.how === 'email' ? 'with their email' : `<span class="mono">${esc(e.key)}</span>`} on ${esc(e.computer || 'a computer')}`],
     created: ['', 'key', (e) => (e.auto ? `New licence <span class="mono">${esc(e.key)}</span> created automatically for <b>${esc(e.name || '')}</b> (${esc(e.email || '')})`
       : `Key <span class="mono">${esc(e.key)}</span> created${e.name || e.email ? ` for <b>${esc(e.name || e.email)}</b>` : ''}`)],
-    revoke: ['bad', 'off', (e) => `Key <span class="mono">${esc(e.key)}</span> switched off`],
-    restore: ['ok', 'check', (e) => `Key <span class="mono">${esc(e.key)}</span> switched back on`],
+    revoke: ['warn', 'pause', (e) => `Key <span class="mono">${esc(e.key)}</span> paused`],
+    restore: ['ok', 'play', (e) => `Key <span class="mono">${esc(e.key)}</span> resumed`],
+    user_pause: ['warn', 'pause', (e) => `User ${who(e)} paused`],
+    user_resume: ['ok', 'play', (e) => `User ${who(e)} resumed`],
+    user_release: ['warn', 'pc', (e) => `All computers of ${who(e)} released`],
+    user_delete: ['bad', 'trash', (e) => `User ${who(e)} deleted`],
+    user_block: ['bad', 'ban', (e) => `User ${who(e)} blocked`],
+    user_unblock: ['ok', 'check', (e) => `User ${who(e)} unblocked`],
+    user_edit: ['', 'user', (e) => `User ${who(e)} edited`],
+    blocked: ['bad', 'ban', (e) => `<b>${esc(e.email)}</b> added to the block list${e.paused ? ` (${e.paused} licence${e.paused > 1 ? 's' : ''} paused)` : ''}`],
+    unblocked: ['ok', 'check', (e) => `<b>${esc(e.email)}</b> removed from the block list`],
+    bulk_pause: ['warn', 'pause', (e) => `${e.count} ${esc(e.what)} paused at once`],
+    bulk_resume: ['ok', 'play', (e) => `${e.count} ${esc(e.what)} resumed at once`],
+    bulk_release: ['warn', 'pc', (e) => `Computers released for ${e.count} ${esc(e.what)}`],
+    bulk_delete: ['bad', 'trash', (e) => `${e.count} ${esc(e.what)} deleted at once`],
     release: ['warn', 'pc', (e) => `A computer was released from <span class="mono">${esc(e.key)}</span>`],
     'release-all': ['warn', 'pc', (e) => `All computers released from <span class="mono">${esc(e.key)}</span>`],
     released_by_user: ['warn', 'pc', (e) => `A user released their computer from <span class="mono">${esc(e.key)}</span>`],
@@ -190,12 +220,14 @@
     const c = r.counts;
     const k = (cls, icon, label, value, sub) => `<div class="kpi ${cls}"><i>${ICON[icon]}</i><small>${label}</small><b>${value.toLocaleString()}</b><span>${sub}</span></div>`;
     $('#kpis').innerHTML = [
-      k('', 'key', 'Licence keys', c.total, `${c.unused} not used yet`),
-      k('ok', 'check', 'Active keys', c.active, `${c.total ? Math.round((c.active / c.total) * 100) : 0}% of all keys`),
       k('', 'user', 'Users', c.users, `${c.computers} computer${c.computers === 1 ? '' : 's'} activated`),
+      k('ok', 'bolt', 'New users this week', c.newUsers7, `${c.newUsers1} in the last 24 h`),
+      k('ok', 'check', 'Active licences', c.active, `of ${c.total} licence${c.total === 1 ? '' : 's'}`),
       k('ok', 'pc', 'Online this week', c.online7, `${c.online1} in the last 24 h`),
-      k(c.revoked + c.expired ? 'bad' : '', 'off', 'Switched off / expired', c.revoked + c.expired, `${c.revoked} off · ${c.expired} expired`),
+      k(c.revoked + c.blocked + c.expired ? 'warn' : '', 'pause', 'Paused / blocked', c.revoked + c.blocked, `${c.revoked} paused · ${c.blocked} blocked${c.expired ? ` · ${c.expired} expired` : ''}`),
     ].join('');
+    $('#newest').innerHTML = r.newest?.length ? r.newest.map((u) => `<li data-email="${esc(u.email)}">${avatar(u)}<div class="who"><b>${esc(u.name || u.email)}</b><small>${esc(u.email)}</small></div>${badge(u.status)}<small class="muted">${ago(u.createdAt)}</small></li>`).join('')
+      : '<li class="empty" style="justify-content:center">No users yet.</li>';
     drawChart(r.series);
     const b = Object.entries(r.browsers || {}); const max = Math.max(1, ...b.map(([, n]) => n));
     $('#browsers').innerHTML = b.length ? `<div class="bars-h">${b.map(([name, n]) => `<div><b>${esc(name)}</b><em style="width:${Math.max(6, (n / max) * 100)}%"></em><span>${n}</span></div>`).join('')}</div>`
@@ -241,8 +273,10 @@
     const q = $('#key-search').value.trim().toLowerCase();
     const rows = state.licences.filter((l) => (state.filter === 'all' || l.status === state.filter)
       && (!q || [l.key, l.name, l.email, l.note, ...l.devices.map((d) => `${d.userName} ${d.userEmail}`)].join(' ').toLowerCase().includes(q)));
-    $('#key-table tbody').innerHTML = rows.map((l) => `<tr data-key="${esc(l.key)}">
-      <td>${copyBtn(l.key)}</td>
+    state.keyRows = rows;
+    $('#key-table tbody').innerHTML = rows.map((l) => `<tr data-key="${esc(l.key)}" class="${state.selKeys.has(l.key) ? 'sel' : ''}">
+      <td class="ck"><input type="checkbox" aria-label="Select ${esc(l.key)}" data-sel="${esc(l.key)}" ${state.selKeys.has(l.key) ? 'checked' : ''}></td>
+      <td>${copyBtn(l.key)}${l.auto ? ' <span class="tag">auto</span>' : ''}</td>
       <td class="who"><b>${esc(l.name || '–')}</b><small>${esc(l.email || l.note || '')}</small></td>
       <td>${badge(l.status)}</td>
       <td><div class="meter"><em><i style="width:${Math.min(100, (l.deviceCount / l.maxDevices) * 100)}%"></i></em>${l.deviceCount} / ${l.maxDevices}</div></td>
@@ -252,8 +286,44 @@
     $('#key-empty').hidden = rows.length > 0;
     if (!state.licences.length) $('#key-empty').innerHTML = 'No licence keys yet. Press <b>Add buyer</b> to add one.';
     else if (!rows.length) $('#key-empty').textContent = 'No keys match this search.';
+    $('#key-all').checked = rows.length > 0 && rows.every((l) => state.selKeys.has(l.key));
+    drawBulk('key');
   }
   $('#key-search').addEventListener('input', drawKeys);
+  $('#key-all').addEventListener('change', (e) => { (state.keyRows || []).forEach((l) => (e.target.checked ? state.selKeys.add(l.key) : state.selKeys.delete(l.key))); drawKeys(); });
+  $('#key-table').addEventListener('change', (e) => { const k = e.target.dataset?.sel; if (!k) return; e.target.checked ? state.selKeys.add(k) : state.selKeys.delete(k); e.target.closest('tr').classList.toggle('sel', e.target.checked); $('#key-all').checked = (state.keyRows || []).every((l) => state.selKeys.has(l.key)); drawBulk('key'); });
+
+  // ---------- bulk actions (users and keys) ----------
+  const BULK = {
+    pause: ['Pause', 'pause', 'They stop working at the next check (within 12 hours online). You can resume them any time.'],
+    resume: ['Resume', 'play', ''],
+    release: ['Release computers', 'pc', 'Every computer on them has to activate again.'],
+    delete: ['Delete', 'trash', 'They stop working and cannot be restored. Pausing is usually better.'],
+  };
+  function drawBulk(kind) {
+    const set = kind === 'user' ? state.selUsers : state.selKeys, bar = $(`#${kind}-bulk`);
+    bar.hidden = !set.size;
+    $('.bulk-n', bar).textContent = `${set.size} selected`;
+  }
+  async function runBulk(kind, action) {
+    const set = kind === 'user' ? state.selUsers : state.selKeys;
+    const n = set.size, what = kind === 'user' ? `user${n === 1 ? '' : 's'}` : `licence${n === 1 ? '' : 's'}`;
+    const [label, , warn] = BULK[action];
+    if (warn && !(await confirmBox(`${label} ${n} ${what}?`, warn, label, action !== 'resume'))) return;
+    try {
+      const r = await api('bulk', { method: 'POST', body: { action, ...(kind === 'user' ? { emails: [...set] } : { keys: [...set] }) } });
+      toast(`${label}: ${r.done} ${what}`);
+      if (action === 'delete') set.clear();
+      kind === 'user' ? renderUsers() : renderKeys();
+    } catch (err) { toast(err.message, true); }
+  }
+  for (const kind of ['user', 'key']) {
+    $(`#${kind}-bulk`).addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.clear != null) { (kind === 'user' ? state.selUsers : state.selKeys).clear(); kind === 'user' ? drawUsers() : drawKeys(); return; }
+      if (b.dataset.bulk) runBulk(kind, b.dataset.bulk);
+    });
+  }
   $('#key-filter').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     state.filter = b.dataset.f; $$('#key-filter button').forEach((x) => x.classList.toggle('on', x === b)); drawKeys();
@@ -326,6 +396,7 @@
   $('#scrim').addEventListener('click', closeDrawer);
   async function openDrawer(key) {
     $('#drawer').hidden = false; $('#scrim').hidden = false;
+    $('#d-kind').textContent = 'Licence key'; $('#d-key').className = 'mono';
     $('#d-key').textContent = key;
     $('#d-body').innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
     let r; try { r = await api(`licences/${encodeURIComponent(key)}`); } catch (e) { $('#d-body').innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
@@ -348,7 +419,7 @@
       <section><h3>Details</h3><dl class="kv"><dt>Created</dt><dd>${fmtDateTime(l.createdAt)}</dd><dt>First activated</dt><dd>${fmtDateTime(l.activatedAt)}</dd><dt>Expires</dt><dd>${l.expiresAt ? fmtDate(l.expiresAt) : 'Never (lifetime)'}</dd><dt>Last seen</dt><dd>${l.lastSeen ? ago(l.lastSeen) : '–'}</dd></dl></section>
       <section><h3>History</h3><ul class="feed">${r.events.length ? r.events.map(feedItem).join('') : '<li class="muted">No events.</li>'}</ul></section>
       <section class="actions">
-        ${l.revoked ? '<button class="btn" data-act="restore">Switch back on</button>' : '<button class="btn danger" data-act="revoke">Switch off key</button>'}
+        ${l.revoked ? '<button class="btn" data-act="restore">Resume key</button>' : '<button class="btn danger" data-act="revoke">Pause key</button>'}
         ${l.devices.length ? '<button class="btn" data-act="release-all">Release all computers</button>' : ''}
         <button class="btn danger ghost" data-act="delete">Delete key</button>
       </section>`;
@@ -367,14 +438,14 @@
     $$('[data-act]', $('#d-body')).forEach((b) => b.addEventListener('click', async () => {
       const act = b.dataset.act;
       const ask = {
-        revoke: ['Switch off this key?', `Lead Agent stops working for this buyer within ${state.settings.passDays || 7} days (within 12 hours on computers that are online). You can switch it back on later.`, 'Switch off', true],
+        revoke: ['Pause this key?', `Lead Agent stops working for this buyer within ${state.settings.passDays || 7} days (within 12 hours on computers that are online). You can resume it any time.`, 'Pause', true],
         'release-all': ['Release all computers?', 'Every computer using this key has to enter it again.', 'Release all', true],
-        delete: ['Delete this key for good?', 'The key stops working and cannot be restored. Switching it off is usually better.', 'Delete', true],
+        delete: ['Delete this key for good?', 'The key stops working and cannot be restored. Pausing is usually better.', 'Delete', true],
       }[act];
       if (ask && !(await confirmBox(...ask))) return;
       try {
         await api(`licences/${encodeURIComponent(key)}/${act}`, { method: 'POST', body: {} });
-        toast({ revoke: 'Key switched off', restore: 'Key switched back on', 'release-all': 'All computers released', delete: 'Key deleted' }[act]);
+        toast({ revoke: 'Key paused', restore: 'Key resumed', 'release-all': 'All computers released', delete: 'Key deleted' }[act]);
         if (act === 'delete') { closeDrawer(); renderKeys(); } else refreshAfter(key);
       } catch (err) { toast(err.message, true); }
     }));
@@ -383,16 +454,176 @@
 
   // ---------- users ----------
   async function renderUsers() { const r = await api('users'); state.users = r.users; drawUsers(); }
+  const USORT = {
+    recent: (a, b) => Math.max(b.lastSeen, b.createdAt) - Math.max(a.lastSeen, a.createdAt),
+    newest: (a, b) => b.createdAt - a.createdAt,
+    name: (a, b) => (a.name || a.email).localeCompare(b.name || b.email),
+    computers: (a, b) => b.computers - a.computers,
+  };
   function drawUsers() {
     const q = $('#user-search').value.trim().toLowerCase();
-    const rows = state.users.filter((u) => !q || [u.userName, u.userEmail, u.key, u.computer, u.buyer, u.buyerEmail].join(' ').toLowerCase().includes(q));
-    $('#user-table tbody').innerHTML = rows.map((u) => `<tr data-key="${esc(u.key)}">
-      <td class="who"><b>${esc(u.userName || '–')}</b><small>${esc(u.userEmail)}</small></td>
-      <td>${copyBtn(u.key)}</td><td>${esc(u.computer)}</td><td>${fmtDate(u.firstSeen)}</td><td>${ago(u.lastSeen)}</td><td>${badge(u.status)}</td></tr>`).join('');
+    const f = state.userFilter;
+    const rows = state.users.filter((u) => (f === 'all' || (f === 'auto' ? u.auto : f === 'manual' ? !u.auto : u.status === f))
+      && (!q || [u.name, u.email, u.note, ...u.keys, ...u.browsers].join(' ').toLowerCase().includes(q))).sort(USORT[state.userSort]);
+    state.userRows = rows;
+    const counts = state.users.reduce((a, u) => { a.all++; a[u.status] = (a[u.status] || 0) + 1; a[u.auto ? 'auto' : 'manual']++; return a; }, { all: 0, auto: 0, manual: 0 });
+    $$('#user-filter button').forEach((b) => { b.querySelector('em').textContent = counts[b.dataset.f] || 0; });
+    $('#user-table tbody').innerHTML = rows.map((u) => `<tr data-email="${esc(u.email)}" class="${state.selUsers.has(u.email) ? 'sel' : ''}">
+      <td class="ck"><input type="checkbox" aria-label="Select ${esc(u.email)}" data-sel="${esc(u.email)}" ${state.selUsers.has(u.email) ? 'checked' : ''}></td>
+      <td><div class="person">${avatar(u)}<div class="who"><b>${esc(u.name || '–')}</b><small>${esc(u.email)}</small></div></div></td>
+      <td>${badge(u.status)}${u.auto ? ' <span class="tag" title="Licence created automatically when they activated">auto</span>' : ''}</td>
+      <td><div class="meter"><em><i style="width:${u.maxComputers ? Math.min(100, (u.computers / u.maxComputers) * 100) : 0}%"></i></em>${u.computers} / ${u.maxComputers}</div><small class="muted">${esc(u.browsers.join(', '))}</small></td>
+      <td>${fmtDate(u.createdAt)}</td>
+      <td>${u.lastSeen ? ago(u.lastSeen) : '<span class="muted">–</span>'}</td>
+      <td class="row-acts">
+        ${u.status === 'revoked' ? `<button class="icon-btn" title="Resume" data-uact="resume">${ICON.play}</button>` : u.status === 'blocked' ? '' : `<button class="icon-btn" title="Pause" data-uact="pause">${ICON.pause}</button>`}
+        <button class="icon-btn" title="More" aria-label="More actions" data-umenu>${ICON.more}</button>
+      </td></tr>`).join('');
     $('#user-empty').hidden = rows.length > 0;
+    if (state.users.length && !rows.length) $('#user-empty').textContent = 'No users match this search.';
+    $('#user-all').checked = rows.length > 0 && rows.every((u) => state.selUsers.has(u.email));
+    drawBulk('user');
   }
   $('#user-search').addEventListener('input', drawUsers);
-  $('#user-table').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr && !e.target.closest('[data-copy]')) openDrawer(tr.dataset.key); });
+  $('#user-sort').addEventListener('change', (e) => { state.userSort = e.target.value; drawUsers(); });
+  $('#user-filter').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.userFilter = b.dataset.f; $$('#user-filter button').forEach((x) => x.classList.toggle('on', x === b)); drawUsers();
+  });
+  $('#user-all').addEventListener('change', (e) => { (state.userRows || []).forEach((u) => (e.target.checked ? state.selUsers.add(u.email) : state.selUsers.delete(u.email))); drawUsers(); });
+  $('#user-table').addEventListener('change', (e) => {
+    const k = e.target.dataset?.sel; if (!k) return;
+    e.target.checked ? state.selUsers.add(k) : state.selUsers.delete(k);
+    e.target.closest('tr').classList.toggle('sel', e.target.checked);
+    $('#user-all').checked = (state.userRows || []).every((u) => state.selUsers.has(u.email));
+    drawBulk('user');
+  });
+  $('#user-table').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-email]'); if (!tr) return;
+    const email = tr.dataset.email;
+    if (e.target.closest('.ck') || e.target.closest('[data-copy]')) return;
+    const act = e.target.closest('[data-uact]'); if (act) { userAction(email, act.dataset.uact); return; }
+    const menu = e.target.closest('[data-umenu]'); if (menu) { e.stopPropagation(); openMenu(menu, email); return; }
+    openUser(email);
+  });
+  $('#newest').addEventListener('click', (e) => { const li = e.target.closest('li[data-email]'); if (li) openUser(li.dataset.email); });
+
+  // Row menu ("More")
+  function openMenu(btn, email) {
+    closeMenu();
+    const u = state.users.find((x) => x.email === email) || {};
+    const m = document.createElement('div');
+    m.className = 'rmenu'; m.id = 'row-menu'; m.setAttribute('role', 'menu');
+    m.innerHTML = `<button data-m="open">${ICON.user}Open profile</button>
+      <button data-m="copy">${ICON.copy}Copy email</button>
+      ${u.status === 'revoked' ? `<button data-m="resume">${ICON.play}Resume</button>` : u.status !== 'blocked' ? `<button data-m="pause">${ICON.pause}Pause</button>` : ''}
+      ${u.computers ? `<button data-m="release">${ICON.pc}Release computers</button>` : ''}
+      <hr>
+      ${u.status === 'blocked' ? `<button data-m="unblock">${ICON.check}Unblock email</button>` : `<button data-m="block" class="danger">${ICON.ban}Block email</button>`}
+      <button data-m="delete" class="danger">${ICON.trash}Delete user</button>`;
+    document.body.append(m);
+    const r = btn.getBoundingClientRect();
+    m.style.top = `${Math.max(8, Math.min(window.innerHeight - m.offsetHeight - 8, r.bottom + 4))}px`;
+    m.style.left = `${Math.max(8, r.right - m.offsetWidth)}px`;
+    m.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const b = e.target.closest('button'); if (!b) return;
+      closeMenu();
+      if (b.dataset.m === 'open') openUser(email);
+      else if (b.dataset.m === 'copy') copy(email, 'Email copied');
+      else userAction(email, b.dataset.m);
+    });
+    setTimeout(() => document.addEventListener('click', closeMenu, { once: true }), 0);
+  }
+  function closeMenu() { $('#row-menu')?.remove(); }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+  const UACT = {
+    pause: ['Pause this user?', 'Lead Agent stops working on their computers at the next check (within 12 hours when online). Resume any time.', 'Pause', true, 'User paused'],
+    resume: [null, null, null, false, 'User resumed'],
+    release: ['Release all their computers?', 'They have to activate again on each computer. Useful when someone changed computers.', 'Release', true, 'Computers released'],
+    block: ['Block this email?', 'Their licence is paused, and this email can never activate or get a new licence again until you unblock it.', 'Block', true, 'Email blocked'],
+    unblock: ['Unblock this email?', 'They can activate again and their licence is resumed.', 'Unblock', false, 'Email unblocked'],
+    delete: ['Delete this user for good?', 'Their licence is removed and Lead Agent stops working for them. With automatic licences on they could sign up again with the same email; block the email instead to keep them out.', 'Delete', true, 'User deleted'],
+  };
+  async function userAction(email, act) {
+    const [t, text, ok, danger, done] = UACT[act];
+    if (t && !(await confirmBox(t, `${email}: ${text}`, ok, danger))) return false;
+    try {
+      await api(`users/${encodeURIComponent(email)}/${act}`, { method: 'POST', body: {} });
+      toast(done);
+      if (act === 'delete') { state.selUsers.delete(email); if (!$('#drawer').hidden) closeDrawer(); }
+      else if (!$('#drawer').hidden && $('#drawer').dataset.email === email) openUser(email);
+      if (state.view === 'users') renderUsers(); else if (state.view === 'dashboard') renderDashboard();
+      return true;
+    } catch (err) { toast(err.message, true); return false; }
+  }
+
+  // User profile (drawer)
+  async function openUser(email) {
+    $('#drawer').hidden = false; $('#scrim').hidden = false; $('#drawer').dataset.email = email;
+    $('#d-kind').textContent = 'User'; $('#d-key').className = ''; $('#d-key').textContent = email;
+    $('#d-body').innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
+    let r; try { r = await api(`users/${encodeURIComponent(email)}`); } catch (e) { $('#d-body').innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
+    const u = r.user, lic = r.licences;
+    $('#d-key').textContent = u.name || u.email;
+    $('#d-body').innerHTML = `
+      <div class="profile">${avatar(u, true)}<div class="min0"><h3 style="margin:0 0 4px">${esc(u.name || '–')}</h3><button class="copy" data-copy="${esc(u.email)}" data-copy-label="Email copied">${ICON.mail}${esc(u.email)}</button>
+        <div class="actions" style="margin-top:8px">${badge(u.status)}<span class="tag">${u.auto ? 'Signed up automatically' : 'Added by you'}</span></div></div></div>
+      <div class="stats">
+        <div><b>${u.computers}/${u.maxComputers}</b><small>Computers</small></div>
+        <div><b>${lic.length}</b><small>Licence${lic.length === 1 ? '' : 's'}</small></div>
+        <div><b>${fmtDate(u.createdAt)}</b><small>Signed up</small></div>
+        <div><b>${u.lastSeen ? ago(u.lastSeen) : '–'}</b><small>Last seen</small></div>
+      </div>
+      <section class="actions">
+        ${u.status === 'revoked' ? `<button class="btn" data-u="resume">${ICON.play}Resume</button>` : u.status !== 'blocked' ? `<button class="btn" data-u="pause">${ICON.pause}Pause</button>` : ''}
+        ${u.computers ? `<button class="btn" data-u="release">${ICON.pc}Release computers</button>` : ''}
+        ${r.blocked ? `<button class="btn" data-u="unblock">${ICON.check}Unblock</button>` : `<button class="btn danger" data-u="block">${ICON.ban}Block email</button>`}
+        <button class="btn danger ghost" data-u="delete">${ICON.trash}Delete</button>
+      </section>
+      <section><h3>Profile</h3>
+        <form id="u-edit" class="form-grid" style="grid-template-columns:1fr 1fr">
+          <label>Name<input name="name" value="${esc(u.name)}"></label>
+          <label>Computers allowed<input name="maxDevices" type="number" min="1" max="50" value="${lic[0]?.maxDevices || 2}"></label>
+          <label class="full">Private note<input name="note" value="${esc(u.note)}" placeholder="e.g. paid via PayPal, order #1042"></label>
+          <div class="full"><button class="btn small" type="submit">Save</button></div>
+        </form></section>
+      <section><h3>Licence${lic.length === 1 ? '' : 's'} and computers</h3>
+        ${lic.map((l) => `<div class="lic"><div class="lic-head">${copyBtn(l.key)}${badge(l.status)}<button class="btn small ghost" data-openkey="${esc(l.key)}">Open key</button></div>
+          ${l.devices.length ? l.devices.map((d) => `<div class="dev"><span class="dot" style="width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--pri-soft);color:var(--pri)">${ICON.pc}</span>
+            <div><b>${esc(d.label)}</b><small>${esc(d.userName || '')} · activated ${fmtDate(d.firstSeen)} · seen ${ago(d.lastSeen)}</small></div>
+            <button class="btn small danger" data-release="${esc(d.id)}" data-key="${esc(l.key)}">Release</button></div>`).join('') : '<p class="muted small" style="margin:6px 0 0">Not activated on a computer yet.</p>'}</div>`).join('')}
+      </section>
+      <section><h3>History</h3><ul class="feed">${r.events.length ? r.events.map(feedItem).join('') : '<li class="muted">No events.</li>'}</ul></section>`;
+    $$('[data-u]', $('#d-body')).forEach((b) => b.addEventListener('click', () => userAction(email, b.dataset.u)));
+    $$('[data-openkey]', $('#d-body')).forEach((b) => b.addEventListener('click', () => openDrawer(b.dataset.openkey)));
+    $$('[data-release]', $('#d-body')).forEach((b) => b.addEventListener('click', async () => {
+      if (!(await confirmBox('Release this computer?', 'Lead Agent stops working on it until they activate again there.', 'Release'))) return;
+      try { await api(`licences/${encodeURIComponent(b.dataset.key)}/release`, { method: 'POST', body: { device: b.dataset.release } }); toast('Computer released'); openUser(email); if (state.view === 'users') renderUsers(); } catch (err) { toast(err.message, true); }
+    }));
+    $('#u-edit').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      try { await api(`users/${encodeURIComponent(email)}/edit`, { method: 'POST', body: { name: f.get('name'), note: f.get('note'), maxDevices: Number(f.get('maxDevices')) } }); toast('Saved'); openUser(email); if (state.view === 'users') renderUsers(); } catch (err) { toast(err.message, true); }
+    });
+  }
+
+  // ---------- block list (Settings) ----------
+  async function renderBlocked() {
+    const r = await api('blocked');
+    $('#block-list').innerHTML = r.blocked.length ? r.blocked.map((b) => `<li><span class="mono">${esc(b.entry.startsWith('@') ? `*${b.entry}` : b.entry)}</span><small class="muted">${b.entry.startsWith('@') ? 'whole domain' : 'email'} · ${fmtDate(b.at)}</small><button class="btn small ghost" data-unblock="${esc(b.entry)}">Remove</button></li>`).join('')
+      : '<li class="muted">Nothing blocked.</li>';
+  }
+  $('#block-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const v = e.target.elements.entry.value.trim(); if (!v) return;
+    try { const r = await api('blocked', { method: 'POST', body: { add: v } }); e.target.reset(); toast(`${r.entry} blocked${r.paused ? `, ${r.paused} licence${r.paused > 1 ? 's' : ''} paused` : ''}`); renderBlocked(); } catch (err) { toast(err.message, true); }
+  });
+  $('#block-list').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-unblock]'); if (!b) return;
+    try { await api('blocked', { method: 'POST', body: { remove: b.dataset.unblock } }); toast('Removed from the block list. Paused licences stay paused until you resume them.'); renderBlocked(); } catch (err) { toast(err.message, true); }
+  });
 
   // ---------- activity ----------
   async function renderActivity() {
@@ -405,6 +636,7 @@
     await loadSettings();
     const f = $('#settings-form'), st = state.settings;
     for (const [k, v] of Object.entries(st)) { const el = f.elements[k]; if (!el) continue; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; }
+    renderBlocked().catch(() => {});
     $('#pubkey').textContent = state.publicKey ? JSON.stringify(state.publicKey) : 'Not created yet.';
     $('#server-info').textContent = `PHP ${state.serverInfo.php} · data saved privately outside the website folder`;
   }
