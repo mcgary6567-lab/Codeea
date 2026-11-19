@@ -1,0 +1,20 @@
+# Lead Agent licence server
+RewriteEngine On
+RewriteRule ^private-data(/|$) - [F,L]
+RewriteRule ^api/(.*)$ api.php?route=$1 [QSA,L]
+
+DirectoryIndex index.html
+Options -Indexes
+
+<IfModule mod_headers.c>
+  Header always set X-Frame-Options "DENY"
+  Header always set X-Robots-Tag "noindex, nofollow"
+  <FilesMatch "\.(html|php)$">
+    Header set Cache-Control "no-store"
+  </FilesMatch>
+</IfModule>
+
+# Nothing private lives in this folder, but never serve data-like files from it
+<FilesMatch "\.(json|log|pem|txt)$">
+  Require all denied
+</FilesMatch>
