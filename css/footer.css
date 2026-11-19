@@ -10,7 +10,15 @@
 .ft-contact a { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--gray-300); font-size: 0.85rem; font-weight: 600; transition: background 0.2s, color 0.2s, transform 0.2s; }
 .ft-contact a:hover { background: var(--gradient-primary); border-color: transparent; color: #fff; transform: translateY(-2px); }
 .ft-contact svg { width: 16px; height: 16px; flex: none; }
-.ft-contact a.ft-icon { width: 36px; height: 36px; padding: 0; justify-content: center; }
+/* Two matching pills: email + Facebook. The Facebook pill carries the Facebook blue icon and fills blue on hover. */
+.ft-contact { display: grid; grid-template-columns: max-content; }   /* stacked, both pills as wide as the wider one */
+.ft-contact a { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.ft-contact a.ft-fb svg { color: #4C9BFF; transition: color 0.2s; }
+.ft-contact a.ft-fb:hover, .ft-contact a.ft-fb:focus-visible { background: #1877F2; border-color: #1877F2; color: #fff; box-shadow: 0 10px 22px -10px #1877F2; }
+.ft-contact a.ft-fb:hover svg, .ft-contact a.ft-fb:focus-visible svg { color: #fff; }
+.ft .ft-contact a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 999px; }
+.ft-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .ft-contact a, .ft-contact svg { transition: none; } .ft-contact a:hover { transform: none; } }
 .ft-col .ft-h { margin: 0 0 1rem; color: #fff; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .ft-col ul { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
 .ft-col a { color: var(--gray-400); font-size: 0.93rem; transition: color 0.2s; }
@@ -43,6 +51,5 @@
   .ft-col a, .ft-legal a, .ft-top-btn { display: inline-flex; align-items: center; min-height: 44px; }
   .ft-legal { gap: 0 1.25rem; }
   .ft-contact a { min-height: 44px; }
-  .ft-contact a.ft-icon { width: 44px; height: 44px; }
   .ft-brand .logo { min-height: 44px; }
 }
