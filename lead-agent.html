@@ -104,6 +104,53 @@
 .la-watch-ic::after{animation-delay:1.3s}
 @keyframes laPulse{0%{transform:scale(1);opacity:.85}100%{transform:scale(1.6);opacity:0}}
 @media (max-width:640px){.la-watch{padding-top:.7rem!important;padding-bottom:.7rem!important}.la-watch-ic{width:36px;height:36px}}
+/* Pricing (lx-buy) */
+.lx-buy-sec{background:radial-gradient(60% 50% at 85% 20%,rgba(124,58,237,.10),transparent 70%),radial-gradient(50% 40% at 10% 90%,rgba(249,115,22,.08),transparent 70%),var(--gray-50)}
+.lx-buy{grid-template-columns:1fr 470px;gap:4rem}
+.lx-buy .la-buy-copy h2{font-size:clamp(1.9rem,3.6vw,2.8rem);line-height:1.1}
+.lx-perks{list-style:none;margin:1.8rem 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.lx-perks li{display:grid;grid-template-columns:auto 1fr;column-gap:.75rem;align-items:center;padding:.85rem .95rem;border-radius:16px;background:#fff;border:1px solid var(--gray-200)}
+.lx-perks b{font-size:.95rem;color:var(--dark)}
+.lx-perks small{grid-column:2;font-size:.8rem;line-height:1.4;color:var(--gray-500)}
+.lx-perk-ic{grid-row:1/3;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#eef2ff;color:#4f46e5}
+.lx-perk-ic .i{width:20px;height:20px}
+.lx-stack{margin-top:1.5rem;padding:1.1rem 1.2rem;border-radius:18px;border:1px dashed #c7d2fe;background:rgba(255,255,255,.6)}
+.lx-stack-h{margin:0 0 .65rem;font-size:.82rem;font-weight:700;color:var(--gray-500)}
+.lx-stack ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.4rem}
+.lx-stack li{padding:.32rem .7rem;border-radius:999px;background:#fff;border:1px solid var(--gray-200);font-size:.82rem;font-weight:600;color:var(--gray-500);text-decoration:line-through;text-decoration-color:#f87171;text-decoration-thickness:2px}
+.lx-stack-one{display:flex;align-items:center;gap:.45rem;margin:.8rem 0 0;font-size:.92rem;font-weight:700;color:#047857}
+.lx-stack-one .i{width:18px;height:18px;stroke-width:2.8}
+.lx-card-price.pricing-card.featured{position:relative;padding:2.1rem 1.9rem 1.6rem;border:2px solid transparent;border-radius:28px;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(140deg,#6366f1,#a855f7 45%,#ec4899 75%,#f97316) border-box;box-shadow:0 40px 80px -40px rgba(79,70,229,.55),0 0 0 8px rgba(124,58,237,.06)}
+.lx-card-price.pricing-card.featured:hover{transform:translateY(-4px)}
+.lx-ribbon{position:absolute;top:-15px;left:1.9rem;padding:.38rem .95rem;border-radius:999px;background:var(--gradient-primary);color:#fff;font-size:.74rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 10px 20px -10px rgba(124,58,237,.8)}
+.lx-p-name{margin:0;font:800 1.35rem/1.2 var(--font-display);color:var(--dark)}
+.lx-p-name span{display:block;margin-top:.15rem;font:600 .82rem var(--font-sans);color:var(--gray-500)}
+.lx-p-price{display:flex;align-items:center;gap:.8rem;margin:1rem 0 .3rem}
+.lx-p-price b{font:800 3.6rem/1 var(--font-display);letter-spacing:-.04em;background:linear-gradient(120deg,#4f46e5,#9333ea);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lx-p-price span{font-size:.82rem;line-height:1.3;font-weight:600;color:var(--gray-500)}
+.lx-p-sub{margin:0 0 1.2rem;font-size:.9rem;color:var(--gray-600)}
+.lx-p-groups{display:grid;gap:.9rem;padding-top:1.1rem;border-top:1px solid var(--gray-200)}
+.lx-p-group h4{margin:0 0 .45rem;font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#7c3aed}
+.lx-p-group ul{list-style:none;margin:0;padding:0;display:grid;gap:.4rem}
+.lx-p-group li{display:flex;gap:.55rem;align-items:flex-start;font-size:.9rem;line-height:1.45;color:var(--gray-700)}
+.lx-p-group .i{flex:none;width:17px;height:17px;margin-top:.15rem;color:var(--success);stroke-width:2.8}
+.lx-p-btn{position:relative;overflow:hidden;margin-top:1.4rem;width:100%;justify-content:center;box-shadow:0 18px 34px -14px rgba(249,115,22,.65)}
+.lx-p-btn::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-18deg);animation:lxShine 4.5s ease-in-out 1.5s infinite}
+@keyframes lxShine{0%{left:-60%}22%,100%{left:130%}}
+.lx-p-trust{list-style:none;margin:.9rem 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:.35rem 1rem;font-size:.78rem;font-weight:600;color:var(--gray-500)}
+.lx-p-trust li{display:inline-flex;align-items:center;gap:.3rem}
+.lx-p-trust .i{width:14px;height:14px;color:var(--gray-400)}
+.lx-card-price .la-guarantee{margin-top:1rem}
+@media (max-width:980px){
+  .lx-buy{grid-template-columns:1fr;gap:2.5rem}
+  .lx-buy .lx-card-price{max-width:500px;width:100%;margin:0 auto}
+}
+@media (max-width:560px){
+  .lx-perks{grid-template-columns:1fr}
+  .lx-card-price.pricing-card.featured{padding:1.8rem 1.2rem 1.3rem}
+  .lx-p-price b{font-size:3rem}
+}
+@media (prefers-reduced-motion:reduce){.lx-p-btn::after{animation:none;display:none}}
 /* Active leads + AI sections (lx-) */
 .lx-a-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:3.5rem;align-items:center}
 .lx-a-copy h2{margin:.9rem 0 1rem}
@@ -606,36 +653,68 @@
 </section>
 
 <!-- Pricing -->
-<section class="section la-tight la-alt" id="buy">
+<section class="section la-tight la-alt lx-buy-sec" id="buy" aria-labelledby="lx-buy-h">
   <div class="container">
-    <div class="la-buy reveal">
+    <div class="la-buy lx-buy reveal">
       <div class="la-buy-copy">
         <span class="badge la-badge">Pricing</span>
-        <h2>One price. Every feature. Forever.</h2>
+        <h2 id="lx-buy-h">One price. Every feature. Forever.</h2>
         <p>No plans, no monthly fee, no limit on searches or leads. Download it straight after payment and activate it with the email you paid with. Covered by a 14-day money-back guarantee.</p>
-        <ul class="la-buy-points">
-          <li><span class="la-ic"><svg class="i"><use href="#i-infinity"/></svg></span><div><b>Lifetime access</b><small>Pay once, use it as long as you like</small></div></li>
-          <li><span class="la-ic"><svg class="i"><use href="#i-monitor"/></svg></span><div><b>2 computers</b><small>Move it any time with one click</small></div></li>
-          <li><span class="la-ic"><svg class="i"><use href="#i-globe"/></svg></span><div><b>6 browsers</b><small>Chrome, Edge, Brave, Opera, Vivaldi, Firefox</small></div></li>
-          <li><span class="la-ic"><svg class="i"><use href="#i-key"/></svg></span><div><b>Instant setup</b><small>Install, enter your email, start</small></div></li>
+        <ul class="lx-perks">
+          <li><span class="lx-perk-ic"><svg class="i" aria-hidden="true"><use href="#i-infinity"/></svg></span><b>Lifetime access</b><small>Pay once, use it as long as you like</small></li>
+          <li><span class="lx-perk-ic"><svg class="i" aria-hidden="true"><use href="#i-monitor"/></svg></span><b>2 computers</b><small>Move it any time with one click</small></li>
+          <li><span class="lx-perk-ic"><svg class="i" aria-hidden="true"><use href="#i-globe"/></svg></span><b>6 browsers</b><small>Chrome, Edge, Brave, Opera, Vivaldi, Firefox</small></li>
+          <li><span class="lx-perk-ic"><svg class="i" aria-hidden="true"><use href="#i-key"/></svg></span><b>Instant setup</b><small>Install, enter your email, start</small></li>
         </ul>
+        <div class="lx-stack" aria-label="Tools Lead Agent replaces">
+          <p class="lx-stack-h">Replaces your lead tool stack</p>
+          <ul>
+            <li>Google Maps scraper</li>
+            <li>LinkedIn extractor</li>
+            <li>Email finder</li>
+            <li>Phone checker</li>
+            <li>Cold email tool</li>
+          </ul>
+          <p class="lx-stack-one"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> One extension. One payment. No monthly bills.</p>
+        </div>
       </div>
-      <article class="pricing-card featured la-card">
-        <span class="ribbon">Lifetime deal</span>
-        <div class="name">Lead Agent</div>
-        <div class="price">$299<small>one-time</small></div>
-        <ul class="features">
-          <li><svg class="i"><use href="#i-check"/></svg> Google Maps, LinkedIn, Yelp, YellowPages, any directory</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Email finder, website audit, activity score</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Live phone check: active numbers only</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Cold email from your own account: no API, no paid email tool</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Follow-ups and reply sorting</li>
-          <li><svg class="i"><use href="#i-check"/></svg> AI comment assistant for LinkedIn, X, Facebook, Reddit</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Autopilot: daily searches, sending and summaries</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Exports, CRM push, CSV import</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Windows, Mac and Linux</li>
+      <article class="pricing-card featured la-card lx-card-price">
+        <span class="lx-ribbon">Lifetime deal</span>
+        <h3 class="lx-p-name">Lead Agent <span>lifetime licence</span></h3>
+        <div class="lx-p-price"><b>$299</b><span>one-time<br>no subscription</span></div>
+        <p class="lx-p-sub">Pay once. Own it forever. Every feature included.</p>
+        <div class="lx-p-groups">
+          <div class="lx-p-group">
+            <h4>Find</h4>
+            <ul>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Google Maps, LinkedIn, Yelp, YellowPages, any directory</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Email finder, website audit, activity score</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Live phone check: active numbers only</li>
+            </ul>
+          </div>
+          <div class="lx-p-group">
+            <h4>Reach</h4>
+            <ul>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Cold email from your own account: no API, no paid email tool</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Follow-ups and reply sorting</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> AI comment assistant for LinkedIn, X, Facebook, Reddit</li>
+            </ul>
+          </div>
+          <div class="lx-p-group">
+            <h4>Automate</h4>
+            <ul>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Autopilot: daily searches, sending and summaries</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Exports, CRM push, CSV import</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Windows, Mac and Linux</li>
+            </ul>
+          </div>
+        </div>
+        <a href="https://goldempire.gumroad.com/l/lead-agent?wanted=true" rel="noopener" class="btn btn-accent btn-lg js-buy la-buy-btn lx-p-btn">Get Lead Agent now <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        <ul class="lx-p-trust">
+          <li><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg> Secure Gumroad checkout</li>
+          <li><svg class="i" aria-hidden="true"><use href="#i-download"/></svg> Instant download</li>
+          <li><svg class="i" aria-hidden="true"><use href="#i-mail"/></svg> Activate with your email</li>
         </ul>
-        <a href="https://goldempire.gumroad.com/l/lead-agent?wanted=true" rel="noopener" class="btn btn-accent btn-lg js-buy la-buy-btn">Get Lead Agent now <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
         <p class="la-guarantee"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg><span><b>14-day money-back guarantee.</b> Not right for you? Full refund, no questions asked.</span></p>
         <p class="la-needs-line">Needs a desktop browser left open while it works, and your email account (Gmail, Outlook, Yahoo, Zoho and more) signed in to it.</p>
       </article>
