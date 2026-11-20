@@ -1,7 +1,7 @@
 /* Phone order dock: a slim bar pinned to the bottom of the screen on phones.
    Solo-ads pages: "Choose clicks" opens a sheet with one click-volume selector and one pay button
    that goes straight to that package's Gumroad checkout.
-   Lead Agent page: "Buy now" goes straight to the Lead Agent checkout, and #buy gets the same order panel
+   Lead Agent page: "See pricing" scrolls to #buy (the only checkout button is in #buy), and #buy gets the same order panel
    (no selector, one price) with the full card behind "See every feature".
    Hidden on wider screens, at the top of the page, while a pricing section or the footer is on screen,
    and while the menu is open.
@@ -86,8 +86,8 @@
   var bar = document.createElement('div');
   bar.className = 'od-bar'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Quick order');
   if (isLA) {
-    bar.innerHTML = '<div class="od-txt"><b>Lead Agent for $299</b><span>One payment, lifetime access</span></div>' +
-      '<a class="od-go" href="' + G + 'lead-agent?wanted=true" rel="noopener">Buy now</a>';
+    bar.innerHTML = '<div class="od-txt"><b>Lead Agent</b><span>One payment, lifetime access</span></div>' +
+      '<a class="od-go" href="#buy">See pricing</a>';
   } else {
     bar.innerHTML = '<div class="od-txt"><b>Solo ads from $100</b><span>90% Tier-1 human clicks</span></div>' +
       '<button type="button" class="od-go" aria-haspopup="dialog" aria-controls="od-sheet">Choose clicks</button>';
