@@ -18,10 +18,8 @@
 
 - **Starter** — 300 clicks for $100
 - **Standard** — 600 clicks for $200 (most popular)
-- **Premium** — 1,250 clicks for $300
+- **Premium** — 1,100 clicks for $300
 - **Custom volume** — available on request via contact form
-
-Order online (checkout by Gumroad): Starter https://goldempire.gumroad.com/l/solo-ads-starter · Standard https://goldempire.gumroad.com/l/solo-ads-standard · Premium https://goldempire.gumroad.com/l/solo-ads-premium. Lead Agent: https://goldempire.gumroad.com/l/lead-agent
 
 Every package includes professional swipe copywriting, real-time click tracking, 10% overdelivery, and the risk-free opt-in guarantee.
 
@@ -66,6 +64,7 @@ Lead Agent is a browser extension sold by Ihsan Solo Ads for $299 one-time (life
 ## Articles (educational resources)
 
 - [What Are Solo Ads? The Complete Beginner's Guide](https://ihsansoloads.com/blog/what-are-solo-ads): Definition, mechanics, pricing, who it's for
+- [Are Solo Ads Worth It?](https://ihsansoloads.com/blog/are-solo-ads-worth-it): When solo ads pay off, when they don't, the cost-per-subscriber math and a $100 test plan
 - [How Much Do Solo Ads Cost in 2026?](https://ihsansoloads.com/blog/solo-ads-cost): Real per-click prices, cost per subscriber math, hidden costs, first-test budget
 - [How to Calculate Solo Ad ROI](https://ihsansoloads.com/blog/solo-ad-roi): The five-number formula and worked examples
 - [9 Squeeze Page Tweaks That Doubled Our Opt-In Rate](https://ihsansoloads.com/blog/squeeze-page-conversion): Specific page-level changes proven to convert cold solo traffic
