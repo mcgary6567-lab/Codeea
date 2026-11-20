@@ -94,6 +94,19 @@
 .hero.la-hero .hero-content > .badge{max-width:100%;white-space:normal;text-align:left}
 .la-hero h1 .la-hl{background:linear-gradient(90deg,#fb923c,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-box-decoration-break:clone;padding-bottom:.06em}
 .la-hero-shots .la-shot{backface-visibility:hidden;will-change:transform}
+.la-watch{position:relative;overflow:hidden;isolation:isolate;gap:.7rem;padding-left:.55rem!important;padding-right:1.4rem!important;transition:background .25s,border-color .25s,transform .25s,box-shadow .25s}
+.la-watch:hover,.la-watch:focus-visible{transform:translateY(-2px);border-color:rgba(244,114,182,.55);box-shadow:0 14px 30px -14px rgba(236,72,153,.55)}
+.la-watch::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.22) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s ease}
+.la-watch:hover::after,.la-watch:focus-visible::after{transform:translateX(120%)}
+.la-watch-ic{position:relative;display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#ec4899);box-shadow:0 6px 18px -4px rgba(236,72,153,.7);transition:transform .25s}
+.la-watch-ic svg{width:15px;height:15px;margin-left:2px;color:#fff}
+.la-watch-ic::before,.la-watch-ic::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(244,114,182,.75);animation:laPulse 2.6s cubic-bezier(.2,.6,.3,1) infinite}
+.la-watch-ic::after{animation-delay:1.3s}
+@keyframes laPulse{0%{transform:scale(1);opacity:.85}100%{transform:scale(1.6);opacity:0}}
+@media (max-width:640px){.la-watch{padding-top:.7rem!important;padding-bottom:.7rem!important}.la-watch-ic{width:36px;height:36px}}
+.la-watch:hover .la-watch-ic{transform:scale(1.1)}
+.la-watch small{font-size:.76rem;font-weight:700;letter-spacing:.02em;padding:.18rem .5rem;border-radius:999px;background:rgba(255,255,255,.14);color:rgba(255,255,255,.88);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){.la-watch-ic::before,.la-watch-ic::after{animation:none;opacity:0}.la-watch,.la-watch::after,.la-watch-ic{transition:none}.la-watch:hover{transform:none}}
 @media (max-width:640px){.la-hero .hero-cta .btn{white-space:normal;font-size:1rem;padding-left:1rem;padding-right:1rem;max-width:100%}}
 </style><link rel="stylesheet" href="/css/mobile.css?v=2026111801">
 </head>
@@ -179,7 +192,7 @@
       <p class="lead">Finds active businesses, gets their email and phone, and emails them for you.</p>
       <div class="hero-cta">
         <a href="#buy" class="btn btn-accent btn-lg">Get Lifetime Access <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
-        <a href="#demo" class="btn btn-ghost btn-lg">See it work</a>
+        <a href="#demo-video" class="btn btn-ghost btn-lg la-watch" data-watch aria-label="See it work: play the 1-minute demo"><span class="la-watch-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>See it work<small aria-hidden="true">1:00</small></a>
       </div>
       <ul class="la-hero-points">
         <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> No API · No domain · Active leads only</li>
@@ -232,7 +245,7 @@
       <h2>Watch it find leads and write the emails</h2>
       <p>It's a Google Maps lead finder, LinkedIn and Sales Navigator extractor, email finder, phone checker and email sender, all in one browser extension. You pay once, with no monthly fees, no per-lead credits.</p>
     </div>
-    <div class="la-video" data-video>
+    <div class="la-video" id="demo-video" data-video>
       <div class="la-video-stage">
         <video preload="none" playsinline poster="images/lead-agent/demo-poster.webp?v=2026111902" width="1280" height="720" aria-label="Lead Agent demo: finding dentists in Austin on Google Maps and LinkedIn Sales Navigator, scoring them, writing one email, and drafting a comment">
           <source src="images/lead-agent/lead-agent-demo.webm?v=2026111903" type="video/webm">
@@ -561,6 +574,7 @@
   var v=d.querySelector('video'), go=d.querySelector('.la-video-go'), ch=[].slice.call(d.querySelectorAll('[data-t]'));
   function start(t){ d.classList.add('started'); v.controls=true; if(t!=null){ var seek=function(){ v.currentTime=t; }; if(v.readyState>=1) seek(); else v.addEventListener('loadedmetadata',seek,{once:true}); } if(v.preload==='none'){ v.preload='auto'; v.load(); if(t!=null) v.addEventListener('loadedmetadata',function(){v.currentTime=t;},{once:true}); } var p=v.play(); if(p&&p.catch) p.catch(function(){}); }
   go.addEventListener('click',function(){ start(null); });
+  var w=document.querySelector('[data-watch]'); if(w) w.addEventListener('click',function(){ if(!d.classList.contains('started')) start(null); });
   ch.forEach(function(b){ b.addEventListener('click',function(){ start(+b.dataset.t); }); });
   v.addEventListener('timeupdate',function(){ var cur=null; ch.forEach(function(b){ if(v.currentTime>=+b.dataset.t-.2) cur=b; }); ch.forEach(function(b){ b.setAttribute('aria-current',b===cur?'true':'false'); }); });
   if('IntersectionObserver' in window){ new IntersectionObserver(function(es){ if(!es[0].isIntersecting&&!v.paused) v.pause(); },{threshold:.15}).observe(d); }
