@@ -40,7 +40,7 @@
   "softwareVersion": "2.33.0",
   "operatingSystem": "Windows, macOS, Linux (Chrome, Edge, Brave, Opera, Vivaldi, Firefox 128+)",
   "description": "AI lead generation browser extension that collects active B2B leads from Google Maps, LinkedIn and Sales Navigator, Yelp, YellowPages and custom directories, finds emails and website problems, scores how active each lead is, and sends personal cold email campaigns from the user's own personal or business email account (Gmail, Google Workspace, Outlook, Microsoft 365, Yahoo, AOL, Zoho, Proton, Fastmail) with no API or paid email platform.",
-  "featureList": "Google Maps scraper (21 countries), LinkedIn and Sales Navigator lead capture, Yelp and YellowPages scraper, custom directory scraper, website email finder, decision-maker finder, activity score, website problem audit, cold email campaigns, follow-ups, AI reply sorting, AI first lines, AI comment assistant for LinkedIn, X, Facebook and Reddit, daily autopilot schedule, CSV/XLSX export, CRM push",
+  "featureList": "Google Maps scraper (21 countries), LinkedIn and Sales Navigator lead capture, Yelp and YellowPages scraper, custom directory scraper, website email finder, decision-maker finder, activity score, live phone line check, website problem audit, cold email campaigns, follow-ups, AI reply sorting, AI first lines, AI comment assistant for LinkedIn, X, Facebook and Reddit, daily autopilot schedule, CSV/XLSX export, CRM push",
   "image": "https://ihsansoloads.com/images/lead-agent/leads.jpg",
   "url": "https://ihsansoloads.com/lead-agent",
   "brand": { "@type": "Brand", "name": "Ihsan Solo Ads" },
@@ -104,6 +104,130 @@
 .la-watch-ic::after{animation-delay:1.3s}
 @keyframes laPulse{0%{transform:scale(1);opacity:.85}100%{transform:scale(1.6);opacity:0}}
 @media (max-width:640px){.la-watch{padding-top:.7rem!important;padding-bottom:.7rem!important}.la-watch-ic{width:36px;height:36px}}
+/* Active leads + AI sections (lx-) */
+.lx-a-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:3.5rem;align-items:center}
+.lx-a-copy h2{margin:.9rem 0 1rem}
+.lx-lede{color:var(--gray-600);font-size:1.08rem;line-height:1.7;margin:0 0 1.6rem}
+.lx-signals{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.lx-sig{padding:1rem 1.05rem;border:1px solid var(--gray-200);border-radius:16px;background:#fff;transition:border-color .25s,box-shadow .25s,transform .25s}
+.lx-sig:hover{border-color:#c7d2fe;box-shadow:0 14px 30px -18px rgba(79,70,229,.45);transform:translateY(-2px)}
+.lx-sig h3{font-size:1rem;margin:.65rem 0 .3rem;color:var(--dark)}
+.lx-sig p{margin:0;font-size:.9rem;line-height:1.55;color:var(--gray-600)}
+.lx-sig-ic{display:grid;place-items:center;width:38px;height:38px;border-radius:11px}
+.lx-sig-ic .i{width:19px;height:19px}
+.lx-red{background:#fee2e2;color:#dc2626}.lx-violet{background:#ede9fe;color:#6d28d9}.lx-blue{background:#dbeafe;color:#0a66c2}.lx-green{background:#d1fae5;color:#047857}
+.lx-a-shot{position:relative;margin:0}
+.lx-stage{padding:1.4rem;border-radius:28px;background:radial-gradient(80% 70% at 80% 10%,rgba(124,58,237,.35),transparent 70%),linear-gradient(150deg,#0f172a,#1e1b4b 60%,#312e81)}
+.lx-frame{border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.12);box-shadow:0 30px 60px -24px rgba(15,23,42,.7);background:#0b1110}
+.lx-frame img{display:block;width:100%;height:auto}
+.lx-ring{position:absolute;top:-1.4rem;right:-1.2rem;width:118px;height:118px;border-radius:50%;background:#fff;box-shadow:0 18px 40px -14px rgba(15,23,42,.45);display:grid;place-items:center;text-align:center}
+.lx-ring svg{position:absolute;inset:9px;width:100px;height:100px;transform:rotate(-90deg)}
+.lx-ring circle{fill:none;stroke-width:6;stroke-linecap:round}
+.lx-ring-bg{stroke:#e5e7eb}
+.lx-ring-fg{stroke:#10b981;stroke-dasharray:169.6;stroke-dashoffset:169.6;transition:stroke-dashoffset 1.4s cubic-bezier(.2,.7,.2,1)}
+.lx-ring b{font:800 2rem/1 var(--font-display);color:#047857;margin-top:-.4rem;font-variant-numeric:tabular-nums}
+.lx-ring span{position:absolute;bottom:25px;font-size:.62rem;line-height:1.15;font-weight:700;letter-spacing:.02em;color:var(--gray-500)}
+.lx-a-shot figcaption{margin-top:1rem;text-align:center;font-size:.85rem;color:var(--gray-500)}
+.lx-try{margin-top:3rem;padding:1.6rem;border:1px solid var(--gray-200);border-radius:22px;background:linear-gradient(180deg,#fafaff,#fff)}
+.lx-try-head{display:flex;flex-wrap:wrap;gap:1rem 2rem;align-items:flex-end;justify-content:space-between;margin-bottom:1.2rem}
+.lx-try h3{font-size:1.15rem;margin:0 0 .3rem;color:var(--dark)}
+.lx-try-head p{margin:0;color:var(--gray-600);font-size:.93rem}
+.lx-slider{display:grid;gap:.45rem;min-width:280px;font-size:.9rem;font-weight:600;color:var(--gray-700)}
+.lx-slider b{color:var(--primary);font-variant-numeric:tabular-nums}
+.lx-slider input{width:100%;accent-color:#4f46e5;height:28px;cursor:pointer}
+.lx-leads{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
+.lx-leads li{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:.7rem;align-items:center;padding:.7rem .85rem;border:1px solid #d1fae5;border-radius:14px;background:#f0fdf4;transition:opacity .35s,filter .35s,background .35s,border-color .35s,transform .35s}
+.lx-leads b{font-size:.92rem;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lx-leads small{grid-column:2;font-size:.78rem;color:var(--gray-600)}
+.lx-s{grid-row:1/3;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#10b981;color:#fff;font:800 .95rem var(--font-display);font-variant-numeric:tabular-nums}
+.lx-leads li.off{opacity:.45;filter:grayscale(1);background:#f9fafb;border-color:var(--gray-200);transform:scale(.98)}
+.lx-leads li.off b{text-decoration:line-through;text-decoration-color:var(--gray-400)}
+.lx-try-out{margin:1rem 0 0;font-size:.92rem;color:var(--gray-700);display:flex;flex-wrap:wrap;gap:.3rem .5rem;align-items:center}
+.lx-try-out [data-kept]{font-weight:700;color:#047857}
+.lx-try-out em{margin-left:auto;font-style:normal;font-size:.78rem;color:var(--gray-400)}
+
+.lx-bento{display:grid;grid-template-columns:1.15fr 1fr;grid-template-rows:auto auto auto;gap:1rem}
+.lx-card{position:relative;padding:1.5rem;border:1px solid var(--gray-200);border-radius:22px;background:#fff;overflow:hidden;transition:border-color .25s,box-shadow .25s}
+.lx-card:hover{border-color:#c7d2fe;box-shadow:0 20px 40px -26px rgba(79,70,229,.5)}
+.lx-card h3{font-size:1.12rem;line-height:1.3;margin:.8rem 0 .4rem;color:var(--dark)}
+.lx-card>p{margin:0;color:var(--gray-600);font-size:.94rem;line-height:1.6}
+.lx-card code{font-size:.82em;padding:.1rem .35rem;border-radius:6px;background:#eef2ff;color:#4338ca}
+.lx-card-ic{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:var(--gradient-primary);color:#fff;box-shadow:0 10px 20px -10px rgba(124,58,237,.7)}
+.lx-card-ic .i{width:20px;height:20px}
+.lx-comment{grid-row:1/3;display:flex;flex-direction:column;background:linear-gradient(160deg,#f5f3ff 0%,#fff 45%,#fdf2f8 100%);border-color:#ddd6fe}
+.lx-post{margin-top:1.2rem;padding:1rem;border-radius:16px;background:#fff;border:1px solid var(--gray-200);box-shadow:0 16px 34px -24px rgba(15,23,42,.45)}
+.lx-post-head{display:flex;align-items:center;gap:.65rem}
+.lx-post-head b{display:block;font-size:.9rem;color:var(--dark)}
+.lx-post-head small{font-size:.76rem;color:var(--gray-500)}
+.lx-post-head em{margin-left:auto;font-style:normal;font-size:.7rem;font-weight:700;color:var(--gray-500);background:var(--gray-100);padding:.15rem .5rem;border-radius:999px}
+.lx-av{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;font-size:.78rem;font-weight:800;flex:none}
+.lx-post-body{margin:.75rem 0 .9rem;font-size:.93rem;line-height:1.55;color:var(--gray-800)}
+.lx-tones{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem}
+.lx-tones button{min-height:36px;padding:.35rem .8rem;border-radius:999px;border:1px solid var(--gray-200);background:#fff;font:600 .82rem var(--font-sans);color:var(--gray-700);cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.lx-tones button:hover{border-color:#a5b4fc}
+.lx-tones button[aria-selected="true"]{background:#4f46e5;border-color:#4f46e5;color:#fff}
+.lx-tones button:focus-visible{outline:2px solid #4f46e5;outline-offset:2px}
+.lx-reply{padding:.8rem .9rem;border-radius:12px;background:#f5f3ff;border:1px dashed #c4b5fd;min-height:96px}
+.lx-reply-tag{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;color:#6d28d9}
+.lx-reply-tag .i{width:13px;height:13px}
+.lx-reply p{margin:.35rem 0 0;font-size:.92rem;line-height:1.55;color:var(--gray-800)}
+.lx-reply p.typing::after{content:"";display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-2px;background:#6d28d9;animation:lxBlink .8s steps(1) infinite}
+@keyframes lxBlink{50%{opacity:0}}
+.lx-steps{list-style:none;margin:1.1rem 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;counter-reset:lx}
+.lx-steps li{counter-increment:lx;display:flex;align-items:center;gap:.5rem;padding:.6rem .7rem;border-radius:12px;background:rgba(255,255,255,.7);border:1px solid #e9e5ff;font-size:.84rem;font-weight:600;color:var(--gray-700)}
+.lx-steps li::before{content:counter(lx);display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:50%;background:#ede9fe;color:#6d28d9;font-size:.75rem;font-weight:800}
+.lx-plat{list-style:none;margin:1rem 0 0;padding:0;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;font-size:.8rem;color:var(--gray-500)}
+.lx-plat li{padding:.3rem .7rem;border-radius:999px;background:#fff;border:1px solid var(--gray-200);font-weight:700;color:var(--gray-700)}
+.lx-plat li:first-child{padding:0;border:0;background:none;font-weight:600;color:var(--gray-500)}
+.lx-safe{display:flex;gap:.5rem;align-items:flex-start;margin:auto 0 0;padding-top:1rem;font-size:.86rem;line-height:1.5;color:#047857}
+.lx-safe .i{flex:none;width:17px;height:17px;margin-top:2px}
+.lx-shot{margin:1rem -1.5rem -1.5rem;padding:0 1.5rem;overflow:hidden}
+.lx-shot img{display:block;width:100%;height:auto;border-radius:14px 14px 0 0;border:1px solid var(--gray-200);border-bottom:0;box-shadow:0 -10px 30px -20px rgba(15,23,42,.5);transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+.lx-shot-dark img{max-height:205px;object-fit:cover;object-position:top;border-color:#1f2937}
+.lx-shot-light img{max-height:165px;object-fit:cover;object-position:top left}
+.lx-shot-card:hover .lx-shot img{transform:translateY(-6px)}
+.lx-learn{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:center;background:linear-gradient(120deg,#0f172a,#1e1b4b 60%,#312e81);border-color:transparent;color:#fff}
+.lx-learn-head{display:flex;align-items:center;gap:.8rem}
+.lx-learn h3{color:#fff;margin:0;font-size:1.2rem;white-space:nowrap}
+.lx-learn ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
+.lx-learn li{display:flex;gap:.6rem;align-items:flex-start;padding:.85rem .9rem;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);font-size:.87rem;line-height:1.5;color:rgba(255,255,255,.78)}
+.lx-learn li .i{flex:none;width:18px;height:18px;margin-top:2px;color:#a5b4fc}
+.lx-learn li b{display:block;color:#fff;font-size:.92rem;margin-bottom:.1rem}
+
+@media (max-width:980px){
+  .lx-a-grid{grid-template-columns:1fr;gap:2.5rem}
+  .lx-a-shot{max-width:560px;margin:0 auto}
+  .lx-bento{grid-template-columns:1fr}
+  .lx-comment{grid-row:auto}
+  .lx-learn{grid-template-columns:1fr}
+  .lx-learn ul{grid-template-columns:1fr}
+  .lx-leads{grid-template-columns:1fr 1fr}
+}
+@media (max-width:560px){
+  .lx-signals{gap:.55rem}
+  .lx-sig{padding:.8rem}
+  .lx-sig h3{font-size:.9rem;margin:.5rem 0 .25rem}
+  .lx-sig p{font-size:.8rem;line-height:1.45}
+  .lx-sig-ic{width:32px;height:32px;border-radius:9px}
+  .lx-leads{grid-template-columns:1fr;gap:.45rem}
+  .lx-leads li{padding:.5rem .7rem}
+  .lx-s{width:34px;height:34px;border-radius:10px;font-size:.85rem}
+  .lx-steps{grid-template-columns:1fr}
+  .lx-stage{padding:.9rem;border-radius:22px}
+  .lx-slider{min-width:0;width:100%}
+  .lx-try{padding:1.2rem}
+  .lx-ring{width:96px;height:96px;top:-.4rem;right:-.2rem}
+  .lx-ring svg{inset:7px;width:82px;height:82px}
+  .lx-ring b{font-size:1.6rem}
+  .lx-ring span{bottom:19px;font-size:.55rem}
+  .lx-card{padding:1.2rem}
+  .lx-shot{margin:1rem -1.2rem -1.2rem;padding:0 1.2rem}
+  .lx-try-out em{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .lx-ring-fg,.lx-leads li,.lx-shot img,.lx-sig{transition:none}
+  .lx-reply p.typing::after{animation:none}
+}
 .la-watch:hover .la-watch-ic{transform:scale(1.1)}
 .la-watch small{font-size:.76rem;font-weight:700;letter-spacing:.02em;padding:.18rem .5rem;border-radius:999px;background:rgba(255,255,255,.14);color:rgba(255,255,255,.88);font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:reduce){.la-watch-ic::before,.la-watch-ic::after{animation:none;opacity:0}.la-watch,.la-watch::after,.la-watch-ic{transition:none}.la-watch:hover{transform:none}}
@@ -295,44 +419,71 @@
 </section>
 
 <!-- Active leads -->
-<section class="section la-tight">
+<section class="section la-tight lx-active" id="active-leads" aria-labelledby="lx-active-h">
   <div class="container">
-    <div class="la-active">
-      <div class="reveal">
+    <div class="lx-a-grid">
+      <div class="lx-a-copy reveal">
         <span class="badge la-badge">Active leads only</span>
-        <h2>Skip the dead listings. Reach businesses that are open and responding.</h2>
-        <p>Every lead gets an <strong>activity score from 0 to 100</strong>. Set a minimum and Lead Agent keeps only active leads, or sort by "Most active" to start with the warmest.</p>
-        <ul class="la-checks">
-          <li><svg class="i"><use href="#i-check"/></svg> Recent reviews and owner replies to reviews</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Claimed listing, opening hours, website online</li>
-          <li><svg class="i"><use href="#i-check"/></svg> Online booking, live chat, contact form</li>
-          <li><svg class="i"><use href="#i-check"/></svg> LinkedIn: online now or recently, posted in the last 30 days</li>
-          <li><svg class="i"><use href="#i-check"/></svg> <span><strong>Active phone numbers:</strong> a live line check shows if each number is in service and whether it's mobile, landline or VoIP; keep only working numbers</span></li>
-        </ul>
-      </div>
-      <div class="la-score reveal" aria-label="Example activity scores (sample data)">
-        <div class="la-score-row">
-          <div class="la-score-head"><span class="la-ic la-ic-red"><svg class="i"><use href="#i-pin"/></svg></span><div><b>Bright Smile Dental</b><small>Dentist · Austin, TX</small></div><span class="la-score-num">89</span></div>
-          <div class="la-bar"><span style="width:89%"></span></div>
-          <ul>
-            <li class="ok"><svg class="i"><use href="#i-check"/></svg> Owner replies to reviews</li>
-            <li class="ok"><svg class="i"><use href="#i-check"/></svg> Newest review 6 days ago</li>
-            <li class="ok"><svg class="i"><use href="#i-check"/></svg> Online booking</li>
-            <li class="ok"><svg class="i"><use href="#i-check"/></svg> Active phone line</li>
-            <li class="no"><svg class="i"><use href="#i-x"/></svg> No live chat</li>
-          </ul>
+        <h2 id="lx-active-h">Skip the dead listings. Reach businesses that are open and responding.</h2>
+        <p class="lx-lede">Every lead gets an <strong>activity score from 0 to 100</strong>. Set a minimum and Lead Agent keeps only active leads, or sort by "Most active" to start with the warmest.</p>
+        <div class="lx-signals">
+          <article class="lx-sig">
+            <span class="lx-sig-ic lx-red"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg></span>
+            <h3>Google Maps activity</h3>
+            <p>Recent reviews, owner replies to reviews, a claimed listing and opening hours.</p>
+          </article>
+          <article class="lx-sig">
+            <span class="lx-sig-ic lx-violet"><svg class="i" aria-hidden="true"><use href="#i-globe"/></svg></span>
+            <h3>Website signals</h3>
+            <p>Website online, online booking, live chat and a contact form.</p>
+          </article>
+          <article class="lx-sig">
+            <span class="lx-sig-ic lx-blue"><svg class="i" aria-hidden="true"><use href="#i-linkedin"/></svg></span>
+            <h3>LinkedIn activity</h3>
+            <p>Online now or recently, and posted in the last 30 days.</p>
+          </article>
+          <article class="lx-sig">
+            <span class="lx-sig-ic lx-green"><svg class="i" aria-hidden="true"><use href="#i-phone"/></svg></span>
+            <h3>Live phone check</h3>
+            <p>Is the number in service? Mobile, landline or VoIP? Keep only working numbers.</p>
+          </article>
         </div>
-        <div class="la-score-row">
-          <div class="la-score-head"><span class="la-ic la-ic-blue"><svg class="i"><use href="#i-linkedin"/></svg></span><div><b>Jordan Lee</b><small>Owner · Lakeview Dental Care</small></div><span class="la-score-num">100</span></div>
-          <div class="la-bar"><span style="width:100%"></span></div>
-          <ul>
-            <li class="ok"><svg class="i"><use href="#i-check"/></svg> On LinkedIn now</li>
-            <li class="ok"><svg class="i"><use href="#i-check"/></svg> Posted twice this month</li>
-          </ul>
-        </div>
-        <p class="la-sample">Sample leads</p>
       </div>
+      <figure class="lx-a-shot reveal">
+        <div class="lx-stage"><div class="lx-frame">
+          <img src="images/lead-agent/active-leads.webp" width="800" height="745" loading="lazy" decoding="async" alt="Lead Agent lead list: dentists in Austin with activity score, phone, email, website and LinkedIn checks, and website problems found for each lead">
+        </div></div>
+        <div class="lx-ring" data-score="89" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" class="lx-ring-bg"/><circle cx="32" cy="32" r="27" class="lx-ring-fg"/></svg>
+          <b>0</b>
+          <span>Activity<br>score</span>
+        </div>
+        <figcaption>The real Lead Agent lead list. Every lead shows its score, contact checks and website problems.</figcaption>
+      </figure>
     </div>
+
+    <div class="lx-try reveal" data-filter>
+      <div class="lx-try-head">
+        <div>
+          <h3>Try it: set your minimum activity score</h3>
+          <p>Drag the slider. Leads below your minimum are skipped before you ever email them.</p>
+        </div>
+        <label class="lx-slider">
+          <span>Keep leads scoring <b data-min>60</b>+</span>
+          <input type="range" min="0" max="100" step="5" value="60" aria-label="Minimum activity score">
+        </label>
+      </div>
+      <ul class="lx-leads">
+        <li data-s="89"><span class="lx-s">89</span><b>Bright Smile Dental</b><small>Owner replies to reviews</small></li>
+        <li data-s="74"><span class="lx-s">74</span><b>Lakeview Dental Care</b><small>Online booking</small></li>
+        <li data-s="67"><span class="lx-s">67</span><b>Hill Country Smiles</b><small>Newest review 3 weeks ago</small></li>
+        <li data-s="48"><span class="lx-s">48</span><b>South Lamar Dental</b><small>No website</small></li>
+        <li data-s="31"><span class="lx-s">31</span><b>Oak Hill Family Dental</b><small>Last review 2 years ago</small></li>
+        <li data-s="12"><span class="lx-s">12</span><b>Riverside Dental Group</b><small>Phone not in service</small></li>
+      </ul>
+      <p class="lx-try-out" aria-live="polite"><span data-kept>Kept 3 of 6 leads</span> · <span data-skip>3 dead or quiet listings skipped</span><em>Sample leads</em></p>
+    </div>
+
     <div class="la-cta-row reveal"><a href="https://goldempire.gumroad.com/l/lead-agent?wanted=true" rel="noopener" class="btn btn-accent btn-lg js-buy">Get Lifetime Access <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Only open, responding businesses. No dead listings.</p></div>
   </div>
 </section>
@@ -358,24 +509,67 @@
 </section>
 
 <!-- AI -->
-<section class="section la-tight">
+<section class="section la-tight lx-ai" id="ai" aria-labelledby="lx-ai-h">
   <div class="container">
     <div class="section-header reveal">
       <span class="badge">AI built in</span>
-      <h2>An AI lead agent that writes, sorts and learns for you</h2>
+      <h2 id="lx-ai-h">An AI lead agent that writes, sorts and learns for you</h2>
       <p>Use a free Google Gemini key or your own Claude key. No key? Your own templates work too.</p>
     </div>
-    <div class="la-ai">
-      <article class="la-ai-card la-ai-main reveal">
-        <span class="la-ic"><svg class="i"><use href="#i-reply"/></svg></span>
-        <h3>AI comment assistant</h3>
-        <p>Open a post on <strong>LinkedIn, X, Facebook or Reddit</strong> and get ready-to-post comments in your own voice. Pick a tone: insightful, friendly, a question, expert view, or short. The comment is placed in the box; you press Post.</p>
-        <ul class="la-chips"><li>LinkedIn</li><li>X</li><li>Facebook</li><li>Reddit</li><li>6 tones</li><li>Your voice</li></ul>
-        <p class="la-ai-safe"><svg class="i"><use href="#i-shield"/></svg> You stay in control: nothing is ever posted without your click, which keeps your accounts safe.</p>
+    <div class="lx-bento">
+      <article class="lx-card lx-comment reveal" data-tones>
+        <span class="lx-card-ic"><svg class="i" aria-hidden="true"><use href="#i-reply"/></svg></span>
+        <h3>AI comment assistant for LinkedIn, X, Facebook and Reddit</h3>
+        <p>Open a post and get ready-to-post comments in your own voice. Pick a tone; the comment is placed in the box and you press Post.</p>
+        <div class="lx-post" aria-label="Example post and AI comment">
+          <div class="lx-post-head"><span class="lx-av" aria-hidden="true">MC</span><div><b>Dr. Maya Chen</b><small>Bright Smile Dental · LinkedIn</small></div><em>Example</em></div>
+          <p class="lx-post-body">We just opened our second clinic in South Austin. Thank you to every patient who made this possible.</p>
+          <div class="lx-tones" role="tablist" aria-label="Comment tone">
+            <button type="button" role="tab" aria-selected="true" data-tone="0">Insightful</button>
+            <button type="button" role="tab" aria-selected="false" data-tone="1">Friendly</button>
+            <button type="button" role="tab" aria-selected="false" data-tone="2">Question</button>
+            <button type="button" role="tab" aria-selected="false" data-tone="3">Expert view</button>
+            <button type="button" role="tab" aria-selected="false" data-tone="4">Short</button>
+          </div>
+          <div class="lx-reply" role="tabpanel" aria-live="polite">
+            <span class="lx-reply-tag"><svg class="i" aria-hidden="true"><use href="#i-sparkle"/></svg> AI comment</span>
+            <p data-reply>Congrats, Maya. A second location is when booking and follow-up start to matter most, and it sounds like the team is ready for it.</p>
+          </div>
+        </div>
+        <ol class="lx-steps" aria-label="How the comment assistant works"><li>Open a post</li><li>Pick a tone</li><li>Press Post</li></ol>
+        <ul class="lx-plat"><li>Works on</li><li>LinkedIn</li><li>X</li><li>Facebook</li><li>Reddit</li></ul>
+        <p class="lx-safe"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg> You stay in control: nothing is ever posted without your click, which keeps your accounts safe.</p>
       </article>
-      <article class="la-ai-card reveal"><span class="la-ic"><svg class="i"><use href="#i-mail"/></svg></span><h3>AI first line for every email</h3><p>A personal opening line written for each lead, so no two emails read the same.</p></article>
-      <article class="la-ai-card reveal"><span class="la-ic"><svg class="i"><use href="#i-reply"/></svg></span><h3>AI reply sorting &amp; drafts</h3><p>Replies are sorted by intent and an answer is drafted for you to check and send.</p></article>
-      <article class="la-ai-card reveal"><span class="la-ic"><svg class="i"><use href="#i-trend"/></svg></span><h3>Learns what works</h3><p>Sends in the hours that get replies, emails leads most like past repliers first, and keeps the winning subject line.</p></article>
+
+      <article class="lx-card lx-shot-card reveal">
+        <span class="lx-card-ic"><svg class="i" aria-hidden="true"><use href="#i-mail"/></svg></span>
+        <h3>AI first line for every cold email</h3>
+        <p>A personal opening line written for each lead, so no two emails read the same. Drop <code>{first_line}</code> or <code>{site_issue}</code> into your message.</p>
+        <figure class="lx-shot lx-shot-dark">
+          <img src="images/lead-agent/ai-message.webp" width="800" height="780" loading="lazy" decoding="async" alt="Lead Agent email campaign editor with personalisation placeholders such as first_name, city, first_line and site_issue, and an optional A/B second subject">
+        </figure>
+      </article>
+
+      <article class="lx-card lx-shot-card reveal">
+        <span class="lx-card-ic"><svg class="i" aria-hidden="true"><use href="#i-reply"/></svg></span>
+        <h3>AI reply sorting and drafted answers</h3>
+        <p>Replies are sorted by intent and moved through your pipeline. An answer is drafted for you to check and send.</p>
+        <figure class="lx-shot lx-shot-light">
+          <img src="images/lead-agent/ai-pipeline.webp" width="920" height="390" loading="lazy" decoding="async" alt="Lead Agent pipeline: a reply saying 'yes please send me more details and a price' sorted into Interested automatically, next to a lead in Meeting booked">
+        </figure>
+      </article>
+
+      <article class="lx-card lx-learn reveal">
+        <div class="lx-learn-head">
+          <span class="lx-card-ic"><svg class="i" aria-hidden="true"><use href="#i-trend"/></svg></span>
+          <h3>Learns what works</h3>
+        </div>
+        <ul>
+          <li><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg><span><b>Best hours</b>Sends in the hours that get replies.</span></li>
+          <li><svg class="i" aria-hidden="true"><use href="#i-sparkle"/></svg><span><b>Lookalike leads first</b>Emails the leads most like past repliers first.</span></li>
+          <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg><span><b>Winning subject line</b>The first 40 emails test two subjects; then every email uses the winner.</span></li>
+        </ul>
+      </article>
     </div>
   </div>
 </section>
@@ -578,6 +772,66 @@
   ch.forEach(function(b){ b.addEventListener('click',function(){ start(+b.dataset.t); }); });
   v.addEventListener('timeupdate',function(){ var cur=null; ch.forEach(function(b){ if(v.currentTime>=+b.dataset.t-.2) cur=b; }); ch.forEach(function(b){ b.setAttribute('aria-current',b===cur?'true':'false'); }); });
   if('IntersectionObserver' in window){ new IntersectionObserver(function(es){ if(!es[0].isIntersecting&&!v.paused) v.pause(); },{threshold:.15}).observe(d); }
+})();
+</script><script>
+(function(){
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Activity score ring: counts up when it scrolls into view
+  var ring = document.querySelector('.lx-ring');
+  if (ring) {
+    var fg = ring.querySelector('.lx-ring-fg'), num = ring.querySelector('b'), target = +ring.dataset.score, C = 169.6;
+    var run = function(){
+      fg.style.strokeDashoffset = C * (1 - target / 100);
+      if (reduce) { num.textContent = target; return; }
+      var t0 = null;
+      var step = function(t){ if (!t0) t0 = t; var p = Math.min((t - t0) / 1400, 1); num.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    };
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function(es){ if (es[0].isIntersecting) { run(); io.disconnect(); } }, { threshold: .5 });
+      io.observe(ring);
+    } else run();
+  }
+  // Minimum-score filter demo
+  var f = document.querySelector('[data-filter]');
+  if (f) {
+    var range = f.querySelector('input[type=range]'), out = f.querySelector('[data-min]'), kept = f.querySelector('[data-kept]'), skip = f.querySelector('[data-skip]');
+    var items = [].slice.call(f.querySelectorAll('.lx-leads li'));
+    var upd = function(){
+      var m = +range.value, k = 0;
+      out.textContent = m;
+      items.forEach(function(li){ var on = +li.dataset.s >= m; li.classList.toggle('off', !on); if (on) k++; });
+      var s = items.length - k;
+      kept.textContent = 'Kept ' + k + ' of ' + items.length + ' leads';
+      skip.textContent = s ? s + (s === 1 ? ' dead or quiet listing' : ' dead or quiet listings') + ' skipped' : 'nothing skipped';
+    };
+    range.addEventListener('input', upd); upd();
+  }
+  // Comment tone switcher (example comments)
+  var box = document.querySelector('[data-tones]');
+  if (box) {
+    var lines = [
+      'Congrats, Maya. A second location is when booking and follow-up start to matter most, and it sounds like the team is ready for it.',
+      'Huge congrats to you and the whole team, Maya! South Austin is lucky to have you.',
+      'Congrats! What made South Austin the right spot for clinic number two?',
+      'Big milestone. With dental practices, the second location is usually when online booking and review replies start paying off the most.',
+      'Congrats on clinic number two, Maya!'
+    ];
+    var tabs = [].slice.call(box.querySelectorAll('[data-tone]')), p = box.querySelector('[data-reply]'), timer = null;
+    var show = function(i){
+      tabs.forEach(function(b){ b.setAttribute('aria-selected', String(+b.dataset.tone === i)); b.tabIndex = +b.dataset.tone === i ? 0 : -1; });
+      clearInterval(timer);
+      var text = lines[i];
+      if (reduce) { p.textContent = text; return; }
+      var n = 0; p.textContent = ''; p.classList.add('typing');
+      timer = setInterval(function(){ n += 2; p.textContent = text.slice(0, n); if (n >= text.length) { clearInterval(timer); p.classList.remove('typing'); } }, 18);
+    };
+    tabs.forEach(function(b, idx){
+      b.addEventListener('click', function(){ show(+b.dataset.tone); });
+      b.addEventListener('keydown', function(e){ var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (d) { e.preventDefault(); var j = (idx + d + tabs.length) % tabs.length; tabs[j].focus(); show(j); } });
+    });
+    tabs.forEach(function(b){ b.tabIndex = b.getAttribute('aria-selected') === 'true' ? 0 : -1; });
+  }
 })();
 </script><script src="/js/order-dock.js?v=2026111804" defer></script>
 </body>
