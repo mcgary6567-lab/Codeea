@@ -42,7 +42,7 @@ Niches NOT accepted: B2B SaaS / enterprise, local services, luxury goods, CBD, g
 
 ## Lead Agent (software)
 
-Lead Agent is a browser extension sold by Ihsan Solo Ads for $299 one-time (lifetime access, 2 computers). It is an AI lead finder for marketing agencies, internet marketers, list builders and affiliate marketers.
+Lead Agent is a browser extension sold by Ihsan Solo Ads for $250 one-time (lifetime access, 2 computers). It is an AI lead finder for marketing agencies, internet marketers, list builders and affiliate marketers.
 
 - **Lead sources**: Google Maps (21 countries), LinkedIn and Sales Navigator (people and company searches and profiles the user opens; it never sends LinkedIn messages or connection requests), Yelp, YellowPages, custom directories, CSV import
 - **Enrichment**: emails found on business websites with mail-domain checks, decision-maker finder, website problem audit, activity score from 0 to 100 (recent reviews, owner replies, claimed listing, live website, LinkedIn activity)
