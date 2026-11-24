@@ -157,10 +157,10 @@
     var la = document.createElement('div');
     la.className = 'od-inline od-la'; la.id = 'od-inline';
     laCard.id = laCard.id || 'od-la-card';
-    la.innerHTML = '<div class="od-read"><strong>Lead Agent</strong><em>$299<small>one-time</small></em></div>' +
+    la.innerHTML = '<div class="od-read"><strong>Lead Agent</strong><em>$250<small>one-time</small></em></div>' +
       '<p class="od-fit">Lifetime access to every feature. No monthly fee, no limit on searches or leads.</p>' +
       '<ul class="od-gets">' + LA_GETS.map(function (g) { return '<li>' + tick + '<span>' + g + '</span></li>'; }).join('') + '</ul>' +
-      '<a class="od-pay" href="' + G + 'lead-agent?wanted=true" rel="noopener">Pay $299 for lifetime access</a>' +
+      '<a class="od-pay" href="' + G + 'lead-agent?wanted=true" rel="noopener">Pay $250 for lifetime access</a>' +
       '<p class="od-note">Checkout opens on Gumroad, a secure payment page. 14-day money-back guarantee.</p>' +
       '<button type="button" class="od-more od-cmp" aria-expanded="false" aria-controls="' + laCard.id + '">See every feature</button>';
     laCard.classList.add('od-target');
