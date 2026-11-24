@@ -40,7 +40,7 @@
   "softwareVersion": "2.33.0",
   "operatingSystem": "Windows, macOS, Linux (Chrome, Edge, Brave, Opera, Vivaldi, Firefox 128+)",
   "description": "AI lead generation browser extension that collects active B2B leads from Google Maps, LinkedIn and Sales Navigator, Yelp, YellowPages and custom directories, finds emails and website problems, scores how active each lead is, and sends personal cold email campaigns from the user's own personal or business email account (Gmail, Google Workspace, Outlook, Microsoft 365, Yahoo, AOL, Zoho, Proton, Fastmail) with no API or paid email platform.",
-  "featureList": "Google Maps scraper (21 countries), LinkedIn and Sales Navigator lead capture, Yelp and YellowPages scraper, custom directory scraper, website email finder, decision-maker finder, activity score, live phone line check, website problem audit, cold email campaigns, rich email composer with images, buttons, signature and attachments, email preview and inbox score, follow-ups, AI reply sorting, AI first lines, AI comment assistant for LinkedIn, X, Facebook and Reddit, daily autopilot schedule, CSV/XLSX export, CRM push",
+  "featureList": "Google Maps scraper (21 countries), LinkedIn and Sales Navigator lead capture, Yelp and YellowPages scraper, custom directory scraper, website email finder, decision-maker finder, activity score, live phone line check, website problem audit, cold email campaigns, rich email composer with images, buttons, signature and attachments, email preview and inbox score, inbox safety checks, sending from up to 10 Gmail accounts with a daily number per account, instant or paced sending, link click tracking with city, country, device and VPN/proxy flags, campaign report with suggestions, follow-ups, AI reply sorting, AI first lines, AI comment assistant for LinkedIn, X, Facebook and Reddit, daily autopilot schedule, CSV/XLSX export, CRM push",
   "image": "https://ihsansoloads.com/images/lead-agent/leads.jpg",
   "url": "https://ihsansoloads.com/lead-agent",
   "brand": { "@type": "Brand", "name": "Ihsan Solo Ads" },
@@ -61,7 +61,8 @@
     { "@type": "Question", "name": "Does it work on LinkedIn and Sales Navigator?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. It saves people and companies from LinkedIn search, Sales Navigator search and profile pages you open, with a daily cap. It never sends LinkedIn messages or connection requests." } },
     { "@type": "Question", "name": "What is an active lead?", "acceptedAnswer": { "@type": "Answer", "text": "Lead Agent gives each lead an activity score from 0 to 100, from signals such as recent reviews, owner replies to reviews, a claimed listing, a working website with booking or chat, and for LinkedIn people, being online recently and posting. You can keep only leads above the score you choose." } },
     { "@type": "Question", "name": "Does Lead Agent check if phone numbers are active?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, with an optional live phone check through your own Twilio, Veriphone or NumVerify account. Twilio shows whether each line is in service (active or disconnected); all three show whether the number is valid and if it is mobile, landline or VoIP." } },
-    { "@type": "Question", "name": "Will my email account get flagged?", "acceptedAnswer": { "@type": "Answer", "text": "No tool can promise that. Lead Agent follows the practices that keep accounts healthy: slow warm-up, small daily numbers, random gaps, an unsubscribe line and stopping on bounces." } },
+    { "@type": "Question", "name": "Will my email account get flagged?", "acceptedAnswer": { "@type": "Answer", "text": "No tool can promise that. Lead Agent follows the practices that keep accounts healthy: slow warm-up, small daily numbers, random gaps, an unsubscribe line and stopping on bounces. Its Inbox safety check also stops a campaign while the email has what spam filters punish most, such as shortened links or spam words." } },
+    { "@type": "Question", "name": "Can I send from several email accounts and see who clicked?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. One campaign can use up to 10 Gmail accounts signed in to the same browser, plus one Outlook, Yahoo, AOL, Zoho, Proton or Fastmail account, and you set how many emails each sends per day. With click tracking switched on, the campaign report shows who clicked, when, their city, country and device, and flags clicks through a VPN or proxy. Opens are not tracked, because open tracking hurts inbox placement." } },
     { "@type": "Question", "name": "Is cold email legal?", "acceptedAnswer": { "@type": "Answer", "text": "In the US, business email is allowed with your real postal address and a way to opt out, which Lead Agent adds to every email. The UK, EU, Canada and Australia have stricter rules; Lead Agent can skip leads there. You are the sender, so check the rules where you and your leads are." } }
   ]
 }
@@ -669,7 +670,11 @@
       <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-pulse"/></svg></span><h3>Activity score</h3><p>0–100 per lead; keep only active leads.</p></div>
       <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-briefcase"/></svg></span><h3>Decision-makers</h3><p>Finds the owner, founder or manager behind each business.</p></div>
       <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-search"/></svg></span><h3>Contact finder</h3><p>Emails and direct phones for LinkedIn people via your Hunter, Apollo or Lusha account.</p></div>
-      <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-list"/></svg></span><h3>Multi-inbox sending</h3><p>Split a campaign across several email accounts.</p></div>
+      <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-list"/></svg></span><h3>Multi-inbox sending</h3><p>Up to 10 Gmail accounts plus Outlook, Yahoo and more in one campaign; set a daily number per account.</p></div>
+      <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-shield"/></svg></span><h3>Inbox safety</h3><p>A campaign won't start with shortened links, spam words or attachments; new accounts warm up.</p></div>
+      <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-pin"/></svg></span><h3>Click tracking</h3><p>Who clicked, when, city, country and device; VPN, proxy and scanner clicks flagged.</p></div>
+      <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-trend"/></svg></span><h3>Campaign report</h3><p>Reply, click, bounce and unsubscribe rates per campaign and account, with tips.</p></div>
+      <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-clock"/></svg></span><h3>Send now or paced</h3><p>Start a campaign at once, or let it send at a human pace in each lead's daytime.</p></div>
       <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-alert"/></svg></span><h3>Spam-folder test</h3><p>A live inbox score as you write, and a test of where your email lands.</p></div>
       <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-send"/></svg></span><h3>Cold email</h3><p>Plain or rich, with images, buttons and attachments. From your own email, no API.</p></div>
       <div class="la-feat-item reveal"><span class="la-ic"><svg class="i"><use href="#i-reply"/></svg></span><h3>Reply sorting</h3><p>Interested, not now, bounce, unsubscribe. Never auto-replies.</p></div>
@@ -730,8 +735,17 @@
             <ul>
               <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Cold email from your own account: no API, no paid email tool</li>
               <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Rich email composer: images, buttons, signature, attachments</li>
-              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Follow-ups and reply sorting</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Up to 10 Gmail accounts in one campaign, each with its own daily number</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Inbox safety: stops spammy wording, links and attachments before you send</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Send now or at a human pace; follow-ups and reply sorting</li>
               <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> AI comment assistant for LinkedIn, X, Facebook, Reddit</li>
+            </ul>
+          </div>
+          <div class="lx-p-group">
+            <h4>Track</h4>
+            <ul>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Link click tracking: who clicked, city, country, device, VPN or proxy</li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg> Campaign report: reply, click, bounce and unsubscribe rates, with next-step tips</li>
             </ul>
           </div>
           <div class="lx-p-group">
@@ -801,7 +815,11 @@
       </div>
       <div class="faq-item">
         <button class="faq-question" aria-expanded="false">Will my email account get flagged?<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span></button>
-        <div class="faq-answer"><div class="faq-answer-inner">No tool can promise that. Lead Agent follows the practices that keep accounts healthy: slow warm-up, small daily numbers, random gaps, plain personal emails, an unsubscribe line, and stopping on bounces.</div></div>
+        <div class="faq-answer"><div class="faq-answer-inner">No tool can promise that. Lead Agent follows the practices that keep accounts healthy: slow warm-up, small daily numbers, random gaps, plain personal emails, an unsubscribe line, and stopping on bounces. Its Inbox safety check also stops a campaign while the email has what spam filters punish most, such as shortened links or spam words.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">Can I send from several email accounts and see who clicked?<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+        <div class="faq-answer"><div class="faq-answer-inner">Yes. One campaign can use up to 10 Gmail accounts signed in to the same browser, plus one Outlook, Yahoo, AOL, Zoho, Proton or Fastmail account, and you set how many emails each sends per day. With click tracking switched on, the campaign report shows who clicked, when, their city, country and device, and flags clicks through a VPN or proxy. Opens are not tracked, because open tracking hurts inbox placement.</div></div>
       </div>
       <div class="faq-item">
         <button class="faq-question" aria-expanded="false">Is cold email legal?<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span></button>
@@ -946,6 +964,6 @@
     tabs.forEach(function(b){ b.tabIndex = b.getAttribute('aria-selected') === 'true' ? 0 : -1; });
   }
 })();
-</script><script src="/js/order-dock.js?v=2026112302" defer></script>
+</script><script src="/js/order-dock.js?v=2026112303" defer></script>
 </body>
 </html>
