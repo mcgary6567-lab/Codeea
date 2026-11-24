@@ -215,3 +215,11 @@ input:focus,textarea:focus,select:focus{outline:0;border-color:var(--pri);box-sh
   .kv{grid-template-columns:100px 1fr}
 }
 @media (max-width:520px){#new-key-top{padding:0 12px}.kpis{grid-template-columns:1fr 1fr}.kpi b{font-size:23px}}
+
+/* clicks page */
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:18px}.grid3>.card{margin-bottom:0}
+@media (max-width:1000px){.grid3{grid-template-columns:1fr}}
+.clk-note{margin:-4px 0 14px;color:var(--muted);font-size:13.5px}.clk-note a{color:var(--pri)}
+.clk-sub{font-size:13px;margin:18px 0 10px;color:var(--muted)}
+#clk-chart{height:220px}
+[data-view="clicks"] .bars-h div{grid-template-columns:minmax(80px,40%) 1fr 32px}[data-view="clicks"] .bars-h b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

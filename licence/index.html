@@ -7,7 +7,7 @@
 <title>Licence Admin · Lead Agent</title>
 <link rel="icon" href="/images/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="admin.css?v=2026111903">
+<link rel="stylesheet" href="admin.css?v=2026112302">
 </head>
 <body>
 <div id="boot" class="boot"><div class="spinner"></div></div>
@@ -46,6 +46,7 @@
       <a href="#dashboard" data-view="dashboard"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/></svg>Dashboard</a>
       <a href="#keys" data-view="keys"><svg viewBox="0 0 24 24"><path d="M7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm5.65-4A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4z"/></svg>Licence keys</a>
       <a href="#users" data-view="users"><svg viewBox="0 0 24 24"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05A4.2 4.2 0 0 1 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Users</a>
+      <a href="#clicks" data-view="clicks"><svg viewBox="0 0 24 24"><path d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6a1.5 1.5 0 0 0-3 0v10.74l-3.43-.72a1.1 1.1 0 0 0-1.02 1.86l4.01 4.01c.27.27.65.44 1.06.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.38-1.16-.92-1.38z"/></svg>Clicks</a>
       <a href="#activity" data-view="activity"><svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.9 3.9L9 12H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8z"/></svg>Activity</a>
       <a href="#settings" data-view="settings"><svg viewBox="0 0 24 24"><path d="M19.14 12.94a7.5 7.5 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7 7 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.84a.5.5 0 0 0-.49.42l-.36 2.54a7 7 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.39 1.05.71 1.63.94l.36 2.54c.05.24.25.42.49.42h3.84c.24 0 .45-.18.49-.42l.36-2.54a7 7 0 0 0 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>Settings</a>
     </nav>
@@ -128,6 +129,38 @@
         <p class="empty" id="user-empty" hidden>No users yet. When a buyer enters their name and email in Lead Agent, they appear here.</p></div>
     </section>
 
+    <!-- Clicks -->
+    <section class="view" data-view="clicks" hidden>
+      <div class="toolbar">
+        <select id="clk-days" class="sort" aria-label="Period"><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="0">All time</option></select>
+        <select id="clk-buyer" class="sort" aria-label="Buyer"><option value="">All buyers</option></select>
+        <div class="chips" id="clk-kind"><button data-k="all" class="on">All clicks</button><button data-k="people">People</button><button data-k="scanners">Scanners</button></div>
+        <a class="btn ghost" id="clk-csv" href="api/admin/clicks?format=csv&days=30"><svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5zm7-2 5.5-5.5-1.41-1.41L13 14.17V4h-2v10.17l-3.09-3.08L6.5 12.5z"/></svg>Export CSV</a>
+      </div>
+      <p class="clk-note" id="clk-note"></p>
+      <div class="kpis" id="clk-kpis"></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-head"><h2>Clicks per day</h2><div class="legend"><i class="c1"></i>People <i class="c2"></i>Scanners</div></div>
+          <div id="clk-chart" class="chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Network</h2></div>
+          <div id="clk-net"></div>
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="card"><div class="card-head"><h2>Countries</h2></div><div id="clk-countries"></div></div>
+        <div class="card"><div class="card-head"><h2>Cities</h2></div><div id="clk-cities"></div></div>
+        <div class="card"><div class="card-head"><h2>Devices &amp; systems</h2></div><div id="clk-devices"></div></div>
+      </div>
+      <div class="card"><div class="card-head"><h2>Most clicked links</h2></div><div id="clk-links"></div></div>
+      <div class="card flush"><div class="card-head" style="padding:16px 20px 0"><h2>Clicks by buyer</h2></div><div class="table-wrap"><table class="table" id="clk-buyers"><thead><tr><th>Buyer</th><th>Clicks (people)</th><th>People who clicked</th><th>Scanner clicks</th><th>VPN / proxy</th><th>Last click</th></tr></thead><tbody></tbody></table></div>
+        <p class="empty" id="clk-buyers-empty" hidden>No clicks yet.</p></div>
+      <div class="card flush"><div class="card-head" style="padding:16px 20px 0"><h2>Latest clicks</h2></div><div class="table-wrap"><table class="table" id="clk-recent"><thead><tr><th>When</th><th>Buyer</th><th>Link</th><th>Where</th><th>Device</th><th>Network</th></tr></thead><tbody></tbody></table></div>
+        <p class="empty" id="clk-recent-empty" hidden>No clicks in this period.</p></div>
+    </section>
+
     <!-- Activity -->
     <section class="view" data-view="activity" hidden>
       <div class="card"><ul class="feed" id="act-feed"></ul></div>
@@ -188,6 +221,6 @@
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-card" id="modal-card"></div></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
-<script src="admin.js?v=2026112301"></script>
+<script src="admin.js?v=2026112302"></script>
 </body>
 </html>

@@ -195,7 +195,7 @@
     }
     loadSettings().then(route);
   }
-  const TITLES = { dashboard: 'Dashboard', keys: 'Licence keys', users: 'Users', activity: 'Activity', settings: 'Settings' };
+  const TITLES = { dashboard: 'Dashboard', keys: 'Licence keys', users: 'Users', clicks: 'Clicks', activity: 'Activity', settings: 'Settings' };
   function route() {
     const v = (location.hash.slice(1) || 'dashboard');
     state.view = TITLES[v] ? v : 'dashboard';
@@ -203,8 +203,62 @@
     $$('.side nav a').forEach((a) => a.classList.toggle('on', a.dataset.view === state.view));
     $('#view-title').textContent = TITLES[state.view];
     document.title = `${TITLES[state.view]} · Licence Admin`;
-    ({ dashboard: renderDashboard, keys: renderKeys, users: renderUsers, activity: renderActivity, settings: renderSettings })[state.view]().catch((e) => toast(e.message, true));
+    ({ dashboard: renderDashboard, keys: renderKeys, users: renderUsers, clicks: renderClicks, activity: renderActivity, settings: renderSettings })[state.view]().catch((e) => toast(e.message, true));
   }
+
+  // ---------- clicks (link clicks from buyers' campaigns) ----------
+  const clk = { days: 30, key: '', kind: 'all' };
+  const hbars = (list, total, none = 'None yet.') => (list.length ? `<div class="bars-h">${list.map((x) => `<div><b title="${esc(x.name)}">${esc(x.name)}</b><em style="width:${Math.max(6, (x.count / Math.max(1, total)) * 100)}%"></em><span>${x.count}</span></div>`).join('')}</div>` : `<p class="empty" style="padding:16px 0">${none}</p>`);
+  async function renderClicks() {
+    const r = await api(`clicks?days=${clk.days}&kind=${clk.kind}${clk.key ? `&key=${encodeURIComponent(clk.key)}` : ''}`);
+    const t = r.totals;
+    const sel = $('#clk-buyer');
+    if (!clk.key) sel.innerHTML = '<option value="">All buyers</option>' + r.buyers.map((b) => `<option value="${esc(b.key)}">${esc(b.name)}${b.email ? ` (${esc(b.email)})` : ''}</option>`).join('');
+    sel.value = clk.key;
+    $('#clk-csv').href = `api/admin/clicks?format=csv&days=${clk.days}&kind=${clk.kind}${clk.key ? `&key=${encodeURIComponent(clk.key)}` : ''}`;
+    $('#clk-note').innerHTML = !r.tracking.on ? '<b>Click tracking is switched off</b> in Settings, so no new clicks are recorded.'
+      : !r.tracking.key ? 'VPN, proxy and Tor detection is off: add your <b>ipapi.is API key</b> in <a href="#settings">Settings → Click tracking</a>. Until then only the city and country of about 30 clicks a day are found.'
+        : 'Clicks are recorded for buyers who switch on "Track link clicks" in their campaign. Each buyer sees only their own clicks in Lead Agent; here you see all of them. IP addresses are stored shortened.';
+    const k = (cls, icon, label, value, sub) => `<div class="kpi ${cls}"><i>${ICON[icon]}</i><small>${label}</small><b>${Number(value).toLocaleString()}</b><span>${sub}</span></div>`;
+    $('#clk-kpis').innerHTML = [
+      k('ok', 'bolt', 'Clicks by people', t.clicks, `${t.people} ${t.people === 1 ? 'person' : 'people'} clicked`),
+      k('', 'user', 'Buyers with clicks', t.buyers, clk.key ? 'filtered to one buyer' : 'in this period'),
+      k(t.vpn ? 'warn' : '', 'ban', 'Through VPN / proxy / Tor', t.vpn, t.clicks ? `${Math.round((t.vpn / t.clicks) * 100)}% of people's clicks` : '–'),
+      k('', 'pc', 'Scanner clicks', t.scanners, 'mail filters, not counted as people'),
+    ].join('');
+    drawClickChart(r.series);
+    $('#clk-net').innerHTML = hbars(r.networks, t.clicks, t.clicks ? 'No clicks through a VPN, proxy, Tor or hosting network.' : 'None yet.') + (r.scannerReasons.length ? `<h3 class="clk-sub">Left out as scanners</h3>${hbars(r.scannerReasons, t.scanners)}` : '');
+    $('#clk-countries').innerHTML = hbars(r.countries, t.clicks);
+    $('#clk-cities').innerHTML = hbars(r.cities, t.clicks);
+    $('#clk-devices').innerHTML = hbars([...r.devices, ...r.systems], t.clicks);
+    $('#clk-links').innerHTML = hbars(r.links, t.clicks);
+    $('#clk-buyers tbody').innerHTML = r.buyers.map((b) => `<tr><td><div class="who"><b>${esc(b.name)}</b><small>${esc(b.email || b.key)}</small></div></td><td>${b.clicks}</td><td>${b.people}</td><td>${b.scanners}</td><td>${b.vpn}</td><td>${ago(b.last)}</td></tr>`).join('');
+    $('#clk-buyers-empty').hidden = r.buyers.length > 0;
+    const net = (c) => (c.bot ? `<span class="badge expired">Scanner</span> <small class="muted">${esc(c.bot)}</small>` : [c.tor ? '<span class="badge revoked">Tor</span>' : '', c.vpn ? `<span class="badge revoked">VPN${c.vpnName ? ` · ${esc(c.vpnName)}` : ''}</span>` : '', c.proxy ? '<span class="badge revoked">Proxy</span>' : '', !c.vpn && !c.proxy && !c.tor && c.datacenter ? '<span class="badge expired">Hosting</span>' : ''].join(' ') || `<small class="muted">${esc(c.org || '–')}</small>`);
+    $('#clk-recent tbody').innerHTML = r.recent.map((c) => `<tr><td title="${esc(new Date(c.at).toLocaleString())}">${ago(c.at)}</td><td><div class="who"><b>${esc(c.buyer)}</b><small>${esc(c.setup || c.email || '')}</small></div></td><td><a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">${esc(c.link)}</a>${c.follow ? ' <small class="muted">follow-up</small>' : ''}</td><td>${esc([c.city, c.country].filter(Boolean).join(', ') || '–')}</td><td>${esc([c.device, c.os, c.browser].filter(Boolean).join(' · '))}${c.app ? `<br><small class="muted">${esc(c.app)}</small>` : ''}</td><td>${net(c)}</td></tr>`).join('');
+    $('#clk-recent-empty').hidden = r.recent.length > 0;
+  }
+  function drawClickChart(series) {
+    const el = $('#clk-chart');
+    const W = Math.max(280, Math.round(el.clientWidth) || 720), H = 220, P = { l: 30, r: 8, t: 10, b: 26 };
+    const max = Math.max(4, ...series.map((d) => Math.max(d.people, d.scanners)));
+    const step = Math.ceil(max / 4); const top = step * 4;
+    const bw = (W - P.l - P.r) / Math.max(1, series.length);
+    const y = (v) => P.t + (H - P.t - P.b) * (1 - v / top);
+    let g = '';
+    for (let i = 0; i <= 4; i++) { const v = step * i; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="#EEF0F6"/><text x="${P.l - 6}" y="${y(v) + 4}" font-size="10.5" text-anchor="end" fill="#94A3B8">${v}</text>`; }
+    series.forEach((d, i) => {
+      const x = P.l + i * bw; const w = Math.max(2, bw / 2 - 2);
+      g += `<rect class="bar1" x="${x + 2}" y="${y(d.people)}" width="${w}" height="${Math.max(0, y(0) - y(d.people))}" rx="2"><title>${d.day}: ${d.people} by people</title></rect>`;
+      g += `<rect class="bar2" x="${x + 2 + w + 1}" y="${y(d.scanners)}" width="${w}" height="${Math.max(0, y(0) - y(d.scanners))}" rx="2"><title>${d.day}: ${d.scanners} scanner</title></rect>`;
+      const every = series.length > 40 ? 15 : series.length > 10 ? 5 : 1;
+      if (i % every === 0 || i === series.length - 1) g += `<text x="${x + bw / 2}" y="${H - 8}" font-size="10.5" text-anchor="middle" fill="#94A3B8">${new Date(`${d.day}T12:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</text>`;
+    });
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Clicks per day, by people and by scanners">${g}</svg>`;
+  }
+  $('#clk-days').addEventListener('change', (e) => { clk.days = Number(e.target.value); renderClicks().catch((x) => toast(x.message, true)); });
+  $('#clk-buyer').addEventListener('change', (e) => { clk.key = e.target.value; renderClicks().catch((x) => toast(x.message, true)); });
+  $('#clk-kind').addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (!b) return; clk.kind = b.dataset.k; $$('#clk-kind button').forEach((x) => x.classList.toggle('on', x === b)); renderClicks().catch((x) => toast(x.message, true)); });
   async function loadSettings() {
     const r = await api('settings');
     state.settings = r.settings; state.publicKey = r.publicKey; state.serverInfo = { dataDir: r.dataDir, php: r.php };

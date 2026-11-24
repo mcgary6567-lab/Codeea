@@ -1024,6 +1024,79 @@ function track_click(string $id): void {
     exit;
 }
 
+/** Admin: every buyer's clicks, totalled. GET api/admin/clicks?days=30&key=&kind=people|scanners|all[&format=csv] */
+function admin_clicks(): void {
+    $s = read_store();
+    $days = max(0, min(3650, (int) ($_GET['days'] ?? 30)));
+    $from = $days ? now_ms() - $days * 86400000 : 0;
+    $only = key_id($_GET['key'] ?? '');
+    $kind = in_array($_GET['kind'] ?? '', ['people', 'scanners', 'all'], true) ? $_GET['kind'] : 'all';
+    // Click files are named by a hash of the licence key: map them back.
+    $owner = [];
+    foreach ($s['licences'] as $k => $l) $owner[basename(click_file($k))] = $k;
+    $clicks = [];
+    foreach (glob(track_dir('clicks') . DIRECTORY_SEPARATOR . '*.ndjson') ?: [] as $f) {
+        $k = $owner[basename($f)] ?? '';
+        if ($only && $k !== $only) continue;
+        foreach (@file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $c = json_decode($line, true);
+            if (!is_array($c) || (int) ($c['at'] ?? 0) < $from) continue;
+            $c['key'] = $k;
+            $clicks[] = $c;
+        }
+    }
+    usort($clicks, fn($a, $b) => (int) $b['at'] <=> (int) $a['at']);
+    $who = function (string $k) use ($s): array { $l = $s['licences'][$k] ?? null; if (!$l) return ['name' => '(deleted licence)', 'email' => '']; $d = $l['devices'][0] ?? []; return ['name' => $l['name'] ?: ($d['userName'] ?? '') ?: $k, 'email' => $l['email'] ?: ($d['userEmail'] ?? '')]; };
+    $human = array_values(array_filter($clicks, fn($c) => empty($c['bot'])));
+    $view = $kind === 'people' ? $human : ($kind === 'scanners' ? array_values(array_filter($clicks, fn($c) => !empty($c['bot']))) : $clicks);
+
+    if (($_GET['format'] ?? '') === 'csv') {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="lead-agent-clicks-' . gmdate('Y-m-d') . '.csv"');
+        header('Cache-Control: no-store');
+        $cell = fn($v) => preg_match('/^[=+\-@]/', (string) $v) ? "'" . $v : $v;
+        $o = fopen('php://output', 'w');
+        fputcsv($o, ['When (UTC)', 'Buyer', 'Buyer email', 'Licence key', 'Link', 'Person or scanner', 'City', 'Region', 'Country', 'Network', 'VPN', 'Proxy', 'Tor', 'Data centre', 'Device', 'System', 'Browser', 'Mail app', 'Campaign setup', 'Sending account', 'Follow-up', 'Shortened IP']);
+        foreach ($view as $c) { $w = $who($c['key']); fputcsv($o, array_map($cell, [gmdate('Y-m-d H:i', (int) ($c['at'] / 1000)), $w['name'], $w['email'], $c['key'], $c['url'] ?? '', empty($c['bot']) ? 'Person' : 'Scanner: ' . $c['bot'], $c['city'] ?? '', $c['region'] ?? '', $c['country'] ?? '', $c['org'] ?? '', !empty($c['vpn']) ? 'yes' : '', !empty($c['proxy']) ? 'yes' : '', !empty($c['tor']) ? 'yes' : '', !empty($c['datacenter']) ? 'yes' : '', $c['device'] ?? '', $c['os'] ?? '', $c['browser'] ?? '', $c['app'] ?? '', $c['setup'] ?? '', $c['account'] ?? '', !empty($c['follow']) ? 'yes' : '', $c['ip'] ?? ''])); }
+        fclose($o);
+        exit;
+    }
+
+    $count = function (array $list, callable $f, int $n = 8): array { $m = []; foreach ($list as $c) { $k = (string) $f($c); if ($k !== '') $m[$k] = ($m[$k] ?? 0) + 1; } arsort($m); return array_map(fn($k, $v) => ['name' => (string) $k, 'count' => $v], array_keys(array_slice($m, 0, $n, true)), array_slice($m, 0, $n, true)); };
+    $link = function (array $c): string { $u = parse_url((string) ($c['url'] ?? '')); return ($u['host'] ?? '') . (($u['path'] ?? '/') === '/' ? '' : $u['path']); };
+    $buyers = [];
+    foreach ($clicks as $c) {
+        $b = &$buyers[$c['key']];
+        if (!$b) $b = ['key' => $c['key'], 'clicks' => 0, 'people' => [], 'scanners' => 0, 'vpn' => 0, 'last' => 0] + $who($c['key']);
+        if (empty($c['bot'])) { $b['clicks']++; $b['people'][(string) ($c['lead'] ?? '')] = 1; if (!empty($c['vpn']) || !empty($c['proxy']) || !empty($c['tor'])) $b['vpn']++; }
+        else $b['scanners']++;
+        $b['last'] = max($b['last'], (int) $c['at']);
+        unset($b);
+    }
+    foreach ($buyers as &$b) $b['people'] = count($b['people']);
+    unset($b);
+    usort($buyers, fn($a, $b) => $b['clicks'] <=> $a['clicks'] ?: $b['last'] <=> $a['last']);
+    $series = [];
+    for ($i = min($days ?: 30, 90) - 1; $i >= 0; $i--) $series[gmdate('Y-m-d', time() - $i * 86400)] = ['people' => 0, 'scanners' => 0];
+    foreach ($clicks as $c) { $d = gmdate('Y-m-d', (int) ($c['at'] / 1000)); if (isset($series[$d])) $series[$d][empty($c['bot']) ? 'people' : 'scanners']++; }
+    $people = []; foreach ($human as $c) $people[$c['key'] . '|' . ($c['lead'] ?? '')] = 1;
+    ok_out([
+        'totals' => ['clicks' => count($human), 'people' => count($people), 'scanners' => count($clicks) - count($human),
+            'vpn' => count(array_filter($human, fn($c) => !empty($c['vpn']) || !empty($c['proxy']) || !empty($c['tor']))), 'buyers' => count($buyers),
+            'detected' => count(array_filter($human, fn($c) => !empty($c['detected'])))],
+        'tracking' => ['on' => !empty($s['settings']['trackingOn']), 'key' => !empty($s['settings']['ipapiKey'])],
+        'buyers' => array_slice($buyers, 0, 200),
+        'countries' => $count($human, fn($c) => $c['country'] ?? ''), 'cities' => $count($human, fn($c) => ($c['city'] ?? '') !== '' ? $c['city'] . (!empty($c['country']) ? ', ' . $c['country'] : '') : ''),
+        'devices' => $count($human, fn($c) => $c['device'] ?? '', 4), 'systems' => $count($human, fn($c) => $c['os'] ?? '', 6), 'links' => $count($human, $link, 10),
+        'networks' => $count($human, fn($c) => !empty($c['tor']) ? 'Tor' : (!empty($c['vpn']) ? 'VPN' . (!empty($c['vpnName']) ? ' (' . $c['vpnName'] . ')' : '') : (!empty($c['proxy']) ? 'Proxy' : (!empty($c['datacenter']) ? 'Data centre / hosting' : ''))), 6),
+        'scannerReasons' => $count(array_filter($clicks, fn($c) => !empty($c['bot'])), fn($c) => $c['bot'], 5),
+        'series' => array_map(fn($d, $v) => ['day' => $d] + $v, array_keys($series), $series),
+        'recent' => array_map(function ($c) use ($who, $link) { $w = $who($c['key']); return ['at' => (int) $c['at'], 'buyer' => $w['name'], 'email' => $w['email'], 'key' => $c['key'], 'link' => $link($c), 'url' => $c['url'] ?? '',
+            'city' => $c['city'] ?? '', 'country' => $c['country'] ?? '', 'org' => $c['org'] ?? '', 'device' => $c['device'] ?? '', 'os' => $c['os'] ?? '', 'browser' => $c['browser'] ?? '', 'app' => $c['app'] ?? '',
+            'vpn' => !empty($c['vpn']), 'vpnName' => $c['vpnName'] ?? '', 'proxy' => !empty($c['proxy']), 'tor' => !empty($c['tor']), 'datacenter' => !empty($c['datacenter']), 'bot' => $c['bot'] ?? '', 'follow' => !empty($c['follow']), 'setup' => $c['setup'] ?? '']; }, array_slice($view, 0, 200)),
+    ]);
+}
+
 // ---------------------------------------------------------------- router
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -1066,6 +1139,7 @@ try {
         require_admin();
         $_SESSION['at'] = now_ms(); // sliding session
         if ($a === 'overview') admin_overview();
+        if ($a === 'clicks') admin_clicks();
         if ($a === 'licences' && !isset($parts[2])) { $method === 'POST' ? admin_create() : admin_licences(); }
         if ($a === 'licences' && isset($parts[2])) admin_licence_action($parts[2], $parts[3] ?? 'get');
         if ($a === 'users' && !isset($parts[2])) admin_users();
