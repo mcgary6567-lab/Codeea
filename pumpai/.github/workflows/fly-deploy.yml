@@ -1,0 +1,38 @@
+# Auto-deploy to Fly.io on every push to main.
+#
+# One-time setup (per pump / per Fly app):
+#   1) Make a deploy token:         fly tokens create deploy -a <your-app>
+#   2) GitHub repo → Settings → Secrets and variables → Actions:
+#        • New repository SECRET:   FLY_API_TOKEN = <the token from step 1>
+#        • New repository VARIABLE: FLY_APP       = <your-app>   (e.g. haroonpetro)
+#
+# After that, every push here builds the Docker image on Fly and updates the live app.
+# The persistent volume (database + backups) is never touched by a deploy.
+name: Fly Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # also lets you run it by hand from the Actions tab
+
+concurrency:
+  group: fly-deploy
+  cancel-in-progress: false   # never interrupt a deploy in flight
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        run: |
+          if [ -z "${FLY_APP}" ]; then
+            echo "::error::Set a repository VARIABLE named FLY_APP (your Fly app name) — Settings → Secrets and variables → Actions → Variables."
+            exit 1
+          fi
+          flyctl deploy --remote-only --app "${FLY_APP}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: ${{ vars.FLY_APP }}
