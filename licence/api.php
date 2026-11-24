@@ -60,6 +60,8 @@ function default_store(): array {
             'autoIssue' => true,
             'blockDisposable' => true,
             'requireEmailMatch' => false,
+            'trackingOn' => true,
+            'ipapiKey' => '',
             'messageTemplate' => "Hi {name},\n\nThank you for buying {product}!\n\nInstall it, open it, and enter your name and this email address: {email}. It activates in a few seconds and works on {devices} computers.\n\nIf you ever need it, your licence key is: {key}\n\nAny questions, just reply to this email.\n\n{seller}",
         ],
         'rate' => [],
@@ -771,7 +773,7 @@ function admin_events(): void { ok_out(['events' => read_events(min(2000, max(10
 function admin_settings(): void {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
         $s = read_store();
-        ok_out(['settings' => $s['settings'], 'publicKey' => public_jwk(), 'dataDir' => data_dir(), 'php' => PHP_VERSION]);
+        ok_out(['settings' => hide_secrets($s['settings']), 'publicKey' => public_jwk(), 'dataDir' => data_dir(), 'php' => PHP_VERSION]);
     }
     $b = body();
     $out = with_store(function (&$s, &$save) use ($b) {
@@ -786,12 +788,17 @@ function admin_settings(): void {
         if (isset($b['blockDisposable'])) $st['blockDisposable'] = (bool) $b['blockDisposable'];
         if (isset($b['requireEmailMatch'])) $st['requireEmailMatch'] = (bool) $b['requireEmailMatch'];
         if (isset($b['messageTemplate'])) $st['messageTemplate'] = mb_substr((string) $b['messageTemplate'], 0, 3000);
+        if (isset($b['trackingOn'])) $st['trackingOn'] = (bool) $b['trackingOn'];
+        // The ipapi.is key is only ever written: a blank box keeps the saved one.
+        if (isset($b['ipapiKey']) && trim((string) $b['ipapiKey']) !== '') $st['ipapiKey'] = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $b['ipapiKey']);
+        if (!empty($b['ipapiKeyClear'])) $st['ipapiKey'] = '';
         $save = true;
         return $st;
     });
     log_event('settings', []);
-    ok_out(['settings' => $out]);
+    ok_out(['settings' => hide_secrets($out)]);
 }
+function hide_secrets(array $st): array { $st['ipapiKeySet'] = !empty($st['ipapiKey']); $st['ipapiKey'] = ''; return $st; }
 
 function admin_password(): void {
     $b = body();
@@ -844,6 +851,179 @@ function admin_export(): void {
     exit;
 }
 
+// ---------------------------------------------------------------- click tracking
+// A buyer's Lead Agent registers each link of an email it is about to send (api/track/links)
+// and puts the short address in its place: https://<site>/licence/api/c/<id>. A click is sent
+// on to the real address at once; after that the click is recorded under the buyer's licence
+// with the city, country, network and device, and flagged when it came through a VPN, proxy,
+// Tor or a data centre, or looks like a mail security scanner (those "click" every link).
+// The visitor's IP address is not kept: it is shortened (last part removed) once looked up.
+// Lead Agent fetches its own clicks with api/track/clicks. Only registered links redirect,
+// so this is never an open redirect.
+const TRACK_LINKS_PER_DAY = 5000;   // links registered per licence per day
+const TRACK_ITEMS_PER_CALL = 20;
+const TRACK_KEEP_DAYS = 400;
+
+function track_dir(string $sub): string {
+    $d = data_dir() . DIRECTORY_SEPARATOR . 'track' . DIRECTORY_SEPARATOR . $sub;
+    if (!is_dir($d)) @mkdir($d, 0700, true);
+    return $d;
+}
+function track_id(): string {
+    $a = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; $o = '';
+    for ($i = 0; $i < 11; $i++) $o .= $a[random_int(0, strlen($a) - 1)];
+    return $o;
+}
+function link_file(string $id): string { return track_dir('links' . DIRECTORY_SEPARATOR . substr($id, 0, 2)) . DIRECTORY_SEPARATOR . $id . '.json'; }
+function click_file(string $key): string { return track_dir('clicks') . DIRECTORY_SEPARATOR . substr(hash('sha256', 'la-clk|' . $key), 0, 24) . '.ndjson'; }
+function mask_ip(string $ip): string {
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) return preg_replace('/\.\d+$/', '.0', $ip);
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) { $p = explode(':', inet_ntop(inet_pton($ip))); return implode(':', array_slice($p, 0, 3)) . '::'; }
+    return '';
+}
+function track_base(): string {
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $host = preg_replace('/[^a-z0-9.:-]/i', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $dir = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/licence/api.php'))), '/');
+    return ($https ? 'https' : 'http') . '://' . $host . $dir . '/api/c/';
+}
+
+/** The licence behind a tracking call: switched on, and this computer is one of its computers. */
+function track_licence(array $b): array {
+    $key = key_id($b['key'] ?? ''); $device = clean_device($b['device'] ?? '');
+    $s = read_store();
+    if (empty($s['settings']['trackingOn'])) fail_out('tracking_off', 'Click tracking is switched off on the licence server.');
+    $lic = $key ? ($s['licences'][$key] ?? null) : null;
+    if (!$lic) fail_out('invalid', 'Click tracking needs an activated Lead Agent licence.');
+    $st = lic_status($lic);
+    if (in_array($st, ['revoked', 'expired', 'blocked'], true)) fail_out($st, 'This licence is not active, so clicks cannot be tracked.');
+    if (!in_array($device, array_column($lic['devices'], 'id'), true)) fail_out('released', 'This computer is not part of the licence. Activate it again.');
+    return [$key, $s['settings']];
+}
+
+/** Count today's registrations for a licence in its own small file (the main store stays unlocked). */
+function track_quota(string $key, int $n): bool {
+    $f = track_dir('quota') . DIRECTORY_SEPARATOR . substr(hash('sha256', 'la-q|' . $key), 0, 20) . '-' . gmdate('Ymd') . '.txt';
+    $fh = @fopen($f, 'c+'); if (!$fh) return true;
+    flock($fh, LOCK_EX);
+    $used = (int) stream_get_contents($fh);
+    $ok = $used + $n <= TRACK_LINKS_PER_DAY;
+    if ($ok) { ftruncate($fh, 0); rewind($fh); fwrite($fh, (string) ($used + $n)); }
+    flock($fh, LOCK_UN); fclose($fh);
+    return $ok;
+}
+
+function api_track_links(): void {
+    $b = body();
+    [$key] = track_licence($b);
+    $items = array_slice(is_array($b['items'] ?? null) ? $b['items'] : [], 0, TRACK_ITEMS_PER_CALL);
+    if (!$items) fail_out('bad_request', 'No links to register.');
+    if (!track_quota($key, count($items))) fail_out('quota', 'Today\'s limit of tracked links for this licence is reached. Emails go out without tracking until tomorrow.');
+    $base = track_base(); $out = [];
+    foreach ($items as $it) {
+        $url = trim((string) ($it['url'] ?? ''));
+        if (strlen($url) > 2000 || !preg_match('#^https?://[^\s"<>]+$#i', $url)) { $out[] = null; continue; }
+        $id = track_id();
+        $rec = ['id' => $id, 'k' => $key, 'u' => $url, 'l' => clean_text($it['lead'] ?? '', 80), 'c' => clean_text($it['campaign'] ?? '', 80),
+            's' => clean_text($it['setup'] ?? '', 60), 'a' => clean_text($it['account'] ?? '', 120), 'v' => clean_text($it['variant'] ?? '', 4), 'f' => !empty($it['follow']), 't' => now_ms()];
+        @file_put_contents(link_file($id), json_encode($rec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $out[] = $base . $id;
+    }
+    ok_out(['links' => $out]);
+}
+
+function api_track_clicks(): void {
+    $b = body();
+    [$key] = track_licence($b);
+    $since = max(0, (int) ($b['since'] ?? 0));
+    $file = click_file($key); $out = [];
+    if (is_file($file)) {
+        foreach (@file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $c = json_decode($line, true);
+            if (is_array($c) && (int) ($c['at'] ?? 0) > $since) $out[] = $c;
+        }
+    }
+    ok_out(['clicks' => array_slice($out, -5000), 'now' => now_ms()]);
+}
+
+/** City, country, network and VPN/proxy flags for an IP (ipapi.is; results kept 30 days). */
+function ip_lookup(string $ip, string $apiKey): array {
+    if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return [];
+    $cache = track_dir('ipcache') . DIRECTORY_SEPARATOR . substr(hash('sha256', 'la-ip|' . $ip . '|' . ($apiKey !== '' ? 'k' : 'n')), 0, 24) . '.json';
+    if (is_file($cache) && filemtime($cache) > time() - 30 * 86400) { $c = json_decode((string) @file_get_contents($cache), true); if (is_array($c)) return $c; }
+    $ctx = stream_context_create(['http' => ['timeout' => 4, 'ignore_errors' => true, 'header' => "Accept: application/json\r\n"], 'ssl' => ['verify_peer' => true]]);
+    $raw = @file_get_contents('https://api.ipapi.is/?q=' . rawurlencode($ip) . ($apiKey !== '' ? '&key=' . rawurlencode($apiKey) : ''), false, $ctx);
+    $j = $raw ? json_decode($raw, true) : null;
+    if (!is_array($j) || isset($j['error'])) return [];
+    $loc = is_array($j['location'] ?? null) ? $j['location'] : [];
+    // With a key, asn/company are objects; without one they are plain text ("AS15169 Google LLC").
+    $asn = $j['asn'] ?? null; $company = $j['company'] ?? null;
+    $org = is_array($asn) ? (string) ($asn['org'] ?? '') : '';
+    if ($org === '') $org = is_array($company) ? (string) ($company['name'] ?? '') : (is_string($company) ? $company : '');
+    if ($org === '' && is_string($asn)) $org = trim((string) preg_replace('/^AS\d+\s*/', '', $asn));
+    $asnNo = is_array($asn) ? (int) ($asn['asn'] ?? 0) : (is_string($asn) && preg_match('/^AS(\d+)/', $asn, $m) ? (int) $m[1] : 0);
+    $out = [
+        'country' => (string) ($loc['country'] ?? ($j['country'] ?? '')), 'cc' => strtoupper((string) ($loc['country_code'] ?? ($j['country_code'] ?? ''))),
+        'region' => (string) ($loc['state'] ?? ($j['region'] ?? '')), 'city' => (string) ($loc['city'] ?? ($j['city'] ?? '')), 'tz' => (string) ($loc['timezone'] ?? ($j['timezone'] ?? '')),
+        'org' => $org, 'asn' => $asnNo,
+        'vpn' => !empty($j['is_vpn']), 'proxy' => !empty($j['is_proxy']), 'tor' => !empty($j['is_tor']), 'datacenter' => !empty($j['is_datacenter']),
+        'mobileNet' => !empty($j['is_mobile']), 'abuser' => !empty($j['is_abuser']), 'vpnName' => (string) ($j['vpn']['service'] ?? ''),
+        'detected' => $apiKey !== '',
+    ];
+    // Without a key ipapi.is gives no flags: guess from the network's name.
+    if ($apiKey === '' && preg_match('/\b(vpn|proxy|hosting|host|server|cloud|data ?cent(er|re)|colo|m247|datacamp|ovh|digitalocean|linode|akamai|vultr|hetzner|contabo|choopa|leaseweb|amazon|aws|google llc|google cloud|microsoft corporation|microsoft azure|oracle cloud|proofpoint|mimecast|barracuda|zscaler|nord|express|surfshark|mullvad|proton|private internet access|cyberghost|ipvanish|windscribe)\b/i', $org)) $out['datacenter'] = true;
+    @file_put_contents($cache, json_encode($out, JSON_UNESCAPED_UNICODE));
+    return $out;
+}
+
+function ua_info(string $ua): array {
+    $u = strtolower($ua);
+    $device = preg_match('/ipad|tablet|kindle|silk|playbook/', $u) || (strpos($u, 'android') !== false && strpos($u, 'mobile') === false) ? 'Tablet'
+        : (preg_match('/mobi|iphone|ipod|android|windows phone/', $u) ? 'Phone' : 'Computer');
+    $os = preg_match('/windows nt/', $u) ? 'Windows' : (preg_match('/iphone|ipad|ipod/', $u) ? 'iOS' : (strpos($u, 'android') !== false ? 'Android'
+        : (preg_match('/mac os x|macintosh/', $u) ? 'macOS' : (strpos($u, 'cros') !== false ? 'ChromeOS' : (strpos($u, 'linux') !== false ? 'Linux' : 'Other')))));
+    $browser = strpos($u, 'edg/') !== false ? 'Edge' : (preg_match('/opr\/|opera/', $u) ? 'Opera' : (strpos($u, 'samsungbrowser') !== false ? 'Samsung Internet'
+        : (preg_match('/firefox|fxios/', $u) ? 'Firefox' : (preg_match('/ gsa\/|googleapp/', $u) ? 'Google app' : (preg_match('/chrome|crios/', $u) ? 'Chrome' : (strpos($u, 'safari') !== false ? 'Safari' : 'Other'))))));
+    $app = preg_match('/gmail/', $u) ? 'Gmail app' : (preg_match('/outlook|microsoft office/', $u) ? 'Outlook' : (preg_match('/yahoo/', $u) ? 'Yahoo Mail app' : ''));
+    return ['device' => $device, 'os' => $os, 'browser' => $browser, 'app' => $app];
+}
+
+/** GET api/c/<id>: send the visitor on first, record afterwards. */
+function track_click(string $id): void {
+    $link = null;
+    if (preg_match('/^[A-Za-z0-9]{11}$/', $id) && is_file(link_file($id))) $link = json_decode((string) @file_get_contents(link_file($id)), true);
+    header_remove('Access-Control-Allow-Origin');
+    header('Cache-Control: no-store');
+    header('Referrer-Policy: no-referrer');
+    header('X-Robots-Tag: noindex, nofollow');
+    if (!is_array($link) || empty($link['u'])) { http_response_code(404); header('Content-Type: text/html; charset=utf-8'); echo '<!doctype html><meta charset="utf-8"><title>Link not found</title><p style="font:16px sans-serif;margin:40px">This link is no longer available.</p>'; exit; }
+    http_response_code(302);
+    header('Location: ' . $link['u']);
+    header('Content-Length: 0');
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $ua = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 400);
+    $ip = client_ip();
+    // Let the visitor go now; the lookup below takes a moment.
+    ignore_user_abort(true);
+    if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+    elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
+    else { @ob_end_flush(); @flush(); }
+
+    $settings = read_store()['settings'];
+    $geo = ip_lookup($ip, (string) ($settings['ipapiKey'] ?? ''));
+    $age = now_ms() - (int) ($link['t'] ?? 0);
+    $bot = '';
+    if ($method === 'HEAD') $bot = 'Checked the link without opening it';
+    elseif ($ua === '') $bot = 'No browser name';
+    elseif (preg_match('/bot|crawl|spider|slurp|preview|scan|python|curl|wget|java\/|go-http|okhttp|headless|phantom|barracuda|proofpoint|mimecast|forcepoint|symantec|trend ?micro|ironport|safelinks|skypeuripreview|facebookexternalhit|whatsapp|slack|discord|linkedinbot|twitterbot|bingpreview/i', $ua)) $bot = 'Security scanner or link preview';
+    elseif ($age < 20000) $bot = 'Opened seconds after sending (mail security scanners do this)';
+    elseif (!empty($geo['datacenter']) && preg_match('/microsoft|google|amazon|proofpoint|mimecast|barracuda|cisco|zscaler|forcepoint|fortinet|trend ?micro|sophos|cloudflare|symantec|broadcom/i', (string) ($geo['org'] ?? ''))) $bot = 'From a mail security network (' . $geo['org'] . ')';
+    $rec = ['id' => $id . '-' . substr(bin2hex(random_bytes(4)), 0, 6), 'link' => $id, 'at' => now_ms(), 'sentAt' => (int) ($link['t'] ?? 0), 'url' => $link['u'], 'lead' => $link['l'] ?? '', 'campaign' => $link['c'] ?? '', 'setup' => $link['s'] ?? '',
+        'account' => $link['a'] ?? '', 'variant' => $link['v'] ?? '', 'follow' => !empty($link['f']), 'ip' => mask_ip($ip), 'bot' => $bot, 'method' => $method] + ua_info($ua) + $geo;
+    @file_put_contents(click_file((string) $link['k']), json_encode($rec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
+    exit;
+}
+
 // ---------------------------------------------------------------- router
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -861,6 +1041,11 @@ $route = trim($route, '/');
 $parts = $route === '' ? [] : explode('/', $route);
 
 try {
+    if (($parts[0] ?? '') === 'c' && isset($parts[1])) track_click($parts[1]);
+    if ($route === 'track/links' || $route === 'track/clicks') {
+        if ($method !== 'POST') fail_out('bad_request', 'Use POST.', 405);
+        $route === 'track/links' ? api_track_links() : api_track_clicks();
+    }
     if ($route === 'health') ok_out(['service' => 'lead-agent-licence', 'time' => now_ms(), 'ready' => is_file(key_file())]);
     if ($route === 'public-key') { $k = public_jwk(); $k ? ok_out(['publicKey' => $k]) : fail_out('not_set_up', 'Finish setup in the admin panel first.', 404); }
     if (in_array($route, ['activate', 'claim', 'check', 'release'], true)) {

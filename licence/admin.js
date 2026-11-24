@@ -636,6 +636,7 @@
     await loadSettings();
     const f = $('#settings-form'), st = state.settings;
     for (const [k, v] of Object.entries(st)) { const el = f.elements[k]; if (!el) continue; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; }
+    f.elements.ipapiKey.placeholder = st.ipapiKeySet ? 'Saved (type a new key to replace it)' : 'Not set';
     renderBlocked().catch(() => {});
     $('#pubkey').textContent = state.publicKey ? JSON.stringify(state.publicKey) : 'Not created yet.';
     $('#server-info').textContent = `PHP ${state.serverInfo.php} · data saved privately outside the website folder`;

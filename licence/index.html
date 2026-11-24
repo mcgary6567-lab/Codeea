@@ -148,6 +148,9 @@
         <label class="switch"><input type="checkbox" name="autoIssue"><span></span>Give a licence automatically to any new email (buyers pay before they can download). Off = only emails you add.</label>
         <label class="switch"><input type="checkbox" name="blockDisposable"><span></span>Refuse throwaway email addresses (mailinator, temp-mail and similar) for automatic licences</label>
         <label class="switch"><input type="checkbox" name="requireEmailMatch"><span></span>Buyer must use the email saved on the key</label>
+        <h2>Click tracking</h2>
+        <label class="switch"><input type="checkbox" name="trackingOn"><span></span>Record link clicks for buyers who switch on click tracking (each buyer sees only their own clicks)</label>
+        <label>ipapi.is API key<input name="ipapiKey" type="password" autocomplete="off" placeholder="Not set"><span class="hint">For city, VPN, proxy and Tor detection on clicks: a free account at ipapi.is gives 1,000 lookups a day, commercial use allowed. Without a key only the country and city of about 30 clicks a day are found, and VPNs are guessed from the network name. Leave blank to keep the saved key.</span></label>
         <h2>Message sent with a new key</h2>
         <label class="full">Template<textarea name="messageTemplate" rows="9"></textarea><span class="hint">Placeholders: {name} {email} {key} {devices} {product} {seller} {support}</span></label>
         <div class="full"><button class="btn primary" type="submit">Save settings</button></div>
@@ -185,6 +188,6 @@
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-card" id="modal-card"></div></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
-<script src="admin.js?v=2026111903"></script>
+<script src="admin.js?v=2026112301"></script>
 </body>
 </html>
