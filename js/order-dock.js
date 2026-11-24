@@ -152,8 +152,10 @@
   var laCard = isLA && document.querySelector('#buy .la-card');
   if (laCard) {
     var LA_GETS = ['Google Maps, LinkedIn, Yelp, YellowPages, any directory', 'Email finder, website audit, activity score',
-      'Live phone check: active numbers only', 'Cold email from your own account, with follow-ups', 'Autopilot: daily searches, sending and summaries',
-      '2 computers, Windows, Mac and Linux'];
+      'Live phone check: active numbers only', 'Cold email from your own account, with follow-ups',
+      'Up to 10 Gmail accounts per campaign, a daily number for each', 'Inbox safety checks before every campaign',
+      'Click tracking: who clicked, city, country, device, VPN or proxy', 'Campaign report with reply, click and bounce rates',
+      'Autopilot: daily searches, sending and summaries', '2 computers, Windows, Mac and Linux'];
     var la = document.createElement('div');
     la.className = 'od-inline od-la'; la.id = 'od-inline';
     laCard.id = laCard.id || 'od-la-card';
