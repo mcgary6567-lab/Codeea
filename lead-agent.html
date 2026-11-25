@@ -77,13 +77,30 @@
   ]
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "name": "Lead Agent Full Tour: Find Leads on Google Maps & LinkedIn, Email Them, Track Every Click",
+  "description": "The full Lead Agent tour, recorded in the real extension: find leads on Google Maps and LinkedIn, get emails, owners and activity scores, write one email, send from up to 10 Gmail accounts with Inbox Safety, and see who clicked.",
+  "thumbnailUrl": "https://ihsansoloads.com/images/lead-agent/tour-poster.webp?v=2026112401",
+  "uploadDate": "2026-11-24",
+  "duration": "PT2M56S",
+  "embedUrl": "https://www.youtube.com/embed/zLvnwzv1OhU",
+  "contentUrl": "https://www.youtube.com/watch?v=zLvnwzv1OhU",
+  "publisher": { "@type": "Organization", "name": "Ihsan Solo Ads", "url": "https://ihsansoloads.com/" }
+}
+</script>
 <style>.la-cta-row{display:flex;flex-direction:column;align-items:center;gap:.7rem;margin-top:2.5rem;text-align:center}.la-cta-row p{margin:0;font-size:.9rem;color:var(--gray-500)}.la-dark .la-cta-row p{color:rgba(255,255,255,.72)}@media (max-width:640px){.la-cta-row{margin-top:2rem}.la-cta-row .btn{width:100%;justify-content:center}}</style>
 <style>
 .la-guarantee{display:flex;align-items:flex-start;gap:.55rem;margin:.9rem 0 0;padding:.65rem .8rem;border-radius:12px;background:#ECFDF5;color:#065F46;font-size:.86rem;line-height:1.45;text-align:left}
 .la-guarantee .i{flex:none;width:18px;height:18px;margin-top:1px;color:#059669}
 .la-video{max-width:1040px;margin:0 auto}
 .la-video-stage{position:relative;border-radius:22px;padding:12px;background:radial-gradient(60% 60% at 20% 10%,rgba(124,58,237,.45),transparent 70%),linear-gradient(140deg,#0B1022,#1E1B4B 60%,#312E81);box-shadow:0 30px 60px -24px rgba(15,23,42,.55)}
-.la-video-stage video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:13px;background:#0b1022}
+.la-video-stage video,.la-video-stage img,.la-video-stage iframe{display:block;width:100%;height:auto;aspect-ratio:16/9;border:0;border-radius:13px;background:#0b1022}
+.la-video.started .la-video-fs{display:none}
+a.la-video-fs{text-decoration:none}
+@media (max-width:520px){a.la-video-fs{display:none}}
 .la-video-go{position:absolute;inset:12px;display:grid;place-items:center;border:0;border-radius:13px;background:linear-gradient(180deg,rgba(11,16,34,.05),rgba(11,16,34,.35));cursor:pointer;color:#fff;font:inherit}
 .la-video-go span{display:flex;align-items:center;gap:.7rem;padding:.95rem 1.5rem .95rem 1.05rem;border-radius:999px;background:rgba(15,17,35,.82);backdrop-filter:blur(6px);font-weight:700;font-size:1.05rem;box-shadow:0 14px 34px -10px rgba(0,0,0,.6);transition:transform .2s}
 .la-video-go:hover span{transform:scale(1.04)}
@@ -440,11 +457,9 @@
     </div>
     <div class="la-video" id="demo-video" data-video>
       <div class="la-video-stage">
-        <video preload="none" playsinline poster="images/lead-agent/tour-poster.webp?v=2026112401" width="1920" height="1080" aria-label="Lead Agent full tour: finding plumbers in Denver on Google Maps and people on LinkedIn, enriching and scoring the leads, writing one email, sending from up to 10 Gmail accounts with Inbox Safety, and tracking who clicked">
-          <source src="images/lead-agent/lead-agent-tour.mp4?v=2026112401" type="video/mp4">
-        </video>
-        <button type="button" class="la-video-go" aria-label="Play the 3-minute tour, with sound"><span><i><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></i><span class="la-vt">Watch the<b class="la-vfull"> full</b> tour · 2:56<b class="la-vfull"> · sound on</b></span></span></button>
-        <button type="button" class="la-video-fs" aria-label="Play the tour full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>Full screen</button>
+        <img class="la-video-poster" src="images/lead-agent/tour-poster.webp?v=2026112401" width="1920" height="1080" loading="lazy" decoding="async" alt="Lead Agent full tour: finding plumbers in Denver on Google Maps and people on LinkedIn, enriching and scoring the leads, writing one email, sending from up to 10 Gmail accounts with Inbox Safety, and tracking who clicked">
+        <button type="button" class="la-video-go" data-yt="zLvnwzv1OhU" aria-label="Play the 3-minute tour on YouTube, with sound"><span><i><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></i><span class="la-vt">Watch the<b class="la-vfull"> full</b> tour · 2:56<b class="la-vfull"> · sound on</b></span></span></button>
+        <a class="la-video-fs" href="https://www.youtube.com/watch?v=zLvnwzv1OhU" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>Watch on YouTube</a>
       </div>
     </div>
   </div>
@@ -905,29 +920,24 @@
 <script>
 (function(){
   var d=document.querySelector('[data-video]'); if(!d) return;
-  var v=d.querySelector('video'), go=d.querySelector('.la-video-go'), ch=[].slice.call(d.querySelectorAll('[data-t]'));
-  function start(t){ d.classList.add('started'); v.controls=true; if(t!=null){ var seek=function(){ v.currentTime=t; }; if(v.readyState>=1) seek(); else v.addEventListener('loadedmetadata',seek,{once:true}); } if(v.preload==='none'){ v.preload='auto'; v.load(); if(t!=null) v.addEventListener('loadedmetadata',function(){v.currentTime=t;},{once:true}); } var p=v.play(); if(p&&p.catch) p.catch(function(){}); }
-  // Full screen: the button on the video, and on phones the play button too (turned sideways
-  // where the browser allows it; iPhone uses its own full-screen player).
-  var fsBtn=d.querySelector('.la-video-fs');
-  var phone=function(){ return !!(window.matchMedia && matchMedia('(max-width:820px) and (pointer:coarse)').matches); };
-  var fsEl=function(){ return document.fullscreenElement||document.webkitFullscreenElement||null; };
-  function lockSide(){ try{ var o=screen.orientation; if(o&&o.lock){ var p=o.lock('landscape'); if(p&&p.catch) p.catch(function(){}); } }catch(e){} }
-  function big(){
-    try{
-      if(v.requestFullscreen){ var p=v.requestFullscreen({navigationUI:'hide'}); if(p&&p.then) p.then(lockSide).catch(function(){}); return; }
-      if(v.webkitRequestFullscreen){ v.webkitRequestFullscreen(); lockSide(); return; }
-      if(v.webkitEnterFullscreen){ v.removeAttribute('playsinline'); v.webkitEnterFullscreen(); }
-    }catch(e){}
+  // The tour is hosted on YouTube. Until play is pressed only the poster image loads;
+  // then the YouTube player replaces it (privacy-enhanced domain, starts with sound).
+  var go=d.querySelector('.la-video-go'), id=go.getAttribute('data-yt'), stage=d.querySelector('.la-video-stage'), f=null;
+  function start(t){
+    if(f){ if(t!=null) f.contentWindow.postMessage(JSON.stringify({event:'command',func:'seekTo',args:[t,true]}),'*'); return; }
+    d.classList.add('started');
+    f=document.createElement('iframe');
+    f.src='https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1'+(t?'&start='+Math.floor(t):'');
+    f.title='Lead Agent full tour (2:56)';
+    f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.allowFullscreen=true; f.width=1920; f.height=1080;
+    var img=stage.querySelector('img'); stage.replaceChild(f,img);
   }
-  function onFs(){ if(!fsEl()){ try{ screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock(); }catch(e){} } }
-  document.addEventListener('fullscreenchange',onFs); document.addEventListener('webkitfullscreenchange',onFs);
-  if(fsBtn) fsBtn.addEventListener('click',function(){ if(!d.classList.contains('started')) start(null); else if(v.paused){ var p=v.play(); if(p&&p.catch) p.catch(function(){}); } big(); });
-  go.addEventListener('click',function(){ if(phone()&&!v.requestFullscreen&&!v.webkitRequestFullscreen) v.removeAttribute('playsinline'); start(null); if(phone()) big(); });
-  var w=document.querySelector('[data-watch]'); if(w) w.addEventListener('click',function(){ if(!d.classList.contains('started')) start(null); });
-  ch.forEach(function(b){ b.addEventListener('click',function(){ start(+b.dataset.t); }); });
-  v.addEventListener('timeupdate',function(){ var cur=null; ch.forEach(function(b){ if(v.currentTime>=+b.dataset.t-.2) cur=b; }); ch.forEach(function(b){ b.setAttribute('aria-current',b===cur?'true':'false'); }); });
-  if('IntersectionObserver' in window){ new IntersectionObserver(function(es){ if(!es[0].isIntersecting&&!v.paused&&!fsEl()&&!v.webkitDisplayingFullscreen) v.pause(); },{threshold:.15}).observe(d); }
+  go.addEventListener('click',function(){ start(null); });
+  var w=document.querySelector('[data-watch]'); if(w) w.addEventListener('click',function(){ start(null); });
+  [].slice.call(d.querySelectorAll('[data-t]')).forEach(function(b){ b.addEventListener('click',function(){ start(+b.dataset.t); }); });
+  // Pause when the player scrolls out of view.
+  if('IntersectionObserver' in window){ new IntersectionObserver(function(es){ if(f&&!es[0].isIntersecting) f.contentWindow.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:[]}),'*'); },{threshold:.15}).observe(d); }
 })();
 </script><script>
 (function(){
