@@ -419,6 +419,30 @@ table.price-compare {
 .hb-sec{padding-top:1rem}.hb-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.25rem}.hb-card{background:var(--white,#fff);border:1px solid var(--gray-200,#E5E7EB);border-radius:16px;overflow:hidden;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}.hb-card:hover{transform:translateY(-5px);box-shadow:0 18px 40px -18px rgba(15,23,42,.28);border-color:transparent}.hb-link{display:flex;flex-direction:column;height:100%;color:inherit;text-decoration:none}.hb-img{height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--gradient-primary)}.hb-img svg{width:74%;max-width:170px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.2));transition:transform .35s ease}.hb-card:hover .hb-img svg{transform:scale(1.06)}.hb-body{padding:1.1rem 1.15rem 1.15rem;display:flex;flex-direction:column;flex:1}.hb-meta{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.78rem;color:var(--gray-500,#6B7280);margin-bottom:.65rem}.hb-body h3{font-size:1.02rem;line-height:1.35;margin:0 0 .5rem;color:var(--dark,#0F172A);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.hb-card:hover h3{color:var(--primary,#4F46E5)}.hb-body p{font-size:.88rem;line-height:1.55;color:var(--gray-600,#4B5563);margin:0 0 .9rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.hb-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;font-size:.8rem;color:var(--gray-500,#6B7280);padding-top:.75rem;border-top:1px solid var(--gray-100,#F3F4F6)}.hb-go{font-weight:700;color:var(--primary,#4F46E5)}.hb-all{text-align:center;margin-top:2rem}@media (max-width:1100px){.hb-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:640px){.hb-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:.9rem;padding:0 0 .6rem;margin:0 -1rem;padding-left:1rem;padding-right:1rem;-webkit-overflow-scrolling:touch}.hb-card{flex:0 0 78%;scroll-snap-align:start}}
 </style>
 <link rel="stylesheet" href="/css/mobile.css?v=2026111801">
+<style>
+.hy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem;max-width:1000px;margin:0 auto}
+.hy-card{display:block;border-radius:18px;overflow:hidden;background:#fff;border:1px solid #E5E7EB;box-shadow:0 1px 2px rgba(15,23,42,.04);color:#0F172A;text-decoration:none;transition:transform .2s,box-shadow .2s,border-color .2s}
+.hy-card:hover,.hy-card:focus-visible{transform:translateY(-4px);border-color:#FF0033;box-shadow:0 24px 44px -22px rgba(15,23,42,.35)}
+.hy-thumb{display:block;position:relative;aspect-ratio:16/9;background:#0B1022;overflow:hidden}
+.hy-thumb img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .4s}
+.hy-card:hover .hy-thumb img{transform:scale(1.04)}
+.hy-thumb::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,16,34,0) 55%,rgba(11,16,34,.45))}
+.hy-play{position:absolute;left:50%;top:50%;z-index:1;display:grid;place-items:center;width:64px;height:46px;margin:-23px 0 0 -32px;border-radius:14px;background:#FF0033;color:#fff;box-shadow:0 10px 26px -8px rgba(255,0,51,.7);transition:transform .2s}
+.hy-card:hover .hy-play{transform:scale(1.08)}
+.hy-play svg{width:22px;height:22px;margin-left:2px}
+.hy-dur{position:absolute;right:10px;bottom:10px;z-index:1;padding:.2rem .45rem;border-radius:6px;background:rgba(0,0,0,.78);color:#fff;font-size:.78rem;font-weight:700;letter-spacing:.02em}
+.hy-body{display:block;padding:1.05rem 1.25rem 1.2rem}
+.hy-tag{display:inline-block;margin-bottom:.45rem;color:#FF0033;font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.hy-body h3{margin:0;font-size:1.08rem;line-height:1.35}
+.hy-body p{margin:.4rem 0 0;color:#64748B;font-size:.9rem;line-height:1.5}
+.hy-cta{display:flex;justify-content:center;margin-top:2rem}
+.hy-sub{display:inline-flex;align-items:center;gap:.6rem;padding:.85rem 1.5rem;border-radius:999px;background:#FF0033;color:#fff;font-weight:700;text-decoration:none;box-shadow:0 14px 30px -14px rgba(255,0,51,.8);transition:transform .2s,box-shadow .2s,background .2s}
+.hy-sub:hover,.hy-sub:focus-visible{background:#E0002D;transform:translateY(-2px);box-shadow:0 18px 34px -14px rgba(255,0,51,.9);color:#fff}
+.hy-sub svg{width:22px;height:22px}
+.hy-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:700px){.hy-grid{grid-template-columns:1fr}.hy-sub{width:100%;justify-content:center;min-height:48px}}
+@media (prefers-reduced-motion:reduce){.hy-card,.hy-thumb img,.hy-play,.hy-sub{transition:none}.hy-card:hover,.hy-sub:hover{transform:none}.hy-card:hover .hy-thumb img{transform:none}}
+</style>
 </head>
 <body>
 
@@ -1134,6 +1158,30 @@ table.price-compare {
       </article>
     </div>
     <div class="hb-all reveal"><a href="blog" class="read-more">View all articles <span aria-hidden="true">&rarr;</span></a></div>
+  </div>
+</section>
+
+<!-- ======== YouTube ======== -->
+<section class="section hy-sec" style="background: var(--gray-50);" aria-labelledby="hy-title">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="badge">On YouTube</span>
+      <h2 id="hy-title">Watch Lead Agent Find Leads and Email Them</h2>
+      <p>Recorded in the real extension: the full tour in under 3 minutes, and a step-by-step guide from install to your first campaign.</p>
+    </div>
+    <div class="hy-grid">
+      <a class="hy-card reveal" href="https://youtu.be/zLvnwzv1OhU" target="_blank" rel="noopener">
+        <div class="hy-thumb"><img src="/images/lead-agent/tour-poster.webp?v=2026112401" alt="" width="1920" height="1080" loading="lazy" decoding="async"><span class="hy-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="hy-dur">2:56</span></div>
+        <div class="hy-body"><span class="hy-tag">Full tour</span><h3>Lead Agent full tour: find leads, email them, track every click</h3><p>Google Maps and LinkedIn leads, one email, up to 10 Gmail accounts and click tracking.</p></div>
+        <span class="hy-sr"> (opens YouTube in a new tab)</span>
+      </a>
+      <a class="hy-card reveal" href="https://youtu.be/lMateGipkSE" target="_blank" rel="noopener">
+        <div class="hy-thumb"><img src="https://i.ytimg.com/vi/lMateGipkSE/maxresdefault.jpg" alt="" width="1280" height="720" loading="lazy" decoding="async"><span class="hy-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="hy-dur">10:33</span></div>
+        <div class="hy-body"><span class="hy-tag">User guide</span><h3>Lead Agent user guide, step by step</h3><p>Install, set your lead rules, find leads and send your first campaign from your own Gmail.</p></div>
+        <span class="hy-sr"> (opens YouTube in a new tab)</span>
+      </a>
+    </div>
+    <div class="hy-cta reveal"><a class="hy-sub" href="https://www.youtube.com/@ihsansoloads" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>Subscribe on YouTube<span class="hy-sr"> (opens in a new tab)</span></a></div>
   </div>
 </section>
 
