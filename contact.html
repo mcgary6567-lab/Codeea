@@ -35,6 +35,7 @@
     "@type": "Organization",
     "name": "Ihsan Solo Ads",
     "email": "support@ihsansoloads.com",
+    "sameAs": ["https://www.facebook.com/ihsansoloads", "https://www.youtube.com/@ihsansoloads"],
     "contactPoint": {
       "@type": "ContactPoint",
       "contactType": "Customer Support",
@@ -55,6 +56,26 @@
 }
 </script>
 <link rel="stylesheet" href="/css/mobile.css?v=2026111801">
+<style>
+.soc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;max-width:720px;margin:0 auto}
+.soc a{display:flex;align-items:center;gap:1rem;padding:1.1rem 1.25rem;border-radius:16px;background:#fff;border:1px solid #E5E7EB;box-shadow:0 1px 2px rgba(15,23,42,.04);color:#0F172A;text-decoration:none;transition:transform .2s,box-shadow .2s,border-color .2s}
+.soc a:hover,.soc a:focus-visible{transform:translateY(-3px);box-shadow:0 18px 34px -18px rgba(15,23,42,.3)}
+.soc-ic{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:12px;color:#fff}
+.soc-ic svg{width:24px;height:24px}
+.soc-yt .soc-ic{background:#FF0033;box-shadow:0 8px 18px -8px #FF0033}
+.soc-fb .soc-ic{background:#1877F2;box-shadow:0 8px 18px -8px #1877F2}
+.soc-tx{min-width:0}
+.soc-t{display:block;font-weight:700;font-size:1rem;line-height:1.3}
+.soc-s{display:block;margin-top:.2rem;color:#64748B;font-size:.86rem;line-height:1.45}
+.soc-go{margin-left:auto;flex:none;width:18px;height:18px;color:#94A3B8;transition:transform .2s,color .2s}
+.soc a:hover .soc-go{transform:translateX(3px)}
+.soc-yt:hover{border-color:#FF0033}.soc-yt:hover .soc-go{color:#FF0033}
+.soc-fb:hover{border-color:#1877F2}.soc-fb:hover .soc-go{color:#1877F2}
+.soc-label{margin:0 0 1rem;text-align:center;color:#64748B;font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.soc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:640px){.soc{grid-template-columns:1fr}.soc a{min-height:72px}}
+@media (prefers-reduced-motion:reduce){.soc a,.soc-go{transition:none}.soc a:hover{transform:none}}
+</style>
 </head>
 <body>
 
@@ -148,6 +169,14 @@
           </button>
           <p style="color: var(--gray-500); font-size: 0.85rem; margin-top: 0.75rem; text-align:center;">Prefer to write directly? Email <a href="mailto:support@ihsansoloads.com">support@ihsansoloads.com</a>.</p>
         </form>
+      </div>
+
+      <div class="reveal" style="margin-top:3rem">
+        <p class="soc-label">Or follow along</p>
+        <div class="soc">
+          <a class="soc-yt" href="https://www.youtube.com/@ihsansoloads" target="_blank" rel="noopener"><span class="soc-ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg></span><span class="soc-tx"><span class="soc-t">Subscribe on YouTube</span><span class="soc-s">Lead Agent tours, step-by-step guides and quick tips</span></span><svg class="soc-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg><span class="soc-sr"> (opens in a new tab)</span></a>
+          <a class="soc-fb" href="https://www.facebook.com/ihsansoloads" target="_blank" rel="noopener"><span class="soc-ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.4h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg></span><span class="soc-tx"><span class="soc-t">Follow on Facebook</span><span class="soc-s">News, new features and short demos</span></span><svg class="soc-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg><span class="soc-sr"> (opens in a new tab)</span></a>
+        </div>
       </div>
 
     </div>
