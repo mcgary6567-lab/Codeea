@@ -16,6 +16,10 @@
 .ft-contact a.ft-fb svg { color: #4C9BFF; transition: color 0.2s; }
 .ft-contact a.ft-fb:hover, .ft-contact a.ft-fb:focus-visible { background: #1877F2; border-color: #1877F2; color: #fff; box-shadow: 0 10px 22px -10px #1877F2; }
 .ft-contact a.ft-fb:hover svg, .ft-contact a.ft-fb:focus-visible svg { color: #fff; }
+/* YouTube pill: red icon, fills YouTube red on hover. */
+.ft-contact a.ft-yt svg { color: #FF3B3B; transition: color 0.2s; }
+.ft-contact a.ft-yt:hover, .ft-contact a.ft-yt:focus-visible { background: #FF0033; border-color: #FF0033; color: #fff; box-shadow: 0 10px 22px -10px #FF0033; }
+.ft-contact a.ft-yt:hover svg, .ft-contact a.ft-yt:focus-visible svg { color: #fff; }
 .ft .ft-contact a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 999px; }
 .ft-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .ft-contact a, .ft-contact svg { transition: none; } .ft-contact a:hover { transform: none; } }
