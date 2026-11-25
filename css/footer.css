@@ -10,16 +10,27 @@
 .ft-contact a { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--gray-300); font-size: 0.85rem; font-weight: 600; transition: background 0.2s, color 0.2s, transform 0.2s; }
 .ft-contact a:hover { background: var(--gradient-primary); border-color: transparent; color: #fff; transform: translateY(-2px); }
 .ft-contact svg { width: 16px; height: 16px; flex: none; }
-/* Two matching pills: email + Facebook. The Facebook pill carries the Facebook blue icon and fills blue on hover. */
-.ft-contact { display: grid; grid-template-columns: max-content; }   /* stacked, both pills as wide as the wider one */
-.ft-contact a { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
-.ft-contact a.ft-fb svg { color: #4C9BFF; transition: color 0.2s; }
-.ft-contact a.ft-fb:hover, .ft-contact a.ft-fb:focus-visible { background: #1877F2; border-color: #1877F2; color: #fff; box-shadow: 0 10px 22px -10px #1877F2; }
-.ft-contact a.ft-fb:hover svg, .ft-contact a.ft-fb:focus-visible svg { color: #fff; }
-/* YouTube pill: red icon, fills YouTube red on hover. */
-.ft-contact a.ft-yt svg { color: #FF3B3B; transition: color 0.2s; }
-.ft-contact a.ft-yt:hover, .ft-contact a.ft-yt:focus-visible { background: #FF0033; border-color: #FF0033; color: #fff; box-shadow: 0 10px 22px -10px #FF0033; }
-.ft-contact a.ft-yt:hover svg, .ft-contact a.ft-yt:focus-visible svg { color: #fff; }
+/* Contact block: email as a clean text link, then a "Follow us" row of round brand icon buttons.
+   The social links keep their text for screen readers; it is hidden visually (font-size 0). */
+.ft-contact { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.ft-contact a:not(.ft-fb):not(.ft-yt) { order: 0; flex-basis: 100%; width: max-content; max-width: 100%; padding: 0; border: 0; background: none; color: var(--gray-300); font-size: 0.92rem; font-weight: 500; }
+.ft-contact a:not(.ft-fb):not(.ft-yt) svg { width: 18px; height: 18px; color: var(--primary-light, #A5B4FC); }
+.ft-contact a:not(.ft-fb):not(.ft-yt):hover { background: none; color: #fff; transform: none; }
+.ft-contact::before { content: "Follow us"; order: 1; flex-basis: 100%; margin-top: 0.85rem; color: var(--gray-500); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.ft-contact a.ft-fb, .ft-contact a.ft-yt { order: 2; position: relative; justify-content: center; width: 42px; height: 42px; padding: 0; border-radius: 12px; font-size: 0; gap: 0; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.ft-contact a.ft-fb svg, .ft-contact a.ft-yt svg { width: 20px; height: 20px; transition: color 0.2s; }
+.ft-contact a.ft-fb svg { color: #4C9BFF; }
+.ft-contact a.ft-yt svg { color: #FF3B3B; }
+.ft-contact a.ft-fb:hover, .ft-contact a.ft-fb:focus-visible { background: #1877F2; border-color: #1877F2; box-shadow: 0 10px 22px -10px #1877F2; }
+.ft-contact a.ft-yt:hover, .ft-contact a.ft-yt:focus-visible { background: #FF0033; border-color: #FF0033; box-shadow: 0 10px 22px -10px #FF0033; }
+.ft-contact a.ft-fb:hover svg, .ft-contact a.ft-fb:focus-visible svg, .ft-contact a.ft-yt:hover svg, .ft-contact a.ft-yt:focus-visible svg { color: #fff; }
+/* Small label above the icon on hover (desktop). */
+@media (hover: hover) {
+  .ft-contact a.ft-fb::after, .ft-contact a.ft-yt::after { position: absolute; top: calc(100% + 8px); left: 50%; transform: translate(-50%, -4px); padding: 0.3rem 0.55rem; border-radius: 6px; background: #fff; color: #0f172a; font-size: 0.72rem; font-weight: 700; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s, transform 0.15s; }
+  .ft-contact a.ft-fb::after { content: "Facebook"; }
+  .ft-contact a.ft-yt::after { content: "YouTube"; }
+  .ft-contact a.ft-fb:hover::after, .ft-contact a.ft-yt:hover::after { opacity: 1; transform: translate(-50%, 0); }
+}
 .ft .ft-contact a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 999px; }
 .ft-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .ft-contact a, .ft-contact svg { transition: none; } .ft-contact a:hover { transform: none; } }
@@ -55,5 +66,6 @@
   .ft-col a, .ft-legal a, .ft-top-btn { display: inline-flex; align-items: center; min-height: 44px; }
   .ft-legal { gap: 0 1.25rem; }
   .ft-contact a { min-height: 44px; }
+  .ft-contact a.ft-fb, .ft-contact a.ft-yt { width: 44px; height: 44px; }
   .ft-brand .logo { min-height: 44px; }
 }
