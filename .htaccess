@@ -76,7 +76,9 @@ RewriteRule ^(.+)$ $1.html [L]
     Deny from all
   </IfModule>
 </FilesMatch>
-# Internal markdown docs (README, checklists, pricing notes) — not for the public
+# Internal markdown docs (README, checklists) stay private; pricing.md is public (linked from llms.txt for AI assistants)
+AddType text/markdown .md
+AddCharset UTF-8 .md
 <FilesMatch "\.md$">
   <IfModule mod_authz_core.c>
     Require all denied
@@ -86,6 +88,15 @@ RewriteRule ^(.+)$ $1.html [L]
     Deny from all
   </IfModule>
 </FilesMatch>
+<Files "pricing.md">
+  <IfModule mod_authz_core.c>
+    Require all granted
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order deny,allow
+    Allow from all
+  </IfModule>
+</Files>
 
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
