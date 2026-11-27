@@ -26,7 +26,7 @@
 <meta name="twitter:description" content="Backtest any MT5 EA properly — setup, metrics, and the mistakes that fool beginners.">
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="../assets/styles.css">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Backtest an MT5 Expert Advisor (Step-by-Step 2026)","datePublished":"2026-06-24","dateModified":"2026-06-24","author":{"@type":"Organization","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/how-to-backtest-mt5-ea"},"image":"https://goldscalpers.com/og-image.png"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Backtest an MT5 Expert Advisor (Step-by-Step 2026)","datePublished":"2026-06-24","dateModified":"2026-11-27","author":{"@type":"Organization","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/how-to-backtest-mt5-ea"},"image":"https://goldscalpers.com/og-image.png"}</script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"HowTo","name":"How to Backtest an MT5 Expert Advisor","totalTime":"PT15M","step":[
 {"@type":"HowToStep","position":1,"name":"Open the Strategy Tester","text":"In MetaTrader 5, press Ctrl+R or View > Strategy Tester to open the testing panel."},
@@ -101,8 +101,9 @@
 <article class="article-body">
   <p>Before you trust any robot with real money, you have to <strong>backtest it</strong>. A backtest replays a <strong>MetaTrader 5 Expert Advisor</strong> over historical price data so you can see how it would have behaved — its profit, its drawdowns, and how often it traded. This step-by-step guide shows you how to backtest an MT5 EA properly in 2026, which metrics actually matter, and the mistakes that fool beginners into trusting a robot that later fails live.</p>
   <p>This is the verification step we recommend in every guide, including the <a href="/blog/best-mt5-expert-advisors-2026">best MT5 EAs of 2026</a> and the <a href="/blog/how-to-choose-mt5-ea">safe-EA buyer's guide</a>.</p>
+  <p><strong>Short answer:</strong> to backtest an MT5 EA, open the Strategy Tester (Ctrl+R), pick the EA, symbol and timeframe, choose a multi-year date range with &ldquo;Every tick based on real ticks&rdquo; modelling, set a realistic deposit, spread and inputs, and run a single non-optimised test. Judge profit against max drawdown and trade count (100+ trades), then forward-test on demo before going live.</p>
 
-  <h2 id="step-by-step"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Step-by-step: backtest an EA in the Strategy Tester</h2>
+  <h2 id="step-by-step"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>How do you run a backtest in the MT5 Strategy Tester?</h2>
   <ol>
     <li><strong>Open the Strategy Tester</strong> — press <code>Ctrl+R</code> or <em>View → Strategy Tester</em>.</li>
     <li><strong>Select the EA</strong> from the Expert dropdown.</li>
@@ -114,7 +115,7 @@
     <li><strong>Run it</strong>, then open the <em>Backtest</em> and <em>Graph</em> tabs to read the report.</li>
   </ol>
 
-  <h2 id="metrics-that-matter"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>The metrics that actually matter</h2>
+  <h2 id="metrics-that-matter"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Which backtest metrics actually matter?</h2>
   <table>
     <thead><tr><th>Metric</th><th>What it tells you</th><th>Rough guide</th></tr></thead>
     <tbody>
@@ -128,7 +129,7 @@
   </table>
   <p><strong>The trap:</strong> a huge net profit with a 70% drawdown and only 25 trades is not a good EA — it's a small, lucky (or curve-fit) sample. Always read profit <em>against</em> drawdown and trade count.</p>
 
-  <h2 id="modelling-quality"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Modelling &amp; data quality matter</h2>
+  <h2 id="modelling-quality"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Why do modelling and data quality matter?</h2>
   <p>Garbage data produces garbage results. For scalping EAs especially, use real tick data and set a realistic spread — testing on an unrealistically tight spread will overstate results. If you can only use generated ticks, treat the numbers as a rough sketch, not proof.</p>
 
   <h2 id="common-mistakes"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>5 common backtesting mistakes</h2>
@@ -140,7 +141,7 @@
     <li><strong>Trusting the backtest alone</strong> — see below.</li>
   </ol>
 
-  <h2 id="forward-test"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Backtest, then forward-test on demo</h2>
+  <h2 id="forward-test"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Why forward-test on demo after a backtest?</h2>
   <p>A backtest is necessary but never sufficient. Real fills, slippage, latency and live spreads differ from history. After a solid multi-year backtest, <strong>forward-test on a demo account</strong> on your own broker for several weeks, then go live with small size under the <a href="/blog/forex-risk-management-1-percent-rule">1% risk rule</a>. This is the same honest sequence we recommend instead of trusting advertised win rates — see the debate in <a href="/blog/mt5-ea-vs-manual-trading">EA vs manual trading</a>.</p>
 
   <h2 id="backtest-gold-scalpers"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Backtesting Gold Scalpers EA</h2>
