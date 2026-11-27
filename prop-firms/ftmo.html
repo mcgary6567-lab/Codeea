@@ -115,7 +115,7 @@
     </tbody>
   </table></div>
   <ul>
-    <li><strong>Choose the Swing account type if the EA will trade the funded stage.</strong> The news filter stops new entries, but a trade that is already open can still hit its stop or target inside FTMO&rsquo;s 4-minute window, and the EA does not close positions before the weekend. Swing accounts are exempt from both rules.</li>
+    <li><strong>Choose the Swing account type if the EA will trade the funded stage.</strong> The <a href="/blog/gold-ea-news-filter">news filter</a> stops new entries, but a trade that is already open can still hit its stop or target inside FTMO&rsquo;s 4-minute window, and the EA does not close positions before the weekend. Swing accounts are exempt from both rules.</li>
     <li><strong>1-Step:</strong> the daily limit is 3%, so use <code>PropDailyLossPct</code> 2 and half the lot (0.02 per $10,000). Set <code>PropTrailingDD</code> to true so the EA&rsquo;s overall stop follows the equity high, which is stricter than FTMO&rsquo;s end-of-day trailing line.</li>
     <li><strong>Day boundary:</strong> the EA counts its day from the platform&rsquo;s server midnight. Check that this matches FTMO&rsquo;s reset on your server.</li>
     <li><strong>Allocation:</strong> other customers run the same EA. Keep your total FTMO capital on it well under $400,000 and change nothing that makes several of your own accounts trade identically.</li>

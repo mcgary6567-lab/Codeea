@@ -183,7 +183,7 @@
       <text x="685" y="282" fill="#F87171" font-size="10" font-weight="700" text-anchor="middle" font-family="system-ui,sans-serif">22:00 rollover: spread widens</text>
       <text x="290" y="282" fill="#FCD34D" font-size="10" font-weight="700" text-anchor="middle" font-family="system-ui,sans-serif">07:00 London open</text>
     </svg>
-    <figcaption>The shape of a normal gold day. Asia is quiet, London wakes the market up, the overlap does most of the work, and the rollover hour is the one to be flat for. Illustrative; measure your own broker&rsquo;s history to get the exact bars.</figcaption>
+    <figcaption>The shape of a normal gold day. Asia is quiet, London wakes the market up, the overlap does most of the work, and the rollover hour is the one to be flat for. Illustrative; measure your own broker&rsquo;s history to get the exact bars. For measured figures, see <a href="/blog/xauusd-volatility-by-hour">XAUUSD volatility by hour</a>, built from 62,079 real M5 bars of 2026 data.</figcaption>
   </figure>
 
   <h3>Sydney (21:00 to 06:00 GMT)</h3>
@@ -222,7 +222,7 @@
 
   <h2><span class="sec-ico">🌍</span> Converting to your broker time</h2>
   <p>Your MT5 chart does not show GMT. Most brokers run their server clock on Eastern European time, GMT+2 in winter and GMT+3 while the US is on daylight saving, because it keeps the daily candle close aligned with the New York close. A few use GMT or GMT+1 year-round. Confirm yours by opening an M1 chart, reading the time of the newest candle, and comparing it with the current UTC time from any clock site; the difference is your offset.</p>
-  <div class="tw"><table>
+  <div class="tbl-scroll"><table>
     <thead><tr><th>Window</th><th>GMT</th><th>New York (ET)</th><th>Broker GMT+2 (winter)</th><th>Broker GMT+3 (US summer)</th></tr></thead>
     <tbody>
       <tr><td>Sydney session</td><td>21:00&ndash;06:00</td><td>16:00&ndash;01:00</td><td>23:00&ndash;08:00</td><td>00:00&ndash;09:00</td></tr>
@@ -257,7 +257,7 @@
 
   <h2><span class="sec-ico">🤖</span> Automating the session filter</h2>
   <p>Knowing the hours is one thing; being awake for them, every day, without exception, is another. The London open is 02:00 for a trader in New York and 15:00 for one in Sydney; the overlap is the middle of the night for half the world. This is one of the places an Expert Advisor earns its keep, not by having a better idea but by executing the same rule at the same hour every day.</p>
-  <p>Gold Scalpers EA carries the clock from this article as settings. The session filter has London, New York, Tokyo and Sydney windows that can each be switched on or off, so the default configuration trades the London and New York hours and ignores the rest. A spread filter blocks any entry when the spread exceeds your limit, which takes care of the rollover without a rule for it, and a news filter pauses entries around scheduled releases. The end-of-day option closes everything before the rollover or the weekend. Set once, it trades the right hours whether you are awake or not.</p>
+  <p>Gold Scalpers EA carries the clock from this article as settings. The session filter has London, New York, Tokyo and Sydney windows that can each be switched on or off, so the default configuration trades the London and New York hours and ignores the rest. A spread filter blocks any entry when the spread exceeds your limit, which takes care of the rollover without a rule for it, and a <a href="/blog/gold-ea-news-filter">news filter pauses entries around scheduled releases</a>. The end-of-day option closes everything before the rollover or the weekend. Set once, it trades the right hours whether you are awake or not.</p>
 
   <div class="cta-banner">
     <h3>Trade only the hours that move gold &mdash; automatically</h3>

@@ -95,7 +95,7 @@
 
 <article class="article-body">
   <p>Getting trading alerts on your phone changes how you trade. Instead of staring at charts for hours waiting for setups, your phone pings the moment a signal fires – entry, stop loss, take profit, all in one tap-to-copy message.</p>
-  <p>This guide shows you how to set up Telegram alerts from any TradingView indicator in 5 minutes. <strong>Free, no third-party services, no monthly fees.</strong></p>
+  <p>This guide shows you how to set up Telegram alerts from any TradingView indicator in 5 minutes. <strong>Telegram itself is free and needs no third-party service;</strong> TradingView webhooks need a paid plan (Pro+ or Premium). For trade alerts from the Gold Scalpers EA in MT5 instead, see the <a href="/telegram-setup-guide">EA Telegram setup guide</a>.</p>
 
   <p><strong>Short answer:</strong> create a bot with @BotFather and save its token, get your numeric Chat ID from @userinfobot, and send your new bot any message so it is allowed to reply. Paste the Chat ID into your indicator&rsquo;s Telegram settings, then create a TradingView alert on &ldquo;Any alert() function call&rdquo; with the webhook URL <code>https://api.telegram.org/bot&lt;YOUR_TOKEN&gt;/sendMessage</code>. Webhooks need TradingView Pro+ or Premium.</p>
 
@@ -115,7 +115,7 @@
   <ul>
     <li>TradingView Pro+ or Premium account ($30/month)</li>
     <li>Telegram app installed (mobile or desktop)</li>
-    <li>An indicator with <code>alert()</code> function calls in its Pine Script code</li>
+    <li>An indicator with <a href="/blog/pine-script-trading-alerts-guide"><code>alert()</code> function calls in its Pine Script code</a></li>
   </ul>
 
   <h2 id="step-1-create-your-telegram-bot-2-minutes"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Step 1: Create Your Telegram Bot (2 minutes)</h2>
@@ -189,7 +189,7 @@
   </div>
 
   <h2 id="conclusion"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conclusion</h2>
-  <p>Telegram alerts free you from your screen. Set them up once, get notified the moment any indicator fires, and never miss a setup again. The full setup takes 5 minutes – it's the highest-leverage 5 minutes you'll spend on your trading workflow.</p>
+  <p>Telegram alerts free you from your screen. Set them up once, get notified the moment any indicator fires, and never miss a setup again. The full setup takes 5 minutes – it's the highest-leverage 5 minutes you'll spend on your trading workflow. When you want the alert to place the trade as well, see <a href="/blog/auto-execute-tradingview-trades">how to auto-execute TradingView trades</a>.</p>
 </article>
 
 <!-- related-posts:start -->

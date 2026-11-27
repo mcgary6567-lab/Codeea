@@ -9,13 +9,40 @@
     <managingEditor>support@goldscalpers.com (Gold Scalpers Research Team)</managingEditor>
     <webMaster>support@goldscalpers.com (Gold Scalpers Research Team)</webMaster>
     <pubDate>Fri, 04 Sep 2026 09:00:00 GMT</pubDate>
-    <lastBuildDate>Fri, 13 Nov 2026 09:00:00 GMT</lastBuildDate>
+    <lastBuildDate>Fri, 27 Nov 2026 09:00:00 GMT</lastBuildDate>
     <atom:link href="https://goldscalpers.com/blog/feed.xml" rel="self" type="application/rss+xml"/>
     <image>
       <url>https://goldscalpers.com/og-image.png</url>
       <title>Gold Scalpers</title>
       <link>https://goldscalpers.com</link>
     </image>
+
+    <item>
+      <title>XAUUSD Volatility by Hour: 2026 Data (GMT)</title>
+      <link>https://goldscalpers.com/blog/xauusd-volatility-by-hour</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/xauusd-volatility-by-hour</guid>
+      <pubDate>Fri, 27 Nov 2026 09:00:00 GMT</pubDate>
+      <category>Gold</category>
+      <description>Gold volatility by GMT hour from 62,079 real XAUUSD M5 bars, Jan to Nov 2026: average and median range, spread, weekday and monthly data. Free to cite.</description>
+    </item>
+
+    <item>
+      <title>Gold EA on a Small Account: Is $100 or $500 Enough?</title>
+      <link>https://goldscalpers.com/blog/gold-ea-small-account</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/gold-ea-small-account</guid>
+      <pubDate>Fri, 27 Nov 2026 09:00:00 GMT</pubDate>
+      <category>MT5 EAs</category>
+      <description>Can you run a gold EA with $100 or $500? The lot maths: 0.01 lot moves about $1 per $1 in gold, so small accounts carry 2 to 10 times the tested risk.</description>
+    </item>
+
+    <item>
+      <title>Gold EA News Filter: Should Your EA Trade NFP or FOMC?</title>
+      <link>https://goldscalpers.com/blog/gold-ea-news-filter</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/gold-ea-news-filter</guid>
+      <pubDate>Fri, 27 Nov 2026 09:00:00 GMT</pubDate>
+      <category>MT5 EAs</category>
+      <description>What a gold EA news filter does, why XAUUSD spikes on NFP, CPI and FOMC, how a 30-minute pause works, FTMO's 2-minute news rule and how to test it.</description>
+    </item>
 
     <item>
       <title>Gold Scalpers Pro Review: Honest Pros, Cons &amp; Test Data</title>

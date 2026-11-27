@@ -105,11 +105,11 @@
   <h2 id="step-by-step"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>How do you run a backtest in the MT5 Strategy Tester?</h2>
   <ol>
     <li><strong>Open the Strategy Tester</strong> — press <code>Ctrl+R</code> or <em>View → Strategy Tester</em>.</li>
-    <li><strong>Select the EA</strong> from the Expert dropdown.</li>
+    <li><strong>Select the EA</strong> from the Expert dropdown. If it is not listed, it is not in the Experts folder yet: see <a href="/blog/how-to-install-ea-on-mt5">how to install an EA on MT5</a>.</li>
     <li><strong>Set the symbol and timeframe</strong> — e.g. <code>XAUUSD</code> and <code>M15</code>.</li>
     <li><strong>Choose a date range</strong> — use several years to capture different conditions (trending, ranging, news-heavy).</li>
     <li><strong>Set modelling to "Every tick based on real ticks"</strong> when your broker provides real tick history — it's the most accurate model.</li>
-    <li><strong>Set a realistic deposit, leverage and currency</strong>, and configure the EA inputs (lot/risk, etc.).</li>
+    <li><strong>Set a realistic deposit, leverage and currency</strong>, and configure the EA inputs (lot/risk, etc.). Use the balance you will really trade; on gold, a <a href="/blog/gold-ea-small-account">small account changes the risk of a fixed lot</a>.</li>
     <li><strong>Disable optimisation</strong> for a single, honest run.</li>
     <li><strong>Run it</strong>, then open the <em>Backtest</em> and <em>Graph</em> tabs to read the report.</li>
   </ol>

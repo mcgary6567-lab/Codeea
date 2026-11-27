@@ -21,6 +21,7 @@ All figures are MetaTrader 5 Strategy Tester backtests on real XAUUSD ticks, 0.0
 - 14 Sep to 14 Oct 2026, v4.50 defaults: +$77.81, profit factor 1.33, maximum drawdown 5.37%, 127 trades, 83.5% won.
 - 12 Jan to 14 Sep 2026, closest measured setup: +$99.33, profit factor 1.06, maximum drawdown 25.6%, 727 trades. Within that, 12 Jan to 14 May lost $181.94.
 - Low drawdown preset (New York session only), same eight months: +$265.33, maximum drawdown 10.3%, 246 trades.
+- The news filter reads the MT5 economic calendar, which the Strategy Tester cannot replay, so it is off in backtests: the published figures include trades taken around news releases. Live, it pauses new entries 30 minutes either side of high-impact USD releases.
 - Average win is smaller than average loss ($2.99 against $11.40 in the latest month), so a high win rate does not mean a large edge.
 - Known weaknesses: losing stretches of several months, no public live account yet, gold only, MT5 only, needs MT5 running (a VPS in practice).
 

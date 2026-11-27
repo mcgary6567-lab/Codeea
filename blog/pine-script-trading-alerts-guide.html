@@ -104,6 +104,7 @@ if rsi &lt; 30
     <li>Enable Notifications → Webhook URL</li>
     <li>Paste your endpoint URL</li>
   </ol>
+  <p>Where the webhook can send the order next, from relay services to an MT5 EA, is covered in <a href="/blog/auto-execute-tradingview-trades">how to auto-execute TradingView trades</a>.</p>
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>How Many Alerts Does Each TradingView Plan Allow?</h2>
   <table>
@@ -128,6 +129,7 @@ if signal
   <h3>Pattern 2: HTML formatting (Telegram)</h3>
   <pre>msg = "🎯 &lt;b&gt;BUY SIGNAL&lt;/b&gt;\n📍 Entry: &lt;code&gt;" + str.tostring(close) + "&lt;/code&gt;"
 alert(msg, alert.freq_once_per_bar_close)</pre>
+  <p>To receive these messages in a Telegram chat, follow the <a href="/blog/telegram-trading-alerts-setup">Telegram trading alerts setup</a>.</p>
 
   <div class="cta-banner">
     <h3>Want a Robot That Trades for You?</h3>
