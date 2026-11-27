@@ -6,9 +6,12 @@
 
 RewriteEngine On
 
-# 1. Force HTTPS (uncomment when SSL is active)
-# RewriteCond %{HTTPS} !=on
-# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# 1. Force HTTPS (proxy-aware: Hostinger's CDN terminates TLS and passes
+#    X-Forwarded-Proto, so only redirect when no layer saw HTTPS)
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteCond %{HTTP:X-Forwarded-SSL} !on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301,NE]
 
 # 2. Force non-www: one canonical host for Google (www.ihsansoloads.com -> ihsansoloads.com)
 RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
