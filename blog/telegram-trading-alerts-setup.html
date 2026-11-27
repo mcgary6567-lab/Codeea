@@ -13,7 +13,6 @@
 <meta name="description" content="Complete guide to receiving TradingView alerts on Telegram with full entry, stop loss, and take profit. Free setup, no third-party services needed.">
 <meta name="keywords" content="Telegram trading alerts, TradingView Telegram webhook, BotFather setup, TradingView alerts to phone, Telegram bot trading">
 <link rel="canonical" href="https://goldscalpers.com/blog/telegram-trading-alerts-setup">
-<link rel="amphtml" href="https://goldscalpers.com/blog/amp/telegram-trading-alerts-setup">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://goldscalpers.com/blog/telegram-trading-alerts-setup">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
@@ -25,8 +24,8 @@
 <meta name="twitter:description" content="Complete guide to receiving TradingView alerts on Telegram with full entry, stop loss, and take profit. Free setup, no third-party services needed.">
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="../assets/styles.css">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Set Up Telegram Trading Alerts in 5 Minutes","datePublished":"2026-05-05","dateModified":"2026-05-05","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/telegram-trading-alerts-setup"},"image":"https://goldscalpers.com/og-image.png"}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I send TradingView alerts to Telegram?","acceptedAnswer":{"@type":"Answer","text":"Create a Telegram bot via @BotFather, get the bot token, get your chat ID via @userinfobot, then configure the TradingView alert webhook URL to https://api.telegram.org/bot[TOKEN]/sendMessage with chat_id and HTML-formatted message text in the payload."}},{"@type":"Question","name":"Are Telegram trading alerts free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Telegram Bot API is free and unlimited for personal use. The only paid component is TradingView Pro tier, which is required to send webhook alerts."}},{"@type":"Question","name":"Can I use Telegram alerts for free TradingView accounts?","acceptedAnswer":{"@type":"Answer","text":"No. TradingView free tier does not support webhook alerts to external URLs. You need at least Pro ($14.95/month) to use Telegram alert integration."}},{"@type":"Question","name":"Why are my Telegram alerts not arriving?","acceptedAnswer":{"@type":"Answer","text":"Most common causes: wrong chat ID, bot has not been started in your chat (send /start to the bot first), webhook URL has typos in the bot token, or message body uses special HTML characters that break the parse_mode."}},{"@type":"Question","name":"How do I format Telegram alerts with entry, stop loss, and take profit?","acceptedAnswer":{"@type":"Answer","text":"Use HTML parse_mode in the webhook payload. Format the message with line breaks (\\n) and bold tags around price levels. Gold Scalpers ships with pre-formatted Telegram alert templates for XAUUSD, USDJPY, and GBPJPY."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Set Up Telegram Trading Alerts in 5 Minutes","datePublished":"2026-05-05","dateModified":"2026-11-27","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/telegram-trading-alerts-setup"},"image":"https://goldscalpers.com/og-image.png"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I send TradingView alerts to Telegram?","acceptedAnswer":{"@type":"Answer","text":"Create a Telegram bot via @BotFather, get the bot token, get your chat ID via @userinfobot, then configure the TradingView alert webhook URL to https://api.telegram.org/bot[TOKEN]/sendMessage with chat_id and HTML-formatted message text in the payload."}},{"@type":"Question","name":"Are Telegram trading alerts free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Telegram Bot API is free and unlimited for personal use. The only paid component is TradingView Pro tier, which is required to send webhook alerts."}},{"@type":"Question","name":"Can I use Telegram alerts for free TradingView accounts?","acceptedAnswer":{"@type":"Answer","text":"No. TradingView free tier does not support webhook alerts to external URLs. You need at least Pro ($14.95/month) to use Telegram alert integration."}},{"@type":"Question","name":"Why are my Telegram alerts not arriving?","acceptedAnswer":{"@type":"Answer","text":"Most common causes: wrong chat ID, bot has not been started in your chat (send /start to the bot first), webhook URL has typos in the bot token, or message body uses special HTML characters that break the parse_mode."}},{"@type":"Question","name":"How do I format Telegram alerts with entry, stop loss, and take profit?","acceptedAnswer":{"@type":"Answer","text":"Use HTML parse_mode in the webhook payload. Format the message with line breaks (\\n) and bold tags around price levels."}}]}</script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"Telegram Trading Alerts Setup","item":"https://goldscalpers.com/blog/telegram-trading-alerts-setup"}]}
 </script>
@@ -98,7 +97,9 @@
   <p>Getting trading alerts on your phone changes how you trade. Instead of staring at charts for hours waiting for setups, your phone pings the moment a signal fires – entry, stop loss, take profit, all in one tap-to-copy message.</p>
   <p>This guide shows you how to set up Telegram alerts from any TradingView indicator in 5 minutes. <strong>Free, no third-party services, no monthly fees.</strong></p>
 
-  <h2 id="why-telegram-beats-sms-email-and-push-notifications"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Why Telegram Beats SMS, Email, and Push Notifications</h2>
+  <p><strong>Short answer:</strong> create a bot with @BotFather and save its token, get your numeric Chat ID from @userinfobot, and send your new bot any message so it is allowed to reply. Paste the Chat ID into your indicator&rsquo;s Telegram settings, then create a TradingView alert on &ldquo;Any alert() function call&rdquo; with the webhook URL <code>https://api.telegram.org/bot&lt;YOUR_TOKEN&gt;/sendMessage</code>. Webhooks need TradingView Pro+ or Premium.</p>
+
+  <h2 id="why-telegram-beats-sms-email-and-push-notifications"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Why Use Telegram Instead of SMS, Email or Push Notifications?</h2>
   <table>
     <thead><tr><th>Channel</th><th>Speed</th><th>Formatting</th><th>Cost</th></tr></thead>
     <tbody>
@@ -110,7 +111,7 @@
   </table>
   <p>Telegram wins on every metric. The only requirement: TradingView Pro+ subscription for webhook support ($30/month).</p>
 
-  <h2 id="prerequisites"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Prerequisites</h2>
+  <h2 id="prerequisites"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>What Do You Need Before You Start?</h2>
   <ul>
     <li>TradingView Pro+ or Premium account ($30/month)</li>
     <li>Telegram app installed (mobile or desktop)</li>
@@ -139,7 +140,7 @@
   <p>Find your new bot in Telegram search and send any message ("hi" works). <strong>This step is non-negotiable</strong> – Telegram bots can't message users who haven't initiated the conversation.</p>
 
   <h2 id="step-4-configure-your-indicator"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Step 4: Configure Your Indicator</h2>
-  <p>For Gold Scalpers:</p>
+  <p>If your indicator has built-in Telegram settings:</p>
   <ol>
     <li>Open indicator settings on your TradingView chart</li>
     <li>Find the Telegram group at the bottom</li>
@@ -160,7 +161,7 @@
 
   <h2 id="youre-done-now-test"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>You're Done – Now Test</h2>
   <p>Within 1-3 candles after a real signal fires, your phone pings with a formatted message:</p>
-  <pre><code>🎯 Gold Scalpers – XAUUSD (1)
+  <pre><code>🎯 BUY SIGNAL – XAUUSD (1)
 ━━━━━━━━━━━━━━━
 📍 ENTRY : 2384.50
 🛑 SL    : 2380.20  (-43 pips)
@@ -168,7 +169,7 @@
 ⚖️ R:R   : 1:2.0
 ━━━━━━━━━━━━━━━</code></pre>
 
-  <h2 id="common-issues"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Common Issues</h2>
+  <h2 id="common-issues"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Why Aren&rsquo;t Your Telegram Alerts Working?</h2>
   <ul>
     <li><strong>No alerts arrive:</strong> did you send "hi" to the bot? (Step 3)</li>
     <li><strong>"chat not found":</strong> wrong Chat ID – re-verify with @userinfobot</li>
@@ -176,14 +177,14 @@
     <li><strong>HTML tags showing:</strong> set Alert Format = Telegram in indicator settings</li>
   </ul>
 
-  <h2 id="sending-to-a-group"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Sending to a Group</h2>
+  <h2 id="sending-to-a-group"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>How Do You Send Alerts to a Telegram Group?</h2>
   <p>Add your bot to a group, make it admin, then visit:</p>
   <pre><code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code></pre>
   <p>The negative number in <code>"chat":{"id":-100xxx}</code> is your group chat ID. Use it instead of your personal Chat ID.</p>
 
   <div class="cta-banner">
-    <h3>Get Gold Scalpers</h3>
-    <p>Pro Lifetime Telegram alerts on XAUUSD, USDJPY, and GBPJPY for one payment of $140 — backed by a 30-day money-back guarantee.</p>
+    <h3>Get Gold Scalpers Pro</h3>
+    <p>Gold Scalpers Pro is an MT5 Expert Advisor that trades gold (XAUUSD) on M5, for one payment of $140 — backed by a 30-day money-back guarantee. For free BUY, SELL or WAIT signals on Gold, USDJPY and GBPJPY, try the <a href="/ai-chart-analysis">Gold Scalpers AI app</a>.</p>
     <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $140 →</a>
   </div>
 

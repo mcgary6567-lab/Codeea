@@ -4,7 +4,7 @@
 # Claude, Gemini, Copilot). The private paths are repeated in both groups on purpose:
 # a crawler that is named in a group ignores the "*" group completely.
 #
-# AMP copies under /blog/amp/ stay crawlable so their canonical link can be read.
+# Old AMP copies under /blog/amp/ now 301-redirect to the main articles.
 
 User-agent: GPTBot
 User-agent: ChatGPT-User

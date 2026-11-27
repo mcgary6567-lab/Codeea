@@ -41,6 +41,8 @@ RewriteRule ^stats\.php$ /panel/stats.php [R=301,L]
 RewriteRule ^blog/(?:amp/)?how-to-pass-(?:10k|25k|50k|100k)-prop-firm-challenge-gold(?:\.html)?/?$ /blog/how-to-pass-prop-firm-challenge-xauusd [R=301,L]
 RewriteRule ^blog/amp/how-to-pass-prop-firm-challenge-xauusd(?:\.html)?/?$ /blog/how-to-pass-prop-firm-challenge-xauusd [R=301,L]
 RewriteRule ^blog/amp/best-mt5-ea-for-prop-firm(?:\.html)?/?$ /blog/best-mt5-ea-for-prop-firm [R=301,L]
+# All AMP copies retired 2026-11-27: send each one to its main article
+RewriteRule ^blog/amp/([a-z0-9-]+)(?:\.html)?/?$ /blog/$1 [R=301,L]
 
 # --- /contact is the support page (chat + email) ---
 RewriteRule ^contact/?$ /support [R=301,L]

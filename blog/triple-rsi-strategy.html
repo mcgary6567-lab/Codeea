@@ -13,7 +13,6 @@
 <meta name="description" content="How the 3-7-14 Triple RSI crossover really works, why its &#x27;90% win rate&#x27; misleads, and the stop-loss, trend and risk-reward rules that make it tradeable.">
 <meta name="keywords" content="triple RSI strategy, 3 7 14 RSI, RSI crossover strategy, 90% win rate strategy, win 90 percent of the time, multi RSI strategy, RSI trading strategy, RSI scalping strategy, best RSI settings">
 <link rel="canonical" href="https://goldscalpers.com/blog/triple-rsi-strategy">
-<link rel="amphtml" href="https://goldscalpers.com/blog/amp/triple-rsi-strategy">
 <meta property="og:title" content="Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://goldscalpers.com/blog/triple-rsi-strategy">
@@ -25,7 +24,7 @@
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="../assets/styles.css">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":"Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/triple-rsi-strategy"},"image":"https://goldscalpers.com/og-image.png"}
+{"@context":"https://schema.org","@type":"Article","headline":"Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?","datePublished":"2026-07-07","dateModified":"2026-11-27","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/triple-rsi-strategy"},"image":"https://goldscalpers.com/og-image.png"}
 </script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"The Triple RSI strategy plots three RSI lines of different lengths — usually 3, 7 and 14 periods — on the same window. A long signal fires when the fast RSI (3) is above the medium RSI (7) and the medium is above the slow RSI (14), meaning short-, medium- and long-term momentum all point up at once. A short is the mirror image. The three-way alignment filters out weak, single-indicator signals."}},{"@type":"Question","name":"Does the Triple RSI strategy really win 90% of the time?","acceptedAnswer":{"@type":"Answer","text":"Not in any way that matters. A 90% win rate is easy to manufacture with a tiny take-profit and a wide or non-existent stop-loss — but the occasional loss then wipes out dozens of small wins. What determines whether a strategy makes money is expectancy (win rate combined with average risk-reward), not win rate alone. A realistic, properly risk-managed Triple RSI setup wins far less than 90% and still makes money because its winners are larger than its losers."}},{"@type":"Question","name":"What are the best settings for the 3-7-14 RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"3, 7 and 14 are the standard lengths. Keep the RSI period the same across instruments and adjust the trade rules instead: on gold (XAUUSD) require the fast RSI to also clear 50, on calmer JPY pairs the plain alignment is enough. Always pair the entry with a structure-based stop-loss and a minimum 1:1.5 risk-reward target."}},{"@type":"Question","name":"What timeframe works best for the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"The 15-minute and 1-hour charts give the cleanest alignments for intraday trading. Faster charts (1-5 minute) produce more Triple RSI crossovers but far more false ones, so they need a higher-timeframe trend filter to stay profitable."}},{"@type":"Question","name":"How do I add a stop-loss to the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"Place the stop just beyond the swing low that formed before your long entry (or the swing high before a short), plus a small buffer. That way the trade is only stopped out if the structure that justified the signal actually breaks, and your position size can be derived from that stop distance for consistent 1% risk."}}]}</script>
 <script type="application/ld+json">
@@ -97,6 +96,7 @@
 <article class="article-body">
   <p>Search &ldquo;<strong>win 90% of the time</strong>&rdquo; and you will land on some version of the <strong>Triple RSI strategy</strong> &ndash; three <a href="/blog/what-is-rsi-in-trading">Relative Strength Index</a> lines of length 3, 7 and 14 stacked in the same window, promising a near-guaranteed win rate. It is one of the most-searched trading systems on the internet, and one of the most misunderstood.</p>
   <p>The idea has real merit: aligning three momentum readings is a genuinely better entry filter than a single RSI. But the &ldquo;90% win rate&rdquo; headline is marketing, not math &ndash; and the original write-ups leave out the three things that actually decide whether you make money: a <strong>stop-loss</strong>, a <strong>trend filter</strong>, and a <strong>risk-reward rule</strong>. This guide fixes all three and shows you how the 3-7-14 RSI crossover works in the real world.</p>
+  <p><strong>Short answer:</strong> no, not as a real expectation. The Triple RSI strategy goes long when RSI 3 is above RSI 7 and RSI 7 is above RSI 14 (the mirror image for shorts), but the &ldquo;90% win rate&rdquo; comes from tiny targets and huge stops. Add a stop beyond the prior swing, a higher-timeframe trend filter and a 1:1.5 target, then judge it on your own backtest.</p>
 
   <div class="toc" style="background:#0E1421;border:1px solid #1E293B;border-radius:12px;padding:1rem 1.25rem;margin:1.5rem 0">
     <strong style="color:#FCD34D;font-size:0.9rem;letter-spacing:.02em">ON THIS PAGE</strong>
@@ -112,7 +112,7 @@
     </ul>
   </div>
 
-  <h2 id="what-is-triple-rsi"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>What the Triple RSI Strategy Actually Is</h2>
+  <h2 id="what-is-triple-rsi"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>What Is the Triple RSI Strategy?</h2>
   <p>A single RSI answers one question: <em>over the last N bars, how much of the movement was buying versus selling?</em> The <strong>Triple RSI strategy</strong> asks that same question over three different horizons at once and only trades when all three agree:</p>
   <ul>
     <li><strong>RSI 3</strong> &ndash; the fast line. Reacts to the most recent few bars. It is noisy on its own.</li>
@@ -152,7 +152,7 @@
 
   <p>That is the entire original strategy. Notice what is <em>not</em> there: no stop-loss, no target, no trend context, no position sizing. That omission is exactly where the &ldquo;90% win rate&rdquo; myth is born.</p>
 
-  <h2 id="the-90-percent-trap"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Where the &ldquo;90% Win Rate&rdquo; Number Comes From</h2>
+  <h2 id="the-90-percent-trap"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Where Does the &ldquo;90% Win Rate&rdquo; Number Come From?</h2>
   <p>Here is the uncomfortable truth: <strong>a 90% win rate is trivial to manufacture.</strong> Take any decent entry, attach a microscopic take-profit and a huge (or invisible) stop-loss, and most trades will hit the tiny target before the far stop. You will &ldquo;win&rdquo; nine times out of ten.</p>
   <p>The problem is the tenth trade. When it goes against you, the oversized stop gives back every one of those nine small wins &ndash; and then some. High win rate, negative account. This is the single most common way beginner strategies flatter themselves, and it is why we treat any headline win rate with suspicion.</p>
 
@@ -236,7 +236,7 @@
   <h3>#3 &mdash; A Fixed Risk-Reward Target</h3>
   <p>Set the take-profit at a minimum of <strong>1:1.5</strong> risk-reward &ndash; the target is 1.5&times; your stop distance. Combined with the roughly 50&ndash;60% win rate a filtered Triple RSI produces, that payoff turns the strategy positive. Chase 1:3 in strong trends; drop to 1:1 only if you are scalping the quietest sessions.</p>
 
-  <h2 id="best-settings"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Best Triple RSI Settings by Instrument</h2>
+  <h2 id="best-settings"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>What Are the Best Triple RSI Settings by Instrument?</h2>
   <p>Keep the RSI lengths at <strong>3, 7 and 14</strong> everywhere &ndash; do not curve-fit the periods. Adjust the <em>rules</em> per instrument instead:</p>
   <div style="overflow-x:auto;margin:1.25rem 0">
     <table style="width:100%;border-collapse:collapse;font-size:0.92rem">
@@ -253,7 +253,7 @@
 
   <blockquote>&ldquo;A 55% win rate you can trade for years beats a 90% win rate that detonates on the tenth trade.&rdquo;</blockquote>
 
-  <h2 id="realistic-results"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>What Realistic Triple RSI Results Look Like</h2>
+  <h2 id="realistic-results"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>What Do Realistic Triple RSI Results Look Like?</h2>
   <p>Forget 90%. A properly filtered 3-7-14 system, tested honestly on XAUUSD, USDJPY and GBPJPY with realistic spread and commission, tends to look like this:</p>
   <ul>
     <li><strong>Raw stack crossover, no filters:</strong> ~48% win rate, roughly break-even to slightly negative after costs.</li>
@@ -267,7 +267,7 @@
 
   <div class="cta-banner">
     <h3>Stop chasing 90%. Trade a system with real risk math.</h3>
-    <p>Gold Scalpers stacks momentum confirmation, a structure stop and a fixed risk-reward on XAUUSD, USDJPY and GBPJPY &ndash; and pings your phone when a real signal fires.</p>
+    <p>Gold Scalpers Pro is an MT5 Expert Advisor for gold (XAUUSD) on M5: every entry must pass a ZeroLag MACD filter, every trade has a stop loss, and it trades a fixed lot with no grid or martingale.</p>
     <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $140 →</a>
     <a href="/blog/trading-strategy-hub" class="btn btn-ghost" style="margin-left:0.5rem">Explore the Strategy Hub</a>
   </div>

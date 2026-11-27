@@ -13,7 +13,6 @@
 <meta name="description" content="Three ways to auto-execute trades from TradingView signals: relay services, MT4/MT5 EAs and self-hosted webhooks, with pros, cons and setup steps.">
 <meta name="keywords" content="Auto, Execute, Trades, from, TradingView, Complete, gold scalping, XAUUSD, MT5 EA, Gold Scalpers EA">
 <link rel="canonical" href="https://goldscalpers.com/blog/auto-execute-tradingview-trades">
-<link rel="amphtml" href="https://goldscalpers.com/blog/amp/auto-execute-tradingview-trades">
 <meta property="og:title" content="Auto-Execute Trades from TradingView: Complete 2026 Setup Guide">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://goldscalpers.com/blog/auto-execute-tradingview-trades">
@@ -24,8 +23,8 @@
 <meta name="twitter:description" content="Three ways to auto-execute trades from TradingView signals – relay services, MT4/MT5 EAs, and self-hosted webhooks. Complete pros, cons, and setup steps.">
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="../assets/styles.css">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Auto-Execute Trades from TradingView: Complete 2026 Setup Guide","datePublished":"2026-05-05","dateModified":"2026-07-07","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/auto-execute-tradingview-trades"}}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can TradingView auto-execute trades?","acceptedAnswer":{"@type":"Answer","text":"TradingView itself cannot auto-execute trades from indicator signals. Auto-execution requires a webhook relay service (PineConnector, TradersPost) that receives TradingView alerts and forwards orders to your broker via API. TradingView Pro+ subscription is required for webhook support."}},{"@type":"Question","name":"What is PineConnector?","acceptedAnswer":{"@type":"Answer","text":"PineConnector is a webhook relay service that forwards TradingView alerts to MetaTrader 4 and MetaTrader 5 via an Expert Advisor. It costs $25/month and supports any MT4/MT5 broker. Setup takes 30-60 minutes and requires a VPS running MT4/MT5 24/7."}},{"@type":"Question","name":"How fast is auto-execution?","acceptedAnswer":{"@type":"Answer","text":"Typical signal-to-fill latency is 1-3 seconds: TradingView fires alert (instant), webhook reaches relay service (less than 500ms), relay forwards to broker EA (less than 500ms), EA places order with broker (less than 1 second). VPS latency to broker matters most for scalping strategies."}},{"@type":"Question","name":"Do prop firms allow auto-execution?","acceptedAnswer":{"@type":"Answer","text":"Most prop firms including FTMO, MyForexFunds, and similar prohibit third-party automation tools like PineConnector. Read your firm's terms before using auto-execution. Violations void your account without payout. Some firms allow proprietary EAs you build yourself."}},{"@type":"Question","name":"What VPS should I use for auto-trading?","acceptedAnswer":{"@type":"Answer","text":"For latency-sensitive strategies, use Forex-specialized VPS providers like ForexVPS ($19/month) or Beeks Financial ($35/month) which co-locate near major broker servers. For less latency-sensitive use, Contabo ($7/month) works fine. Avoid generic AWS/Azure for trading VPS due to higher latency."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Auto-Execute Trades from TradingView: Complete 2026 Setup Guide","datePublished":"2026-05-05","dateModified":"2026-11-27","author":{"@type":"Organization","name":"Gold Scalpers","url":"https://goldscalpers.com/"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/auto-execute-tradingview-trades"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can TradingView auto-execute trades?","acceptedAnswer":{"@type":"Answer","text":"TradingView itself cannot auto-execute trades from indicator signals. Auto-execution requires a webhook relay service (PineConnector, TradersPost) that receives TradingView alerts and forwards orders to your broker via API. TradingView Pro+ subscription is required for webhook support."}},{"@type":"Question","name":"What is PineConnector?","acceptedAnswer":{"@type":"Answer","text":"PineConnector is a webhook relay service that forwards TradingView alerts to MetaTrader 4 and MetaTrader 5 via an Expert Advisor. It costs $25/month and supports any MT4/MT5 broker. Setup takes 30-60 minutes and requires a VPS running MT4/MT5 24/7."}},{"@type":"Question","name":"How fast is auto-execution?","acceptedAnswer":{"@type":"Answer","text":"Typical signal-to-fill latency is 1-3 seconds: TradingView fires alert (instant), webhook reaches relay service (less than 500ms), relay forwards to broker EA (less than 500ms), EA places order with broker (less than 1 second). VPS latency to broker matters most for scalping strategies."}},{"@type":"Question","name":"Do prop firms allow auto-execution?","acceptedAnswer":{"@type":"Answer","text":"Rules differ by firm and change often. Some firms restrict third-party copy and relay tools, while others, such as FTMO, allow algorithmic trading and EAs with conditions. Read your firm's own rules before using auto-execution. Violations void your account without payout. Some firms allow proprietary EAs you build yourself."}},{"@type":"Question","name":"What VPS should I use for auto-trading?","acceptedAnswer":{"@type":"Answer","text":"For latency-sensitive strategies, use Forex-specialized VPS providers like ForexVPS ($19/month) or Beeks Financial ($35/month) which co-locate near major broker servers. For less latency-sensitive use, Contabo ($7/month) works fine. Avoid generic AWS/Azure for trading VPS due to higher latency."}}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"How to Auto-Execute TradingView Trades","item":"https://goldscalpers.com/blog/auto-execute-tradingview-trades"}]}</script>
   <meta name="google-adsense-account" content="ca-pub-9114456539687234">
 </head>
@@ -69,8 +68,9 @@
 
 <article class="article-body">
 <p>Manual trading from TradingView signals works – until you miss one because you stepped away, slept, or got distracted. Auto-execution removes the human bottleneck. Signal fires → broker executes within 3 seconds, while you sleep.</p>
+  <p><strong>Short answer:</strong> TradingView cannot send indicator alerts straight to a broker, so auto-execution needs a relay: signal, webhook, relay service, broker API. The most accessible path is PineConnector with MT4/MT5 and a VPS, about $60 a month in total. TradersPost suits US brokers, and a self-hosted Cloudflare Worker costs $0 but needs coding. Test on demo for 30+ days before going live.</p>
 
-  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>The TradingView Limitation</h2>
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Why Can&rsquo;t TradingView Execute Trades on Its Own?</h2>
   <p>TradingView's broker integration is for <strong>manual click trading only</strong>. Indicator alerts cannot directly trigger broker orders. Auto-execution requires a relay service:</p>
   <p><code>TradingView signal → Webhook → Relay → Broker API → Order filled</code></p>
 
@@ -102,7 +102,7 @@
     <li>❌ You handle security and uptime</li>
   </ul>
 
-  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>Comparison Table</h2>
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>How Do the Three Methods Compare?</h2>
   <table>
     <thead><tr><th>Method</th><th>Brokers</th><th>Cost/mo</th><th>Setup</th></tr></thead>
     <tbody>
@@ -112,19 +112,19 @@
     </tbody>
   </table>
 
-  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Critical Risks</h2>
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>What Are the Risks of Auto-Execution?</h2>
   <ol>
     <li><strong>Slippage:</strong> 1-2 pips on 1M scalping = 5-10% of TP target</li>
     <li><strong>Spreads:</strong> theoretical entries differ from real fills</li>
     <li><strong>VPS downtime:</strong> reboots = missed trades</li>
     <li><strong>News events:</strong> auto-execution doesn't pause for NFP/FOMC</li>
-    <li><strong>Prop firm rules:</strong> most ban third-party automation</li>
+    <li><strong>Prop firm rules:</strong> many restrict relay or copy tools; check your firm&rsquo;s own rules (see <a href="/prop-firms/">prop firm EA rules</a>)</li>
   </ol>
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Position Sizing</h2>
   <p>Your indicator outputs entry/SL/TP. It does NOT calculate lot size. Most account blow-ups in auto-trading come from this gap. Use a lot size calculator add-on or set fixed lot sizes.</p>
 
-  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Recommended Path for Most Traders</h2>
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Which Path Should Most Traders Choose?</h2>
   <ol>
     <li>TradingView Pro+ ($30/mo)</li>
     <li>PineConnector ($25/mo)</li>
@@ -135,8 +135,8 @@
   </ol>
 
   <div class="cta-banner">
-    <h3>Use Gold Scalpers with Auto-Execution</h3>
-    <p>Outputs Webhook JSON for PineConnector and TradersPost out of the box.</p>
+    <h3>Prefer a Gold Robot That Runs Inside MT5?</h3>
+    <p>Gold Scalpers Pro is an Expert Advisor for MetaTrader 5 that trades gold (XAUUSD) on the M5 chart itself, with a stop loss on every trade, so no TradingView webhook or relay is needed. It does need MT5 running, which in practice means a VPS.</p>
     <p><a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $140</a></p>
   </div>
 
