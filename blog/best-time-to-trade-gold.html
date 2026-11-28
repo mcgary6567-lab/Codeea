@@ -7,19 +7,19 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>Best Time to Trade Gold (XAUUSD): Sessions by Hour</title>
-<meta name="description" content="The best hours to trade gold, session by session, with volatility and spread data, the London–New York overlap, news windows to avoid, and how to automate the filter.">
+<title>Best Time to Trade Gold: XAUUSD Trading Hours (GMT)</title>
+<meta name="description" content="The best time to trade gold is 13:00-16:00 GMT. XAUUSD trading hours, market open and close, and every session in GMT, New York and South Africa time.">
 <meta name="keywords" content="best time to trade gold, XAUUSD trading hours, gold trading sessions, London New York overlap gold, when is gold most volatile, gold trading hours GMT, best session to trade gold">
 <link rel="canonical" href="https://goldscalpers.com/blog/best-time-to-trade-gold">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Best Time to Trade Gold (XAUUSD): Sessions by Hour">
-<meta property="og:description" content="The hours that actually move gold: each session hour by hour, the London–New York overlap, the hours to avoid, and how to convert it all to your broker's clock.">
+<meta property="og:title" content="Best Time to Trade Gold: XAUUSD Trading Hours (GMT)">
+<meta property="og:description" content="The best time to trade gold is 13:00-16:00 GMT. XAUUSD trading hours, market open and close, and every session in GMT, New York and South Africa time.">
 <meta property="og:url" content="https://goldscalpers.com/blog/best-time-to-trade-gold">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
 <meta property="og:site_name" content="Gold Scalpers EA">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Best Time to Trade Gold (XAUUSD): Sessions by Hour">
-<meta name="twitter:description" content="Which hours move gold, which hours cost you spread for nothing, and how to convert the sessions to your broker time.">
+<meta name="twitter:title" content="Best Time to Trade Gold: XAUUSD Trading Hours (GMT)">
+<meta name="twitter:description" content="The best time to trade gold is 13:00-16:00 GMT. XAUUSD trading hours, market open and close, and every session in GMT, New York and South Africa time.">
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="../assets/styles.css">
 
@@ -139,6 +139,22 @@
   <h2><span class="sec-ico">⚡</span> The short answer: 13:00 to 16:00 GMT</h2>
   <p><strong>The best time to trade gold is the London&ndash;New York overlap, roughly 13:00 to 16:00 GMT, stretching to about 17:00 GMT on days with US data.</strong> Both of the world&rsquo;s largest gold markets are open at once, liquidity is deepest, the XAUUSD spread is at its tightest, and the day&rsquo;s biggest directional moves tend to start here.</p>
   <p>If you can only watch the market for three hours a day, those are the three. If you can watch for longer, the London open from 07:00 GMT is the second window worth having, and almost everything else is optional. The rest of this guide explains why, hour by hour, and then shows how to turn that into a fixed schedule or a filter your EA enforces for you.</p>
+
+  <h2><span class="sec-ico">🕐</span> XAUUSD trading hours: when does the gold market open and close?</h2>
+  <p>Spot gold (XAUUSD) trades almost 24 hours a day, five days a week. On most MT5 brokers it opens on Sunday evening, around 22:00&ndash;23:00 GMT, and closes on Friday around 21:00&ndash;22:00 GMT, with a daily break of a few minutes to an hour at the rollover. The exact times move with US daylight saving and differ by broker, so check the symbol&rsquo;s specification window in MT5. In our 2026 Exness data the 21:00 GMT hour had only about a quarter of the normal number of five-minute bars, because of that break.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Gold market event</th><th>GMT</th><th>New York (ET)</th><th>South Africa (SAST, GMT+2)</th></tr></thead>
+    <tbody>
+      <tr><td>Market opens (Sunday)</td><td>~22:00&ndash;23:00</td><td>~17:00&ndash;18:00</td><td>~00:00&ndash;01:00 (Monday)</td></tr>
+      <tr><td>London open</td><td>07:00</td><td>02:00</td><td>09:00</td></tr>
+      <tr><td>Best window: London&ndash;New York overlap</td><td>13:00&ndash;16:00</td><td>08:00&ndash;11:00</td><td>15:00&ndash;18:00</td></tr>
+      <tr><td>Daily break / rollover (avoid)</td><td>~21:00&ndash;22:00</td><td>~16:00&ndash;17:00</td><td>~23:00&ndash;00:00</td></tr>
+      <tr><td>Market closes (Friday)</td><td>~21:00&ndash;22:00</td><td>~16:00&ndash;17:00</td><td>~23:00&ndash;00:00</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>South Africa stays on GMT+2 all year, so for traders there the best gold window is 15:00 to 18:00 SAST. For the measured range of every hour, see <a href="/blog/xauusd-volatility-by-hour">XAUUSD volatility by hour</a>.</p>
 
   <h2><span class="sec-ico">🕒</span> Gold&rsquo;s four sessions, hour by hour</h2>
   <p>Spot gold is quoted continuously from the Sunday evening open to the Friday close, but the people quoting it change. Each trading centre brings its own participants, its own news calendar and its own habits, and gold&rsquo;s behaviour changes with them. The chart below shows the shape of a typical XAUUSD day: relative activity by GMT hour, averaged over normal weeks. Treat the shape as the point, not the exact bar heights; the section on measuring your own broker shows how to draw this from your own price history.</p>
